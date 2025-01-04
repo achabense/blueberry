@@ -998,9 +998,7 @@ void load_clipboard(sync_point& out) {
             messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
         } else if (const int l = count_line(str); l > max_line / 2) {
             messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
-        } else if (!str.empty() && last_str != str) {
-            last_str = str;
-
+        } else if (!str.empty() && compare_update(last_str, str)) {
             if (!text.empty()) {
                 text.append("\n"); // (Will append two lines.)
             }
@@ -1041,11 +1039,10 @@ void load_doc(sync_point& out) {
         for (int i = 0; docs[i][0] != nullptr; ++i) {
             const auto [title, contents] = docs[i];
             // if (ImGui::Selectable(title, doc_id == i, ImGuiSelectableFlags_NoAutoClosePopups) && doc_id != i) {
-            if (imgui_SelectableStyledButtonEx(i, title, doc_id == i) && doc_id != i) {
+            if (imgui_SelectableStyledButtonEx(i, title, doc_id == i) && compare_update(doc_id, i)) {
                 text.clear();
                 text.append(std::string(contents), "@@");
                 text.reset_scroll();
-                doc_id = i;
             }
         }
     };

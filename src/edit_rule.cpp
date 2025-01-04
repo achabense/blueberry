@@ -674,8 +674,7 @@ struct page_adapter {
             const int xc = fit_count(avail_size.x, group_size_x, spacing_x);
             const int yc = fit_count(avail_size.y, group_size_y, item_spacing_y);
             perline = xc;
-            if (page_size != xc * yc) {
-                page_size = xc * yc;
+            if (compare_update(page_size, xc * yc)) {
                 page_resized();
             }
         }
@@ -762,18 +761,10 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
         {
             static aniso::subsetT cmp_set{};
             static aniso::maskT cmp_mask{};
-            bool changed = false;
-            if (cmp_set != working_set) {
-                cmp_set = working_set;
-                changed = true;
-            }
-            if (cmp_mask != mask) {
-                cmp_mask = mask;
-                changed = true;
-            }
-
             // TODO: are there better behaviors than clearing directly?
-            if (changed && !page.empty()) {
+            const int updated = compare_update(cmp_set, working_set) |
+                                compare_update(cmp_mask, mask); // No short-circuiting; using int to avoid warning.
+            if (updated && !page.empty()) {
                 page.clear();
             }
         }

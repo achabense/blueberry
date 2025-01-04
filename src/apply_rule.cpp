@@ -426,8 +426,7 @@ class runnerT {
             extra_pause = false;
             m_ctrl.extra_step = 0;
 
-            if (m_ctrl.rule != rule) {
-                m_ctrl.rule = rule;
+            if (compare_update(m_ctrl.rule, rule)) {
                 m_ctrl.pause = false;
 
                 restart();

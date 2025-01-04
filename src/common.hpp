@@ -35,6 +35,16 @@ struct no_create {
     no_create() = delete;
 };
 
+template <class T, class U>
+inline bool compare_update(T& t, const U& u) {
+    if (t == u) {
+        return false;
+    } else {
+        t = u; // -> assert(t == u);
+        return true;
+    }
+}
+
 inline std::mt19937& global_mt19937() {
     static std::mt19937 rand{(uint32_t)time(0)};
     return rand;
@@ -590,10 +600,7 @@ inline bool imgui_StepSliderInt(const char* label, int* v, int v_min, int v_max,
     ImGui::PopID();
     ImGui::EndGroup();
 
-    v2 = std::clamp(v2, v_min, v_max);
-    const bool changed = *v != v2;
-    *v = v2;
-    return changed;
+    return compare_update(*v, std::clamp(v2, v_min, v_max));
 }
 
 // `v_str` should be the direct string for `v`, instead of a format str.
@@ -602,10 +609,8 @@ inline bool imgui_StepSliderIntEx(const char* label, int* v, int v_min, int v_ma
     const int u_max = (v_max - v_min) / v_step;
     int u = std::clamp((*v - v_min) / v_step, 0, u_max);
     imgui_StepSliderInt(label, &u, 0, u_max, v_str);
-    const int v2 = u * v_step + v_min;
-    const bool changed = *v != v2;
-    *v = v2;
-    return changed;
+
+    return compare_update(*v, u * v_step + v_min);
 }
 
 class messenger : no_create {

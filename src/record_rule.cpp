@@ -151,8 +151,8 @@ void rule_recorder::load_record(sync_point& sync) {
     ImGui::SmallButton("Select");
     if (begin_popup_for_item()) {
         for (int id = 0; const termT& term : record_terms) {
-            if (imgui_SelectableStyledButtonEx(id++, term.label, active_term == &term) && active_term != &term) {
-                active_term = &term;
+            if (imgui_SelectableStyledButtonEx(id++, term.label, active_term == &term) &&
+                compare_update(active_term, &term)) {
                 last_returned.reset();
                 auto_locate = false;
                 reset_scroll = true;
