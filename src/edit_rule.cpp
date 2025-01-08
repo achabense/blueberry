@@ -1555,11 +1555,11 @@ static void static_constraints(aniso::moldT& out) {
                     // [Any] O   O  will result in [0]00 and [1]00 being set.
                     //  I_b  I  I_b                 111       111
                     aniso::for_each_code([&](aniso::codeT code) {
-                        auto imbue = [](bool& b, stateE state) {
+                        auto imbue = [](aniso::cellT& c, stateE state) {
                             if (state == O || state == O_background) {
-                                b = 0;
+                                c = {0};
                             } else if (state == I || state == I_background) {
-                                b = 1;
+                                c = {1};
                             }
                         };
 
@@ -1575,7 +1575,7 @@ static void static_constraints(aniso::moldT& out) {
                         imbue(situ.x, board[y + 1][x]);
                         imbue(situ.c, board[y + 1][x + 1]);
 
-                        mold.rule[aniso::encode(situ)] = board[y][x] == O ? 0 : 1;
+                        mold.rule[aniso::encode(situ)] = aniso::cellT(board[y][x] == O ? 0 : 1);
                         mold.lock[aniso::encode(situ)] = true;
                     });
                 }

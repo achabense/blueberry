@@ -10,10 +10,11 @@ namespace aniso {
     // A maskT is an arbitrary ruleT selected to do XOR mask for other rules.
     // The result reflects how the rule is different from the masking rule.
     struct maskT : public ruleT {};
-    using ruleT_masked = codeT::map_to<bool>;
+    using ruleT_masked = codeT::map_to<bool, 3>;
 
     inline void operator^(const maskT&, const maskT&) = delete;
 
+    // TODO: masking -> comparing; ^ -> != (also for `masked_by_a/b`)
     inline ruleT_masked operator^(const maskT& mask, const ruleT& rule) {
         ruleT_masked r{};
         for_each_code([&](codeT code) { r[code] = mask[code] ^ rule[code]; });
@@ -29,14 +30,14 @@ namespace aniso {
 #ifdef ENABLE_TESTS
     namespace _tests {
         inline const testT test_maskT = [] {
-            const ruleT a = make_rule([](auto) { return testT::rand() & 1; });
-            const ruleT b = make_rule([](auto) { return testT::rand() & 1; });
+            const ruleT a = make_rule([](auto) { return cellT(testT::rand() & 1); });
+            const ruleT b = make_rule([](auto) { return cellT(testT::rand() & 1); });
             const maskT a_as_mask{a}, b_as_mask{b};
 
             assert(a == (b_as_mask ^ (b_as_mask ^ a)));
             assert(b == (a_as_mask ^ (a_as_mask ^ b)));
         };
-    }
+    } // namespace _tests
 #endif // ENABLE_TESTS
 
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
@@ -260,7 +261,7 @@ namespace aniso {
             // Assign values according to equivalence relations, without checking for consistency
             // in the groups.
             codeT::map_to<bool> a_checked{}, b_checked{}; // To reduce time-complexity.
-            auto try_assign = [&](const codeT code, const bool v, auto& self) -> void {
+            auto try_assign = [&](const codeT code, const cellT v, auto& self) -> void {
                 if (!std::exchange(assigned[code], true)) {
                     common[code] = v;
                     if (!std::exchange(a_checked[a.par.group_for(code)[0]], true)) {
@@ -284,7 +285,7 @@ namespace aniso {
             for_each_code([&](codeT code) {
                 if (!assigned[code]) {
                     assert(std::ranges::none_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
-                    try_assign(code, 0, try_assign);
+                    try_assign(code, {0}, try_assign);
                     assert(std::ranges::all_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
                 }
             });
@@ -730,10 +731,10 @@ namespace aniso {
             enum tagE { O, I, Get, NGet };
             tagE tag;
             codeT::bposE bpos;
-            bool operator()(codeT code) const {
+            cellT operator()(codeT code) const {
                 switch (tag) {
-                    case O: return 0;
-                    case I: return 1;
+                    case O: return {0};
+                    case I: return {1};
                     case Get: return code.get(bpos);
                     default: assert(tag == NGet); return !code.get(bpos);
                 }
@@ -980,7 +981,7 @@ namespace aniso {
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_x); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_c); })));
         };
-    }  // namespace _tests
+    } // namespace _tests
 #endif // ENABLE_TESTS
 
     // 0/1-reversal dual.
@@ -1028,12 +1029,12 @@ namespace aniso {
         inline const testT test_trans_reverse = [] {
             moldT mold{};
             for_each_code([&](codeT code) {
-                mold.rule[code] = testT::rand() & 1;
+                mold.rule[code] = cellT(testT::rand() & 1);
                 mold.lock[code] = testT::rand() & 1;
             });
             assert(mold == trans_reverse(trans_reverse(mold)));
         };
-    }  // namespace _tests
+    } // namespace _tests
 #endif // ENABLE_TESTS
 
 } //  namespace aniso

@@ -36,8 +36,8 @@ namespace aniso {
 
     inline int count(const tile_const_ref tile) {
         int c = 0;
-        tile.for_all_data([&c](std::span<const bool> line) {
-            for (bool v : line) {
+        tile.for_all_data([&c](std::span<const cellT> line) {
+            for (const cellT v : line) {
                 c += v;
             }
         });
@@ -47,9 +47,9 @@ namespace aniso {
     // (Both are not periodic.)
     inline int count_diff(const tile_const_ref a, const tile_const_ref b) {
         int c = 0;
-        a.for_all_data_vs(b, [&c](const bool* a, const bool* b, int w) {
-            for (int x = 0; x < w; ++x) {
-                c += a[x] != b[x];
+        a.for_all_data_vs(b, [&c](const cellT* a, const cellT* b, int len) {
+            for (int i = 0; i < len; ++i) {
+                c += a[i] != b[i];
             }
         });
         return c;
@@ -57,7 +57,7 @@ namespace aniso {
 
     // (`dest` and `source` should not overlap.)
     inline void copy(const tile_ref dest, const tile_const_ref source) {
-        dest.for_all_data_vs(source, [](bool* d, const bool* s, int len) { //
+        dest.for_all_data_vs(source, [](cellT* d, const cellT* s, int len) { //
             std::copy_n(s, len, d);
         });
     }
@@ -68,7 +68,7 @@ namespace aniso {
                           const tile_const_ref repeat /*background*/) {
         if (repeat.size == vecT{1, 1}) {
             // Different from `blit` here.
-            dest.for_all_data_vs(source, [background = *repeat.data](bool* d, const bool* s, int len) {
+            dest.for_all_data_vs(source, [background = *repeat.data](cellT* d, const cellT* s, int len) {
                 for (int i = 0; i < len; ++i) {
                     if (s[i] != background) {
                         d[i] = s[i];
@@ -80,13 +80,14 @@ namespace aniso {
 
         assert(dest.size == source.size);
         _misc::wrapped_int dy(0, repeat.size.y);
-        dest.for_each_line([&](const int y, std::span<bool> line) {
-            const bool* const rep = repeat.line(dy++);
-            const bool* s = source.line(y);
-            for (_misc::wrapped_int dx(0, repeat.size.x); bool& b : line) {
-                const bool v = *s++;
+        dest.for_each_line([&](const int y, std::span<cellT> line) {
+            const cellT* const rep = repeat.line(dy++);
+            const cellT* s = source.line(y);
+            _misc::wrapped_int dx(0, repeat.size.x);
+            for (cellT& cell : line) {
+                const cellT v = *s++;
                 if (v != rep[dx++]) {
-                    b = v;
+                    cell = v;
                 }
             }
         });
@@ -99,15 +100,15 @@ namespace aniso {
         if constexpr (mode == blitE::Copy) {
             copy(dest, source);
         } else {
-            dest.for_all_data_vs(source, [](bool* d, const bool* s, int w) {
-                for (int x = 0; x < w; ++x) {
+            dest.for_all_data_vs(source, [](cellT* d, const cellT* s, int len) {
+                for (int i = 0; i < len; ++i) {
                     if constexpr (mode == blitE::Or) {
-                        d[x] |= s[x];
+                        d[i] = d[i] | s[i];
                     } else if constexpr (mode == blitE::And) {
-                        d[x] &= s[x];
+                        d[i] = d[i] & s[i];
                     } else {
                         static_assert(mode == blitE::Xor);
-                        d[x] ^= s[x];
+                        d[i] = d[i] ^ s[i];
                     }
                 }
             });
@@ -129,22 +130,22 @@ namespace aniso {
     // (`bernoulli_distribution` cannot guarantee this.)
     inline void random_fill(const tile_ref tile, std::mt19937& rand, double density) {
         const uint32_t c = std::mt19937::max() * std::clamp(density, 0.0, 1.0);
-        tile.for_all_data([&](std::span<bool> line) { //
-            std::ranges::generate(line, [&] { return rand() < c; });
+        tile.for_all_data([&](std::span<cellT> line) { //
+            std::ranges::generate(line, [&] { return cellT(rand() < c ? 1 : 0); });
         });
     }
 
     inline void random_flip(const tile_ref tile, std::mt19937& rand, double density) {
         const uint32_t c = std::mt19937::max() * std::clamp(density, 0.0, 1.0);
-        tile.for_all_data([&](std::span<bool> line) {
-            for (bool& b : line) {
-                b ^= (rand() < c);
+        tile.for_all_data([&](std::span<cellT> line) {
+            for (cellT& cell : line) {
+                cell = cell ^ (rand() < c);
             }
         });
     }
 
-    inline void fill(const tile_ref tile, const bool v) {
-        tile.for_all_data([v](std::span<bool> line) { //
+    inline void fill(const tile_ref tile, const cellT v) {
+        tile.for_all_data([v](std::span<cellT> line) { //
             std::ranges::fill(line, v);
         });
     }
@@ -158,17 +159,18 @@ namespace aniso {
         }
 
         _misc::wrapped_int dy(0, repeat.size.y);
-        tile.for_each_line([&](const int y, std::span<bool> line) {
-            const bool* const rep = repeat.line(dy++);
-            for (_misc::wrapped_int dx(0, repeat.size.x); bool& b : line) {
-                b = rep[dx++];
+        tile.for_each_line([&](const int y, std::span<cellT> line) {
+            const cellT* const rep = repeat.line(dy++);
+            _misc::wrapped_int dx(0, repeat.size.x);
+            for (cellT& cell : line) {
+                cell = rep[dx++];
             }
         });
     }
 
-    inline void fill_outside(const tile_ref tile, const rangeT& range, const bool v) {
+    inline void fill_outside(const tile_ref tile, const rangeT& range, const cellT v) {
         assert(tile.contains(range));
-        tile.for_each_line([&](const int y, std::span<bool> line) {
+        tile.for_each_line([&](const int y, std::span<cellT> line) {
             if (y < range.begin.y || y >= range.end.y) {
                 std::ranges::fill(line, v);
             } else {
@@ -186,15 +188,15 @@ namespace aniso {
         }
 
         assert(tile.contains(range));
-        const auto fill = [](std::span<bool> line, const bool* rep, _misc::wrapped_int dx) {
-            for (bool& b : line) {
-                b = rep[dx++];
+        const auto fill = [](std::span<cellT> line, const cellT* rep, _misc::wrapped_int dx) {
+            for (cellT& cell : line) {
+                cell = rep[dx++];
             }
         };
 
         _misc::wrapped_int dy(0, repeat.size.y);
-        tile.for_each_line([&](const int y, std::span<bool> line) {
-            const bool* const rep = repeat.line(dy++);
+        tile.for_each_line([&](const int y, std::span<cellT> line) {
+            const cellT* const rep = repeat.line(dy++);
             if (y < range.begin.y || y >= range.end.y) {
                 fill(line, rep, {0, repeat.size.x});
             } else {
@@ -204,12 +206,12 @@ namespace aniso {
         });
     }
 
-    inline rangeT bounding_box(const tile_const_ref tile, const bool background) {
+    inline rangeT bounding_box(const tile_const_ref tile, const cellT background) {
         int min_x = INT_MAX, max_x = INT_MIN;
         int min_y = INT_MAX, max_y = INT_MIN;
-        tile.for_each_line([&](const int y, std::span<const bool> line) {
-            for (int x = 0; const bool b : line) {
-                if (b != background) {
+        tile.for_each_line([&](const int y, std::span<const cellT> line) {
+            for (int x = 0; const cellT cell : line) {
+                if (cell != background) {
                     min_x = std::min(min_x, x);
                     max_x = std::max(max_x, x);
                     min_y = std::min(min_y, y);
@@ -234,11 +236,11 @@ namespace aniso {
         int min_x = INT_MAX, max_x = INT_MIN;
         int min_y = INT_MAX, max_y = INT_MIN;
         _misc::wrapped_int dy(0, repeat.size.y);
-        tile.for_each_line([&](const int y, std::span<const bool> line) {
-            const bool* const rep = repeat.line(dy++);
+        tile.for_each_line([&](const int y, std::span<const cellT> line) {
+            const cellT* const rep = repeat.line(dy++);
             _misc::wrapped_int dx(0, repeat.size.x);
-            for (int x = 0; const bool b : line) {
-                if (b != rep[dx++]) {
+            for (int x = 0; const cellT cell : line) {
+                if (cell != rep[dx++]) {
                     min_x = std::min(min_x, x);
                     max_x = std::max(max_x, x);
                     min_y = std::min(min_y, y);
@@ -302,11 +304,11 @@ namespace aniso {
             const vecT padding_b{.x = int(testT::rand() % 5), .y = int(testT::rand() % 5)};
             const vecT inner_size{10, 10};
             const vecT size = padding_a + inner_size + padding_b;
-            const auto tile_data = std::make_unique_for_overwrite<bool[]>(size.xy());
+            const auto tile_data = std::make_unique_for_overwrite<cellT[]>(size.xy());
             const tile_ref tile{tile_data.get(), size};
             const rangeT inner_range{padding_a, padding_a + inner_size};
-            fill(tile.clip(inner_range), 0);
-            const bool period[4]{1, 0, 0, 1}; // Checkerboard.
+            fill(tile.clip(inner_range), {0});
+            const cellT period[4]{1, 0, 0, 1}; // Checkerboard.
             fill_outside(tile, inner_range, {period, {2, 2}});
             const rangeT test_range = bounding_box(tile, {period, {2, 2}});
             assert(!test_range.empty());
@@ -331,10 +333,10 @@ namespace aniso {
         }
 
 #ifndef NDEBUG
-        const bool test = source.at(0, 0);
+        const cellT test = source.at(0, 0);
 #endif // !NDEBUG
-        source.for_each_line([&](int y, std::span<const bool> line) {
-            bool* const dest_ = dest.line((y + to.y) % size.y);
+        source.for_each_line([&](int y, std::span<const cellT> line) {
+            cellT* const dest_ = dest.line((y + to.y) % size.y);
             std::copy_n(line.data(), size.x - to.x, dest_ + to.x);
             std::copy_n(line.data() + size.x - to.x, to.x, dest_);
         });
@@ -379,21 +381,21 @@ namespace aniso {
             };
 
             putT put{str};
-            tile.for_each_line([&put, h = tile.size.y](const int y, std::span<const bool> line) {
+            tile.for_each_line([&put, h = tile.size.y](const int y, std::span<const cellT> line) {
                 if (y != 0) {
                     put.append(1, '$');
                 }
-                const bool *begin = line.data(), *const end = line.data() + line.size();
-                while (begin != end) {
-                    const bool b = *begin++;
+                const cellT *pos = line.data(), *const end = line.data() + line.size();
+                while (pos != end) {
+                    const cellT cell = *pos++;
                     int n = 1;
-                    while (begin != end && *begin == b) {
+                    while (pos != end && *pos == cell) {
                         ++n;
-                        ++begin;
+                        ++pos;
                     }
-                    const bool omit = y != 0 && y != h - 1 && begin == end && b == 0;
+                    const bool omit = y != 0 && y != h - 1 && pos == end && cell == 0;
                     if (!omit) {
-                        put.append(n, b ? 'o' : 'b');
+                        put.append(n, cell ? 'o' : 'b');
                     }
                 }
             });
@@ -498,7 +500,7 @@ namespace aniso {
             assert(width != 0 && height != 0);
             const tile_ref tile = *tile_opt;
             assert(tile.size.x == width && tile.size.y == height);
-            fill(tile, 0); // `tile` data might be dirty.
+            fill(tile, {0}); // `tile` data might be dirty.
 
             int x = 0, y = 0;
             for (takerT taker(text);;) {
@@ -506,7 +508,7 @@ namespace aniso {
                 if (c == '!') {
                     break;
                 } else if (c == 'b' || c == 'o') {
-                    std::fill_n(tile.line(y) + x, n, c == 'o');
+                    std::fill_n(tile.line(y) + x, n, cellT(c == 'o' ? 1 : 0));
                     x += n;
                 } else {
                     y += n;
@@ -521,8 +523,8 @@ namespace aniso {
         inline const testT test_RLE_str = [] {
             const vecT sizes[]{{.x = 1, .y = 1}, {.x = 10, .y = 1}, {.x = 1, .y = 10}, {.x = 32, .y = 60}};
             for (const vecT size : sizes) {
-                const auto a_data = std::make_unique_for_overwrite<bool[]>(size.xy());
-                const auto b_data = std::make_unique_for_overwrite<bool[]>(size.xy());
+                const auto a_data = std::make_unique_for_overwrite<cellT[]>(size.xy());
+                const auto b_data = std::make_unique_for_overwrite<cellT[]>(size.xy());
                 const tile_ref a{a_data.get(), size};
                 const tile_ref b{b_data.get(), size};
                 random_fill(a, testT::rand, 0.5);
@@ -541,31 +543,31 @@ namespace aniso {
     namespace _misc {
         template <bool is_const>
         struct border_ref_ {
-            using boolT = std::conditional_t<is_const, const bool, bool>;
+            using ptrT = std::conditional_t<is_const, const cellT*, cellT*>;
 
-            vecT size;   // For this size.
-            boolT* data; // [x][2]*(y+2)[x]
+            vecT size; // For this size.
+            ptrT data; // [x][2]*(y+2)[x]
 
             operator border_ref_<true>() const
                 requires(!is_const)
             {
-                return {size, data};
+                return std::bit_cast<border_ref_<true>>(*this);
             }
 
-            boolT* up_line() const { return data; }
-            boolT* down_line() const { return data + size.x + 2 * size.y + 4; }
+            ptrT up_line() const { return data; }
+            ptrT down_line() const { return data + size.x + 2 * size.y + 4; }
 
-            void set_lr(int y, bool l, bool r) const
+            void set_lr(int y, cellT l, cellT r) const
                 requires(!is_const)
             {
                 assert(y >= -1 && y <= size.y);
-                bool* dest = data + size.x + 2 * (y + 1);
+                cellT* dest = data + size.x + 2 * (y + 1);
                 dest[0] = l, dest[1] = r;
             }
 
-            std::pair<bool, bool> get_lr(int y) const {
+            std::pair<cellT, cellT> get_lr(int y) const {
                 assert(y >= -1 && y <= size.y);
-                const bool* dest = data + size.x + 2 * (y + 1);
+                const cellT* dest = data + size.x + 2 * (y + 1);
                 return {dest[0], dest[1]};
             }
 
@@ -596,14 +598,14 @@ namespace aniso {
         assert(source.size == source_border.size);
         const vecT size = source.size;
 
-        const auto vec_p6_data = std::make_unique_for_overwrite<char[]>(size.x);
-        char* const vec_p6 = vec_p6_data.get();
+        const auto vec_p6_data = std::make_unique_for_overwrite<uint8_t[]>(size.x);
+        uint8_t* const vec_p6 = vec_p6_data.get();
         {
-            const bool *const up = source_border.up_line(), *cn = source.line(0);
+            const cellT *const up = source_border.up_line(), *cn = source.line(0);
             const auto [up_l, up_r] = source_border.get_lr(-1);
             const auto [cn_l, cn_r] = source_border.get_lr(0);
-            int p3_up = (up_l << 1) | up[0];
-            int p3_cn = (cn_l << 1) | cn[0];
+            unsigned p3_up = (up_l << 1) | up[0];
+            unsigned p3_cn = (cn_l << 1) | cn[0];
             for (int x = 0; x < size.x - 1; ++x) {
                 // ~ "arbitrary-signed-int << bits" is made well-defined in C++20.
                 p3_up = (p3_up << 1) | up[x + 1]; // ... | (up[x - 1] << 2) | (up[x] << 1) | up[x + 1]
@@ -616,19 +618,19 @@ namespace aniso {
         }
 
         for (int y = 0; y < size.y; ++y) {
-            bool* const dest_ = dest.line(y);
-            const bool* const dw = y == size.y - 1 ? source_border.down_line() : source.line(y + 1);
+            cellT* const dest_ = dest.line(y);
+            const cellT* const dw = y == size.y - 1 ? source_border.down_line() : source.line(y + 1);
             const auto [dw_l, dw_r] = source_border.get_lr(y + 1);
-            int p3_dw = (dw_l << 1) | dw[0];
+            unsigned p3_dw = (dw_l << 1) | dw[0];
             for (int x = 0; x < size.x - 1; ++x) {
                 p3_dw = (p3_dw << 1) | dw[x + 1]; // ... | (dw[x - 1] << 2) | (dw[x] << 1) | dw[x + 1]
-                const int code = ((vec_p6[x] << 3) | (p3_dw & 0b111)) & 0b111'111'111;
-                dest_[x] = rule(codeT{code});
+                const unsigned code = ((vec_p6[x] << 3) | (p3_dw & 0b111)) & 0b111'111'111;
+                dest_[x] = rule(codeT(code));
                 vec_p6[x] = code;
             }
             p3_dw = (p3_dw << 1) | dw_r;
-            const int code = ((vec_p6[size.x - 1] << 3) | (p3_dw & 0b111)) & 0b111'111'111;
-            dest_[size.x - 1] = rule(codeT{code});
+            const unsigned code = ((vec_p6[size.x - 1] << 3) | (p3_dw & 0b111)) & 0b111'111'111;
+            dest_[size.x - 1] = rule(codeT(code));
             vec_p6[size.x - 1] = code;
         }
     }
@@ -637,7 +639,7 @@ namespace aniso {
         assert(source.size == dest.size);
         const vecT size = source.size;
 
-        const auto border_data = std::make_unique_for_overwrite<bool[]>(calc_border_size(size));
+        const auto border_data = std::make_unique_for_overwrite<cellT[]>(calc_border_size(size));
         const border_ref border{.size = size, .data = border_data.get()};
         border.collect_from(source, source, source, source, source, source, source, source);
         apply_rule(rule, dest, source, border);
@@ -653,9 +655,9 @@ namespace aniso {
         }
 
         for (int y = 1; y < tile.size.y - 1; ++y) {
-            const bool* const up = tile.line(y - 1);
-            const bool* const cn = tile.line(y);
-            const bool* const dw = tile.line(y + 1);
+            const cellT* const up = tile.line(y - 1);
+            const cellT* const cn = tile.line(y);
+            const cellT* const dw = tile.line(y + 1);
             for (int x = 1; x < tile.size.x - 1; ++x) {
                 lock[encode({
                     up[x - 1], up[x], up[x + 1], //
@@ -669,13 +671,13 @@ namespace aniso {
 #ifdef ENABLE_TESTS
     namespace _tests {
         inline const testT test_apply_1 = [] {
-            const ruleT rule = make_rule([](codeT) { return testT::rand() & 1; });
+            const ruleT rule = make_rule([](codeT) { return cellT(testT::rand() & 1); });
 
             for_each_code([&](codeT code) {
-                const auto make_ref = [](bool& b) { return tile_ref{&b, {1, 1}}; };
+                const auto make_ref = [](cellT& c) { return tile_ref{&c, {1, 1}}; };
                 auto [q, w, e, a, s, d, z, x, c] = decode(code);
 
-                bool dest{}, border_data[calc_border_size({1, 1})]{};
+                cellT dest{}, border_data[calc_border_size({1, 1})]{};
                 const border_ref border{.size = {1, 1}, .data = border_data};
                 border.collect_from(make_ref(q), make_ref(w), make_ref(e), make_ref(a), make_ref(d), make_ref(z),
                                     make_ref(x), make_ref(c));
@@ -688,7 +690,7 @@ namespace aniso {
         inline const testT test_apply_2 = [] {
             const ruleT copy_q = make_rule([](codeT c) { return c.get(codeT::bpos_q); });
 
-            std::array<bool, 120> data[2]{};
+            std::array<cellT, 120> data[2]{};
             const tile_ref tile{&data[0][0], {.x = 10, .y = 12}};
             const tile_ref compare{&data[1][0], {.x = 10, .y = 12}};
             random_fill(tile, testT::rand, 0.5);
@@ -704,7 +706,7 @@ namespace aniso {
 
     class tileT {
         vecT m_size;
-        bool* m_data; // [x]*y
+        cellT* m_data; // [x]*y
 
     public:
         bool empty() const {
@@ -727,7 +729,7 @@ namespace aniso {
         explicit tileT(const vecT size) : m_size{size}, m_data{} {
             assert((size.x == 0 && size.y == 0) || (size.x > 0 && size.y > 0));
             if (m_size.x > 0) {
-                m_data = new bool[m_size.xy()]{};
+                m_data = new cellT[m_size.xy()]{};
             }
         }
 
@@ -735,13 +737,13 @@ namespace aniso {
 
         explicit tileT(const tile_const_ref tile) : m_size{tile.size}, m_data{} {
             assert(tile.size.x > 0 && tile.size.y > 0);
-            m_data = new bool[m_size.xy()];
+            m_data = new cellT[m_size.xy()];
             copy(data(), tile);
         }
 
         tileT(const tileT& other) : m_size{other.m_size}, m_data{} {
             if (!other.empty()) {
-                m_data = new bool[m_size.xy()];
+                m_data = new cellT[m_size.xy()];
                 std::copy_n(other.m_data, m_size.xy(), m_data);
             }
         }

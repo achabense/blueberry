@@ -21,7 +21,7 @@ static SDL_Window* window = nullptr;
 static SDL_Renderer* renderer = nullptr;
 
 // (Using macro in case the function is not inlined in debug mode.)
-#define color_for(b) (bool(b) ? IM_COL32_WHITE : IM_COL32_BLACK_TRANS)
+#define color_for(c) ((c) ? IM_COL32_WHITE : IM_COL32_BLACK_TRANS)
 
 static SDL_Texture* create_texture(SDL_TextureAccess access, int w, int h) {
     assert(window && renderer);
@@ -88,7 +88,7 @@ public:
     }
 };
 
-[[nodiscard]] ImTextureID make_screen(const aniso::_misc::tile_ref_<const bool> tile, const scaleE scale) {
+[[nodiscard]] ImTextureID make_screen(const aniso::_misc::tile_ref_<const aniso::cellT> tile, const scaleE scale) {
     SDL_Texture* texture = screen_textures::get(tile.size.x, tile.size.y);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
     if (scale == scaleE::Nearest) {
@@ -106,15 +106,15 @@ public:
 
     if (const int pixel_size = sizeof(Uint32); pitch % pixel_size != 0) [[unlikely]] {
         assert(false); // Is this really possible?
-        tile.for_each_line([&](int y, std::span<const bool> line) {
+        tile.for_each_line([&](int y, std::span<const aniso::cellT> line) {
             Uint32* p = (Uint32*)((char*)pixels + pitch * y);
-            for (bool v : line) {
+            for (const aniso::cellT v : line) {
                 *p++ = color_for(v);
             }
         });
     } else {
         const aniso::_misc::tile_ref_<Uint32> texture_data{(Uint32*)pixels, tile.size, pitch / pixel_size};
-        tile.for_all_data_vs(texture_data, [](const bool* s, Uint32* p, int len) {
+        tile.for_all_data_vs(texture_data, [](const aniso::cellT* s, Uint32* p, int len) {
             for (int i = 0; i < len; ++i) {
                 p[i] = color_for(s[i]);
             }
@@ -140,8 +140,7 @@ public:
         // Using heap allocation to avoid "Function uses XXX bytes of stack" warning.
         std::unique_ptr<Uint32[][3][3]> pixels(new Uint32[512][3][3]);
         aniso::for_each_code([&](aniso::codeT code) {
-            const aniso::situT situ = aniso::decode(code);
-            const bool fill[3][3] = {{situ.q, situ.w, situ.e}, {situ.a, situ.s, situ.d}, {situ.z, situ.x, situ.c}};
+            const auto fill = aniso::decode(code).to_3x3();
             for (int y = 0; y < 3; ++y) {
                 for (int x = 0; x < 3; ++x) {
                     pixels[code][y][x] = color_for(fill[y][x]);

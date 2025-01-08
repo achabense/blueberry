@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cassert>
 #include <climits>
 #include <memory>
@@ -31,28 +32,53 @@ namespace aniso {
     } // namespace _tests
 #endif // ENABLE_TESTS
 
-    // TODO: make cell-state strongly-typed?
-    // (This will entail a lot of casts, but if applied successfully will make logics clearer, and the underlying
-    // type can be different from `bool`.)
-    // enum class cellT : uint8_t {};
+#if 1
+    struct cellT {
+        bool val{};
+        /*implicit*/ operator unsigned() const { return val; }
+        // (`operator==` is delegated to comparing `unsigned()` result.)
+        // TODO: I cannot find a way to enforce this be inlined in debug mode...)
+
+        // (Note: to allow for seamless switch between `bool`, `~` is not usable as bool(~bool(1)) == 1 instead of 0...)
+        friend cellT operator!(cellT c) { return cellT(!c.val); }
+        friend cellT operator~(cellT c) = delete; // -> !c
+        friend cellT operator^(cellT c, bool b) { return cellT(c.val ^ b); }
+        friend cellT operator^(bool b, cellT c) { return cellT(c.val ^ b); }
+
+        friend cellT operator^(cellT a, cellT b) { return cellT(a.val ^ b.val); }
+        friend cellT operator|(cellT a, cellT b) { return cellT(a.val | b.val); }
+        friend cellT operator&(cellT a, cellT b) { return cellT(a.val & b.val); }
+    };
+
+    // enum cellT : bool {};
+    // enum impl has no performance penalty in debug mode, but cannot be implicitly created from literals ({0} or {1}).
+    // And scarily, the following assertion will fail for gcc... This is likely to be a compiler bug...
+    // static_assert(static_cast<int>(static_cast<cellT>(2)) == 1);
+#else
+    using cellT = bool;
+    // (Should have no performance difference in release mode.)
+#endif
+
+    static_assert(std::is_trivially_copyable_v<cellT>);
 
     // The state of cell `s` and its neighbors.
     // (The variables are named after the keys in the qwerty keyboard.)
     struct situT {
-        bool q, w, e;
-        bool a, s, d;
-        bool z, x, c;
+        cellT q, w, e;
+        cellT a, s, d;
+        cellT z, x, c;
+
+        auto to_3x3() const { //
+            return std::bit_cast<std::array<std::array<cellT, 3>, 3>>(*this);
+        }
     };
 
     // `situT` encoded as an integer.
     struct codeT {
-        int val;
-        /*implicit*/ operator int() const {
-            assert(val >= 0 && val < 512);
-            return val;
-        }
+        uint16_t val{};
+        /*implicit*/ operator unsigned() const { /*assert(val < 512);*/ return val; }
 
-        template <class T>
+        template <class T, int tag = 0>
         class map_to {
             std::array<T, 512> m_map{};
 
@@ -62,6 +88,12 @@ namespace aniso {
 
             void fill(const T& val) { m_map.fill(val); }
             friend bool operator==(const map_to&, const map_to&) = default;
+
+            T operator()(codeT code) const
+                requires(std::is_same_v<T, cellT> && tag == 1)
+            {
+                return m_map[code];
+            }
         };
 
         // clang-format off
@@ -72,17 +104,18 @@ namespace aniso {
         };
         // clang-format on
 
-        bool get(bposE bpos) const { return (val >> bpos) & 1; }
+        cellT get(bposE bpos) const { return cellT((val >> bpos) & 1); }
     };
 
+    static_assert(std::is_trivially_copyable_v<codeT>);
+
     inline codeT encode(const situT& situ) {
-        // ~ bool is implicitly promoted to int.
         using enum codeT::bposE;
-        const int code = (situ.q << bpos_q) | (situ.w << bpos_w) | (situ.e << bpos_e) | //
-                         (situ.a << bpos_a) | (situ.s << bpos_s) | (situ.d << bpos_d) | //
-                         (situ.z << bpos_z) | (situ.x << bpos_x) | (situ.c << bpos_c);
-        assert(code >= 0 && code < 512);
-        return codeT{code};
+        const unsigned code = (situ.q << bpos_q) | (situ.w << bpos_w) | (situ.e << bpos_e) | //
+                              (situ.a << bpos_a) | (situ.s << bpos_s) | (situ.d << bpos_d) | //
+                              (situ.z << bpos_z) | (situ.x << bpos_x) | (situ.c << bpos_c);
+        assert(code < 512);
+        return codeT(code);
     }
 
     inline situT decode(codeT code) {
@@ -93,14 +126,14 @@ namespace aniso {
     }
 
     inline void for_each_code(const auto& fn) {
-        for (codeT code{.val = 0}; code.val < 512; ++code.val) {
-            fn(codeT(code));
+        for (int v = 0; v < 512; ++v) {
+            fn(codeT(v));
         }
     }
 
     inline bool for_each_code_all_of(const auto& pred) {
-        for (codeT code{.val = 0}; code.val < 512; ++code.val) {
-            if (!pred(codeT(code))) {
+        for (int v = 0; v < 512; ++v) {
+            if (!pred(codeT(v))) {
                 return false;
             }
         }
@@ -117,25 +150,18 @@ namespace aniso {
 #endif // ENABLE_TESTS
 
     // Map `situT` (encoded as `codeT`) to the value `s` become at next generation.
-    class ruleT {
-        codeT::map_to<bool> m_map{};
+    using ruleT = codeT::map_to<cellT, 1>;
 
-    public:
-        bool operator()(codeT code) const { return m_map[code]; }
+    // While there doesn't have to be `!std::is_same_v<cellT, bool>`, there must be:
+    static_assert(!std::is_same_v<ruleT, codeT::map_to<bool>>);
 
-        bool operator[](codeT code) const { return m_map[code]; }
-        bool& operator[](codeT code) { return m_map[code]; }
-
-        friend bool operator==(const ruleT&, const ruleT&) = default;
-    };
-
-    // The program stores `ruleT` as normal "MAP strings" (which is based on `q*256+w*128+...` encoding scheme),
+    // The program saves `ruleT` as normal "MAP strings" (which is based on `q*256+w*128+...` encoding scheme),
     // so the output can be accepted by other programs like Golly.
     // See `to_MAP` and `from_MAP` below for details - the encoding scheme of `codeT` affects only internal
-    // representation of `ruleT` etc in this program, and is conceptually independent of input/output.
+    // representation of `ruleT` etc in this program, and is independent of input/output.
 
     template <class T>
-    concept rule_like = std::is_invocable_r_v<bool, T, codeT>;
+    concept rule_like = std::is_invocable_r_v<cellT, const T&, codeT>;
 
     static_assert(rule_like<ruleT>);
 
@@ -147,22 +173,22 @@ namespace aniso {
 
     // "Convay's Game of Life" (B3/S23)
     inline ruleT game_of_life() {
-        return make_rule([](codeT code) -> bool {
+        return make_rule([](codeT code) -> cellT {
             const auto [q, w, e, a, s, d, z, x, c] = decode(code);
             const int count = q + w + e + a + d + z + x + c;
             if (count == 2) { // 2:S ~ 0->0, 1->1 ~ equal to "s".
                 return s;
             } else if (count == 3) { // 3:BS ~ 0->1, 1->1 ~ always 1.
-                return 1;
+                return {1};
             } else {
-                return 0;
+                return {0};
             }
         });
     }
 
     // Serves as a subset of all situT cases. The program may want to use some "locked" parts of a rule
     // when generating new rules.
-    using lockT = codeT::map_to<bool>;
+    using lockT = codeT::map_to<bool, 2>;
 
     namespace _misc {
         inline char to_base64(const uint8_t b6) {
@@ -253,7 +279,10 @@ namespace aniso {
                 put(i + 0, (b6 >> 5) & 1);
             }
 
-            for_each_code([&](codeT code) { dest[code] = MAP_data[transcode_MAP(code)]; });
+            for_each_code([&](codeT code) {
+                using D = std::remove_cvref_t<decltype(dest[code])>;
+                dest[code] = D(MAP_data[transcode_MAP(code)]);
+            });
         }
     } // namespace _misc
 
@@ -377,7 +406,7 @@ namespace aniso {
                 ruleT rule{};
                 lockT lock{};
                 for_each_code([&](codeT code) {
-                    rule[code] = testT::rand() & 1;
+                    rule[code] = cellT(testT::rand() & 1);
                     lock[code] = testT::rand() & 1;
                 });
                 const std::string rule_only = "(prefix)" + to_MAP_str(rule) + "(suffix)";
@@ -402,10 +431,10 @@ namespace aniso {
 
     public:
         compressT(const ruleT& rule) : m_data{} {
-            for_each_code([&](codeT c) { m_data[c.val >> 3] |= int(rule[c]) << (c.val & 0b111); });
+            for_each_code([&](codeT c) { m_data[c.val >> 3] |= rule[c] << (c.val & 0b111); });
         }
         ruleT decompress() const {
-            return make_rule([&](codeT c) { return bool(1 & (m_data[c.val >> 3] >> (c.val & 0b111))); });
+            return make_rule([&](codeT c) { return cellT(1 & (m_data[c.val >> 3] >> (c.val & 0b111))); });
         }
         operator ruleT() const { return decompress(); }
 
@@ -422,7 +451,7 @@ namespace aniso {
 #ifdef ENABLE_TESTS
     namespace _tests {
         inline const testT test_compressT = [] {
-            const ruleT a = make_rule([](auto) { return testT::rand() & 1; });
+            const ruleT a = make_rule([](auto) { return cellT(testT::rand() & 1); });
             const compressT b = a;
             assert(b == compressT(a));
             assert(b.decompress() == a);

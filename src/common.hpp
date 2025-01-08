@@ -84,7 +84,7 @@ namespace aniso::_misc {
 
 // The texture is only valid for the current frame.
 enum class scaleE { Nearest, Linear };
-[[nodiscard]] ImTextureID make_screen(aniso::_misc::tile_ref_<const bool> tile, scaleE scale);
+[[nodiscard]] ImTextureID make_screen(aniso::_misc::tile_ref_<const aniso::cellT> tile, scaleE scale);
 
 // ImGui::Image and ImGui::ImageButton for `codeT`.
 void code_image(aniso::codeT code, int zoom, const ImVec4& tint_col = ImVec4(1, 1, 1, 1),

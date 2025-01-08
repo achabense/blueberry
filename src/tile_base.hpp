@@ -1,7 +1,5 @@
 #pragma once
 
-#include <bit>
-
 #include "rule.hpp"
 
 namespace aniso {
@@ -143,8 +141,8 @@ namespace aniso {
         };
     } // namespace _misc
 
-    using tile_ref = _misc::tile_ref_<bool>;
-    using tile_const_ref = _misc::tile_ref_<const bool>;
+    using tile_ref = _misc::tile_ref_<cellT>;
+    using tile_const_ref = _misc::tile_ref_<const cellT>;
 
     inline bool equal(const tile_const_ref a, const tile_const_ref b) {
         if (a.size != b.size) {
@@ -154,7 +152,7 @@ namespace aniso {
             return std::equal(a.data, a.data + a.size.xy(), b.data);
         }
 
-        const bool *a_data = a.data, *b_data = b.data;
+        const cellT *a_data = a.data, *b_data = b.data;
         for (int y = 0; y < a.size.y; ++y, a_data += a.stride, b_data += b.stride) {
             if (!std::equal(a_data, a_data + a.size.x, b_data)) {
                 return false;

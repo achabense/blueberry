@@ -80,7 +80,7 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
             if (source.contains(pos)) {
                 dest_data.at(x, y) = source.at(pos);
             } else {
-                dest_data.at(x, y) = (x + y) & 1; // Checkerboard texture.
+                dest_data.at(x, y) = aniso::cellT((x + y) & 1); // Checkerboard texture.
             }
         }
     }
@@ -154,7 +154,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
                      const bool require_matching_background = true) {
     static constexpr aniso::vecT period_size{2, 2};
     struct periodT {
-        std::array<bool, period_size.x * period_size.y> m_data{};
+        std::array<aniso::cellT, period_size.x * period_size.y> m_data{};
 
         bool operator==(const periodT&) const = default;
 
@@ -343,7 +343,7 @@ struct initT {
         const auto range = clamp_window(tile_size, tile_size / 2, from_imvec_floor(to_imvec(tile_size) * area.get()));
 
         assert(!range.empty());
-        aniso::fill(tile.data(), 0);
+        aniso::fill(tile.data(), {0});
         std::mt19937 rand{(uint32_t)seed};
         // (Using `random_fill` as the background is 0.)
         aniso::random_fill(tile.data().clip(range), rand, density.get());
@@ -577,7 +577,7 @@ public:
         }
 
         // TODO: move settings into a class-local object...
-        static bool background = 0;
+        static aniso::cellT background{0};
         static aniso::blitE paste_mode = aniso::blitE::Copy;
 
         bool resize_fullscreen = false;
@@ -636,7 +636,7 @@ public:
             imgui_Str("Background");
             ImGui::SameLine();
             if (ImGui::Button("Clear##Bg")) {
-                aniso::fill(init.background.data(), 0);
+                aniso::fill(init.background.data(), {0});
                 // TODO: whether to force-restart in this case?
             }
 
@@ -676,9 +676,9 @@ public:
                                 }
                             } else if (in_range) {
                                 if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                                    data.at(x, y) = 0;
+                                    data.at(x, y) = {0};
                                 } else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                                    data.at(x, y) = 1;
+                                    data.at(x, y) = {1};
                                 }
                             }
                         }
@@ -1257,9 +1257,9 @@ public:
                     ImGui::AlignTextToFramePadding();
                     imgui_Str("Background ~");
                     ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    imgui_RadioButton("0", &background, 0);
+                    imgui_RadioButton("0", &background, {0});
                     ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    imgui_RadioButton("1", &background, 1);
+                    imgui_RadioButton("1", &background, {1});
                     ImGui::SameLine();
                     imgui_StrTooltip("(?)",
                                      "'Clear inside/outside' and 'Cut' will clear the range with the value.\n"
