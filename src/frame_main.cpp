@@ -54,7 +54,7 @@ static void get_reversal_dual(const bool button_result, sync_point& sync) {
         imgui_Str("Preview:");
         ImGui::SameLine();
         const aniso::ruleT rev = rule_algo::trans_reverse(sync.rule);
-        previewer::preview(-1, previewer::configT::_220_160, rev, false);
+        previewer::preview(-1, previewer::configT::_220_160, rev);
         if (rev == sync.rule) {
             imgui_Str("(It's the same as the current rule, as the current rule is self-complementary.)");
         }

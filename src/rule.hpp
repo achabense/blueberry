@@ -175,13 +175,10 @@ namespace aniso {
     inline ruleT game_of_life() {
         return make_rule([](codeT code) -> cellT {
             const auto [q, w, e, a, s, d, z, x, c] = decode(code);
-            const int count = q + w + e + a + d + z + x + c;
-            if (count == 2) { // 2:S ~ 0->0, 1->1 ~ equal to "s".
-                return s;
-            } else if (count == 3) { // 3:BS ~ 0->1, 1->1 ~ always 1.
-                return {1};
-            } else {
-                return {0};
+            switch (q + w + e + a + d + z + x + c) {
+                case 2: return s;   // 2:S ~ 0->0, 1->1 ~ equal to "s".
+                case 3: return {1}; // 3:BS ~ 0->1, 1->1 ~ always 1.
+                default: return {0};
             }
         });
     }

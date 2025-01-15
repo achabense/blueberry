@@ -1562,8 +1562,7 @@ void previewer::begin_frame() {
 }
 
 // TODO: allow setting the step and interval with shortcuts when the window is hovered?
-void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule, bool interactive,
-                         ImU32& border_col) {
+void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule, ImU32& border_col) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
 
@@ -1577,7 +1576,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
 
     // TODO: (though the actual behaviors are ok) these op logics are quite messy...
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
-    const bool hovered = interactive && ImGui::IsItemHovered();
+    const bool hovered = ImGui::IsItemHovered();
     const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     const bool restart = (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_T)) ||
                          (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test(ImGuiKey_R)) ||
@@ -1609,7 +1608,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const ImTextureID texture = make_screen(term.tile.data(), scale_mode);
     bool hex_mode = false;
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-    if (interactive && imgui_ItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
+    if (imgui_ItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
         assert(ImGui::IsMousePosValid());
         const aniso::vecT pos = from_imvec_floor((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});

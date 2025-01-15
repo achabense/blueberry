@@ -761,21 +761,20 @@ public:
         }
     }
 
-    static void preview(uint32_t id, const configT& config, const aniso::ruleT& rule, bool interactive = true) {
+    static void preview(uint32_t id, const configT& config, const aniso::ruleT& rule) {
         ImGui::Dummy(config.size_imvec());
         if (ImGui::IsItemVisible()) {
             ImU32 border_col = ImGui::GetColorU32(ImGuiCol_TableBorderStrong);
-            _preview((uint64_t(ImGui::GetID("")) << 32) | id, config, rule, interactive, border_col);
+            _preview((uint64_t(ImGui::GetID("")) << 32) | id, config, rule, border_col);
             imgui_ItemRect(border_col);
         }
     }
 
-    static void preview(uint32_t id, const configT& config, const std::invocable<> auto& get_rule,
-                        bool interactive = true) {
+    static void preview(uint32_t id, const configT& config, const std::invocable<> auto& get_rule) {
         ImGui::Dummy(config.size_imvec());
         if (ImGui::IsItemVisible()) {
             ImU32 border_col = ImGui::GetColorU32(ImGuiCol_TableBorderStrong);
-            _preview((uint64_t(ImGui::GetID("")) << 32) | id, config, get_rule(), interactive, border_col);
+            _preview((uint64_t(ImGui::GetID("")) << 32) | id, config, get_rule(), border_col);
             imgui_ItemRect(border_col);
         }
     }
@@ -784,8 +783,7 @@ private:
     friend void frame_main();
     static void begin_frame();
 
-    static void _preview(uint64_t id, const configT& config, const aniso::ruleT& rule, bool interactive,
-                         ImU32& border_col);
+    static void _preview(uint64_t id, const configT& config, const aniso::ruleT& rule, ImU32& border_col);
 
     // TODO: declared here for minimal exposure, but looks strange...
     static void _identify_rule(const aniso::ruleT& rule);

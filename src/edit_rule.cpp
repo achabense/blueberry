@@ -93,6 +93,11 @@ namespace aniso {
             assert(hex_tot_inc_s.get_par().k() == 8);        // 0...7
             assert(von_tot_exc_s.get_par().k() == 5 * 2);    // 0...4
             assert(von_tot_inc_s.get_par().k() == 6);        // 0...5
+
+            const ruleT gol = game_of_life();
+            assert(native_isotropic.contains(gol));
+            assert(native_tot_exc_s.contains(gol));
+            assert(!native_tot_inc_s.contains(gol));
         };
     } // namespace _tests
 #endif // ENABLE_TESTS
@@ -611,7 +616,7 @@ public:
                 }
 
                 imgui_Str(mask_terms[m].desc);
-                previewer::preview(-1, previewer::configT::_220_160, *mask_ptrs[m], false);
+                previewer::preview(-1, previewer::configT::_220_160, *mask_ptrs[m]);
             });
 
             if (m == Custom) {
@@ -1151,7 +1156,7 @@ void edit_rule(sync_point& sync) {
                 imgui_Str("Preview:");
                 ImGui::SameLine();
                 previewer::preview(-1, previewer::configT::_220_160,
-                                   aniso::approximate(working_set.get_par(), mask, sync.rule), false);
+                                   aniso::approximate(working_set.get_par(), mask, sync.rule));
             });
             if (imgui_ItemClickableDouble()) {
                 sync.set(aniso::approximate(working_set.get_par(), mask, sync.rule));
