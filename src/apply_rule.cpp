@@ -322,31 +322,29 @@ struct initT {
 
     void initialize(aniso::tileT& tile) const {
         assert(!tile.empty() && !background.empty());
+        aniso::fill(tile.data(), background.data());
+
         const aniso::vecT tile_size = tile.size();
         const auto range = clamp_window(tile_size, tile_size / 2, from_imvec_floor(to_imvec(tile_size) * area.get()));
-
         if (!range.empty()) {
-            // It does not matter much how the area is aligned with the background, as
-            // it's randomized.
-            aniso::fill(tile.data(), background.data());
+            // (Not caring about how the area is aligned with the background.)
             std::mt19937 rand{(uint32_t)seed};
             aniso::random_flip(tile.data().clip(range), rand, density.get());
-        } else {
-            aniso::fill(tile.data(), background.data());
         }
     }
 
     // Background ~ 0.
     static void initialize(aniso::tileT& tile, int seed, percentT density, percentT area) {
         assert(!tile.empty());
+        aniso::fill(tile.data(), {0});
+
         const aniso::vecT tile_size = tile.size();
         const auto range = clamp_window(tile_size, tile_size / 2, from_imvec_floor(to_imvec(tile_size) * area.get()));
-
-        assert(!range.empty());
-        aniso::fill(tile.data(), {0});
-        std::mt19937 rand{(uint32_t)seed};
-        // (Using `random_fill` as the background is 0.)
-        aniso::random_fill(tile.data().clip(range), rand, density.get());
+        if (!range.empty()) {
+            // (Using `random_fill` as the background is 0.)
+            std::mt19937 rand{(uint32_t)seed};
+            aniso::random_fill(tile.data().clip(range), rand, density.get());
+        }
     }
 };
 

@@ -384,11 +384,11 @@ public:
             "working set, it should also belong to every selected set. If nothing is selected, the working set will be the entire MAP set.");
         ImGui::Separator();
         imgui_Str("For each set:\n\n"
-                  "The ring color represents whether the current rule belongs to the set:");
+                  "The border color represents whether the current rule belongs to the set:");
         explain(true, None, "The rule belongs to this set.");
         explain(false, None, "The rule does not belong to this set.");
         // ImGui::Separator();
-        imgui_Str("\nThe center mark represents selection details (unrelated to the ring):");
+        imgui_Str("\nThe center color represents selection details (unrelated to the border):");
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");
         explain(false, Including,
@@ -913,29 +913,31 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
         static previewer::configT config{previewer::configT::_220_160};
 
         auto calc_page = [&]() -> int { return (rules.size() + adapter.page_size - 1) / adapter.page_size; };
-        auto set_page = [&](int p, bool make_page = false) {
-            if (p < 0) {
+        auto last_page = [&]() -> int { return rules.empty() ? 0 : calc_page() - 1; };
+        assert(0 <= page_no && page_no <= last_page());
+
+        auto set_last_page = [&] { page_no = last_page(); };
+        auto set_next_page = [&] {
+            if (page_no < last_page()) {
+                ++page_no;
                 return;
-            } else if (p < calc_page()) {
-                page_no = p;
-            } else if (make_page) {
-                const int count =
-                    (rules.size() / adapter.page_size) * adapter.page_size + adapter.page_size - rules.size();
-                for (int i = 0; i < count; ++i) {
-                    rules.push_back(exact_mode ? aniso::randomize_c(working_set, mask, global_mt19937(), free_dist)
-                                               : aniso::randomize_p(working_set, mask, global_mt19937(), rate));
-                }
-                assert((rules.size() % adapter.page_size) == 0);
-                page_no = (rules.size() / adapter.page_size) - 1;
             }
+
+            const int count = (rules.size() / adapter.page_size) * adapter.page_size + adapter.page_size - rules.size();
+            assert(1 <= count && count <= adapter.page_size);
+            for (int i = 0; i < count; ++i) {
+                rules.push_back(exact_mode ? aniso::randomize_c(working_set, mask, global_mt19937(), free_dist)
+                                           : aniso::randomize_p(working_set, mask, global_mt19937(), rate));
+            }
+            assert((rules.size() % adapter.page_size) == 0);
+            page_no = (rules.size() / adapter.page_size) - 1; // == last_page().
         };
-        auto set_last_page = [&] { set_page(rules.empty() ? 0 : calc_page() - 1); };
 
         ImGui::BeginGroup();
         switch (sequence::seq("<|", "<<", ">>>", "|>")) {
-            case 0: set_page(0); break;
-            case 1: set_page(page_no - 1); break;
-            case 2: set_page(page_no + 1, true); break;
+            case 0: page_no = 0; break;
+            case 1: page_no = std::max(page_no - 1, 0); break;
+            case 2: set_next_page(); break;
             case 3: set_last_page(); break;
         }
         ImGui::EndGroup();
