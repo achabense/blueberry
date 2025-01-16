@@ -45,11 +45,6 @@ inline bool compare_update(T& t, const U& u) {
     }
 }
 
-inline std::mt19937& global_mt19937() {
-    static std::mt19937 rand{(uint32_t)time(0)};
-    return rand;
-}
-
 // Managed by `main`.
 bool set_home(const char* u8path = nullptr); // nullptr ~ filesystem::current_path.
 void frame_main();
@@ -61,6 +56,14 @@ void load_clipboard(sync_point&);
 void load_doc(sync_point&);
 void edit_rule(sync_point&);
 void apply_rule(sync_point&);
+
+class rand_source : no_create {
+    static uint32_t seed() { return time(0); }
+
+public:
+    static std::mt19937 create() { return std::mt19937{seed()}; }
+    static void perturb(std::mt19937& rand) { rand.discard(1 + (seed() % 16)); }
+};
 
 class rule_recorder : no_create {
 public:

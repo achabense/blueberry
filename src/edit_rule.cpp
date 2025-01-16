@@ -907,7 +907,7 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
             "The sequence serves as the record of generated rules - when you are at the last page ('At' ~ 'Pages' or 'N/A'), '>>>' will generate pages of random rules (in the working set) with intended distance around/exactly to the masking rule.\n\n"
             "For example, if you are using the 'Zero' mask and distance = 'Around' 30, when at the last page, '>>>' will generate pages of rules with around 30 groups having '1'. Also, to get some random rules close to the current rule (suppose it belongs to the working set), you can set it to the custom mask and '>>>' in a low distance.");
 
-        static std::vector<aniso::ruleT> rules{};
+        static std::vector<aniso::compressT> rules{};
         static page_adapter adapter{};
         static int page_no = 0;
         static previewer::configT config{previewer::configT::_220_160};
@@ -925,9 +925,11 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
 
             const int count = (rules.size() / adapter.page_size) * adapter.page_size + adapter.page_size - rules.size();
             assert(1 <= count && count <= adapter.page_size);
+            static std::mt19937 rand = rand_source::create();
+            rand_source::perturb(rand); // Additional entropy.
             for (int i = 0; i < count; ++i) {
-                rules.push_back(exact_mode ? aniso::randomize_c(working_set, mask, global_mt19937(), free_dist)
-                                           : aniso::randomize_p(working_set, mask, global_mt19937(), rate));
+                rules.push_back(exact_mode ? aniso::randomize_c(working_set, mask, rand, free_dist)
+                                           : aniso::randomize_p(working_set, mask, rand, rate));
             }
             assert((rules.size() % adapter.page_size) == 0);
             page_no = (rules.size() / adapter.page_size) - 1; // == last_page().
@@ -956,7 +958,7 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
         }
         if (imgui_ItemClickableDouble()) {
             set_msg_cleared(!rules.empty());
-            rules = std::vector<aniso::ruleT>{};
+            rules = std::vector<aniso::compressT>{};
             page_no = 0;
         }
         imgui_ItemTooltip_StrID = "Clear";
@@ -966,10 +968,11 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
         config.set("Preview settings");
 
         // TODO: reconsider page-resized logic (seeking to the last page may still be confusing).
+        aniso::ruleT buffer{}; // To provide `const ruleT*`.
         adapter.display(config, rule_recorder::TraverseOrRandom, sync, size_constraint_min, set_last_page, [&](int j) {
             const int r = page_no * adapter.page_size + j;
             assert(r >= 0);
-            return r < rules.size() ? &rules[r] : nullptr;
+            return r < rules.size() ? (buffer = rules[r], &buffer) : nullptr;
         });
     }
 }

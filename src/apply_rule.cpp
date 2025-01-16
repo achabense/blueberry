@@ -1352,7 +1352,8 @@ public:
                     assert(false); // TODO: temporarily preserved.
                 } else if (op == _random_fill && m_sel) {
                     // TODO: or `random_flip`?
-                    aniso::random_fill(m_torus.write_only(m_sel->to_range()), global_mt19937(), fill_den.get());
+                    static std::mt19937 rand = rand_source::create();
+                    aniso::random_fill(m_torus.write_only(m_sel->to_range()), rand, fill_den.get());
                 } else if (op == _clear_inside && m_sel) {
                     aniso::fill(m_torus.write_only(m_sel->to_range()), background);
                 } else if (op == _clear_outside && m_sel) {
