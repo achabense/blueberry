@@ -183,8 +183,7 @@ namespace aniso {
         });
     }
 
-    // Serves as a subset of all situT cases. The program may want to use some "locked" parts of a rule
-    // when generating new rules.
+    // Works in combination with ruleT to represent value constraints; see `partialT` in "rule_algo.hpp" for usage.
     using lockT = codeT::map_to<bool, 2>;
 
     namespace _misc {

@@ -6,8 +6,7 @@
 
 // TODO: add summary about this header, especially subsetT.
 namespace aniso {
-    // TODO: defining `maskT` to emphasis which rule serves as the mask; it might be more
-    // convenient to use `ruleT` directly.
+    // !!TODO: (v0.9.9) retire the concept of "masking rule" (maskT and operator^); use regular ruleT instead.
 
     // A maskT is an arbitrary ruleT selected to do XOR mask for other rules.
     // The result reflects how the rule is different from the masking rule.
@@ -478,28 +477,6 @@ namespace aniso {
         }
     };
 
-    // !!TODO: all the `moldT` related functions should be redesigned...
-
-    // `lockT`, together with the associated rule, captures the idea that the locked values in the rule
-    // are the "cause" for something to happen.
-    // For example, suppose we find an oscillator in a rule. It is likely to only invoke a subset of all
-    // codeT during all of its phases. We can record these invocations and say that's why the oscillator exists
-    // in this rule.
-    // The program uses `moldT` ~ (lockT, ruleT) pair as a constraint for generating new rules.
-    struct moldT {
-        ruleT rule{};
-        lockT lock{};
-
-        // Test whether `r` has the same values for all locked codes.
-        bool compatible(const ruleT& r) const {
-            return for_each_code_all_of([&](codeT code) { //
-                return !lock[code] || rule[code] == r[code];
-            });
-        }
-
-        friend bool operator==(const moldT&, const moldT&) = default;
-    };
-
     // rule ^ mask_zero -> the masked values are identical to rule's.
     inline const maskT mask_zero{{}};
     // rule ^ mask_identity -> the masked values can mean whether the cell will "flip" in each situation.
@@ -766,56 +743,72 @@ namespace aniso {
 #endif // ENABLE_TESTS
 
     // 0/1-reversal dual.
-    inline moldT trans_reverse(const moldT& mold) {
-        moldT rev{};
+    inline ruleT trans_reverse(const ruleT& rule) {
+        ruleT rev{};
         for_each_code([&](codeT code) {
-            const auto [q, w, e, a, s, d, z, x, c] = decode(code);
-            const codeT code_rev = encode({!q, !w, !e, //
-                                           !a, !s, !d, //
-                                           !z, !x, !c});
-            rev.lock[code_rev] = mold.lock[code];
-            rev.rule[code_rev] = (mold.rule[code] == s) ? !s : !(!s); // So that ->
-            assert((rev.rule[code_rev] == !s) == (mold.rule[code] == s));
+            const codeT code_rev = mp_reverse(code);
+            const cellT s = code.get(codeT::bpos_s);
+            rev[code_rev] = (rule[code] == s) ? !s : !(!s); // So that ->
+            assert((rev[code_rev] == !s) == (rule[code] == s));
         });
         return rev;
     }
 
-#if 0
-    // The results are are easy to go out of control...
-    // For example, rules in `hex` space will be mapped to `hex2` space, so all the symmetry checks become
-    // unavailable...
-    inline moldT trans_left_right(const moldT& mold) {
-        moldT lr{};
-        for_each_code([&](codeT code) {
-            const codeT c = mp_refl_wsx(code); // |
-            lr.lock[c] = mold.lock[code];
-            lr.rule[c] = mold.rule[code];
-        });
-        return lr;
-    }
-
-    inline moldT trans_rotate(const moldT& mold) {
-        moldT ro{};
-        for_each_code([&](codeT code) {
-            const codeT c = mp_C4(code);
-            ro.lock[c] = mold.lock[code];
-            ro.rule[c] = mold.rule[code];
-        });
-        return ro;
-    }
-#endif
-
 #ifdef ENABLE_TESTS
     namespace _tests {
         inline const testT test_trans_reverse = [] {
-            moldT mold{};
-            for_each_code([&](codeT code) {
-                mold.rule[code] = cellT(testT::rand() & 1);
-                mold.lock[code] = testT::rand() & 1;
-            });
-            assert(mold == trans_reverse(trans_reverse(mold)));
+            ruleT rule = make_rule([](auto) { return cellT(testT::rand() & 1); });
+            assert(rule == trans_reverse(trans_reverse(rule)));
         };
     } // namespace _tests
 #endif // ENABLE_TESTS
 
+#if 0
+    // The results are easy to go out of control...
+    // For example, rules in `hex` space will be mapped to `hex2` space, so all the symmetry checks become
+    // unavailable...
+    inline ruleT trans_left_right(const ruleT& rule) {
+        ruleT lr{};
+        for_each_code([&](codeT code) { lr[mp_refl_wsx(code) /* | */] = rule[code]; });
+        return lr;
+    }
+
+    inline ruleT trans_rotate(const ruleT& rule) {
+        ruleT ro{};
+        for_each_code([&](codeT code) { ro[mp_C4(code)] = rule[code]; });
+        return ro;
+    }
+#endif
+
+    // !!TODO: (v0.9.9) re-support value constraints in the gui.
+    // -> Support intersection with subsetT (should be selectable in the set table).
+    // -> Support generating partialT from pattern & support random-access editing in the gui.
+
+    // (Previously `moldT`.)
+    // A `partialT` stands for a another kind of MAP subset where, a rule belongs to the set iff it has the same "locked" values.
+    // Take the "free" glider in gol for example. During all of its phases, the glider involves only a small subset of all cases (l), and a rule allows for the same glider iff it belongs to partialT(gol,l). (Not taking account of reactions with other patterns e.g. glider collision.)
+    struct partialT {
+        ruleT rule{};
+        lockT lock{};
+
+        void set(codeT code, cellT v) {
+            rule[code] = v;
+            lock[code] = true;
+        }
+
+        bool contains(const ruleT& r) const {
+            return for_each_code_all_of([&](codeT code) { //
+                return !lock[code] || rule[code] == r[code];
+            });
+        }
+
+        friend bool operator==(const partialT& a, const partialT& b) {
+            return for_each_code_all_of([&](codeT code) {
+                if (a.lock[code] != b.lock[code]) {
+                    return false;
+                }
+                return !a.lock[code] || a.rule[code] == b.rule[code];
+            });
+        }
+    };
 } //  namespace aniso

@@ -4,9 +4,6 @@
 
 #include "common.hpp"
 
-// TODO: incorporate moldT into the subset system (let the working set be the intersection of subsetT and moldT)?
-// How to support an editable moldT that can be incompatible with the current rule?
-
 namespace aniso {
     namespace _subsets {
         static const subsetT ignore_q = make_subset({mp_ignore_q});
@@ -107,8 +104,7 @@ namespace aniso {
 // `aniso::trans_reverse` cannot be directly declared and called in other TUs, as "the definition of
 // an inline function must be reachable in the translation unit where it is accessed".
 aniso::ruleT rule_algo::trans_reverse(const aniso::ruleT& rule) { //
-    // TODO: temporarily going through a useless moldT.
-    return aniso::trans_reverse({rule, {}}).rule;
+    return aniso::trans_reverse(rule);
 }
 
 bool rule_algo::is_hexagonal_rule(const aniso::ruleT& rule) { //
@@ -1423,8 +1419,7 @@ void edit_rule(sync_point& sync) {
 }
 
 // TODO: temporarily preserved.
-// TODO: move to "apply_rule.cpp"? (as this is a special type of capture...)
-static void static_constraints(aniso::moldT& out) {
+static void static_constraints(aniso::partialT& out) {
     enum stateE { Any_background, O, I, O_background, I_background };
 
     // (Follows `ImGui::Dummy` or `ImGui::InvisibleButton`.)
@@ -1558,7 +1553,7 @@ static void static_constraints(aniso::moldT& out) {
     }
 
     if (ret) {
-        aniso::moldT mold{};
+        aniso::partialT partial{};
         for (int y = 1; y < r - 1; ++y) {
             for (int x = 1; x < r - 1; ++x) {
                 if (board[y][x] == O || board[y][x] == I) {
@@ -1587,12 +1582,11 @@ static void static_constraints(aniso::moldT& out) {
                         imbue(situ.x, board[y + 1][x]);
                         imbue(situ.c, board[y + 1][x + 1]);
 
-                        mold.rule[aniso::encode(situ)] = aniso::cellT(board[y][x] == O ? 0 : 1);
-                        mold.lock[aniso::encode(situ)] = true;
+                        partial.set(aniso::encode(situ), aniso::cellT(board[y][x] == O ? 0 : 1));
                     });
                 }
             }
         }
-        out = mold;
+        out = partial;
     }
 }
