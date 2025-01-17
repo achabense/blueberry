@@ -3,7 +3,6 @@
 #include <charconv>
 #include <format>
 
-#include "rule.hpp"
 #include "tile_base.hpp"
 
 namespace aniso {
@@ -590,26 +589,31 @@ namespace aniso {
     using border_ref = _misc::border_ref_<false /* !is_const */>;
     using border_const_ref = _misc::border_ref_<true /* is_const */>;
 
-    // Relying on codeT::bpos_q = 8, bpos_w = 7, ... bpos_c = 0.
     // `dest` and `source` may either refer to the same area, or completely non-overlapping.
     inline void apply_rule(const rule_like auto& rule, const tile_ref dest, const tile_const_ref source,
                            const border_const_ref source_border) {
+        // (Relying on current coding scheme.)
+        static_assert(codeT::bpos_q == 8 && codeT::bpos_w == 7 && codeT::bpos_e == 6 && //
+                      codeT::bpos_a == 5 && codeT::bpos_s == 4 && codeT::bpos_d == 3 && //
+                      codeT::bpos_z == 2 && codeT::bpos_x == 1 && codeT::bpos_c == 0);
+        // ~ "arbitrary-signed-int << bits" is made well-defined in C++20.
+        static_assert((INT_MIN << 1) == 0);
+
         assert(source.size == dest.size);
         assert(source.size == source_border.size);
         const vecT size = source.size;
 
         const auto vec_p6_data = std::make_unique_for_overwrite<uint8_t[]>(size.x);
-        uint8_t* const vec_p6 = vec_p6_data.get();
+        uint8_t* const vec_p6 = vec_p6_data.get(); // 0b..qweasd
         {
             const cellT *const up = source_border.up_line(), *cn = source.line(0);
             const auto [up_l, up_r] = source_border.get_lr(-1);
             const auto [cn_l, cn_r] = source_border.get_lr(0);
-            unsigned p3_up = (up_l << 1) | up[0];
-            unsigned p3_cn = (cn_l << 1) | cn[0];
+            int p3_up = (up_l << 1) | up[0]; // 0b...qwe (up[x-1][x][x+1])
+            int p3_cn = (cn_l << 1) | cn[0]; // 0b...asd (cn[x-1][x][x+1])
             for (int x = 0; x < size.x - 1; ++x) {
-                // ~ "arbitrary-signed-int << bits" is made well-defined in C++20.
-                p3_up = (p3_up << 1) | up[x + 1]; // ... | (up[x - 1] << 2) | (up[x] << 1) | up[x + 1]
-                p3_cn = (p3_cn << 1) | cn[x + 1]; // ... | (cn[x - 1] << 2) | (cn[x] << 1) | cn[x + 1]
+                p3_up = (p3_up << 1) | up[x + 1];
+                p3_cn = (p3_cn << 1) | cn[x + 1];
                 vec_p6[x] = (p3_up << 3) | (p3_cn & 0b111);
             }
             p3_up = (p3_up << 1) | up_r;
@@ -621,17 +625,17 @@ namespace aniso {
             cellT* const dest_ = dest.line(y);
             const cellT* const dw = y == size.y - 1 ? source_border.down_line() : source.line(y + 1);
             const auto [dw_l, dw_r] = source_border.get_lr(y + 1);
-            unsigned p3_dw = (dw_l << 1) | dw[0];
+            int p3_dw = (dw_l << 1) | dw[0]; // 0b...zxc (dw[x-1][x][x+1])
             for (int x = 0; x < size.x - 1; ++x) {
-                p3_dw = (p3_dw << 1) | dw[x + 1]; // ... | (dw[x - 1] << 2) | (dw[x] << 1) | dw[x + 1]
-                const unsigned code = ((vec_p6[x] << 3) | (p3_dw & 0b111)) & 0b111'111'111;
-                dest_[x] = rule(codeT(code));
-                vec_p6[x] = code;
+                p3_dw = (p3_dw << 1) | dw[x + 1];
+                const int code_raw = (vec_p6[x] << 3) | (p3_dw & 0b111);
+                dest_[x] = rule(codeT(code_raw & 0b111'111'111));
+                vec_p6[x] = code_raw;
             }
             p3_dw = (p3_dw << 1) | dw_r;
-            const unsigned code = ((vec_p6[size.x - 1] << 3) | (p3_dw & 0b111)) & 0b111'111'111;
-            dest_[size.x - 1] = rule(codeT(code));
-            vec_p6[size.x - 1] = code;
+            const int code_raw = (vec_p6[size.x - 1] << 3) | (p3_dw & 0b111);
+            dest_[size.x - 1] = rule(codeT(code_raw & 0b111'111'111));
+            vec_p6[size.x - 1] = code_raw;
         }
     }
 

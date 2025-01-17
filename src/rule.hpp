@@ -35,8 +35,8 @@ namespace aniso {
 #if 1
     struct cellT {
         bool val{};
-        /*implicit*/ operator unsigned() const { return val; }
-        // (`operator==` is delegated to comparing `unsigned()` result.)
+        /*implicit*/ operator int() const { return val; }
+        // (`operator==` is delegated to comparing `int()` result.)
         // TODO: I cannot find a way to enforce this be inlined in debug mode...)
 
         // (Note: to allow for seamless switch between `bool`, `~` is not usable as bool(~bool(1)) == 1 instead of 0...)
@@ -75,8 +75,8 @@ namespace aniso {
 
     // `situT` encoded as an integer.
     struct codeT {
-        uint16_t val{};
-        /*implicit*/ operator unsigned() const { /*assert(val < 512);*/ return val; }
+        int16_t val{};
+        /*implicit*/ operator int() const { /*assert(0 <= val && val < 512);*/ return val; }
 
         template <class T, int tag = 0>
         class map_to {
@@ -111,10 +111,10 @@ namespace aniso {
 
     inline codeT encode(const situT& situ) {
         using enum codeT::bposE;
-        const unsigned code = (situ.q << bpos_q) | (situ.w << bpos_w) | (situ.e << bpos_e) | //
-                              (situ.a << bpos_a) | (situ.s << bpos_s) | (situ.d << bpos_d) | //
-                              (situ.z << bpos_z) | (situ.x << bpos_x) | (situ.c << bpos_c);
-        assert(code < 512);
+        const int code = (situ.q << bpos_q) | (situ.w << bpos_w) | (situ.e << bpos_e) | //
+                         (situ.a << bpos_a) | (situ.s << bpos_s) | (situ.d << bpos_d) | //
+                         (situ.z << bpos_z) | (situ.x << bpos_x) | (situ.c << bpos_c);
+        assert(0 <= code && code < 512);
         return codeT(code);
     }
 
@@ -244,7 +244,7 @@ namespace aniso {
         inline const int MAP_length = (512 + 5) / 6; // 86; not including "MAP" prefix.
 
         inline void to_MAP(std::string& str, const auto& source /* ruleT or lockT */) {
-            bool MAP_data[512]{};
+            std::array<bool, 512> MAP_data{};
             for_each_code([&](codeT code) { MAP_data[transcode_MAP(code)] = source[code]; });
 
             const auto get = [&MAP_data](int i) { return i < 512 ? MAP_data[i] : 0; };
@@ -258,7 +258,7 @@ namespace aniso {
         inline void from_MAP(std::string_view str, auto& dest /* ruleT or lockT */) {
             assert(str.size() >= MAP_length);
 
-            bool MAP_data[512]{};
+            std::array<bool, 512> MAP_data{};
             auto put = [&MAP_data](int i, bool b) {
                 if (i < 512) {
                     MAP_data[i] = b;
