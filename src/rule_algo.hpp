@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ranges>
+
 #include "rule.hpp"
 
 // TODO: add summary about this header, especially subsetT.
@@ -59,31 +61,6 @@ namespace aniso {
             for_each_code([&](codeT code) { parof[code] = code; });
         }
 
-        // Test whether `r` has the same value in each group.
-        bool test(const ruleT_masked& r) const {
-            return for_each_code_all_of([&](codeT code) { //
-                return r[code] == r[parof[code]];
-            });
-        }
-
-        // Test whether `r` has the same value for locked codes in each group.
-        bool test(const ruleT_masked& r, const lockT& lock) const {
-            codeT::map_to<int> record;
-            record.fill(-1);
-
-            return for_each_code_all_of([&](codeT code) {
-                if (!lock[code]) {
-                    return true;
-                }
-
-                int& rep = record[headof(code)];
-                if (rep == -1) {
-                    rep = r[code];
-                }
-                return rep == r[code];
-            });
-        }
-
         void add_eq(codeT a, codeT b) { parof[headof(a)] = headof(b); }
         void add_eq(const equivT& other) {
             for_each_code([&](codeT code) { add_eq(code, other.parof[code]); });
@@ -111,48 +88,59 @@ namespace aniso {
         }
     }
 
+    inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b) {
+        const bool v = a[group[0]] == b[group[0]];
+        return std::ranges::all_of(group.subspan(1), [&, v](const codeT code) { //
+            return v == (a[code] == b[code]);
+        });
+    }
+
+    inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b, const lockT& l) {
+        for (int v = -1; const codeT c : group) {
+            if (l[c]) {
+                if (v == -1) {
+                    v = a[c] == b[c];
+                } else if (v != (a[c] == b[c])) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     class partitionT {
         equivT m_eq;
         int m_k{}; // `m_eq` has `m_k` groups.
 
         // Map codeT to an integer ∈ [0, m_k) (which represents the group the code belongs to).
-        codeT::map_to<int> m_map{};
+        codeT::map_to<int16_t> m_map{};
 
         // (Not a codeT::map_to<codeT>)
-        // Store codeT of the same group consecutively (to provide codeT span).
+        // codeT of the same group are stored consecutively to provide span.
         std::array<codeT, 512> m_data{};
 
         struct group_pos {
-            int pos, size;
+            int16_t pos, size;
+            groupT get(const decltype(m_data)& data) const { return groupT(data.data() + pos, size); }
         };
         std::vector<group_pos> m_groups{};
-
-        groupT jth_group(int j) const {
-            const auto [pos, size] = m_groups[j];
-            return groupT(m_data.data() + pos, size);
-        }
 
     public:
         // ~ "user-declared" to avoid implicit moving (to avoid `m_groups` being emptied):
         partitionT(const partitionT&) = default;
         partitionT& operator=(const partitionT&) = default;
 
-        groupT group_for(codeT code) const { return jth_group(m_map[code]); }
+        groupT group_for(codeT code) const { return m_groups[m_map[code]].get(m_data); }
 
         int k() const { return m_k; }
-        void for_each_group(const auto& fn) const {
-            for (int j = 0; j < m_k; ++j) {
-                if constexpr (requires { fn(jth_group(j)); }) {
-                    fn(jth_group(j));
-                } else {
-                    fn(j, jth_group(j));
-                }
-            }
+        auto groups() const { //
+            return std::views::transform(m_groups, [&](const group_pos& pos) { return pos.get(m_data); });
         }
-        std::vector<groupT> groups() const {
+
+        std::vector<groupT> group_vec() const {
             std::vector<groupT> vec(m_k);
             for (int j = 0; j < m_k; ++j) {
-                vec[j] = jth_group(j);
+                vec[j] = m_groups[j].get(m_data);
             }
             return vec;
         }
@@ -169,10 +157,10 @@ namespace aniso {
             });
             // m_k is now the number of groups in the partition.
 
-            std::vector<int> count(m_k, 0);
+            std::vector<int16_t> count(m_k, 0);
             for_each_code([&](codeT code) { ++count[m_map[code]]; });
 
-            std::vector<int> pos(m_k, 0);
+            std::vector<int16_t> pos(m_k, 0);
             for (int j = 1; j < m_k; ++j) {
                 pos[j] = pos[j - 1] + count[j - 1];
             }
@@ -188,8 +176,14 @@ namespace aniso {
             });
         }
 
-        bool test(const ruleT_masked& r) const { return m_eq.test(r); }
-        bool test(const ruleT_masked& r, const lockT& lock) const { return m_eq.test(r, lock); }
+        bool test(const ruleT& a, const ruleT& b) const {
+            return std::ranges::all_of(
+                m_groups, [&](const group_pos& pos) { return all_same_or_different(pos.get(m_data), a, b); });
+        }
+        bool test(const ruleT& a, const ruleT& b, const lockT& lock) const {
+            return std::ranges::all_of(
+                m_groups, [&](const group_pos& pos) { return all_same_or_different(pos.get(m_data), a, b, lock); });
+        }
 
         bool is_refinement_of(const partitionT& other) const { return other.m_eq.has_eq(m_eq); }
 
@@ -199,7 +193,7 @@ namespace aniso {
     };
 
     // A `subsetT` (s = {} or (m, p)) defines a subset of all MAP rules, where:
-    // A rule (r) belongs to a non-empty subset iff (m ^ r) has the same value for each group in (p).
+    // A rule (r) belongs to a non-empty subset iff it's all-same or all-different than (m) for each group in (p).
     // (As a result, any rule in the subset can equally serve as the mask. There is no difference which rule is used.)
     // It can be proven that the intersection of `subsetT` is also `subsetT` (see below).
     class subsetT {
@@ -207,7 +201,7 @@ namespace aniso {
             maskT mask;
             partitionT par;
 
-            bool contains(const ruleT& rule) const { return par.test(mask ^ rule); }
+            bool contains(const ruleT& rule) const { return par.test(mask, rule); }
             bool includes(const nonemptyT& other) const {
                 return contains(other.mask) && par.is_refinement_of(other.par);
             }
@@ -326,18 +320,20 @@ namespace aniso {
     inline int distance(const subsetT& subset, const ruleT& a, const ruleT& b) {
         assert(subset.contains(a) && subset.contains(b));
         int d = 0;
-        subset.get_par().for_each_group([&](const groupT& group) {
+        for (const groupT& group : subset.get_par().groups()) {
             if (a[group[0]] != b[group[0]]) {
                 ++d;
             }
-        });
+        }
         return d;
     }
 
+#if 0
     struct scanT {
         int c_0 = 0; // Same.
         int c_1 = 0; // Different.
 
+        // ~ all_same_or_different
         bool pure() const { return c_0 == 0 || c_1 == 0; }
 
         scanT() = default;
@@ -346,25 +342,8 @@ namespace aniso {
                 mask[code] == rule[code] ? ++c_0 : ++c_1;
             }
         }
-
-#if 0
-        static std::vector<scanT> scanlist(const partitionT& par, const maskT& mask, const ruleT& rule) {
-            std::vector<scanT> vec(par.k());
-            par.for_each_group([&](int j, const groupT& group) { vec[j] = scanT(group, mask, rule); });
-            return vec;
-        }
-#endif
     };
 
-    // ~ scanT(...).pure().
-    inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b) {
-        const bool v = a[group[0]] == b[group[0]];
-        return std::ranges::all_of(group.subspan(1), [&, v](const codeT code) { //
-            return v == (a[code] == b[code]);
-        });
-    }
-
-#if 0
     // Return a rule in the subset that is closest to `rule` (as measured by the MAP set).
     // (If the rule already belongs to `subset`, the result will be exactly `rule`.)
     inline ruleT approximate(const subsetT& subset, const ruleT& rule) {
@@ -372,7 +351,7 @@ namespace aniso {
         const partitionT& par = subset.get_par();
 
         ruleT res{};
-        par.for_each_group([&](const groupT& group) {
+        for (const groupT& group : par.groups()) {
             const scanT scan(group, mask, rule);
             // v -> 0 (same as mask): resulting dist = c_1.
             // v -> 1 (different): resulting dist = c_0.
@@ -381,18 +360,19 @@ namespace aniso {
             for (const codeT code : group) {
                 res[code] = mask[code] ^ v;
             }
-        });
+        }
 
         assert_implies(subset.contains(rule), res == rule);
         return res;
     }
-#else
+#endif
+
     // The old impl cannot guarantee uniqueness (both values are ok when c_0=c_1, so the result is just impl-defined) or similarity (cannot be trivially implied by distance).
 
     // If rule belongs to {par, mask}, the result will be the rule itself.
     inline ruleT approximate(const partitionT& par, const maskT& mask, const ruleT& rule) {
         ruleT res{};
-        par.for_each_group([&](const groupT& group) {
+        for (const groupT& group : par.groups()) {
             if (all_same_or_different(group, mask, rule)) {
                 for (const codeT code : group) {
                     res[code] = rule[code];
@@ -402,10 +382,9 @@ namespace aniso {
                     res[code] = mask[code];
                 }
             }
-        });
+        }
         return res;
     }
-#endif
 
     // Firstly get approximate(subset, rule), then transform the rule to another one.
     // The groups are listed as a sequence of values (relative to `mask`) and re-assigned by `fn`.
@@ -419,18 +398,17 @@ namespace aniso {
         // `seq` is not a codeT::map_to<bool>.
         assert(par.k() <= 512);
         std::array<bool, 512> seq{};
-        int z = 0;
-        par.for_each_group([&](const groupT& group) { seq[z++] = r[group[0]]; });
+        for (int j = 0; const groupT& group : par.groups()) {
+            seq[j++] = r[group[0]];
+        }
 
-        fn(seq.data(), seq.data() + z);
-
-        z = 0;
-        par.for_each_group([&](const groupT& group) {
-            const bool seqz = seq[z++];
+        fn(seq.data(), seq.data() + par.k());
+        for (int j = 0; const groupT& group : par.groups()) {
+            const bool seqj = seq[j++];
             for (const codeT code : group) {
-                r[code] = seqz;
+                r[code] = seqj;
             }
-        });
+        }
 
         const ruleT res = mask ^ r;
         assert(subset.contains(res));
@@ -440,8 +418,8 @@ namespace aniso {
     inline ruleT randomize_c(const subsetT& subset, const maskT& mask, std::mt19937& rand, int count) {
         return transform(subset, mask, {}, [&rand, count](bool* begin, bool* end) {
             const int c = std::clamp(count, 0, int(end - begin));
-            std::fill_n(begin, c, 1);
-            std::fill(begin + c, end, 0);
+            std::fill_n(begin, c, bool(1));
+            std::fill(begin + c, end, bool(0));
             std::shuffle(begin, end, rand);
         });
     }
@@ -455,19 +433,19 @@ namespace aniso {
 
     struct seq_mixed {
         static ruleT first(const subsetT& subset, const maskT& mask) {
-            return transform(subset, mask, {}, [](bool* begin, bool* end) { std::fill(begin, end, 0); });
+            return transform(subset, mask, {}, [](bool* begin, bool* end) { std::fill(begin, end, bool(0)); });
         }
 
         static ruleT last(const subsetT& subset, const maskT& mask) {
-            return transform(subset, mask, {}, [](bool* begin, bool* end) { std::fill(begin, end, 1); });
+            return transform(subset, mask, {}, [](bool* begin, bool* end) { std::fill(begin, end, bool(1)); });
         }
 
         // The result will be the first rule with distance = n to the mask in the sequence.
         static ruleT seek_n(const subsetT& subset, const maskT& mask, int n) {
             return transform(subset, mask, {}, [n](bool* begin, bool* end) {
                 const int c = std::clamp(n, 0, int(end - begin));
-                std::fill_n(begin, c, 1);
-                std::fill(begin + c, end, 0);
+                std::fill_n(begin, c, bool(1));
+                std::fill(begin + c, end, bool(0));
             });
         }
 
@@ -477,7 +455,7 @@ namespace aniso {
             return transform(subset, mask, rule, [](bool* begin, bool* end) {
                 if (!std::next_permutation(begin, end, std::greater<>{})) {
                     // 1100... -> 1110..., or stop at 000... (first())
-                    bool* first_0 = std::find(begin, end, 0);
+                    bool* first_0 = std::find(begin, end, bool(0));
                     if (first_0 != end) {
                         *first_0 = 1;
                     }
@@ -491,7 +469,7 @@ namespace aniso {
             return transform(subset, mask, rule, [](bool* begin, bool* end) {
                 if (!std::prev_permutation(begin, end, std::greater<>{})) {
                     // ...0111 -> ...0011, or stop at 111... (last())
-                    bool* first_1 = std::find(begin, end, 1);
+                    bool* first_1 = std::find(begin, end, bool(1));
                     if (first_1 != end) {
                         *first_1 = 0;
                     }
@@ -703,16 +681,16 @@ namespace aniso {
                                               "0xc"); // swap(w,s); *C6 -> totalistic, including s
 
 #if 0
-        // It's also valid to emulate hexagonal neighborhood by ignoring "q" and "c".
-        // However, the program is not going to support this, as it makes the program more complicated
-        // without bringing essentialy different discoveries.
+    // It's also valid to emulate hexagonal neighborhood by ignoring "q" and "c".
+    // However, the program is not going to support this, as it makes the program more complicated
+    // without bringing essentially different discoveries.
 
-        // - w e     w e
-        // a s d -> a s d
-        // z x -     z x
-        inline constexpr mapperT mp_hex2_ignore("0we"
-                                                "asd"
-                                                "zx0"); // ignore_(q,c)
+    // - w e     w e
+    // a s d -> a s d
+    // z x -     z x
+    inline constexpr mapperT mp_hex2_ignore("0we"
+                                            "asd"
+                                            "zx0"); // ignore_(q,c)
 #endif
 
     // Von-Neumann emulation.

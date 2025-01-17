@@ -1327,7 +1327,7 @@ void edit_rule(sync_point& sync) {
         if (!show_superset || working_set.includes(select_super.get()) /*==*/) {
             const int perline = calc_perline(ImGui::GetContentRegionAvail().x);
 
-            std::vector<aniso::groupT> working_set_groups = working_set.get_par().groups();
+            std::vector<aniso::groupT> working_set_groups = working_set.get_par().group_vec();
             if (!working_contains) {
                 std::ranges::stable_partition(working_set_groups, [&](const aniso::groupT& group) {
                     return !aniso::all_same_or_different(group, mask, sync.rule);
@@ -1360,7 +1360,9 @@ void edit_rule(sync_point& sync) {
                 aniso::codeT::map_to<bool> visited;
                 visited.fill(false);
                 std::vector<aniso::groupT> subgroups; // Superset has smaller groups.
-                working_set.get_par().for_each_group([&](const int j, const aniso::groupT& group) {
+                for (int _j = 0; const aniso::groupT& group : working_set.get_par().groups()) {
+                    const int j = _j++;
+
                     subgroups.clear();
                     for (const aniso::codeT code : group) {
                         if (!visited[code]) {
@@ -1404,7 +1406,7 @@ void edit_rule(sync_point& sync) {
                         }
                         ImGui::PopID();
                     }
-                });
+                }
                 ImGui::EndTable();
             }
             ImGui::PopStyleColor();
