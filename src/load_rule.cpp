@@ -506,7 +506,7 @@ class textT {
         line.eq_last = pos > 0 ? m_rules[pos] == m_rules[pos - 1] : false;
     }
 
-    std::optional<int> m_pos = std::nullopt; // `display` returned m_rules[*m_pos] last time.
+    std::optional<int> m_pos = std::nullopt; // `display` iterated to `m_pos` last time.
 
     struct selT {
         int beg = 0, end = 0; // []
@@ -670,7 +670,7 @@ public:
             // TODO: the current logics to handle these are horrifying...
             // Precedence:
             // Line-selecting > iterating > (starting line-selection) > left-click setting
-            std::optional<int> n_pos = display_header(m_rules.size(), m_pos);
+            std::optional<int> iter_pos = display_header(m_rules.size(), m_pos);
             if (!m_rules.empty()) {
                 ImGui::SameLine();
                 ImGui::Checkbox("Preview", &m_preview.enabled);
@@ -682,7 +682,7 @@ public:
             ImGui::Separator();
 
             if (m_sel) {
-                n_pos.reset();
+                iter_pos.reset();
                 do_rewind = false;
                 go_line = -1;
             }
@@ -690,19 +690,19 @@ public:
             if (std::exchange(do_rewind, false)) {
                 ImGui::SetNextWindowScroll({0, 0});
             }
-            if (const auto [pos, sel] = display_page(n_pos.value_or(-1), std::exchange(go_line, -1)); pos || sel) {
-                if (!n_pos) {
-                    n_pos = pos;
-                }
+            const auto [click_pos, sel] = display_page(iter_pos.value_or(-1), std::exchange(go_line, -1));
+            if (m_sel) {
                 if (sel) {
-                    m_sel = sel;
+                    m_sel = *sel;
                 }
-            }
-
-            if (!m_sel && n_pos) {
-                assert(*n_pos >= 0 && *n_pos < int(m_rules.size()));
-                out.set(m_rules[*n_pos]);
-                m_pos = *n_pos;
+            } else if (iter_pos) {
+                m_pos = *iter_pos;
+            } else if (sel) {
+                m_sel = sel;
+            } else if (click_pos) {
+                assert(*click_pos >= 0 && *click_pos < int(m_rules.size()));
+                out.set(m_rules[*click_pos]);
+                m_pos = *click_pos;
             }
         }
 
@@ -729,19 +729,15 @@ public:
 
 private:
     static std::optional<int> display_header(const int total, const std::optional<int> m_pos) {
-        std::optional<int> n_pos = std::nullopt;
+        std::optional<int> pos = std::nullopt;
 
         if (total != 0) {
-            // ImGui::BeginGroup();
             switch (sequence::seq("<|", "Prev", "Next", "|>")) {
-                case 0: n_pos = 0; break;
-                case 1: n_pos = std::max(0, m_pos.value_or(-1) - 1); break;
-                case 2: n_pos = std::min(total - 1, m_pos.value_or(-1) + 1); break;
-                case 3: n_pos = total - 1; break;
+                case 0: pos = 0; break;
+                case 1: pos = std::max(0, m_pos.value_or(-1) - 1); break;
+                case 2: pos = std::min(total - 1, m_pos.value_or(-1) + 1); break;
+                case 3: pos = total - 1; break;
             }
-            // ImGui::EndGroup();
-            // imgui_ItemTooltip_StrID = "Seq##Rules";
-            // guide_mode::item_tooltip("Rules found in the text.");
 
             ImGui::SameLine();
             if (m_pos.has_value()) {
@@ -749,21 +745,16 @@ private:
             } else {
                 ImGui::Text("Total:%d At:N/A", total);
             }
-            if (imgui_ItemClickableDouble()) { // TODO: whether to remove this?
-                n_pos = m_pos.value_or(0);
-            }
-            imgui_ItemTooltip_StrID = "Sync";
-            guide_mode::item_tooltip("Double right-click to move to 'At' (or 1 if it's 'N/A').");
         } else {
             imgui_Str("(No rules)");
         }
 
-        return n_pos;
+        return pos;
     }
 
     struct passT {
-        std::optional<int> n_pos = std::nullopt;
-        std::optional<selT> n_sel = std::nullopt;
+        std::optional<int> pos = std::nullopt;
+        std::optional<selT> sel = std::nullopt;
     };
 
     [[nodiscard]] passT display_page(const int locate_rule, const int locate_line) const {
@@ -810,9 +801,9 @@ private:
 
                 if (!locating && line_hovered) {
                     if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-                        pass.n_sel = {this_l, this_l};
+                        pass.sel = {this_l, this_l};
                     } else if (m_sel && ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                        pass.n_sel = {m_sel->beg, this_l};
+                        pass.sel = {m_sel->beg, this_l};
                     }
                 }
                 if (m_sel && m_sel->contains(this_l)) {
@@ -831,7 +822,7 @@ private:
                         (line_hovered && mouse_pos.x >= str_min.x && mouse_pos.x < str_max.x /*str-hovered*/)) {
                         drawlist->AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 30));
                         if (!locating && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                            pass.n_pos = rule.pos;
+                            pass.pos = rule.pos;
                         }
                     }
 
@@ -856,7 +847,7 @@ private:
         }
         ImGui::PopStyleColor();
 
-        assert_implies(locating, !pass.n_pos && !pass.n_sel);
+        assert_implies(locating, !pass.pos && !pass.sel);
         return pass;
     }
 };
