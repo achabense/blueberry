@@ -340,7 +340,7 @@ inline bool begin_popup_for_item(bool open, const char* str_id = nullptr) {
 #endif
 
 // Looks like a common popup, and will appear like a menu (but with more consistent closing behavior).
-// Not meant to be used recursively.
+// (Can be called recursively.)
 // (This could be made into an RAII class, but I find that would be even harder to name properly...)
 inline bool begin_popup_for_item() {
     const ImRect item_rect = imgui_GetItemRect();
@@ -355,6 +355,12 @@ inline bool begin_popup_for_item() {
 
     if (ImGui::BeginPopupEx(item_id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
                                          ImGuiWindowFlags_NoSavedSettings)) {
+        lock_scroll();
+        if (!ImGui::IsWindowContentHoverable(ImGui::GetCurrentWindowRead())) {
+            return true;
+        }
+
+        // Topmost popup.
         ImGui::NavHighlightActivated(item_id);
 
         const ImVec2 mouse_pos = ImGui::GetMousePos();
@@ -376,6 +382,64 @@ inline bool begin_popup_for_item() {
     }
     return false;
 }
+
+class rclick_popup {
+    inline static ImGuiID bound_id = 0, bound_id_next = 0;
+
+    friend void frame_main();
+    static void begin_frame() { bound_id = std::exchange(bound_id_next, 0); }
+
+public:
+    struct idT {
+        ImGuiID id;
+        /*implicit*/ operator ImGuiID() const { return id; }
+
+        // idT() : id{ImGui::GetItemID()} { assert(id); }
+        /*implicit*/ idT(ImGuiID id) : id{id} { assert(id); }
+        /*implicit*/ idT(const char* str_id) : id{ImGui::GetID(str_id)} { assert(id); }
+    };
+
+    using highlight_fn = void (*)(bool popup);
+    static void default_highlight(bool popup) { //
+        imgui_ItemUnderline(ImGui::GetColorU32(popup ? ImGuiCol_Text : ImGuiCol_TextDisabled));
+    }
+
+    // TODO: improve highlighting logic; should this be callback or RAII class? (& `begin_popup_for_item`)
+    // Not meant to be used recursively.
+    template <highlight_fn highlight = default_highlight>
+    static void popup(const idT id, const std::invocable<> auto& fn) {
+        const bool hovered = ImGui::IsItemHovered();
+        if (!hovered && id != bound_id) {
+            return;
+        }
+
+        highlight(bound_id == id);
+
+        // (Avoid creating windows for one-off usage.)
+        constexpr const char* shared_popup = "Shared-popup";
+        assert_implies(!bound_id, !ImGui::IsPopupOpen(shared_popup));
+        // (This doesn't break assertion, which means skipping `BeginPopup` is able to close the popup as well.)
+        // if (ImGui::IsKeyDown(ImGuiKey_Q)) {
+        //     return;
+        // }
+
+        if (!bound_id && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            ImGui::OpenPopup(shared_popup);
+            bound_id = id;
+        }
+
+        if (bound_id == id) {
+            if (ImGui::BeginPopup(shared_popup)) {
+                bound_id_next = id;
+
+                lock_scroll();
+                fn();
+                ImGui::EndPopup();
+            }
+            // else: `bound_id` will become 0 next frame.
+        }
+    }
+};
 
 // TODO: should finally be replaced by Ex version.
 // Looks like `ImGui::Selectable` but behaves like a button (not designed for tables).
@@ -756,7 +820,7 @@ public:
         ImGui::Dummy(config.size_imvec());
         if (ImGui::IsItemVisible()) {
             imgui_ItemRectFilled(IM_COL32_BLACK);
-            imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_TableBorderStrong)); // Instead of `ImGuiCol_Border`
+            imgui_ItemRect(default_border_color());
 
             if (str && *str != '\0') {
                 imgui_ItemStr(ImGui::GetColorU32(ImGuiCol_TextDisabled), str);
@@ -767,26 +831,32 @@ public:
     static void preview(uint32_t id, const configT& config, const aniso::ruleT& rule) {
         ImGui::Dummy(config.size_imvec());
         if (ImGui::IsItemVisible()) {
-            ImU32 border_col = ImGui::GetColorU32(ImGuiCol_TableBorderStrong);
-            _preview((uint64_t(ImGui::GetID("")) << 32) | id, config, rule, border_col);
-            imgui_ItemRect(border_col);
+            _preview(_get_id(id), config, rule);
         }
     }
 
     static void preview(uint32_t id, const configT& config, const std::invocable<> auto& get_rule) {
         ImGui::Dummy(config.size_imvec());
         if (ImGui::IsItemVisible()) {
-            ImU32 border_col = ImGui::GetColorU32(ImGuiCol_TableBorderStrong);
-            _preview((uint64_t(ImGui::GetID("")) << 32) | id, config, get_rule(), border_col);
-            imgui_ItemRect(border_col);
+            _preview(_get_id(id), config, get_rule());
         }
     }
 
+    static ImU32 default_border_color() {
+        return ImGui::GetColorU32(ImGuiCol_TableBorderStrong); // Instead of `ImGuiCol_Border`
+    }
+
 private:
+    static uint64_t _get_id(uint32_t id) {
+        return (uint64_t(ImGui::GetID("")) << 32) | id;
+        // TODO: consider using window id?
+        // return (uint64_t(ImGui::GetCurrentWindowRead()->ID) << 32) | id;
+    }
+
     friend void frame_main();
     static void begin_frame();
 
-    static void _preview(uint64_t id, const configT& config, const aniso::ruleT& rule, ImU32& border_col);
+    static void _preview(uint64_t id, const configT& config, const aniso::ruleT& rule);
 
     // TODO: declared here for minimal exposure, but looks strange...
     static void _identify_rule(const aniso::ruleT& rule);

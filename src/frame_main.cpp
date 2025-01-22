@@ -79,6 +79,7 @@ void frame_main() {
     guide_mode::begin_frame();
     shortcuts::begin_frame();
     sequence::begin_frame();
+    rclick_popup::begin_frame();
     previewer::begin_frame();
 
     static aniso::ruleT sync_rule = aniso::game_of_life();
@@ -175,22 +176,26 @@ void frame_main() {
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)",
-            "(Press 'H' for more tooltips; 'H' again to quit the mode.)\n\n"
+            "Press 'H' to toggle on/off additional tooltips.\n"
+            "Right-click underlined text to open popup.\n\n"
             "The \"current rule\" is shown in the right panel. The left panel highlights which sets the current rule belongs to, and can generate new rules based on the \"working set\".\n\n"
-            "To save rules: right-click the current rule's MAP-string to copy it to the clipboard; for rules shown in other windows, right-click the window to copy the rule to the clipboard.\n\n"
+            "To save rules: right-click the current rule's MAP-string to copy it to the clipboard; for rules shown in other windows, right-click the window to copy the rule to the clipboard.\n\n" // !!TODO: rewrite...
             "To load rules: 'Files' can load rules from files; 'Clipboard' can load rules from the clipboard (shortcut: 'W').\n\n"
             "(See 'Documents' for more info.)");
 
         ImGui::SameLine();
         imgui_Str("Current rule ~");
         ImGui::SameLine();
-        if (const auto str = aniso::to_MAP_str(sync.rule); imgui_StrClickableSingle(str)) {
-            set_clipboard_and_notify(str);
-            rule_recorder::record(rule_recorder::Copied, sync.rule);
-        }
-        guide_mode::item_tooltip("Right-click to copy.");
-        ImGui::SameLine();
-        get_reversal_dual(ImGui::Button("0/1 rev"), sync);
+        const auto map_str = aniso::to_MAP_str(sync.rule);
+        imgui_Str(map_str);
+        rclick_popup::popup("MAP-string", [&] {
+            if (ImGui::Selectable("Copy rule")) {
+                set_clipboard_and_notify(map_str);
+                rule_recorder::record(rule_recorder::Copied, sync.rule);
+            }
+            get_reversal_dual(ImGui::Selectable("0/1 reversal"), sync);
+        });
+        guide_mode::item_tooltip("MAP-string for the current rule.");
 
         ImGui::Separator();
 

@@ -169,9 +169,9 @@ class subset_selector {
     }
 
 public:
-    // `sel` should be the address of one of members in `aniso::_subsets`.
+    // `sel` should be either nullptr or address of one of members in `aniso::_subsets`.
     void select_single(const aniso::subsetT* sel) {
-        assert(sel);
+        const bool no_sel = !sel; // -> entire MAP set.
         for_each_term([&sel](termT& t) {
             t.disabled = false; // Will be updated by `update_current`.
             t.selected = t.set == sel;
@@ -179,12 +179,12 @@ public:
                 sel = nullptr;
             }
         });
-        assert(!sel);
+        assert(no_sel || !sel /*found in the list*/);
 
         update_current();
     }
 
-    explicit subset_selector(const aniso::subsetT* init_sel = nullptr) : current(aniso::subsetT::universal()) {
+    explicit subset_selector(const aniso::subsetT* init_sel = nullptr) {
         using namespace aniso::_subsets;
 
         terms_ignore.emplace_back(
@@ -288,11 +288,7 @@ public:
             assert(!t.selected && !t.including && !t.disabled);
         });
 
-        if (init_sel) {
-            select_single(init_sel);
-        } else {
-            update_current(); // Defensive; should have no effect.
-        }
+        select_single(init_sel);
     }
 
     subset_selector(const subset_selector&) = delete;
@@ -803,7 +799,6 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
             "You can traverse the entire working set with this. Some interesting examples include: inner-totalistic rules ('Tot(+s)'), self-complementary totalistic rules ('Comp' & 'Tot'), isotropic von-Neumann rules ('All' & 'Von'), and a similar set ('All' & 'w').\n\n"
             "Even if the working set is very large, you may find this still useful sometimes.");
 
-        // ImGui::BeginGroup();
         const char* const disable_prev_next =
             page.empty() ? "Click 'Locate', '<00..' or '11..>', or input a distance to get somewhere in the sequence."
                          : nullptr;
@@ -831,8 +826,6 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
                 fill_prev(adapter.page_size - 1);
                 break;
         }
-        // ImGui::EndGroup();
-        // imgui_ItemTooltip_StrID = "Seq##Trav";
 
         ImGui::SameLine();
         if (page.empty()) {
@@ -847,13 +840,15 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
                 ImGui::Text("Dist:%d~%d", min_dist, max_dist);
             }
         }
-        if (imgui_ItemClickableDouble()) {
-            set_msg_cleared(!page.empty());
-            page.clear();
-        }
-        imgui_ItemTooltip_StrID = "Clear";
-        guide_mode::item_tooltip("Double right-click to clear.\n\n"
-                                 "(The page will also be cleared if the working set or masking rule changes.)");
+        rclick_popup::popup(imgui_GetItemPosID(), [] {
+            imgui_StrTooltip("(?)",
+                             "The page will also be cleared automatically if the working set or masking rule changes.");
+            ImGui::SameLine();
+            if (ImGui::Selectable("Clear")) {
+                set_msg_cleared(!page.empty());
+                page.clear();
+            }
+        });
 
         ImGui::SameLine();
         config.set("Preview settings");
@@ -952,13 +947,13 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
         } else {
             ImGui::Text("Pages:%d At:N/A", calc_page());
         }
-        if (imgui_ItemClickableDouble()) {
-            set_msg_cleared(!rules.empty());
-            rules = std::vector<aniso::compressT>{};
-            page_no = 0;
-        }
-        imgui_ItemTooltip_StrID = "Clear";
-        guide_mode::item_tooltip("Double right-click to clear all pages.");
+        rclick_popup::popup(imgui_GetItemPosID(), [] {
+            if (ImGui::Selectable("Clear")) {
+                set_msg_cleared(!rules.empty());
+                rules = std::vector<aniso::compressT>{};
+                page_no = 0;
+            }
+        });
 
         ImGui::SameLine();
         config.set("Preview settings");
@@ -1043,7 +1038,10 @@ void edit_rule(sync_point& sync) {
     static previewer::configT config{previewer::configT::_220_160};
     static bool show_superset = false;
     static subset_selector select_super;
-    bool set_superset_example = false;
+    struct exampleT {
+        const aniso::subsetT *working, *super;
+    };
+    std::optional<exampleT> set_superset_example = std::nullopt;
     {
         const bool clicked = ImGui::Checkbox("Traverse", &show_trav);
         guide_mode::item_tooltip(
@@ -1097,20 +1095,38 @@ void edit_rule(sync_point& sync) {
             if (ImGui::Button("Clear##Super")) {
                 select_super.clear();
             }
-            guide_mode::item_tooltip("Unselect all.");
+            guide_mode::item_tooltip("Unselect all sets (to be the entire MAP set).");
             ImGui::SameLine();
             if (ImGui::Button("Reset##Super")) {
                 select_super = select_working;
             }
             guide_mode::item_tooltip("Reset to be the same as the working set.");
             ImGui::SameLine();
+            ImGui::Button("Examples");
+            if (begin_popup_for_item()) {
+                using namespace aniso::_subsets;
+                int id = 0;
+                if (imgui_SelectableStyledButtonEx(id++, "Outer-totalistic vs isotropic")) {
+                    set_superset_example = {.working = &native_tot_exc_s, .super = &native_isotropic};
+                }
+                if (imgui_SelectableStyledButtonEx(id++, "Inner-totalistic vs outer-totalistic")) {
+                    set_superset_example = {.working = &native_tot_inc_s, .super = &native_tot_exc_s};
+                }
+                if (imgui_SelectableStyledButtonEx(id++, "Isotropic vs C4")) {
+                    set_superset_example = {.working = &native_isotropic, .super = &native_C4};
+                }
+                if (imgui_SelectableStyledButtonEx(id++, "Isotropic vs entire MAP set")) {
+                    set_superset_example = {.working = &native_isotropic, .super = nullptr};
+                }
+                if (imgui_SelectableStyledButtonEx(id++, "(Hex) outer-totalistic vs isotropic")) {
+                    set_superset_example = {.working = &hex_tot_exc_s, .super = &hex_isotropic};
+                }
+                ImGui::EndPopup();
+            }
+            ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
-                "A superset can be any combination of the sets selectable in this table (which are what the working set belongs to, i.e. those center-marked in working set's selection table).\n\n"
-                "You can double right-click this '(?)' for a working example (working set ~ outer-totalistic, vs superset ~ isotropic).");
-            if (imgui_ItemClickableDouble()) {
-                set_superset_example = true;
-            }
+                "A superset can be any combination of the sets selectable in this table (which are what the working set belongs to, i.e. those center-marked in working set's selection table).");
             ImGui::Separator();
             select_super.select({.select = true, .subset = &working_set /*no tooltip*/});
 
@@ -1146,22 +1162,28 @@ void edit_rule(sync_point& sync) {
         } else {
             ImGui::Text("Groups:%d !contained", c_group);
             ImGui::SameLine();
-            imgui_StrTooltip("(?)", [&] {
-                imgui_Str(
-                    "The current rule does not belong to the working set.\n\n"
-                    "Check the '-x' groups for details - no matter which mask is selected, for any rule in "
-                    "the working set, the masked values should be all the same in any group.\n\n"
-                    "You can get rules in the working set from the 'Traverse' or 'Random' window. Or optionally, "
-                    "you can double right-click this '(?)' to set all '-x' groups to be the same as the masking rule.");
-                ImGui::Separator();
-                imgui_Str("Preview:");
-                ImGui::SameLine();
-                previewer::preview(-1, previewer::configT::_220_160,
-                                   aniso::approximate(working_set.get_par(), mask, sync.rule));
+            imgui_StrTooltip("(?)",
+                             "The current rule does not belong to the working set.\n\n"
+                             "Check the '-x' groups for details - no matter which mask is selected, for any rule in "
+                             "the working set, the masked values should be all the same in any group.\n\n"
+                             "You can get rules in the working set from the 'Traverse' or 'Random' window.");
+            // TODO: whether to remove this?
+#ifndef NDEBUG
+            rclick_popup::popup(imgui_GetItemPosID(), [&] {
+                if (ImGui::Selectable("Approx")) {
+                    sync.set(aniso::approximate(working_set.get_par(), mask, sync.rule));
+                }
+                imgui_ItemTooltip([&] {
+                    imgui_Str(
+                        "Get a rule in the working set by setting all '-x' groups to be the same as the masking rule.");
+                    ImGui::Separator();
+                    imgui_Str("Preview:");
+                    ImGui::SameLine();
+                    previewer::preview(-1, previewer::configT::_220_160,
+                                       aniso::approximate(working_set.get_par(), mask, sync.rule));
+                });
             });
-            if (imgui_ItemClickableDouble()) {
-                sync.set(aniso::approximate(working_set.get_par(), mask, sync.rule));
-            }
+#endif // !NDEBUG
         }
 
         if (show_superset) {
@@ -1412,8 +1434,8 @@ void edit_rule(sync_point& sync) {
     ImGui::PopStyleColor();
 
     if (set_superset_example) {
-        select_working.select_single(&aniso::_subsets::native_tot_exc_s);
-        select_super.select_single(&aniso::_subsets::native_isotropic);
+        select_working.select_single(set_superset_example->working);
+        select_super.select_single(set_superset_example->super);
         preview_mode = false;
     }
 }

@@ -107,25 +107,28 @@ static pathT cpp17_u8path(const std::string_view path) noexcept {
     }
 }
 
-// (Sharing the same style as `imgui_StrCopyable`.)
 static void display_path(const pathT& p, float avail_w) {
     bool clipped = false;
-    if (imgui_StrClickableSingle(clip_path(p, avail_w, &clipped))) {
-        set_clipboard_and_notify(cpp17_u8string(p));
-    }
+    imgui_Str(clip_path(p, avail_w, &clipped));
+    rclick_popup::popup(imgui_GetItemPosID(), [&] {
+        if (ImGui::Selectable("Copy path")) {
+            set_clipboard_and_notify(cpp17_u8string(p));
+        }
+        // (As tested, `Platform_OpenInShellFn` will fail for some paths (likely due to encoding mismatch).)
+    });
     if (clipped) {
         imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string(p)); });
     }
-    guide_mode::item_tooltip("Right-click to copy.");
 }
-
 static void display_filename(const pathT& p) {
     const char prefix[]{'.', '.', '.', char(pathT::preferred_separator), '\0'};
-    if (imgui_StrClickableSingle(prefix + cpp17_u8string(p.filename()))) {
-        set_clipboard_and_notify(cpp17_u8string(p));
-    }
+    imgui_Str(prefix + cpp17_u8string(p.filename()));
+    rclick_popup::popup(imgui_GetItemPosID(), [&] {
+        if (ImGui::Selectable("Copy path")) {
+            set_clipboard_and_notify(cpp17_u8string(p));
+        }
+    });
     imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string(p)); });
-    guide_mode::item_tooltip("Right-click to copy.");
 }
 
 static pathT home_path{};
@@ -1042,12 +1045,23 @@ void load_doc(sync_point& out) {
         imgui_Str("A toy for exploring MAP rules, by GitHub user 'achabense'.");
         imgui_Str("The latest version is available at: ");
         ImGui::SameLine(0, 0);
-        const char* const url = "https://github.com/achabense/blueberry";
+        constexpr const char* url = "https://github.com/achabense/blueberry";
         // ImGui::TextLinkOpenURL(url);
-        if (imgui_StrClickableSingle(url)) {
-            set_clipboard_and_notify(url);
-        }
-        guide_mode::item_tooltip("Right-click to copy.");
+        imgui_Str(url);
+        rclick_popup::popup(imgui_GetItemPosID(), [] {
+            if (ImGui::Selectable("Copy link")) {
+                set_clipboard_and_notify(url);
+            }
+
+#ifndef NDEBUG
+            ImGuiContext& g = *ImGui::GetCurrentContext();
+            if (g.PlatformIO.Platform_OpenInShellFn) {
+                if (ImGui::Selectable("Open in browser")) {
+                    g.PlatformIO.Platform_OpenInShellFn(&g, url);
+                }
+            }
+#endif
+        });
 
         ImGui::Separator();
         select();

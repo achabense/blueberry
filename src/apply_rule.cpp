@@ -384,6 +384,7 @@ public:
     }
 };
 
+// TODO: refactor; the code is horribly messy...
 class runnerT {
     static constexpr aniso::vecT size_min{.x = 20, .y = 15};
     static constexpr aniso::vecT size_max{.x = 1600, .y = 1200};
@@ -858,6 +859,8 @@ public:
             }
             ImGui::EndPopup();
         }
+        ImGui::SameLine();
+        ImGui::Text("Generation:%d", m_torus.gen());
 
         ImGui::Spacing(); // To align with the separator.
 
@@ -885,11 +888,11 @@ public:
         }
 
         ImGui::SameLine();
-        if (ImGui::Button("Center")) {
+        if (ImGui::Button("Rewind")) {
             locate_center = true;
             find_suitable_zoom = true;
         }
-        guide_mode::item_tooltip("Center the window and select suitable zoom for it.");
+        guide_mode::item_tooltip("Reset space window's position and zoom.");
 
         ImGui::SameLine();
         static bool show_range_window = false;
@@ -904,38 +907,39 @@ public:
 
         const int wide_spacing = ImGui::CalcTextSize(" ").x * 2;
         ImGui::SameLine(0, wide_spacing);
-        ImGui::Text("Generation:%d", m_torus.gen());
-
-        ImGui::SameLine(0, wide_spacing);
         if (m_sel) {
-            ImGui::Text("Selected:%d*%d", m_sel->width(), m_sel->height());
+            ImGui::Text("Area:%d*%d", m_sel->width(), m_sel->height());
         } else {
-            imgui_Str("Selected:N/A");
+            imgui_Str("Area:N/A");
         }
-        if (imgui_ItemClickableDouble()) {
-            set_msg_cleared(m_sel.has_value());
-            m_sel.reset();
-        }
-        imgui_ItemTooltip_StrID = "Clear##Sel";
-        if (guide_mode::item_tooltip(
-                "Double right-click to clear.\n\n"
-                "(When there is no pattern to paste, the more direct way is to single right-click the space window.)")) {
-            highlight_canvas = true;
-        }
+        rclick_popup::popup("Area", [&] {
+            if (imgui_StrTooltip(
+                    "(?)",
+                    "When there is no pattern to paste, a more direct way is to single right-click the space window.")) {
+                highlight_canvas = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Selectable("Clear")) {
+                set_msg_cleared(m_sel.has_value());
+                m_sel.reset();
+            }
+        });
+        guide_mode::item_tooltip("Selected area.");
 
         ImGui::SameLine(0, wide_spacing);
         if (m_paste) {
             const aniso::vecT size = m_paste->size();
-            ImGui::Text("Paste:%d*%d", size.x, size.y);
+            ImGui::Text("Pattern:%d*%d", size.x, size.y);
         } else {
-            imgui_Str("Paste:N/A");
+            imgui_Str("Pattern:N/A");
         }
-        if (imgui_ItemClickableDouble()) {
-            set_msg_cleared(m_paste.has_value());
-            m_paste.reset();
-        }
-        imgui_ItemTooltip_StrID = "Clear##Paste";
-        guide_mode::item_tooltip("Double right-click to clear.");
+        rclick_popup::popup("Pattern", [&] {
+            if (ImGui::Selectable("Clear")) {
+                set_msg_cleared(m_paste.has_value());
+                m_paste.reset();
+            }
+        });
+        guide_mode::item_tooltip("Pattern to paste.");
 
         {
             // (Values of GetContentRegionAvail() can be negative...)
@@ -1139,21 +1143,22 @@ public:
                     drawlist->AddRectFilled(sel_min, sel_max, IM_COL32(0, 255, 0, 40));
                     // drawlist->AddRect(sel_min, sel_max, IM_COL32(0, 255, 0, 160));
                 }
-                drawlist->AddRect(screen_min, screen_max, ImGui::GetColorU32(ImGuiCol_TableBorderStrong));
+                drawlist->AddRect(screen_min, screen_max, previewer::default_border_color());
                 drawlist->PopClipRect();
-            }
 
-            {
                 // `skip` is a workaround to make the highlight appear in the same frame with the tooltip.
                 // (Tooltips will be hidden for one extra frame before appearing.)
                 static bool skip = true;
                 if (highlight_canvas) {
-                    if (!std::exchange(skip, false)) {
-                        imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_Separator));
-                        // imgui_ItemRect(IM_COL32(0, 128, 255, 255));
+                    if (std::exchange(skip, false)) {
+                        highlight_canvas = false;
                     }
                 } else {
                     skip = true;
+                }
+
+                if (hovered || highlight_canvas) {
+                    imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_Separator));
                 }
             }
 
@@ -1477,10 +1482,10 @@ void previewer::configT::_set() {
     ImGui::PushItemWidth(item_width);
 
     // ImGui::AlignTextToFramePadding();
+    // !!TODO: move to popups?
     imgui_StrTooltip(
         "(...)",
         "Operations:\n"
-        "- Right-click to copy the rule.\n"
         "- Left-click and hold to pause.\n"
         "- Hover + 'R' to restart. ('T' for all preview windows.)\n"
         "- 'F' to speed up. ('G' for all preview windows.)\n"
@@ -1561,14 +1566,13 @@ void previewer::begin_frame() {
 }
 
 // TODO: allow setting the step and interval with shortcuts when the window is hovered?
-void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule, ImU32& border_col) {
+void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
 
     previewer_data::termT& term = previewer_data::terms[id];
-    if (term.active) [[unlikely]] {
+    if (term.active) [[unlikely]] { // ID conflict
         assert(false);
-        border_col = IM_COL32_WHITE;
         return;
     }
     term.active = true;
@@ -1631,6 +1635,19 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         ImGui::PopStyleVar();
     }
 
+    // (Using static to pass to highlight-fn.)
+    static ImU32 border_col{};
+    border_col = default_border_color();
+    rclick_popup::popup<[](bool popup) {
+        border_col = ImGui::GetColorU32(popup ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+    }>(imgui_GetItemPosID(), [&] {
+        // TODO: 'C' to copy rule?
+        if (ImGui::Selectable("Copy rule")) {
+            set_clipboard_and_notify(aniso::to_MAP_str(rule));
+            rule_recorder::record(rule_recorder::Copied, rule);
+        }
+    });
+
     if (hovered && shortcuts::global_flag(ImGuiKey_Z)) {
         // TODO: also hide zoom tooltip in this case?
         lock_scroll();
@@ -1641,10 +1658,5 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         // TODO: 'X' -> create a temp editable space with the same init?
         // TODO: support 'M' for 'Match'? Then 'Z'->'M' can be very convenient...
     }
-
-    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-        border_col = IM_COL32_WHITE;
-        set_clipboard_and_notify(aniso::to_MAP_str(rule));
-        rule_recorder::record(rule_recorder::Copied, rule);
-    }
+    imgui_ItemRect(border_col);
 }

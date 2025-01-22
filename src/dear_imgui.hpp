@@ -17,6 +17,10 @@ inline ImRect imgui_GetWindowRect() {
     return {window_min, window_max};
 }
 
+inline ImGuiID imgui_GetItemPosID() { //
+    return GImGui->CurrentWindow->GetIDFromPos(ImGui::GetItemRectMin());
+}
+
 // These names are somewhat misleading after the introduction of `imgui_GetItemRect`...
 inline void imgui_ItemRect(ImU32 col, ImVec2 off_min = {0, 0}) {
     const auto [pos_min, pos_max] = GImGui->LastItemData.Rect;
@@ -26,6 +30,11 @@ inline void imgui_ItemRect(ImU32 col, ImVec2 off_min = {0, 0}) {
 inline void imgui_ItemRectFilled(ImU32 col, ImVec2 off_min = {0, 0}) {
     const auto [pos_min, pos_max] = GImGui->LastItemData.Rect;
     ImGui::GetWindowDrawList()->AddRectFilled(pos_min + off_min, pos_max - off_min, col);
+}
+
+inline void imgui_ItemUnderline(ImU32 col) {
+    const auto [pos_min, pos_max] = GImGui->LastItemData.Rect;
+    ImGui::GetWindowDrawList()->AddLine({pos_min.x, pos_max.y - 1}, {pos_max.x, pos_max.y - 1}, col);
 }
 
 // (Referring to ImGui::IsRectVisible() and ImGui::GetItemRectMin().)
@@ -102,25 +111,6 @@ inline void imgui_ItemStr(ImU32 col, std::string_view str) {
     }
 }
 
-inline bool imgui_ItemClickable(bool double_click) {
-    if (!ImGui::IsItemHovered()) {
-        return false;
-    }
-    const bool clicked = double_click ? ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right)
-                                      : ImGui::IsMouseClicked(ImGuiMouseButton_Right);
-    const ImU32 col = clicked ? IM_COL32_WHITE : IM_COL32_GREY(128, 255);
-    const auto [pos_min, pos_max] = GImGui->LastItemData.Rect;
-    ImGui::GetWindowDrawList()->AddLine({pos_min.x, pos_max.y - 1}, {pos_max.x, pos_max.y - 1}, col);
-    if (double_click && clicked) {
-        ImGui::FocusWindow(ImGui::GetCurrentWindow());
-    }
-    return clicked;
-}
-
-inline bool imgui_ItemClickableSingle() { return imgui_ItemClickable(false); }
-
-inline bool imgui_ItemClickableDouble() { return imgui_ItemClickable(true); }
-
 // Unlike ImGui::Text(Wrapped/...), these functions take unformatted string as the argument.
 inline void imgui_Str(std::string_view str) { //
     ImGui::TextUnformatted(str.data(), str.data() + str.size());
@@ -150,11 +140,6 @@ inline bool imgui_StrTooltip(std::string_view str, const std::invocable<> auto& 
 
 inline bool imgui_StrTooltip(std::string_view str, std::string_view desc) { //
     return imgui_StrTooltip(str, [desc] { imgui_Str(desc); });
-}
-
-inline bool imgui_StrClickableSingle(std::string_view str) {
-    imgui_Str(str);
-    return imgui_ItemClickableSingle();
 }
 
 struct [[nodiscard]] imgui_Window {
