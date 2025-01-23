@@ -835,7 +835,10 @@ private:
                         if (eq_last) {
                             imgui_StrDisabled("The same as the last rule.");
                         } else {
+                            // Workaround to avoid affecting popup & tooltip.
+                            ImGui::PopStyleVar();
                             previewer::preview(rule.pos, m_preview.config, [&] { return rule.get(m_rules); });
+                            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
                         }
                         ImGui::EndGroup();
                     }

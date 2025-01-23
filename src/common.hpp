@@ -289,11 +289,11 @@ inline void set_scroll_by_up_down(float dy) {
     }
 }
 
-inline void global_tooltip(const bool highlight, const std::function<void()> func) {
+inline void global_tooltip(const bool highlight, const std::invocable<> auto& func) {
     // TODO: are there simpler ways to prevent inheriting styles?
-    const ImGuiStyle old_style = GImGui->Style;
-    auto old_stack = GImGui->StyleVarStack;
-    ImGui::PopStyleVar(GImGui->StyleVarStack.size()); // Restore style vars.
+    // const ImGuiStyle old_style = GImGui->Style;
+    // auto old_stack = GImGui->StyleVarStack;
+    // ImGui::PopStyleVar(GImGui->StyleVarStack.size()); // Restore style vars.
 
     if (highlight) {
         ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(0, 128, 255, 255));
@@ -319,8 +319,8 @@ inline void global_tooltip(const bool highlight, const std::function<void()> fun
         ImGui::PopStyleColor();
     }
 
-    GImGui->Style = old_style;
-    GImGui->StyleVarStack.swap(old_stack);
+    // GImGui->Style = old_style;
+    // GImGui->StyleVarStack.swap(old_stack);
 }
 
 #if 0
@@ -423,6 +423,7 @@ public:
         //     return;
         // }
 
+        // TODO: will be blocked by input field (not ideal, but not a big problem either...)
         if (!bound_id && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
             ImGui::OpenPopup(shared_popup);
             bound_id = id;

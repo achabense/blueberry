@@ -841,13 +841,12 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
             }
         }
         rclick_popup::popup(imgui_GetItemPosID(), [] {
-            imgui_StrTooltip("(?)",
-                             "The page will also be cleared automatically if the working set or masking rule changes.");
-            ImGui::SameLine();
             if (ImGui::Selectable("Clear")) {
                 set_msg_cleared(!page.empty());
                 page.clear();
             }
+            imgui_StrTooltip("(?)",
+                             "The page will also be cleared automatically if the working set or masking rule changes.");
         });
 
         ImGui::SameLine();

@@ -913,15 +913,14 @@ public:
             imgui_Str("Area:N/A");
         }
         rclick_popup::popup("Area", [&] {
+            if (ImGui::Selectable("Clear")) {
+                set_msg_cleared(m_sel.has_value());
+                m_sel.reset();
+            }
             if (imgui_StrTooltip(
                     "(?)",
                     "When there is no pattern to paste, a more direct way is to single right-click the space window.")) {
                 highlight_canvas = true;
-            }
-            ImGui::SameLine();
-            if (ImGui::Selectable("Clear")) {
-                set_msg_cleared(m_sel.has_value());
-                m_sel.reset();
             }
         });
         guide_mode::item_tooltip("Selected area.");
@@ -1481,26 +1480,14 @@ struct global_config {
 void previewer::configT::_set() {
     ImGui::PushItemWidth(item_width);
 
-    // ImGui::AlignTextToFramePadding();
-    // !!TODO: move to popups?
-    imgui_StrTooltip(
-        "(...)",
-        "Operations:\n"
-        "- Left-click and hold to pause.\n"
-        "- Hover + 'R' to restart. ('T' for all preview windows.)\n"
-        "- 'F' to speed up. ('G' for all preview windows.)\n"
-        "- 'Z' to see which subsets the rule belongs to.\n\n"
-        "If the rule belongs to 'Hex' subset:\n"
-        "- '6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
 #if 0
     // TODO: what to reset? size/zoom or size/zoom/seed/step?
-    ImGui::SameLine();
     if (ImGui::Button("Reset")) {
         _reset_size_zoom();
     }
     guide_mode::item_tooltip("(Width, height and zoom.)");
-#endif
     ImGui::Separator();
+#endif
 
     for (const bool f : {true, false}) {
         ImGui::AlignTextToFramePadding();
@@ -1646,6 +1633,16 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             set_clipboard_and_notify(aniso::to_MAP_str(rule));
             rule_recorder::record(rule_recorder::Copied, rule);
         }
+
+        imgui_StrTooltip(
+            "(...)",
+            "Operations:\n"
+            "- Left-click and hold to pause.\n"
+            "- Hover + 'R' to restart. ('T' for all preview windows.)\n"
+            "- 'F' to speed up. ('G' for all preview windows.)\n"
+            "- 'Z' to see which subsets the rule belongs to.\n\n"
+            "If the rule belongs to 'Hex' subset:\n"
+            "- '6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
     });
 
     if (hovered && shortcuts::global_flag(ImGuiKey_Z)) {
