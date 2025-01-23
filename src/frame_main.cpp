@@ -49,7 +49,7 @@ static void get_reversal_dual(const bool button_result, sync_point& sync) {
         ImGui::PushTextWrapPos(400);
         imgui_Str(
             "Get the 0/1 reversal dual of the current rule.\n\n"
-            "(That is, for any pattern, [apply the original rule] has the same effect as [flip all values -> apply the dual -> flip all values].)");
+            "(That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].)");
         ImGui::Separator();
         imgui_Str("Preview:");
         ImGui::SameLine();
@@ -89,7 +89,6 @@ void frame_main() {
 
     messenger::display();
 
-    // TODO: add a way to specify the contents for the left panel. These loading windows can fit well.
     static bool show_file = false;
     static bool show_clipboard = false;
     static bool show_doc = false;
@@ -172,15 +171,12 @@ void frame_main() {
 
         // TODO: recheck usage of '-': MAP-rule/MAP rule, MAP-string/MAP string.
         // !!TODO: about 'Record' (should be redesigned)...
-        // TODO: 'other windows' is obscure, but 'preview windows' doesn't work well either as they are not shown initially...
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)",
-            "Press 'H' to toggle on/off additional tooltips.\n"
-            "Right-click underlined text to open popup.\n\n"
+            "Press 'H' to toggle on/off additional tooltips.\n\n"
             "The \"current rule\" is shown in the right panel. The left panel highlights which sets the current rule belongs to, and can generate new rules based on the \"working set\".\n\n"
-            "To save rules: right-click the current rule's MAP-string to copy it to the clipboard; for rules shown in other windows, right-click the window to copy the rule to the clipboard.\n\n" // !!TODO: rewrite...
-            "To load rules: 'Files' can load rules from files; 'Clipboard' can load rules from the clipboard (shortcut: 'W').\n\n"
+            "The current rule and rules shown in \"preview windows\" (turn on 'Preview' for examples) can be copied to the clipboard; 'Files' can load rules from files; 'Clipboard' can load rules from the clipboard (shortcut: 'W').\n\n"
             "(See 'Documents' for more info.)");
 
         ImGui::SameLine();
@@ -195,7 +191,9 @@ void frame_main() {
             }
             get_reversal_dual(ImGui::Selectable("0/1 reversal"), sync);
         });
-        guide_mode::item_tooltip("MAP-string for the current rule.");
+        guide_mode::item_tooltip(
+            "MAP-string for the current rule.\n\n"
+            "(Right-click underlined text like this, or \"preview windows\" (turn on 'Preview' for examples) to open popup.)");
 
         ImGui::Separator();
 

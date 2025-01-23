@@ -233,7 +233,7 @@ public:
             "(For symmetric von-Neumann rules you can directly combine this with native-symmetry sets.)");
         terms_misc.emplace_back(
             "Comp", &self_complementary,
-            "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [apply such a rule] has the same effect as [flip all values -> apply the same rule -> flip all values].");
+            "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].");
 
         terms_native.emplace_back("All", &native_isotropic,
                                   "Isotropic MAP rules, i.e. rules that preserve all symmetries.\n\n"
@@ -407,16 +407,13 @@ public:
         update_current();
     }
 
-    // TODO: redesign...
     void show_working(const sync_point& target) {
         ImGui::AlignTextToFramePadding();
         imgui_Str("Working set ~");
         ImGui::SameLine();
         ImGui::Dummy(square_size());
         put_term(current.contains(target.rule), None, '\0', false);
-        guide_mode::item_tooltip(
-            "This stands for the intersection of selected sets; will be light green if the current rule belongs to every selected "
-            "set. See '(...)' for details.");
+        guide_mode::item_tooltip("Light green ~ the current rule belongs to the working set (every selected set).");
     }
 
     struct select_mode {
@@ -1261,7 +1258,19 @@ void edit_rule(sync_point& sync) {
                     ImGui::Text("The current rule does not belong to the %s; press 'Ctrl' to enable flipping anyway.",
                                 require_ctrl);
                 }
-
+#ifndef NDEBUG
+                if (!preview_mode) {
+                    imgui_Str("(Debug mode) 'Z' to preview the flipping result.");
+                    if (shortcuts::global_flag(ImGuiKey_Z)) {
+                        lock_scroll();
+                        global_tooltip(true, [&] {
+                            imgui_Str("Preview:");
+                            ImGui::SameLine();
+                            previewer::preview(-1, config, get_adjacent_rule() /*in tooltip*/);
+                        });
+                    }
+                }
+#endif
                 ImGui::Separator();
 
                 ImGui::PushTextWrapPos(-1); // No wrapping.
@@ -1281,20 +1290,6 @@ void edit_rule(sync_point& sync) {
                     imgui_Str("...");
                 }
                 ImGui::PopTextWrapPos();
-
-#ifndef NDEBUG
-                // TODO: refine...
-                if (!preview_mode) {
-                    ImGui::Separator();
-                    if (!shortcuts::global_flag(ImGuiKey_Z)) {
-                        imgui_Str("(Debug mode) 'Z' to preview the flipping result.");
-                    } else {
-                        imgui_Str("Preview:");
-                        ImGui::SameLine();
-                        previewer::preview(-1, config, get_adjacent_rule() /*in tooltip*/);
-                    }
-                }
-#endif
             };
 
             // TODO: better color... (will be ugly if using green colors...)

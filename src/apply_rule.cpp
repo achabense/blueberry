@@ -765,7 +765,7 @@ public:
             });
             ImGui::SameLine();
             if (imgui_StrTooltip("(?)", "The buttons are for resizing the space to full-screen.\n\n"
-                                        "(Scroll in the window to zoom in/out without resizing.)")) {
+                                        "(Scroll in the space window to zoom in/out without resizing.)")) {
                 highlight_canvas = true;
             }
         };
@@ -839,9 +839,9 @@ public:
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
-                "If the current rule maps '000...' to '1' and '111...' to '0' (aka strobing rules), the step will be ceiled to 2*n to avoid large spans of pure-color areas flashing between two colors.\n\n"
-                "In such cases, the step will be shown as e.g. '1 -> 2', '2 -> 2', '3 -> 4', '4 -> 4'. The adjustment also applies to '+s' mode, but you can still change the parity of generation with the '+1' button.\n\n"
-                "Occasionally, you may also find rules that don't flash in the pure-color case (so the adjustment won't happen), but can develop non-trivial flashing areas. The effect can usually be avoided by manually setting an even step.");
+                "If the current rule maps '000...' to 1 and '111...' to 0 (aka \"strobing rule\"), the step will be ceiled to 2*n (e.g. 1->2, 2->2) to avoid large spans of 0/1 areas flashing between two colors.\n\n"
+                "The adjustment applies to '+s' mode as well, but does not affect '+1' (so you can change the parity of generation with it).\n\n"
+                "Sometimes you may also find rules that are non-strobing (so the adjustment won't take place) but can develop non-trivial flashing areas. The effect can usually be avoided by manually setting a 2*n step.");
 
             const int min_ms = 0, max_ms = 400;
             imgui_StepSliderShortcuts::set(ImGuiKey_3, ImGuiKey_4, enable_shortcuts);
@@ -938,7 +938,10 @@ public:
                 m_paste.reset();
             }
         });
-        guide_mode::item_tooltip("Pattern to paste.");
+        if (guide_mode::item_tooltip(
+                "Pattern to paste. (Hover on the space window and press 'V' to read pattern from the clipboard.)")) {
+            highlight_canvas = true;
+        }
 
         {
             // (Values of GetContentRegionAvail() can be negative...)
@@ -1270,7 +1273,7 @@ public:
                     // Filling.
                     ImGui::Separator();
                     fill_den.step_slide("Fill density");
-                    term("Random fill", "+/=", ImGuiKey_Equal, true, _random_fill);
+                    term("Random fill", "+ (=)", ImGuiKey_Equal, true, _random_fill);
                     term("Clear inside", "Backspace", ImGuiKey_Backspace, true, _clear_inside);
                     term("Clear outside", "0 (zero)", ImGuiKey_0, true, _clear_outside);
 
