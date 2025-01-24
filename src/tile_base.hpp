@@ -17,6 +17,7 @@ namespace aniso {
         friend vecT operator*(const vecT& a, double b) = delete;
 
         [[nodiscard]] vecT plus(int dx, int dy) const { return {.x = x + dx, .y = y + dy}; }
+        [[nodiscard]] vecT minus(int dx, int dy) const { return {.x = x - dx, .y = y - dy}; }
         bool both_gteq(const vecT& b) const { return x >= b.x && y >= b.y; } // >=
         bool both_lteq(const vecT& b) const { return x <= b.x && y <= b.y; } // <=
         bool both_lt(const vecT& b) const { return x < b.x && y < b.y; }     // <
@@ -96,6 +97,10 @@ namespace aniso {
             [[nodiscard]] tile_ref_ clip(const rangeT& range) const {
                 assert(!range.empty() && contains(range));
                 return {&at(range.begin), range.size(), stride};
+            }
+            [[nodiscard]] tile_ref_ clip_corner(vecT corner) const {
+                assert(corner.both_gt({0, 0}) && corner.both_lteq(size));
+                return {data, corner, stride};
             }
 
             void for_each_line(const auto& fn) const {

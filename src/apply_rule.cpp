@@ -189,7 +189,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
     static const auto take_corner = [](const aniso::tile_const_ref tile) {
         assert(tile.size.both_gteq(period_size));
         periodT p{};
-        aniso::copy(p.data(), tile.clip({{0, 0}, period_size}));
+        aniso::copy(p.data(), tile.clip_corner(period_size));
         return p;
     };
     static const auto locate_pattern = [](const aniso::tile_const_ref tile,
@@ -219,7 +219,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
         aniso::vecT off;     // Pattern's begin pos, relative to the initial pattern.
         bool run(const aniso::ruleT& rule) {
             const aniso::tile_const_ref pattern = tile.data().clip(range);
-            const aniso::tile_const_ref background = pattern.clip({{0, 0}, period_size});
+            const aniso::tile_const_ref background = pattern.clip_corner(period_size);
             const aniso::vecT padding = {1, 1};
             // (Ceiled for torus run. This can be avoided if `border_ref` is calculated manually, but that
             // will be a lot of code.)
@@ -719,7 +719,7 @@ public:
             if (resize && init.background.size() != *resize) {
                 aniso::tileT resized(*resize); // Already 0-filled.
                 const aniso::vecT common = aniso::min(resized.size(), init.background.size());
-                aniso::copy(resized.data().clip({{}, common}), init.background.data().clip({{}, common}));
+                aniso::copy(resized.data().clip_corner(common), init.background.data().clip_corner(common));
                 init.background.swap(resized);
             }
 
@@ -1048,10 +1048,10 @@ public:
                     paste_beg = aniso::clamp(cel_pos - m_paste->size() / 2, {0, 0}, tile_size - m_paste->size());
                 } else {
                     if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-                        const aniso::vecT pos = aniso::clamp(cel_pos, {0, 0}, tile_size.plus(-1, -1));
+                        const aniso::vecT pos = aniso::clamp(cel_pos, {0, 0}, tile_size.minus(1, 1));
                         m_sel = {.active = true, .beg = pos, .end = pos};
                     } else if (m_sel && m_sel->active && r_down) {
-                        m_sel->end = aniso::clamp(cel_pos, {0, 0}, tile_size.plus(-1, -1));
+                        m_sel->end = aniso::clamp(cel_pos, {0, 0}, tile_size.minus(1, 1));
                     }
                 }
             }
@@ -1367,7 +1367,7 @@ public:
                     aniso::fill_outside(m_torus.write_only(), m_sel->to_range(), background);
                 } else if (op == _select_all) {
                     if (!m_sel || m_sel->width() != tile_size.x || m_sel->height() != tile_size.y) {
-                        m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.plus(-1, -1)};
+                        m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
                     } else {
                         m_sel.reset();
                     }
@@ -1377,7 +1377,7 @@ public:
                     if (begin != end) {
                         // (Should not be m_sel->beg here.)
                         m_sel = {
-                            .active = false, .beg = sel_range.begin + begin, .end = sel_range.begin + end.plus(-1, -1)};
+                            .active = false, .beg = sel_range.begin + begin, .end = sel_range.begin + end.minus(1, 1)};
                     } else {
                         m_sel.reset();
                     }

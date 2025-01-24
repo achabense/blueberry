@@ -15,6 +15,10 @@ namespace aniso {
     inline vecT min(const vecT a, const vecT b) { return {.x = std::min(a.x, b.x), .y = std::min(a.y, b.y)}; }
     inline vecT max(const vecT a, const vecT b) { return {.x = std::max(a.x, b.x), .y = std::max(a.y, b.y)}; }
 
+    // (Only for describing precondition.)
+    inline bool non_overlapping(const tile_const_ref, const tile_const_ref) { return true; }
+    inline bool non_overlapping_or_same_area(const tile_const_ref, const tile_const_ref) { return true; }
+
     namespace _misc {
         class wrapped_int {
             int i; // [0, r).
@@ -54,17 +58,18 @@ namespace aniso {
         return c;
     }
 
-    // (`dest` and `source` should not overlap.)
     inline void copy(const tile_ref dest, const tile_const_ref source) {
+        assert(non_overlapping(dest, source));
         dest.for_all_data_vs(source, [](cellT* d, const cellT* s, int len) { //
             std::copy_n(s, len, d);
         });
     }
 
-    // (`dest` should not overlap with `source` or `repeat`.)
     // (`repeat.at(0, 0)` is bound to `source.at(0, 0)`.)
     inline void copy_diff(const tile_ref dest, const tile_const_ref source,
                           const tile_const_ref repeat /*background*/) {
+        assert(non_overlapping(dest, source) && non_overlapping(dest, repeat));
+        assert(dest.size == source.size);
         if (repeat.size == vecT{1, 1}) {
             // Different from `blit` here.
             dest.for_all_data_vs(source, [background = *repeat.data](cellT* d, const cellT* s, int len) {
@@ -77,7 +82,6 @@ namespace aniso {
             return;
         }
 
-        assert(dest.size == source.size);
         _misc::wrapped_int dy(0, repeat.size.y);
         dest.for_each_line([&](const int y, std::span<cellT> line) {
             const cellT* const rep = repeat.line(dy++);
@@ -92,10 +96,10 @@ namespace aniso {
         });
     }
 
-    // (`dest` and `source` should not overlap.)
     enum class blitE { Copy, Or, And, Xor };
     template <blitE mode>
     inline void blit(const tile_ref dest, const tile_const_ref source) {
+        assert(non_overlapping(dest, source));
         if constexpr (mode == blitE::Copy) {
             copy(dest, source);
         } else {
@@ -149,14 +153,15 @@ namespace aniso {
         });
     }
 
-    // (`tile` and `repeat` should not overlap.)
     // (`repeat.at(0, 0)` is bound to `tile.at(0, 0)`.)
     inline void fill(const tile_ref tile, const tile_const_ref repeat) {
+        assert(non_overlapping(tile, repeat));
         if (repeat.size == vecT{1, 1}) {
             fill(tile, *repeat.data);
             return;
         }
 
+#if 0
         _misc::wrapped_int dy(0, repeat.size.y);
         tile.for_each_line([&](const int y, std::span<cellT> line) {
             const cellT* const rep = repeat.line(dy++);
@@ -165,6 +170,20 @@ namespace aniso {
                 cell = rep[dx++];
             }
         });
+#else
+        // (Faster even in release mode.)
+        const vecT common = min(tile.size, repeat.size);
+        copy(tile.clip_corner(common), repeat.clip_corner(common));
+        for (int y = 0; y < repeat.size.y; ++y) {
+            cellT* const ln = tile.line(y);
+            for (int i = repeat.size.x; i < tile.size.x; ++i) {
+                ln[i] = ln[i - repeat.size.x];
+            }
+        }
+        for (int i = repeat.size.y; i < tile.size.y; ++i) {
+            std::copy_n(tile.line(i - repeat.size.y), tile.size.x, tile.line(i));
+        }
+#endif
     }
 
     inline void fill_outside(const tile_ref tile, const rangeT& range, const cellT v) {
@@ -187,6 +206,7 @@ namespace aniso {
         }
 
         assert(tile.contains(range));
+        assert(non_overlapping(tile, repeat));
         const auto fill = [](std::span<cellT> line, const cellT* rep, _misc::wrapped_int dx) {
             for (cellT& cell : line) {
                 cell = rep[dx++];
@@ -316,9 +336,9 @@ namespace aniso {
     } // namespace _tests
 #endif // ENABLE_TESTS
 
-    // (`dest` and `source` should not overlap.)
-    // Map (0, 0) to (wrap(to.x), wrap(to.y)).
+    // Rotate (0, 0) to (wrap(to.x), wrap(to.y)).
     inline void rotate_copy_00_to(const tile_ref dest, const tile_const_ref source, vecT to) {
+        assert(non_overlapping(dest, source));
         assert(dest.size == source.size);
         const vecT size = dest.size;
 
@@ -589,7 +609,6 @@ namespace aniso {
     using border_ref = _misc::border_ref_<false /* !is_const */>;
     using border_const_ref = _misc::border_ref_<true /* is_const */>;
 
-    // `dest` and `source` may either refer to the same area, or completely non-overlapping.
     inline void apply_rule(const rule_like auto& rule, const tile_ref dest, const tile_const_ref source,
                            const border_const_ref source_border) {
         // (Relying on current coding scheme.)
@@ -599,6 +618,7 @@ namespace aniso {
         // ~ "arbitrary-signed-int << bits" is made well-defined in C++20.
         static_assert((INT_MIN << 1) == 0);
 
+        assert(non_overlapping_or_same_area(source, dest));
         assert(source.size == dest.size);
         assert(source.size == source_border.size);
         const vecT size = source.size;
