@@ -148,8 +148,7 @@ static aniso::lockT capture_closed(const aniso::tile_const_ref tile, const aniso
 // objects like guns, puffers etc.)
 // The area should be fully surrounded by 2*2 periodic border, and contain a full phase of the object (one or
 // several oscillators, or a single spaceship).
-// TODO: should be able to deal with larger periods in the future... (notice the error messages are currently
-// hard-coded.)
+// TODO: revamp & extend period support to up to 4*4 (notice the error messages are currently hard-coded).
 static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
                      const bool require_matching_background = true) {
     static constexpr aniso::vecT period_size{2, 2};
@@ -1260,9 +1259,7 @@ public:
                     ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                     imgui_RadioButton("1", &background, {1});
                     ImGui::SameLine();
-                    imgui_StrTooltip("(?)",
-                                     "'Clear inside/outside' and 'Cut' will clear the range with the value.\n"
-                                     "'Bound' will get the bounding-box for the pattern that consists of !(value).");
+                    imgui_StrTooltip("(?)", "'Clear inside/outside' and 'Cut' will clear the range with this value.");
 
                     // Filling.
                     ImGui::Separator();
@@ -1274,8 +1271,10 @@ public:
                     ImGui::Separator();
                     term("Select all", "A", ImGuiKey_A, false, _select_all);
                     term("Bound", "B", ImGuiKey_B, true, _bounding_box);
-                    term("Test background", "P", ImGuiKey_P, true, _test_bg_period);
-                    guide_mode::item_tooltip("Test the properties (size and period) of periodic background.");
+                    guide_mode::item_tooltip(
+                        "Get the bounding box for the pattern (the area should be fully enclosed in periodic background).");
+                    term("Test background", "P", ImGuiKey_P, true, _test_bg_period); // TODO: redesign...
+                    guide_mode::item_tooltip("Test the size and period of periodic background.");
 
                     // Copy/Cut/Paste.
                     ImGui::Separator();
@@ -1367,17 +1366,30 @@ public:
                     }
                 } else if (op == _bounding_box && m_sel) {
                     const aniso::rangeT sel_range = m_sel->to_range();
-                    const auto [begin, end] = aniso::bounding_box(m_torus.read_only(sel_range), background);
-                    if (begin != end) {
-                        // (Should not be m_sel->beg here.)
-                        m_sel = {
-                            .active = false, .beg = sel_range.begin + begin, .end = sel_range.begin + end.minus(1, 1)};
+                    const aniso::tile_const_ref sel_area = m_torus.read_only(sel_range);
+                    if (const auto p_size = aniso::spatial_period_enclosing(sel_area, {10, 10})) {
+                        aniso::rangeT bound = aniso::bounding_box(sel_area, sel_area.clip_corner(*p_size));
+                        if (!bound.empty()) {
+                            // (Pad up to two layers of bg pattern.)
+                            bound.begin -= *p_size;
+                            bound.end += *p_size;
+                            if (bound.begin.both_gteq(*p_size) && bound.end.both_lteq(sel_area.size - *p_size)) {
+                                bound.begin -= *p_size;
+                                bound.end += *p_size;
+                            }
+                            m_sel = {.active = false,
+                                     .beg = sel_range.begin + bound.begin,
+                                     .end = sel_range.begin + bound.end.minus(1, 1)};
+                        } else {
+                            // m_sel.reset();
+                            messenger::set_msg("The area contains nothing.");
+                        }
                     } else {
-                        m_sel.reset();
+                        messenger::set_msg("The area is not enclosed in periodic background.");
                     }
                 } else if (op == _test_bg_period && m_sel) {
                     const aniso::tile_const_ref sel_area = m_torus.read_only(m_sel->to_range());
-                    if (const auto p_size = aniso::spatial_period(sel_area, {30, 30})) {
+                    if (const auto p_size = aniso::spatial_period_full_area(sel_area, {30, 30})) {
                         if (const auto period = aniso::torus_period(sync.rule, sel_area.clip_corner(*p_size), 60)) {
                             messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size->x, p_size->y, *period);
                         } else {

@@ -275,11 +275,35 @@ namespace aniso {
         }
     }
 
-    inline std::optional<vecT> spatial_period(const tile_const_ref tile, const vecT max_period) {
-        auto has_period_x = [tile](const int p_x) -> bool {
-            for (int y = 0; y < tile.size.y; ++y) {
-                for (int x = p_x; x < tile.size.x; ++x) {
-                    if (tile.at(x, y) != tile.at(x - p_x, y)) {
+    namespace _misc {
+        inline bool test_period(const cellT* begin, int size, int stride, int period) {
+            if (period >= size) {
+                return true;
+            }
+            const cellT *a = begin, *b = begin + period * stride, *end = begin + size * stride;
+            for (; b != end; a += stride, b += stride) {
+                if (*a != *b) {
+                    return false;
+                }
+            }
+            return true;
+        };
+    } // namespace _misc
+
+    inline std::optional<vecT> spatial_period_enclosing(const tile_const_ref tile, const vecT max_period) {
+        auto has_period = [tile](const vecT period) {
+            assert((period.size * 2).both_lteq(tile.size));
+            using listT = std::initializer_list<std::array<int, 2>>;
+            for (const auto [ybeg, yend] : listT{{0, period.y}, {tile.size.y - period.y, tile.size.y}}) {
+                for (int y = ybeg; y < yend; ++y) {
+                    if (!_misc::test_period(&tile.at(0, y), tile.size.x, 1, period.x)) {
+                        return false;
+                    }
+                }
+            }
+            for (const auto [xbeg, xend] : listT{{0, period.x}, {tile.size.x - period.x, tile.size.x}}) {
+                for (int x = xbeg; x < xend; ++x) {
+                    if (!_misc::test_period(&tile.at(x, 0), tile.size.y, tile.stride, period.y)) {
                         return false;
                     }
                 }
@@ -287,12 +311,30 @@ namespace aniso {
             return true;
         };
 
+        for (int y = 1; y <= std::min(tile.size.y / 2, max_period.y); ++y) {
+            for (int x = 1; x <= std::min(tile.size.x / 2, max_period.x); ++x) {
+                if (has_period({.x = x, .y = y})) {
+                    return vecT{.x = x, .y = y};
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
+    inline std::optional<vecT> spatial_period_full_area(const tile_const_ref tile, const vecT max_period) {
+        auto has_period_x = [tile](const int p_x) -> bool {
+            for (int y = 0; y < tile.size.y; ++y) {
+                if (!_misc::test_period(&tile.at(0, y), tile.size.x, 1, p_x)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
         auto has_period_y = [tile](const int p_y) -> bool {
-            for (int y = p_y; y < tile.size.y; ++y) {
-                for (int x = 0; x < tile.size.x; ++x) {
-                    if (tile.at(x, y) != tile.at(x, y - p_y)) {
-                        return false;
-                    }
+            for (int x = 0; x < tile.size.x; ++x) {
+                if (!_misc::test_period(&tile.at(x, 0), tile.size.y, tile.stride, p_y)) {
+                    return false;
                 }
             }
             return true;

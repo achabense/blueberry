@@ -16,6 +16,9 @@ namespace aniso {
         friend vecT operator/(const vecT& a, double b) = delete;
         friend vecT operator*(const vecT& a, double b) = delete;
 
+        void operator+=(const vecT& other) { x += other.x, y += other.y; }
+        void operator-=(const vecT& other) { x -= other.x, y -= other.y; }
+
         [[nodiscard]] vecT plus(int dx, int dy) const { return {.x = x + dx, .y = y + dy}; }
         [[nodiscard]] vecT minus(int dx, int dy) const { return {.x = x - dx, .y = y - dy}; }
         bool both_gteq(const vecT& b) const { return x >= b.x && y >= b.y; } // >=
