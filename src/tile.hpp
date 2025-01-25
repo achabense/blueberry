@@ -292,7 +292,7 @@ namespace aniso {
 
     inline std::optional<vecT> spatial_period_enclosing(const tile_const_ref tile, const vecT max_period) {
         auto has_period = [tile](const vecT period) {
-            assert((period.size * 2).both_lteq(tile.size));
+            assert((period * 2).both_lteq(tile.size));
             using listT = std::initializer_list<std::array<int, 2>>;
             for (const auto [ybeg, yend] : listT{{0, period.y}, {tile.size.y - period.y, tile.size.y}}) {
                 for (int y = ybeg; y < yend; ++y) {
