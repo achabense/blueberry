@@ -163,14 +163,8 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
         aniso::tile_const_ref data() const { return {m_data.data(), period_size}; }
 
         bool is_periodic(const aniso::ruleT& rule) const {
-            periodT torus = *this;
-            for (int g = 0; g < (1 << (period_size.x * period_size.y)); ++g) {
-                aniso::apply_rule_torus(rule, torus.data());
-                if (torus == *this) {
-                    return true;
-                }
-            }
-            return false;
+            const int max_period = 1 << (period_size.x * period_size.y);
+            return aniso::torus_period(rule, data(), max_period).has_value();
         }
         bool rotate_equal(const periodT& b) const {
             for (int dy = 0; dy < period_size.y; ++dy) {
@@ -1382,28 +1376,13 @@ public:
                         m_sel.reset();
                     }
                 } else if (op == _test_bg_period && m_sel) {
-                    const aniso::rangeT sel_range = m_sel->to_range();
-                    const aniso::vecT p_size = aniso::spatial_period(m_torus.read_only(sel_range));
-                    // TODO: the check may have false positives (consider there is a single 1 in the 0 background).
-                    // (Requiring p_size * 2 <= sel_range.size will be too strict.)
-                    if (p_size.both_lt(sel_range.size()) && p_size.xy() * 3 < sel_range.size().xy()) {
-                        const auto period = [&]() -> std::optional<int> {
-                            const aniso::tileT init(m_torus.read_only({sel_range.begin, sel_range.begin + p_size}));
-                            aniso::tileT tile = init;
-                            const int max_g = 64;
-                            for (int g = 1; g <= max_g; ++g) {
-                                tile.run_torus(sync.rule);
-                                if (tile == init) {
-                                    return g;
-                                }
-                            }
-                            return std::nullopt;
-                        }();
-
-                        if (period) {
-                            messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size.x, p_size.y, *period);
+                    const aniso::tile_const_ref sel_area = m_torus.read_only(m_sel->to_range());
+                    if (const auto p_size = aniso::spatial_period(sel_area, {30, 30})) {
+                        if (const auto period = aniso::torus_period(sync.rule, sel_area.clip_corner(*p_size), 60)) {
+                            messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size->x, p_size->y, *period);
                         } else {
-                            messenger::set_msg("Not periodic. (Spatial period: x = {}, y = {})", p_size.x, p_size.y);
+                            messenger::set_msg("Spatial period: x = {}, y = {} (not temporally periodic)", p_size->x,
+                                               p_size->y);
                         }
                     } else {
                         // (The too-large case is considered impossible to occur naturally.)

@@ -275,8 +275,7 @@ namespace aniso {
         }
     }
 
-    // `tile.size` -> non-periodic, or the period is too large
-    inline vecT spatial_period(const tile_const_ref tile) {
+    inline std::optional<vecT> spatial_period(const tile_const_ref tile, const vecT max_period) {
         auto has_period_x = [tile](const int p_x) -> bool {
             for (int y = 0; y < tile.size.y; ++y) {
                 for (int x = p_x; x < tile.size.x; ++x) {
@@ -299,20 +298,24 @@ namespace aniso {
             return true;
         };
 
-        vecT p_size = tile.size;
-        for (int x = 1; x < std::min(tile.size.x, 60); ++x) {
+        std::optional<int> period_x = std::nullopt, period_y = std::nullopt;
+        for (int x = 1; x <= std::min(tile.size.x / 2, max_period.x); ++x) {
             if (has_period_x(x)) {
-                p_size.x = x;
+                period_x = x;
                 break;
             }
         }
-        for (int y = 1; y < std::min(tile.size.y, 60); ++y) {
+        for (int y = 1; y <= std::min(tile.size.y / 2, max_period.y); ++y) {
             if (has_period_y(y)) {
-                p_size.y = y;
+                period_y = y;
                 break;
             }
         }
-        return p_size;
+        if (period_x && period_y) {
+            return vecT{.x = *period_x, .y = *period_y};
+        } else {
+            return std::nullopt;
+        }
     }
 
 #ifdef ENABLE_TESTS
@@ -805,5 +808,16 @@ namespace aniso {
             }
         }
     };
+
+    inline std::optional<int> torus_period(const ruleT& rule, const tile_const_ref init, const int max_period) {
+        tileT torus(init);
+        for (int g = 1; g <= max_period; ++g) {
+            torus.run_torus(rule);
+            if (equal(init, torus.data())) {
+                return g;
+            }
+        }
+        return std::nullopt;
+    }
 
 } // namespace aniso
