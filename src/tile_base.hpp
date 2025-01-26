@@ -106,6 +106,11 @@ namespace aniso {
                 return {data, corner, stride};
             }
 
+            tile_ref_ top(int y) const { return clip({{0, 0}, {size.x, y}}); }
+            tile_ref_ left(int x) const { return clip({{0, 0}, {x, size.y}}); }
+            tile_ref_ bottom(int y) const { return clip({{0, size.y - y}, size}); }
+            tile_ref_ right(int x) const { return clip({{size.x - x, 0}, size}); }
+
             void for_each_line(const auto& fn) const {
                 T* data = this->data;
                 for (int y = 0; y < size.y; ++y, data += stride) {
@@ -152,17 +157,19 @@ namespace aniso {
     using tile_ref = _misc::tile_ref_<cellT>;
     using tile_const_ref = _misc::tile_ref_<const cellT>;
 
+    inline bool equal(const cellT* a, const cellT* b, int len) { return std::equal(a, a + len, b); }
+
     inline bool equal(const tile_const_ref a, const tile_const_ref b) {
         if (a.size != b.size) {
             return false;
         }
         if (a.size.x == a.stride && b.size.x == b.stride) {
-            return std::equal(a.data, a.data + a.size.xy(), b.data);
+            return equal(a.data, b.data, a.size.xy());
         }
 
         const cellT *a_data = a.data, *b_data = b.data;
         for (int y = 0; y < a.size.y; ++y, a_data += a.stride, b_data += b.stride) {
-            if (!std::equal(a_data, a_data + a.size.x, b_data)) {
+            if (!equal(a_data, b_data, a.size.x)) {
                 return false;
             }
         }

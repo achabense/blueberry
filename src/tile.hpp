@@ -180,8 +180,8 @@ namespace aniso {
                 ln[i] = ln[i - repeat.size.x];
             }
         }
-        for (int i = repeat.size.y; i < tile.size.y; ++i) {
-            std::copy_n(tile.line(i - repeat.size.y), tile.size.x, tile.line(i));
+        for (int y = repeat.size.y; y < tile.size.y; ++y) {
+            std::copy_n(tile.line(y - repeat.size.y), tile.size.x, tile.line(y));
         }
 #endif
     }
@@ -276,39 +276,37 @@ namespace aniso {
     }
 
     namespace _misc {
-        inline bool test_period(const cellT* begin, int size, int stride, int period) {
-            if (period >= size) {
+        inline bool is_periodic_x(const tile_const_ref tile, int p) {
+            assert(p > 0);
+            if (p >= tile.size.x) {
                 return true;
             }
-            const cellT *a = begin, *b = begin + period * stride, *end = begin + size * stride;
-            for (; b != end; a += stride, b += stride) {
-                if (*a != *b) {
+            for (int y = 0; y < tile.size.y; ++y) {
+                const cellT* ln = tile.line(y);
+                if (!equal(ln, ln + p, tile.size.x - p)) { // [i] == [i+p]
                     return false;
                 }
             }
             return true;
-        };
+        }
+
+        inline bool is_periodic_y(const tile_const_ref tile, int p) {
+            assert(p > 0);
+            for (int y = p; y < tile.size.y; ++y) {
+                if (!equal(tile.line(y), tile.line(y - p), tile.size.x)) {
+                    return false;
+                }
+            }
+            return true;
+        }
     } // namespace _misc
 
     inline std::optional<vecT> spatial_period_enclosing(const tile_const_ref tile, const vecT max_period) {
         auto has_period = [tile](const vecT period) {
             assert((period * 2).both_lteq(tile.size));
-            using listT = std::initializer_list<std::array<int, 2>>;
-            for (const auto [ybeg, yend] : listT{{0, period.y}, {tile.size.y - period.y, tile.size.y}}) {
-                for (int y = ybeg; y < yend; ++y) {
-                    if (!_misc::test_period(&tile.at(0, y), tile.size.x, 1, period.x)) {
-                        return false;
-                    }
-                }
-            }
-            for (const auto [xbeg, xend] : listT{{0, period.x}, {tile.size.x - period.x, tile.size.x}}) {
-                for (int x = xbeg; x < xend; ++x) {
-                    if (!_misc::test_period(&tile.at(x, 0), tile.size.y, tile.stride, period.y)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
+            using namespace _misc;
+            return is_periodic_x(tile.top(period.y), period.x) && is_periodic_x(tile.bottom(period.y), period.x) &&
+                   is_periodic_y(tile.left(period.x), period.y) && is_periodic_y(tile.right(period.x), period.y);
         };
 
         for (int y = 1; y <= std::min(tile.size.y / 2, max_period.y); ++y) {
@@ -322,33 +320,15 @@ namespace aniso {
     }
 
     inline std::optional<vecT> spatial_period_full_area(const tile_const_ref tile, const vecT max_period) {
-        auto has_period_x = [tile](const int p_x) -> bool {
-            for (int y = 0; y < tile.size.y; ++y) {
-                if (!_misc::test_period(&tile.at(0, y), tile.size.x, 1, p_x)) {
-                    return false;
-                }
-            }
-            return true;
-        };
-
-        auto has_period_y = [tile](const int p_y) -> bool {
-            for (int x = 0; x < tile.size.x; ++x) {
-                if (!_misc::test_period(&tile.at(x, 0), tile.size.y, tile.stride, p_y)) {
-                    return false;
-                }
-            }
-            return true;
-        };
-
         std::optional<int> period_x = std::nullopt, period_y = std::nullopt;
         for (int x = 1; x <= std::min(tile.size.x / 2, max_period.x); ++x) {
-            if (has_period_x(x)) {
+            if (_misc::is_periodic_x(tile, x)) {
                 period_x = x;
                 break;
             }
         }
         for (int y = 1; y <= std::min(tile.size.y / 2, max_period.y); ++y) {
-            if (has_period_y(y)) {
+            if (_misc::is_periodic_y(tile, y)) {
                 period_y = y;
                 break;
             }
@@ -377,6 +357,18 @@ namespace aniso {
             const rangeT test_range = bounding_box(tile, {period, {2, 2}});
             assert(!test_range.empty());
             assert(test_range.begin == inner_range.begin && test_range.end == inner_range.end);
+        };
+
+        inline const testT test_periodic_functions_2 = [] {
+            cellT tile_data[49]{};
+            const tile_ref tile{tile_data, {7, 7}};
+            const cellT period[4]{0, 0,  // 0 0
+                                  0, 1}; // 0 1
+            fill(tile, {period, {2, 2}});
+            assert((spatial_period_full_area(tile, tile.size) == vecT{2, 2}));
+            // !!TODO: "smallest-enclosing-period" seems inherently problematic...
+            assert((spatial_period_enclosing(tile, tile.size) == vecT{1, 1})); // (as the area is surround by {0})
+            // assert((spatial_period_enclosing(tile, tile.size) == vecT{2, 2}));
         };
     } // namespace _tests
 #endif // ENABLE_TESTS
@@ -596,7 +588,7 @@ namespace aniso {
                     assert(w == size.x && h == size.y);
                     return std::optional{b};
                 });
-                assert(std::equal(a_data.get(), a_data.get() + size.xy(), b_data.get()));
+                assert(equal(a_data.get(), b_data.get(), size.xy()));
             }
         };
     } // namespace _tests
@@ -846,7 +838,7 @@ namespace aniso {
                 assert(b.empty());
                 return true;
             } else {
-                return std::equal(a.m_data, a.m_data + a.m_size.xy(), b.m_data);
+                return equal(a.m_data, b.m_data, a.m_size.xy());
             }
         }
     };
