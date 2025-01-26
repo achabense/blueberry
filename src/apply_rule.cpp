@@ -194,7 +194,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
             return {};
         } else if (!(range.begin.both_gteq(period_size) && range.end.both_lteq(tile.size - period_size))) {
             if (for_input) {
-                messenger::set_msg("The area should fully enclose the pattern with 2*2 periodic background.");
+                messenger::set_msg("The area is not enclosed in 2*2 periodic background.");
             } else {
                 assert(false); // Guaranteed by `regionT::run`.
             }
@@ -275,6 +275,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
                 str = std::format("#C Spaceship. Period:{}. Offset(x,y):({},{}).\n", g, region.off.x, region.off.y);
             }
             assert(str.ends_with('\n'));
+            // TODO: pad an extra layer of bg pattern?
             str += aniso::to_RLE_str(smallest.data(), &rule);
             ImGui::SetClipboardText(str.c_str());
             messenger::set_msg(std::move(str));
@@ -1272,7 +1273,7 @@ public:
                     term("Select all", "A", ImGuiKey_A, false, _select_all);
                     term("Bound", "B", ImGuiKey_B, true, _bounding_box);
                     guide_mode::item_tooltip(
-                        "Get the bounding box for the pattern (the area should be fully enclosed in periodic background).");
+                        "Get the bounding box for the pattern. (The pattern should be enclosed in 2*2 periodic background.)");
                     term("Test background", "P", ImGuiKey_P, true, _test_bg_period); // TODO: redesign...
                     guide_mode::item_tooltip("Test the size and period of periodic background.");
 
@@ -1365,17 +1366,19 @@ public:
                         m_sel.reset();
                     }
                 } else if (op == _bounding_box && m_sel) {
+                    // TODO: temporarily sharing the same logic with `identify`...
                     const aniso::rangeT sel_range = m_sel->to_range();
                     const aniso::tile_const_ref sel_area = m_torus.read_only(sel_range);
-                    if (const auto p_size = aniso::spatial_period_enclosing(sel_area, {10, 10})) {
-                        aniso::rangeT bound = aniso::bounding_box(sel_area, sel_area.clip_corner(*p_size));
+                    const aniso::vecT p_size{2, 2};
+                    if (aniso::has_enclosing_period(sel_area, p_size)) {
+                        aniso::rangeT bound = aniso::bounding_box(sel_area, sel_area.clip_corner(p_size));
                         if (!bound.empty()) {
-                            // (Pad up to two layers of bg pattern.)
-                            bound.begin -= *p_size;
-                            bound.end += *p_size;
-                            if (bound.begin.both_gteq(*p_size) && bound.end.both_lteq(sel_area.size - *p_size)) {
-                                bound.begin -= *p_size;
-                                bound.end += *p_size;
+                            bound.begin -= p_size;
+                            bound.end += p_size;
+                            // (Pad another layer of bg pattern if possible; this behaves well but skipped to keep same as `identify`.)
+                            if (false && bound.begin.both_gteq(p_size) && bound.end.both_lteq(sel_area.size - p_size)) {
+                                bound.begin -= p_size;
+                                bound.end += p_size;
                             }
                             m_sel = {.active = false,
                                      .beg = sel_range.begin + bound.begin,
@@ -1385,7 +1388,7 @@ public:
                             messenger::set_msg("The area contains nothing.");
                         }
                     } else {
-                        messenger::set_msg("The area is not enclosed in periodic background.");
+                        messenger::set_msg("The area is not enclosed in 2*2 periodic background.");
                     }
                 } else if (op == _test_bg_period && m_sel) {
                     const aniso::tile_const_ref sel_area = m_torus.read_only(m_sel->to_range());
