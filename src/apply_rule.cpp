@@ -773,15 +773,18 @@ public:
 
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip("(...)", "Keyboard shortcuts:\n"
-                                          "Restart: R    Pause: Space    +s/+1/+!: S/D/F (repeatable)\n"
-                                          "-/+ Step:     1/2 (repeatable)\n"
+                                          "Restart : R (or T)\n"
+                                          "Pause   : Space\n"
+                                          "+s/+1/+!: S/D/F (or G) (repeatable)\n"
+                                          "-/+ Step    : 1/2 (repeatable)\n"
                                           "-/+ Interval: 3/4 (repeatable)\n\n"
                                           "These shortcuts are available only when the space window is hovered or held "
                                           "by mouse button.")) {
                 highlight_canvas = true;
             }
             ImGui::SameLine();
-            if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false)) {
+            // (_T and _G are initially for preview windows; also apply here for convenience.)
+            if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false) || item_shortcut(ImGuiKey_T, false)) {
                 m_torus.restart();
             }
             ImGui::SameLine();
@@ -801,7 +804,8 @@ public:
             ImGui::SameLine();
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
-                (enable_shortcuts && shortcuts::test_down(ImGuiKey_F) && shortcuts::highlight())) {
+                (enable_shortcuts && (shortcuts::test_down(ImGuiKey_F) || shortcuts::test_down(ImGuiKey_G)) &&
+                 shortcuts::highlight())) {
                 ctrl.extra_step = std::max(ctrl.actual_step(), step_fast);
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
@@ -1565,8 +1569,8 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
     const bool hovered = ImGui::IsItemHovered();
     const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-    const bool restart = (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_T)) ||
-                         (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test(ImGuiKey_R)) ||
+    const bool restart = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test(ImGuiKey_R)) ||
+                         (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_T) && ImGui::IsWindowHovered()) ||
                          term.tile.size() != tile_size || term.seed != config.seed ||
                          term.area != global_config::area || term.rule != rule;
     if (restart) {
@@ -1579,10 +1583,10 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     }
 
     // (`IsItemActive` does not work as preview-window is based on `Dummy`.)
-    // (_F will override pause mode (to align with the space window) while _G will not (to align with _T for restarting).
+    // (_R and _F will override pause mode, while _T and _G will not.
     const bool pause = hovered && l_down;
-    const bool fast = (hovered && shortcuts::test_down(ImGuiKey_F)) ||
-                      (!l_down && shortcuts::keys_avail() && shortcuts::test_down(ImGuiKey_G));
+    const bool fast = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_down(ImGuiKey_F)) ||
+                      (shortcuts::keys_avail() && shortcuts::test_down(ImGuiKey_G) && ImGui::IsWindowHovered());
     if (fast || (!pause && (restart || (global_config::timer.test() && !std::exchange(term.skip_run, false))))) {
         const int p = adjust_step(fast ? std::max(config.step, step_fast) : config.step, rule);
         for (int i = 0; i < p; ++i) {
@@ -1635,8 +1639,8 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             "(...)",
             "Operations:\n"
             "- Left-click and hold to pause.\n"
-            "- Hover + 'R' to restart. ('T' for all preview windows.)\n"
-            "- 'F' to speed up. ('G' for all preview windows.)\n"
+            "- 'R' to restart. ('T' for all windows in the hovered area.)\n"
+            "- 'F' to speed up. ('G' for all windows in the hovered area.)\n"
             "- 'Z' to see which subsets the rule belongs to.\n\n"
             "If the rule belongs to 'Hex' subset:\n"
             "- '6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
