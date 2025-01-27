@@ -355,7 +355,6 @@ inline bool begin_popup_for_item() {
 
     if (ImGui::BeginPopupEx(item_id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
                                          ImGuiWindowFlags_NoSavedSettings)) {
-        lock_scroll();
         if (!ImGui::IsWindowContentHoverable(ImGui::GetCurrentWindowRead())) {
             return true;
         }
@@ -365,6 +364,11 @@ inline bool begin_popup_for_item() {
 
         const ImVec2 mouse_pos = ImGui::GetMousePos();
         const auto window_rect = imgui_GetWindowRect();
+        if (!window_rect.Contains(mouse_pos)) {
+            // Disable mouse scrolling in other windows.
+            lock_scroll();
+        }
+
         if (!window_rect.Contains(mouse_pos) && item_rect.Contains(mouse_pos)) {
 #ifndef NDEBUG
             // Avoid closing the popup when the item is clicked; relying on the impl details of this function:
