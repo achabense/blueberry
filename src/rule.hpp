@@ -17,6 +17,16 @@
 #define ENABLE_TESTS
 #endif // !NDEBUG
 
+#if defined(__clang__)
+#define ALWAYS_INLINE [[clang::always_inline]]
+#elif defined(__GNUC__)
+#define ALWAYS_INLINE [[gnu::always_inline]]
+#elif defined(_MSC_VER)
+#define ALWAYS_INLINE [[msvc::forceinline]]
+#else
+#define ALWAYS_INLINE inline
+#endif
+
 static_assert(INT_MAX >= INT32_MAX);
 
 #define assert_implies(a, b) assert(!(a) || (b))
@@ -35,9 +45,8 @@ namespace aniso {
 #if 1
     struct cellT {
         bool val{};
-        /*implicit*/ operator int() const { return val; }
+        /*implicit*/ ALWAYS_INLINE operator int() const { return val; }
         // (`operator==` is delegated to comparing `int()` result.)
-        // TODO: I cannot find a way to enforce this be inlined in debug mode...)
 
         // (Note: to allow for seamless switch between `bool`, `~` is not usable as bool(~bool(1)) == 1 instead of 0...)
         friend cellT operator!(cellT c) { return cellT(!c.val); }
@@ -76,20 +85,25 @@ namespace aniso {
     // `situT` encoded as an integer.
     struct codeT {
         int16_t val{};
-        /*implicit*/ operator int() const { /*assert(0 <= val && val < 512);*/ return val; }
+        /*implicit*/ ALWAYS_INLINE operator int() const { /*assert(0 <= val && val < 512);*/ return val; }
 
         template <class T, int tag = 0>
         class map_to {
+#ifndef NDEBUG // Debug
+            // `array::operator[]` can slow down `apply_rule` by more than %20 in debug mode...
+            T m_map[512]{};
+#else // Release
             std::array<T, 512> m_map{};
+#endif
 
         public:
             const T& operator[](codeT code) const { return m_map[code]; }
             T& operator[](codeT code) { return m_map[code]; }
 
-            void fill(const T& val) { m_map.fill(val); }
+            void fill(const T& val) { std::fill_n(std::data(m_map), 512, val); }
             friend bool operator==(const map_to&, const map_to&) = default;
 
-            T operator()(codeT code) const
+            ALWAYS_INLINE T operator()(codeT code) const
                 requires(std::is_same_v<T, cellT> && tag == 1)
             {
                 return m_map[code];

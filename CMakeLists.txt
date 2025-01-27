@@ -16,6 +16,11 @@ FetchContent_MakeAvailable(SDL2)
 
 project(Blueberry)
 
+# Otherwise, force-inline doesn't work.
+if (MSVC)
+string(REPLACE "/Ob0" "/Ob1" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+endif()
+
 file(GLOB imgui_src CONFIGURE_DEPENDS imgui/* imgui/backends/*)
 
 add_executable(${PROJECT_NAME} WIN32
