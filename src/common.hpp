@@ -67,7 +67,7 @@ public:
 
 class rule_recorder : no_create {
 public:
-    enum typeE : int { Current, Copied, TraverseOrRandom, RandomAccess, Ignore };
+    enum typeE : int { Current, Copied, RandomAccess, Ignore };
 
     static void record(typeE type, const aniso::ruleT& rule, const aniso::ruleT* from = nullptr);
     static void load_record(sync_point&);

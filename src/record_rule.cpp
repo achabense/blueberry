@@ -2,37 +2,35 @@
 
 #include "common.hpp"
 
-// (Sharing the same style with textT::display.)
+// (Identical to `textT::display_header`.)
 static std::optional<int> display_header(const int total, const std::optional<int> m_pos) {
-    std::optional<int> n_pos = std::nullopt;
+    std::optional<int> pos = std::nullopt;
 
-    if (total == 0) {
-        imgui_Str("(No rules)");
-    } else {
+    if (total != 0) {
         switch (sequence::seq("<|", "Prev", "Next", "|>")) {
-            case 0: n_pos = 0; break;
-            case 1: n_pos = std::max(0, m_pos.value_or(-1) - 1); break;
-            case 2: n_pos = std::min(total - 1, m_pos.value_or(-1) + 1); break;
-            case 3: n_pos = total - 1; break;
+            case 0: pos = 0; break;
+            case 1: pos = std::max(0, m_pos.value_or(-1) - 1); break;
+            case 2: pos = std::min(total - 1, m_pos.value_or(-1) + 1); break;
+            case 3: pos = total - 1; break;
         }
+
         ImGui::SameLine();
         if (m_pos.has_value()) {
             ImGui::Text("Total:%d At:%d", total, *m_pos + 1);
         } else {
             ImGui::Text("Total:%d At:N/A", total);
         }
-
-        // TODO: whether to support -> At like textT?
-        // TODO: tooltips?
+    } else {
+        imgui_Str("(No rules)");
     }
 
-    return n_pos;
+    return pos;
 }
 
 static std::optional<int> display_page(const int total, const std::function<aniso::ruleT(int)> access,
                                        const previewer::configT& config, const std::optional<int> highlight,
                                        const std::optional<int> locate) {
-    std::optional<int> n_pos = std::nullopt;
+    std::optional<int> sel_pos = std::nullopt;
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Page")) {
@@ -58,20 +56,19 @@ static std::optional<int> display_page(const int total, const std::function<anis
                 ImGui::SetScrollHereY();
             }
             ImGui::SameLine();
-            // TODO: improve style...
             ImGui::PushID(l);
-            if (ImGui::Button(">> Cur")) {
-                n_pos = l;
+            if (ImGui::Button(">> Cur") && !locate) {
+                sel_pos = l;
             }
             ImGui::PopID();
         }
     }
     ImGui::PopStyleColor();
 
-    return n_pos;
+    return sel_pos;
 }
 
-struct recordT {
+class recordT {
     using keyT = aniso::compressT;
     using mapT = std::unordered_map<keyT, int /*-> m_vec[i]*/, keyT::hashT>;
     using vecT = std::vector<const keyT* /*-> m_map's keys*/>;
@@ -79,9 +76,15 @@ struct recordT {
     mapT m_map;
     vecT m_vec;
 
+public:
     int size() const {
         assert(m_map.size() == m_vec.size());
         return m_vec.size();
+    }
+
+    const keyT& at(int i) {
+        assert(0 <= i && i < m_vec.size());
+        return *m_vec[i];
     }
 
     std::optional<int> find(const aniso::ruleT& rule) const {
@@ -99,14 +102,13 @@ struct recordT {
     }
 
     void clear() {
-        m_vec.clear();
+        m_vec.clear(); // TODO: whether to release memory?
         m_map.clear();
     }
 };
 
 static recordT record_current;
 static recordT record_copied;
-static recordT record_traverse_or_random;
 static recordT record_random_access;
 
 void rule_recorder::record(typeE type, const aniso::ruleT& rule, const aniso::ruleT* from) {
@@ -114,8 +116,6 @@ void rule_recorder::record(typeE type, const aniso::ruleT& rule, const aniso::ru
         record_current.emplace(rule);
     } else if (type == typeE::Copied) {
         record_copied.emplace(rule);
-    } else if (type == typeE::TraverseOrRandom) {
-        record_traverse_or_random.emplace(rule);
     } else if (type == typeE::RandomAccess) {
         assert(from);
         record_random_access.emplace(*from);
@@ -126,10 +126,8 @@ void rule_recorder::record(typeE type, const aniso::ruleT& rule, const aniso::ru
 }
 
 // !!TODO: tooltips (especially explanations for each record).
-// !!TODO: support clearing.
-// !!TODO: for random-access record, support prev/next.
-// !!TODO: support sorting by recentness (especially useful for random-access).
-// TODO: support more records (custom masking-rule etc.)?
+// TODO: ideally there should be special support for random-access editing (e.g. preceding-rule).
+// TODO: support sorting by recentness (especially useful for random-access).
 // TODO: support exporting as text (-> clipboard).
 void rule_recorder::load_record(sync_point& sync) {
     struct termT {
@@ -137,62 +135,61 @@ void rule_recorder::load_record(sync_point& sync) {
         recordT* record;
     };
     // TODO: find more suitable labels...
-    static constexpr termT record_terms[]{{"Current rule", &record_current},
-                                          {"Copied rules", &record_copied},
-                                          {"'Traverse' or 'Random'", &record_traverse_or_random},
-                                          {"Random access", &record_random_access}};
+    static constexpr termT record_terms[]{
+        {"Current rule", &record_current}, {"Copied rules", &record_copied}, {"Random access", &record_random_access}};
     static const termT* active_term = &record_terms[0];
 
     static previewer::configT config{previewer::configT::_220_160};
-    static std::optional<int> last_returned = std::nullopt;
-    static bool auto_locate = false;
+    static std::optional<int> iter_pos = std::nullopt;
     bool reset_scroll = false;
 
-    ImGui::SmallButton("Select");
-    if (begin_popup_for_item()) {
+    ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
+    ImGui::SetNextItemWidth(imgui_CalcTextSize("Random access    ").x);
+    if (ImGui::BeginCombo("##Select", active_term->label)) {
         for (int id = 0; const termT& term : record_terms) {
             if (imgui_SelectableStyledButtonEx(id++, term.label, active_term == &term) &&
                 compare_update(active_term, &term)) {
-                last_returned.reset();
-                auto_locate = false;
+                iter_pos.reset();
                 reset_scroll = true;
             }
         }
-        ImGui::EndPopup();
+        ImGui::EndCombo();
     }
+    ImGui::PopStyleVar();
     ImGui::SameLine();
-    imgui_Str(active_term->label);
+    // !!TODO: require double-clicking?
+    if (ImGui::SmallButton("Clear")) {
+        set_msg_cleared(true); // !!TODO: redesign...
+        iter_pos.reset();
+        reset_scroll = true;
+        active_term->record->clear();
+        if (active_term == &record_terms[0]) {
+            active_term->record->emplace(sync.rule);
+        }
+    }
 
     recordT& active_record = *active_term->record;
     const int record_size = active_record.size();
     const std::optional<int> found = active_record.find(sync.rule);
-    if (auto_locate && !found) {
-        auto_locate = false;
-    }
-    // (!found -> !auto <=> auto -> found)
-    assert_implies(auto_locate, found);
-    std::optional<int> locate = (auto_locate && found != last_returned) ? found : std::nullopt;
+    std::optional<int> locate = std::nullopt;
 
     ImGui::SameLine();
     ImGui::BeginDisabled(!found);
-    ImGui::BeginGroup();
     if (ImGui::SmallButton("Locate")) {
         locate = found;
     }
-    ImGui::SameLine();
-    ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
-    ImGui::Checkbox("Auto", &auto_locate);
-    ImGui::PopStyleVar();
-    ImGui::EndGroup();
     ImGui::EndDisabled();
     if (!found) {
         // TODO: improve...
         imgui_ItemTooltip("The current rule is not in this list.");
     }
-    assert_implies(auto_locate, found);
 
     ImGui::Separator();
-    const auto n_pos = display_header(record_size, last_returned);
+    if (const auto pos = display_header(record_size, iter_pos)) {
+        if (!locate) {
+            locate = *pos;
+        }
+    }
     if (record_size != 0) {
         ImGui::SameLine();
         config.set("Preview settings");
@@ -202,17 +199,14 @@ void rule_recorder::load_record(sync_point& sync) {
     if (reset_scroll) {
         ImGui::SetNextWindowScroll({0, 0});
     }
-    // (Not eagerly updating highlight line, as locate -> ImGui::SetScrollHereY will have one-frame delay.)
-    const auto o_pos = display_page(
-        record_size, [&](int i) { return *active_record.m_vec[i]; }, config, last_returned, locate ? locate : n_pos);
-
+    // (`iter_pos` should be updated after `display_page`, as locate -> ImGui::SetScrollHereY will have one-frame delay.)
+    if (const auto sel =
+            display_page(record_size, [&](int i) { return active_record.at(i); }, config, iter_pos, locate)) {
+        assert(!locate);
+        sync.set(active_record.at(*sel));
+        locate = *sel;
+    }
     if (locate) {
-        last_returned = locate;
-    } else if (n_pos) { // (Both n_pos and o_pos work well in auto_locate mode.)
-        sync.set(*active_record.m_vec[*n_pos]);
-        last_returned = n_pos; // (Will not trigger auto-locate next frame.)
-    } else if (o_pos) {
-        sync.set(*active_record.m_vec[*o_pos]);
-        last_returned = o_pos; // (Will not trigger auto-locate next frame.)
+        iter_pos = locate;
     }
 }

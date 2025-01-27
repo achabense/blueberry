@@ -645,9 +645,8 @@ struct page_adapter {
     int page_size = 6, perline = 3;
 
     // `page_resized` should be able to access *this someway.
-    void display(const previewer::configT& config, const rule_recorder::typeE rec, sync_point& out,
-                 ImVec2& min_req_size, std::function<void()> page_resized,
-                 std::function<const aniso::ruleT*(int)> access) {
+    void display(const previewer::configT& config, sync_point& out, ImVec2& min_req_size,
+                 std::function<void()> page_resized, std::function<const aniso::ruleT*(int)> access) {
         const ImVec2 avail_size = ImGui::GetContentRegionAvail();
         // (The same value as in `edit_rule`.)
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
@@ -684,7 +683,7 @@ struct page_adapter {
             if (const aniso::ruleT* rule = access(j); rule != nullptr) {
                 ImGui::PushID(j);
                 if (ImGui::Button(">> Cur")) {
-                    out.set(*rule, rec);
+                    out.set(*rule);
                 }
                 ImGui::PopID();
                 previewer::preview(j, config, *rule);
@@ -850,7 +849,7 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
         config.set("Preview settings");
 
         adapter.display(
-            config, rule_recorder::TraverseOrRandom, sync, size_constraint_min,
+            config, sync, size_constraint_min,
             [&] {
                 if (page.size() > adapter.page_size) {
                     while (page.size() > adapter.page_size) {
@@ -956,7 +955,7 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
 
         // TODO: reconsider page-resized logic (seeking to the last page may still be confusing).
         aniso::ruleT buffer{}; // To provide `const ruleT*`.
-        adapter.display(config, rule_recorder::TraverseOrRandom, sync, size_constraint_min, set_last_page, [&](int j) {
+        adapter.display(config, sync, size_constraint_min, set_last_page, [&](int j) {
             const int r = page_no * adapter.page_size + j;
             assert(r >= 0);
             return r < rules.size() ? (buffer = rules[r], &buffer) : nullptr;
