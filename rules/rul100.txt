@@ -1,0 +1,41 @@
+Finally, found a spaceship gun in periodic bg around this rule:
+MAPM/OTc7slO6EE8QH0IHQgM4HrIOv57PnNkdCA07FFslsEIAEgqy6uM0wAAUUA/g0gg6OAsooNm1uz4sy0uJKm+g
+-..> !!!
+MAPs/OTc7ulO6EG+QH0KHQgM6HrIOv57PnNmdCA07BBslsUYAEg6y6uM0wAAUUA7A0gw6KAsooJm1uz4My0qJKm+g
+-..>{
+MAPsvOTc7ulO6EGuQH0KnQgM6HrIOv57PnNmdiA07BBs18UcAEg4y6uM0wBAUUB7A0yw6KAs8oJm18z5My2rJK2+g
+!!! v one of the best discoveries found so far...
+MAPk3GTcyulO6EG2QP8KHQoMyGrIOvx7PnNmdCI0zBBslsUYBFgyy7uM0wAAUUA7A0gwyLAsooJm1uz4My0qJKm+g
+}
+
+
+MAPAC5ef3RJf182KPSw6I7w0l7IX93IE88yaxLw8oc8x+w26K6qYNSimmiC6KKQXrCWeZWqnRJmuuwTAiGiEKCwgA
+-..>
+MAPAC5eX3RJX182KPSw6I7w0l7IX13IE08yaxLw8oc8x+026K6qYNSimmiC6KKQXrCWeZWqnRJmuu0TAiGiEKCwkg
+
+
+MAPE2AScSggK4UBxACSQiBxJwSiJI6w7NRMgAiR1zEFew8BGAArjCCSNSBBIDAJNiL6gCODe0AFn1XJBhKaFBLS2g
+-..>
+MAPE2AScSggK4EBxAGWQyBxJwSiJI6w7NRMgAyB1zEFew8BGQErjCCWNSBRIHALNip6gCOBe0QFn1XJDlqaVBLS2g
+...
+
+#C Oscillator. Period:760.
+x = 24, y = 24, rule = MAPE2ABMCggIgEBxAFGQyBxZwSiBY6w7NRMgAwBlzEFfw8BGQErjCAcPSBRIHILNjp6gCMBf0QFl1XJDvoaVBJS2g
+obobobobobobobobobobobob$bobobobobobobobobobobobo$obobobo2b
+o2bobobobobobo$bobobo7bobobobobobo$o11bobobobobobo$bo2bo8bo
+bobobobobo$o11bobobobobobo$bobo7bobobobobobobo$obobo5bobobo
+bobobobo$bobo5bobobobobobobobo$obobo3bobobobobobobobo$bobo5b
+obobobobobobobo$obobo3bobobobobobobobo$bobo5bobobobobobobob
+o$obobo3bobobobobobobobo$bobobobobobobobobobobobo$obobobobo
+bobobobobobobo$bobobobobobobobo3bobobo$obobobobobobobo5bobo
+$bobobobobobo3bo3bo3bo$obobobobobobo2bo3bo2bo$bobobobobobo11b
+o$obobobobobobobobobobobo$bobobobobobobobobobobobo!
+
+
+(large spaceships)
+MAP/s2AFM2ABqTxlhIKsQ1ICOgMJCBEJCCEw0VagFgBGQSroxJIlkVQQITwIICqaIC3mUpaQw0BgARamAEDwloRBA
+(train)
+MAP/s2AFM2ABrbxlhACsQ1ACOgMJDBEJCKEw0VSoFgBGYSrowIIlkUQQITwIICqaIC3mUoaQw0BoIRamAEDwloRBA
+
+MAPAA5fT1RJXd83LvTw6I7w0l5If11IE08zaxLwco88x/036K6qdNSqmmjC6KKYXrCSedWqnRJmOu9bAqCiEKCwsg
+MAPAQptvlBo9u0ua/5q6ICrgF5o+uhok+ilKAB4nIgynBN06P7xeYB4gGwAyJMAAJOgYMBqxgAyxhOAQIAMCCBEsg
