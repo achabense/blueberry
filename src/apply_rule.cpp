@@ -122,7 +122,7 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
 // This is only good at capturing simple, "self-contained" patterns (oscillators/spaceships).
 // For more complex situations, the program has "open-capture" (`fake_apply`) to record
 // areas frame-by-frame.
-static aniso::lockT capture_closed(const aniso::tile_const_ref tile, const aniso::ruleT& rule) {
+[[maybe_unused]] static aniso::lockT capture_closed(const aniso::tile_const_ref tile, const aniso::ruleT& rule) {
     aniso::lockT lock{};
     aniso::tileT torus(tile);
 
@@ -749,7 +749,7 @@ public:
         auto select_zoom = [&] {
             ImGui::AlignTextToFramePadding();
             imgui_Str("Zoom ~");
-            m_coord.zoom.select([&](const bool is_cur, const float z, const char* const s) {
+            m_coord.zoom.select([&](const bool is_cur, float, const char* const s) {
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 if (ImGui::RadioButton(s, is_cur)) {
                     resize_fullscreen = true;
@@ -1180,7 +1180,6 @@ public:
                     _identify
                 };
 
-                static bool replace = true;     // Closed-capture.
                 static percentT fill_den = 0.5; // Random-fill.
                 static bool add_rule = true;    // Copy / cut.
                 auto copy_sel = [&] {
@@ -1473,7 +1472,9 @@ void apply_rule(sync_point& sync) {
 }
 
 // TODO: let users decide which to be globally shared?
-struct global_config {
+class global_config : no_create {
+    friend class previewer;
+
     inline static global_timer::timerT timer{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
     inline static percentT area = 1.0;
 };
@@ -1528,7 +1529,7 @@ void previewer::configT::_set() {
     ImGui::PopItemWidth();
 }
 
-class previewer_data {
+class previewer_data : no_create {
     friend class previewer;
 
     struct termT {

@@ -584,8 +584,6 @@ Lock-enhancement
 "Static constraints"
 This is a feature similar to "Capture" to help find still-life patterns...
 )";
-#else
-constexpr const char* doc_lock_and_capture = "This section is not finished yet :(";
 #endif
 
 extern constexpr const char* docs[][2]{{"About this program", skip_nl(doc_about)},

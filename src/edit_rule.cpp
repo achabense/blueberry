@@ -636,7 +636,7 @@ public:
         return *mask_ptrs[mask_tag];
     }
 
-    std::array<char, 2> masked_char() const { //
+    std::pair<char, char> masked_char() const { //
         return {mask_terms[mask_tag].chr_0, mask_terms[mask_tag].chr_1};
     }
 };
@@ -755,9 +755,9 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
             static aniso::subsetT cmp_set{};
             static aniso::maskT cmp_mask{};
             // TODO: are there better behaviors than clearing directly?
-            const int updated = compare_update(cmp_set, working_set) |
-                                compare_update(cmp_mask, mask); // No short-circuiting; using int to avoid warning.
-            if (updated && !page.empty()) {
+            const bool _a = compare_update(cmp_set, working_set);
+            const bool _b = compare_update(cmp_mask, mask); // (Shouldn't be short-circuited.)
+            if ((_a || _b) && !page.empty()) {
                 page.clear();
             }
         }
@@ -1433,8 +1433,7 @@ void edit_rule(sync_point& sync) {
     }
 }
 
-// TODO: temporarily preserved.
-static void static_constraints(aniso::partialT& out) {
+[[maybe_unused]] static void static_constraints(aniso::partialT& out) {
     enum stateE { Any_background, O, I, O_background, I_background };
 
     // (Follows `ImGui::Dummy` or `ImGui::InvisibleButton`.)

@@ -21,20 +21,22 @@
     {
       "name": "x64-debug-msvc",
       "displayName": "x64 Debug (msvc)",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (Debug)",
       "inherits": "windows-base",
       "architecture": {
         "value": "x64",
         "strategy": "external"
       },
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
     },
     {
       "name": "x64-release-msvc",
       "displayName": "x64 Release (msvc)",
-      "description": "Target Windows (64-bit) with the Visual Studio development environment. (RelWithDebInfo)",
       "inherits": "x64-debug-msvc",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     },
     {
       "name": "x64-debug-clang",
@@ -42,8 +44,14 @@
       "inherits": "x64-debug-msvc",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang.exe",
-        "CMAKE_CXX_COMPILER": "clang.exe"
+        "CMAKE_CXX_COMPILER": "clang++.exe"
       }
+      // This is not set automatically, and the intellisense will behave as if picking an older standard...
+      // "vendor": {
+      //   "microsoft.com/VisualStudioSettings/CMake/1.0": {
+      //     "intelliSenseMode": "windows-clang-x64"
+      //   }
+      // }
     },
     {
       "name": "x64-debug-gcc",

@@ -355,7 +355,7 @@ namespace aniso {
             const tile_ref tile{tile_data.get(), size};
             const rangeT inner_range{padding_a, padding_a + inner_size};
             fill(tile.clip(inner_range), {0});
-            const cellT period[4]{1, 0, 0, 1}; // Checkerboard.
+            const cellT period[4]{{1}, {0}, {0}, {1}}; // Checkerboard.
             fill_outside(tile, inner_range, {period, {2, 2}});
             const rangeT test_range = bounding_box(tile, {period, {2, 2}});
             assert(!test_range.empty());
@@ -365,9 +365,8 @@ namespace aniso {
         inline const testT test_periodic_functions_2 = [] {
             cellT tile_data[49]{};
             const tile_ref tile{tile_data, {7, 7}};
-            const cellT period[4]{0, 0,  // 0 0
-                                  0, 1}; // 0 1
-            fill(tile, {period, {2, 2}});
+            const cellT period[4]{{0}, {0}, {0}, {1}}; // 0 0
+            fill(tile, {period, {2, 2}});              // 0 1
             assert((spatial_period_full_area(tile, tile.size) == vecT{2, 2}));
             assert(has_enclosing_period(tile, {2, 2}) && has_enclosing_period(tile, {1, 1}));
             // `spatial_period_enclosing` (smallest-enclosing-period) doesn't select expected period for this case...

@@ -19,9 +19,8 @@ inline void assert_utf8_encoding() {
     constexpr auto a = std::to_array("中文");
     constexpr auto b = std::to_array(u8"中文");
 
-    static_assert(std::equal(a.begin(), a.end(), b.begin(), b.end(), [](auto l, auto r) {
-        return static_cast<unsigned char>(l) == static_cast<unsigned char>(r);
-    }));
+    static_assert(std::ranges::equal(
+        a, b, [](auto l, auto r) { return static_cast<unsigned char>(l) == static_cast<unsigned char>(r); }));
 }
 
 // Experience in MSVC
@@ -372,7 +371,7 @@ inline bool begin_popup_for_item() {
         if (!window_rect.Contains(mouse_pos) && item_rect.Contains(mouse_pos)) {
 #ifndef NDEBUG
             // Avoid closing the popup when the item is clicked; relying on the impl details of this function:
-            (void)ImGui::UpdateMouseMovingWindowEndFrame;
+            (void)&ImGui::UpdateMouseMovingWindowEndFrame;
             // Initially I tried to use modal popup to avoid the closing behavior, but that caused much more
             // trouble than it solved :|
 #endif
@@ -899,7 +898,7 @@ inline void set_clipboard_and_notify(const std::string& str) {
     }
 }
 
-inline void set_msg_cleared(bool has_effect) {
+inline void set_msg_cleared(bool /*has_effect*/) {
     // if (has_effect) {
     messenger::set_msg("Cleared.");
     // }

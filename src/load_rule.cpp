@@ -164,8 +164,7 @@ class folderT {
     std::vector<entryT> m_dirs{}, m_files{};
 
     static void collect(const pathT& path, std::vector<entryT>& dirs, std::vector<entryT>& files) noexcept(false) {
-        dirs.clear();
-        files.clear();
+        assert(dirs.empty() && files.empty());
         for (const auto& entry :
              std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied)) {
             std::error_code ec{};

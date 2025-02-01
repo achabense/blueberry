@@ -27,6 +27,16 @@
 #define ALWAYS_INLINE inline
 #endif
 
+#if 1
+#if defined(__clang__)
+#pragma clang diagnostic ignored "-Wsign-compare" // Comparision between int & size_t etc.
+#elif defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#elif defined(_MSC_VER)
+#pragma warning(disable : 4244 4267) // Conversion between int & size_t etc.
+#endif
+#endif
+
 static_assert(INT_MAX >= INT32_MAX);
 
 #define assert_implies(a, b) assert(!(a) || (b))
@@ -362,8 +372,8 @@ namespace aniso {
                     return;
                 }
 
-                if (const int prefix = _misc::count_base64(str.substr(3 /*MAP*/, MAP_len)); prefix < MAP_len) {
-                    str.remove_prefix(3 /*MAP*/ + prefix);
+                if (const int len = _misc::count_base64(str.substr(3 /*MAP*/, MAP_len)); len < MAP_len) {
+                    str.remove_prefix(3 /*MAP*/ + len);
                 } else { // Matched.
                     this->prefix = {begin, str.data()};
                     this->rule_str = {str.data(), rule_len};

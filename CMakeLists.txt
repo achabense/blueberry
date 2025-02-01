@@ -14,36 +14,28 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL2)
 
-project(Blueberry)
+project(Blueberry LANGUAGES CXX)
 
-# Otherwise, force-inline doesn't work.
 if (MSVC)
-string(REPLACE "/Ob0" "/Ob1" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    string(REPLACE "/Ob0" "/Ob1" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}") # Otherwise, force-inline doesn't work.
+#   string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
-file(GLOB imgui_src CONFIGURE_DEPENDS imgui/* imgui/backends/*)
+file(GLOB SOURCE_LIST CONFIGURE_DEPENDS src/*.cpp imgui/*.cpp imgui/backends/*.cpp)
 
-add_executable(${PROJECT_NAME} WIN32
-    ${imgui_src}
+add_executable(${PROJECT_NAME} WIN32 ${SOURCE_LIST})
 
-    src/rule.hpp
-    src/tile_base.hpp
-    src/tile.hpp
-    src/rule_algo.hpp
-    src/dear_imgui.hpp
-    src/common.hpp
+target_compile_options(${PROJECT_NAME} PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/utf-8> # https://stackoverflow.com/questions/47690822
+    $<$<CXX_COMPILER_ID:Clang>:-finput-charset=utf-8 -fexec-charset=utf-8>
+    $<$<CXX_COMPILER_ID:GNU>:-finput-charset=utf-8 -fexec-charset=utf-8>
 
-    src/apply_rule.cpp
-    src/edit_rule.cpp
-    src/record_rule.cpp
-    src/docs.cpp
-    src/load_rule.cpp
-    src/frame_main.cpp
-    src/main.cpp
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof> # -Wconversion -Wshadow
+
+#   $<$<CXX_COMPILER_ID:MSVC>:/WX>
+#   $<$<CXX_COMPILER_ID:Clang>:-Werror>
+#   $<$<CXX_COMPILER_ID:GNU>:-Werror>
 )
-
-# https://stackoverflow.com/questions/47690822/possible-to-force-cmake-msvc-to-use-utf-8-encoding-for-source-files-without-a-bo
-target_compile_options(${PROJECT_NAME} PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_include_directories(${PROJECT_NAME} PRIVATE src imgui imgui/backends)
