@@ -230,22 +230,19 @@ int main(int, char**) {
     // !!TODO: update readme.
     ImGui::GetIO().IniFilename = nullptr;
     ImGui::GetIO().LogFilename = nullptr;
-#ifdef NDEBUG
-    ImGui::GetIO().ConfigDebugHighlightIdConflicts = false;
-#endif
+    if constexpr (!debug_mode) {
+        ImGui::GetIO().ConfigDebugHighlightIdConflicts = false;
+    }
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
 
     // Setup Platform/Renderer backends
-#ifdef NDEBUG
-    const auto default_open = ImGui::GetPlatformIO().Platform_OpenInShellFn;
-#endif
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer2_Init(renderer);
-#ifdef NDEBUG
-    ImGui::GetPlatformIO().Platform_OpenInShellFn = default_open; // So `ImGui_ImplSDL2_Init` makes no difference.
-#endif
+    if constexpr (!debug_mode) {
+        ImGui::GetPlatformIO().Platform_OpenInShellFn = nullptr;
+    }
 
 #if 0
     // Test-only.

@@ -308,9 +308,9 @@ namespace aniso {
                _misc::has_period_y(tile.right(period.x), period.y);
     }
 
-#ifndef NDEBUG
     // (Doesn't behave well in practice; see `test_periodic_functions_2`.)
-    inline std::optional<vecT> spatial_period_enclosing(const tile_const_ref tile, const vecT max_period) {
+    /*[[deprecated]]*/ inline std::optional<vecT> spatial_period_enclosing(const tile_const_ref tile,
+                                                                           const vecT max_period) {
         for (int y = 1; y <= std::min(tile.size.y / 2, max_period.y); ++y) {
             for (int x = 1; x <= std::min(tile.size.x / 2, max_period.x); ++x) {
                 if (has_enclosing_period(tile, {.x = x, .y = y})) {
@@ -320,7 +320,6 @@ namespace aniso {
         }
         return std::nullopt;
     }
-#endif
 
     inline std::optional<vecT> spatial_period_full_area(const tile_const_ref tile, const vecT max_period) {
         std::optional<int> period_x = std::nullopt, period_y = std::nullopt;
@@ -391,9 +390,7 @@ namespace aniso {
             return;
         }
 
-#ifndef NDEBUG
-        const cellT test = source.at(0, 0);
-#endif // !NDEBUG
+        assert_val(const cellT test = source.at(0, 0));
         source.for_each_line([&](int y, std::span<const cellT> line) {
             cellT* const dest_ = dest.line((y + to.y) % size.y);
             std::copy_n(line.data(), size.x - to.x, dest_ + to.x);

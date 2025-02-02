@@ -65,8 +65,7 @@ static void get_reversal_dual(const bool button_result, sync_point& sync) {
 void frame_main() {
     // Make collapsed windows obvious to see.
     ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, ImGui::GetColorU32(ImGuiCol_TitleBgActive, 0.8f));
-    const bool compact_mode_this_frame = compact_mode;
-    if (compact_mode_this_frame) {
+    if (compact_mode) {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{3, 2});
     }
 
@@ -153,19 +152,19 @@ void frame_main() {
         }
 #endif // SET_FRAME_RATE
 
-#ifndef NDEBUG
-        ImGui::SameLine(0, wide_spacing);
-        imgui_Str("(Debug mode)");
-        ImGui::SameLine();
-        static bool show_demo = false;
-        ImGui::Checkbox("Demo window", &show_demo);
-        if (show_demo) {
-            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
-            ImGui::ShowDemoWindow(&show_demo);
+        if constexpr (debug_mode) {
+            ImGui::SameLine(0, wide_spacing);
+            imgui_Str("(Debug mode)");
+            ImGui::SameLine();
+            static bool show_demo = false;
+            ImGui::Checkbox("Demo window", &show_demo);
+            if (show_demo) {
+                ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+                ImGui::ShowDemoWindow(&show_demo);
+            }
+            ImGui::SameLine(0, wide_spacing);
+            ImGui::Text("Frame:%d", ImGui::GetFrameCount());
         }
-        ImGui::SameLine(0, wide_spacing);
-        ImGui::Text("Frame:%d", ImGui::GetFrameCount());
-#endif // !NDEBUG
 
         ImGui::Separator();
 
@@ -251,14 +250,8 @@ void frame_main() {
         rule_recorder::record(sync.rec_type, *sync.out_rule, &sync.rule);
     }
 
-    if (compact_mode_this_frame) {
+    if (compact_mode) {
         ImGui::PopStyleVar();
     }
     ImGui::PopStyleColor();
-
-#ifndef NDEBUG
-    if (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_7)) {
-        compact_mode = !compact_mode;
-    }
-#endif
 }

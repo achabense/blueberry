@@ -110,11 +110,7 @@ inline float wrap_len() {
 // inline const bool init_maximize_window = false;
 inline const bool init_zero_interval = false;
 inline const bool init_random_access_preview_mode = false;
-#ifndef NDEBUG
-inline bool compact_mode = false;
-#else // Release
 inline const bool compact_mode = false;
-#endif
 
 // TODO: consider using ImGui::Shortcut?
 // Some features cannot easily be satisfied with `ImGui::Shortcut` and `ImGui::SetNextItemShortcut`.
@@ -369,12 +365,11 @@ inline bool begin_popup_for_item() {
         }
 
         if (!window_rect.Contains(mouse_pos) && item_rect.Contains(mouse_pos)) {
-#ifndef NDEBUG
             // Avoid closing the popup when the item is clicked; relying on the impl details of this function:
             (void)&ImGui::UpdateMouseMovingWindowEndFrame;
             // Initially I tried to use modal popup to avoid the closing behavior, but that caused much more
             // trouble than it solved :|
-#endif
+
             GImGui->IO.MouseClicked[0] = GImGui->IO.MouseClicked[1] = false;
         } else if (const ImVec2 pad = square_size(); !ImGui::IsAnyItemActive() &&
                                                      !item_rect.ContainsWithPad(mouse_pos, pad * 1.5) &&

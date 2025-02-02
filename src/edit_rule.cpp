@@ -171,7 +171,7 @@ class subset_selector {
 public:
     // `sel` should be either nullptr or address of one of members in `aniso::_subsets`.
     void select_single(const aniso::subsetT* sel) {
-        const bool no_sel = !sel; // -> entire MAP set.
+        assert_val(const bool no_sel = !sel); // -> entire MAP set.
         for_each_term([&sel](termT& t) {
             t.disabled = false; // Will be updated by `update_current`.
             t.selected = t.set == sel;
@@ -1162,23 +1162,22 @@ void edit_rule(sync_point& sync) {
                              "Check the '-x' groups for details - no matter which mask is selected, for any rule in "
                              "the working set, the masked values should be all the same in any group.\n\n"
                              "You can get rules in the working set from the 'Traverse' or 'Random' window.");
-            // TODO: whether to remove this?
-#ifndef NDEBUG
-            rclick_popup::popup(imgui_GetItemPosID(), [&] {
-                if (ImGui::Selectable("Approx")) {
-                    sync.set(aniso::approximate(working_set.get_par(), mask, sync.rule));
-                }
-                imgui_ItemTooltip([&] {
-                    imgui_Str(
-                        "Get a rule in the working set by setting all '-x' groups to be the same as the masking rule.");
-                    ImGui::Separator();
-                    imgui_Str("Preview:");
-                    ImGui::SameLine();
-                    previewer::preview(-1, previewer::configT::_220_160,
-                                       aniso::approximate(working_set.get_par(), mask, sync.rule));
+            if constexpr (debug_mode) { // TODO: whether to remove this?
+                rclick_popup::popup(imgui_GetItemPosID(), [&] {
+                    if (ImGui::Selectable("Approx")) {
+                        sync.set(aniso::approximate(working_set.get_par(), mask, sync.rule));
+                    }
+                    imgui_ItemTooltip([&] {
+                        imgui_Str(
+                            "Get a rule in the working set by setting all '-x' groups to be the same as the masking rule.");
+                        ImGui::Separator();
+                        imgui_Str("Preview:");
+                        ImGui::SameLine();
+                        previewer::preview(-1, previewer::configT::_220_160,
+                                           aniso::approximate(working_set.get_par(), mask, sync.rule));
+                    });
                 });
-            });
-#endif // !NDEBUG
+            }
         }
 
         if (show_superset) {
@@ -1257,19 +1256,19 @@ void edit_rule(sync_point& sync) {
                     ImGui::Text("The current rule does not belong to the %s; press 'Ctrl' to enable flipping anyway.",
                                 require_ctrl);
                 }
-#ifndef NDEBUG
-                if (!preview_mode) {
-                    imgui_Str("(Debug mode) 'Z' to preview the flipping result.");
-                    if (shortcuts::global_flag(ImGuiKey_Z)) {
-                        lock_scroll();
-                        global_tooltip(true, [&] {
-                            imgui_Str("Preview:");
-                            ImGui::SameLine();
-                            previewer::preview(-1, config, get_adjacent_rule() /*in tooltip*/);
-                        });
+                if constexpr (debug_mode) {
+                    if (!preview_mode) {
+                        imgui_Str("(Debug mode) 'Z' to preview the flipping result.");
+                        if (shortcuts::global_flag(ImGuiKey_Z)) {
+                            lock_scroll();
+                            global_tooltip(true, [&] {
+                                imgui_Str("Preview:");
+                                ImGui::SameLine();
+                                previewer::preview(-1, config, get_adjacent_rule() /*in tooltip*/);
+                            });
+                        }
                     }
                 }
-#endif
                 ImGui::Separator();
 
                 ImGui::PushTextWrapPos(-1); // No wrapping.

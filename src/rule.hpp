@@ -14,8 +14,13 @@
 #include <vector>
 
 #ifndef NDEBUG
+#define assert_val(v) v
+inline constexpr bool debug_mode = true;
 #define ENABLE_TESTS
-#endif // !NDEBUG
+#else
+#define assert_val(v)
+inline constexpr bool debug_mode = false;
+#endif
 
 #if defined(__clang__)
 #define ALWAYS_INLINE [[clang::always_inline]]
@@ -99,12 +104,8 @@ namespace aniso {
 
         template <class T, int tag = 0>
         class map_to {
-#ifndef NDEBUG // Debug
             // `array::operator[]` can slow down `apply_rule` by more than %20 in debug mode...
-            T m_map[512]{};
-#else // Release
-            std::array<T, 512> m_map{};
-#endif
+            std::conditional_t<debug_mode, T[512], std::array<T, 512>> m_map{};
 
         public:
             const T& operator[](codeT code) const { return m_map[code]; }

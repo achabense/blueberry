@@ -272,9 +272,7 @@ namespace aniso {
                 }
             };
 
-#ifndef NDEBUG
-            const partitionT par_both = a.par | b.par;
-#endif
+            assert_val(const partitionT par_both = a.par | b.par);
             for_each_code([&](codeT code) {
                 if (!assigned[code]) {
                     assert(std::ranges::none_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));

@@ -910,11 +910,11 @@ void load_file(sync_point& out) {
                 return false;
             }
             text.clear();
-#ifndef NDEBUG // Debug
-            text.append(std::move(str), "@@");
-#else // Release
-            text.append(std::move(str));
-#endif
+            if constexpr (debug_mode) {
+                text.append(std::move(str), "@@");
+            } else {
+                text.append(std::move(str));
+            }
             return true;
         }
         return false;
@@ -1055,14 +1055,14 @@ void load_doc(sync_point& out) {
                 set_clipboard_and_notify(url);
             }
 
-#ifndef NDEBUG
-            ImGuiContext& g = *ImGui::GetCurrentContext();
-            if (g.PlatformIO.Platform_OpenInShellFn) {
-                if (ImGui::Selectable("Open in browser")) {
-                    g.PlatformIO.Platform_OpenInShellFn(&g, url);
+            if constexpr (debug_mode) {
+                ImGuiContext& g = *ImGui::GetCurrentContext();
+                if (g.PlatformIO.Platform_OpenInShellFn) {
+                    if (ImGui::Selectable("Open in browser")) {
+                        g.PlatformIO.Platform_OpenInShellFn(&g, url);
+                    }
                 }
             }
-#endif
         });
 
         ImGui::Separator();
