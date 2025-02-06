@@ -22,8 +22,8 @@ static bool strobing(const aniso::ruleT& rule) {
 
 static const int step_fast = 10;
 
-static int adjust_step(int step, const aniso::ruleT& rule) {
-    if ((step % 2) && strobing(rule)) {
+static int adjust_step(int step, bool strobing) {
+    if ((step % 2) && strobing) {
         return step + 1;
     }
     return step;
@@ -293,12 +293,11 @@ public:
     percentT(double v) { m_val = round(std::clamp(v, 0.0, 1.0) * 100); }
 
     double get() const { return m_val / 100.0; }
-    void step_slide(const char* label) {
-        imgui_StepSliderInt(label, &m_val, 0, 100, std::format("{:.2f}", m_val / 100.0).c_str());
-    }
 
-    void step_slide(const char* label, int min, int max, int step) {
-        imgui_StepSliderIntEx(label, &m_val, min, max, step, std::format("{:.2f}", m_val / 100.0).c_str());
+    void step_slide(const char* label, int min = 0, int max = 100, int step = 1) {
+        assert(0 <= min && min < max && max <= 100);
+        imgui_StepSliderInt::fn(label, &m_val, min, max, step,
+                                [](int val) { return std::format("{:.2f}", val / 100.0); });
     }
 
     friend bool operator==(const percentT&, const percentT&) = default;
@@ -389,7 +388,7 @@ class runnerT {
 
         static constexpr int step_min = 1, step_max = 100;
         int step = 1;
-        int actual_step() const { return adjust_step(step, rule); }
+        int actual_step() const { return adjust_step(step, strobing(rule)); }
 
         bool pause = false;
         int extra_step = 0;
@@ -614,7 +613,7 @@ public:
                        "For convenience, the shortcuts for 'Restart' ('R') and 'Pause' ('Space') also work here.");
 
             ImGui::PushItemWidth(item_width);
-            imgui_StepSliderInt("Seed", &init.seed, 0, 29);
+            imgui_StepSliderInt::fn("Seed", &init.seed, 0, 29);
             init.density.step_slide("Density");
             init.area.step_slide("Area");
             ImGui::PopItemWidth();
@@ -824,16 +823,23 @@ public:
 
             ImGui::Separator(); // To align with the left panel.
 
-            const bool is_strobing = strobing(ctrl.rule);
-            std::string step_str = std::to_string(ctrl.step);
-            if (is_strobing) {
-                step_str += std::format(" -> {}", ctrl.actual_step());
-            }
+            // TODO: workaround to pass to `to_str`.
+            // (`imgui_StepSliderInt` is intentionally taking `to_str` as function pointer instead of std::function or auto.
+            // Ideally, such fn params should be passed as function-ref, but that's not available for now.)
+            static bool is_strobing = false;
+            is_strobing = strobing(ctrl.rule);
+            const auto to_str = [](int step) {
+                if (!is_strobing) {
+                    return std::to_string(step);
+                } else {
+                    return std::format("{} -> {}", step, adjust_step(step, is_strobing));
+                }
+            };
 
             // TODO: recheck this design... Ideally these sliders should use locally-defined `item_shortcut`.
-            imgui_StepSliderShortcuts::set(ImGuiKey_1, ImGuiKey_2, enable_shortcuts);
-            imgui_StepSliderInt("Step", &ctrl.step, ctrl.step_min, ctrl.step_max, step_str.c_str());
-            imgui_StepSliderShortcuts::reset();
+            imgui_StepSliderInt::set_shortcuts(ImGuiKey_1, ImGuiKey_2, enable_shortcuts);
+            imgui_StepSliderInt::fn("Step", &ctrl.step, ctrl.step_min, ctrl.step_max, 1, to_str);
+            imgui_StepSliderInt::reset_shortcuts();
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
@@ -841,10 +847,9 @@ public:
                 "The adjustment applies to '+s' mode as well, but does not affect '+1' (so you can change the parity of generation with it).\n\n"
                 "Sometimes you may also find rules that are non-strobing (so the adjustment won't take place) but can develop non-trivial flashing areas. The effect can usually be avoided by manually setting a 2*n step.");
 
-            const int min_ms = 0, max_ms = 400;
-            imgui_StepSliderShortcuts::set(ImGuiKey_3, ImGuiKey_4, enable_shortcuts);
-            ctrl.timer.slide_interval("Interval", min_ms, max_ms);
-            imgui_StepSliderShortcuts::reset();
+            imgui_StepSliderInt::set_shortcuts(ImGuiKey_3, ImGuiKey_4, enable_shortcuts);
+            ctrl.timer.slide_interval("Interval", 0, 400);
+            imgui_StepSliderInt::reset_shortcuts();
         });
         ImGui::EndGroup();
         ImGui::SameLine(floor(1.5 * item_width));
@@ -1491,22 +1496,15 @@ void previewer::configT::_set() {
     ImGui::Separator();
 #endif
 
-    for (const bool f : {true, false}) {
-        ImGui::AlignTextToFramePadding();
-        imgui_Str(f ? "Width  ~" : "Height ~");
-        ImGui::PushID(f);
-        for (const int v : {120, 160, 220, 280}) {
-            ImGui::SameLine(/*0, imgui_ItemInnerSpacingX()*/);
-            imgui_RadioButton(std::to_string(v).c_str(), f ? &width_ : &height_, v);
-        }
-        ImGui::PopID();
-        if (f) { // TODO: whether to point out the difference after all?
-            ImGui::SameLine();
-            imgui_StrTooltip("(?)", "Image size. (In contrast, the space window's 'Size ~' refers to space size.");
-        }
-    }
+    imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20);
+    imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20);
+    ImGui::SameLine();
+    imgui_StrTooltip(
+        "(?)",
+        "Unlike space window's 'Size ~' (which refers to space size), the width and height here refer to image size (in pixels) and are unrelated to zoom setting.");
+
     ImGui::AlignTextToFramePadding();
-    imgui_Str("Zoom   ~"); // TODO: should this be "zoom" or "scale"?
+    imgui_Str("Zoom ~"); // TODO: should this be "zoom" or "scale"?
     for (const auto [label, v] :
          std::initializer_list<std::pair<const char*, float>>{{"0.5", 0.5}, {"1", 1}, {"2", 2}}) {
         ImGui::SameLine(/*0, imgui_ItemInnerSpacingX()*/);
@@ -1514,14 +1512,14 @@ void previewer::configT::_set() {
     }
     ImGui::Separator();
 
-    imgui_StepSliderInt("Seed", &seed, 0, 9);
+    imgui_StepSliderInt::fn("Seed", &seed, 0, 9);
     global_config::area.step_slide("Area", 10, 100, 10);
     ImGui::SameLine();
     imgui_StrTooltip("(?)", "This is shared by all preview windows in the program.");
     imgui_Str("Density ~ 0.5, background ~ default");
     ImGui::Separator();
 
-    imgui_StepSliderInt("Step", &step, 1, 24);
+    imgui_StepSliderInt::fn("Step", &step, 1, 24);
     global_config::timer.slide_interval("Interval", 0, 400);
     ImGui::SameLine();
     imgui_StrTooltip("(?)", "This is shared by all preview windows in the program.");
@@ -1589,7 +1587,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const bool fast = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_down(ImGuiKey_F)) ||
                       (shortcuts::keys_avail() && shortcuts::test_down(ImGuiKey_G) && ImGui::IsWindowHovered());
     if (fast || (!pause && (restart || (global_config::timer.test() && !std::exchange(term.skip_run, false))))) {
-        const int p = adjust_step(fast ? std::max(config.step, step_fast) : config.step, rule);
+        const int p = adjust_step(fast ? std::max(config.step, step_fast) : config.step, strobing(rule));
         for (int i = 0; i < p; ++i) {
             term.tile.run_torus(rule);
         }

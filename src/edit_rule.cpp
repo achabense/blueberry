@@ -874,7 +874,7 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
             imgui_Window("Random rules", &show_rand, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         const int c_group = working_set.get_par().k();
         const int c_free = c_group; // TODO: temporarily preserved.
-        const bool has_lock = false;
+        // const bool has_lock = false; (The slider's format used to be `has_lock ? "(Free) %d" : "%d"`.)
 
         static double rate = 0.29;
         int free_dist = round(rate * c_free); // Intended distance.
@@ -885,7 +885,7 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
         imgui_RadioButton("Exactly", &exact_mode, true);
         ImGui::SameLine();
         ImGui::SetNextItemWidth(item_width);
-        if (imgui_StepSliderInt("##Dist", &free_dist, 0, c_free, has_lock ? "(Free) %d" : "%d") && c_free != 0) {
+        if (imgui_StepSliderInt::fn("##Dist", &free_dist, 0, c_free) && c_free != 0) {
             rate = double(free_dist) / c_free;
             assert(round(rate * c_free) == free_dist);
         }

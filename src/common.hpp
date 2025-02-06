@@ -611,6 +611,7 @@ public:
     }
 };
 
+#if 0
 class imgui_StepSliderShortcuts : no_create {
     friend bool imgui_StepSliderInt(const char* label, int* v, int v_min, int v_max, const char* format);
 
@@ -678,6 +679,95 @@ inline bool imgui_StepSliderIntEx(const char* label, int* v, int v_min, int v_ma
 
     return compare_update(*v, u * v_step + v_min);
 }
+
+#endif
+class imgui_StepSliderInt : no_create {
+    inline static ImGuiKey shortcut_minus = ImGuiKey_None;
+    inline static ImGuiKey shortcut_plus = ImGuiKey_None;
+    inline static std::optional<bool> shortcut_cond = std::nullopt; // Shared by both.
+
+    // (Avoiding direct use of `&std::to_string`; see https://stackoverflow.com/questions/55687044)
+    static std::string to_str_default(int v) { return std::to_string(v); }
+
+    // (Reduced from `ImGui::SliderBehaviorT`.)
+    // (In practice this works well, but I'm not sure whether this is 100% accurate as the original function is too complex...)
+    static int value_if_clicked(const float full_slider_width, const int v_max /*v_min ~ 0*/,
+                                const float mouse_pos_rel_slider) {
+        const float grab_padding = 2.0f; // (In `SliderBehaviorT`: "FIXME: Should be part of style.")
+        const float slider_sz = full_slider_width - grab_padding * 2.0f;
+        const float grab_sz = std::max(slider_sz / (v_max + 1), GImGui->Style.GrabMinSize);
+        if (grab_sz >= slider_sz) {
+            return 0;
+        }
+
+        const float ratio = (mouse_pos_rel_slider - grab_padding - grab_sz * 0.5f) / (slider_sz - grab_sz);
+        // (Rounding in the same way (`int(f + 0.5)`) as `ImGui::ScaleValueFromRatioT`.)
+        return (int)(v_max * std::clamp(ratio, 0.0f, 1.0f) + 0.5f);
+    }
+
+public:
+    static void reset_shortcuts() {
+        shortcut_minus = shortcut_plus = ImGuiKey_None;
+        shortcut_cond.reset();
+    }
+
+    static void set_shortcuts(ImGuiKey m, ImGuiKey p, std::optional<bool> c = std::nullopt) {
+        shortcut_minus = m;
+        shortcut_plus = p;
+        shortcut_cond = c;
+    }
+
+    // (Referring to ImGui::InputScalar.)
+    static bool fn(const char* label, int* v, int v_min, int v_max, int v_step = 1,
+                   std::string (*to_str)(int) = to_str_default) {
+        if (GImGui->CurrentWindow->SkipItems) {
+            return false;
+        }
+
+        assert(v_min < v_max && v_step > 0 && ((v_max - v_min) % v_step) == 0);
+        const int u_max = (v_max - v_min) / v_step; // > 0.
+        int u = std::clamp((*v - v_min) / v_step, 0, u_max);
+        const auto to_v = [u_max, v_min, v_step](int u) { return std::clamp(u, 0, u_max) * v_step + v_min; };
+
+        const float r = ImGui::GetFrameHeight();
+        const float s = imgui_ItemInnerSpacingX();
+        ImGui::BeginGroup();
+        ImGui::PushID(label);
+        ImGui::SetNextItemWidth(std::max(1.0f, ImGui::CalcItemWidth() - 2 * (r + s)));
+        ImGui::SliderInt("", &u, 0, u_max, "" /*rendered below*/, ImGuiSliderFlags_NoInput);
+        {
+            const auto rect = imgui_GetItemRect();
+            const std::string str = to_str(to_v(u));
+            ImGui::RenderTextClipped(rect.Min, rect.Max, str.data(), str.data() + str.size(), nullptr,
+                                     ImVec2(0.5f, 0.5f));
+            if (imgui_ItemHoveredForTooltip()) {
+                imgui_ItemTooltip(
+                    to_str(to_v(value_if_clicked(rect.GetWidth(), u_max, ImGui::GetMousePos().x - rect.Min.x))));
+            }
+        }
+
+        ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
+        ImGui::SameLine(0, s);
+        // (`InputScalar` makes .FramePadding.x = y for these buttons, not added here.)
+        if (ImGui::Button("-", ImVec2(r, r)) || shortcuts::item_shortcut(shortcut_minus, true, shortcut_cond)) {
+            --u;
+        }
+        ImGui::SameLine(0, s);
+        if (ImGui::Button("+", ImVec2(r, r)) || shortcuts::item_shortcut(shortcut_plus, true, shortcut_cond)) {
+            ++u;
+        }
+        ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
+        const char* label_end = ImGui::FindRenderedTextEnd(label);
+        if (label != label_end) {
+            ImGui::SameLine(0, s);
+            imgui_Str(std::string_view(label, label_end));
+        }
+        ImGui::PopID();
+        ImGui::EndGroup();
+
+        return compare_update(*v, to_v(u));
+    }
+};
 
 class messenger : no_create {
     class messageT {
@@ -956,11 +1046,11 @@ public:
         }
 
         void slide_interval(const char* label, int min_ms, int max_ms) {
-            assert(min_time <= min_ms && min_ms <= max_ms && max_ms <= max_time);
+            assert(min_time <= min_ms && min_ms < max_ms && max_ms <= max_time);
             assert(min_ms % time_unit == 0);
             assert(max_ms % time_unit == 0);
-            imgui_StepSliderInt(label, &i, min_ms / time_unit, max_ms / time_unit,
-                                std::format("{} ms", i * time_unit).c_str());
+            imgui_StepSliderInt::fn(label, &i, min_ms / time_unit, max_ms / time_unit, 1,
+                                    [](int i) { return std::format("{} ms", i * time_unit); });
         }
     };
 };
