@@ -5,6 +5,7 @@
 #include "common.hpp"
 
 namespace aniso {
+    // !!TODO: (v0.9.9) when partialT is supported, add strobing-set (01 10) and the other 3 non-strobing cases (01 11, 00 10, 11 00).
     namespace _subsets {
         static const subsetT ignore_q = make_subset({mp_ignore_q});
         static const subsetT ignore_w = make_subset({mp_ignore_w});
@@ -207,7 +208,7 @@ public:
             "rule|a 0 d| = rule|a 1 d|\n"
             "    |z x c|       |z x c|\n\n"
             "So when the surrounding cells are the same, there must be: either s:0->1, s:1->1 or s:0->0, s:1->0.\n\n"
-            "(Though this is defined in the same way as other independence sets, it's strange to treat this as \"independent of 's'\".)");
+            "(This is provided for completeness; it's not obvious what's special about this set - though it's defined in the same way as other independence sets, it's not suitable to treat this as \"independent of 's'\".)");
         terms_ignore.emplace_back("d", &ignore_d, "See 'q' for details.");
         terms_ignore.emplace_back("z", &ignore_z, "See 'q' for details.");
         terms_ignore.emplace_back("x", &ignore_x, "See 'q' for details.");
@@ -219,7 +220,8 @@ public:
             "     |q w e|             |q w e|\n"
             "(rule|a 0 d| = 0) = (rule|a 1 d| = 1)\n"
             "     |z x c|             |z x c|\n\n"
-            "So when the surrounding cells are the same, there must be: either s:0->0, s:1->1 (no flip in either case) or s:0->1, s:1->0 (flip in both cases).");
+            "So when the surrounding cells are the same, there must be: either s:0->0, s:1->1 (no flip in either case) or s:0->1, s:1->0 (flip in both cases).\n\n"
+            "(This is provided for completeness; it's not obvious what's special about this set.)");
         // TODO: refine descriptions.
         terms_misc.emplace_back(
             "Hex", &ignore_hex,
@@ -846,7 +848,7 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
         });
 
         ImGui::SameLine();
-        config.set("Preview settings");
+        config.set("Settings");
 
         adapter.display(
             config, sync, size_constraint_min,
@@ -951,7 +953,7 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
         });
 
         ImGui::SameLine();
-        config.set("Preview settings");
+        config.set("Settings");
 
         // TODO: reconsider page-resized logic (seeking to the last page may still be confusing).
         aniso::ruleT buffer{}; // To provide `const ruleT*`.
@@ -1428,7 +1430,7 @@ void edit_rule(sync_point& sync) {
     if (set_superset_example) {
         select_working.select_single(set_superset_example->working);
         select_super.select_single(set_superset_example->super);
-        preview_mode = false;
+        // preview_mode = false;
     }
 }
 

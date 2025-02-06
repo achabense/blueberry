@@ -192,7 +192,7 @@ void rule_recorder::load_record(sync_point& sync) {
     }
     if (record_size != 0) {
         ImGui::SameLine();
-        config.set("Preview settings");
+        config.set("Settings");
     }
     ImGui::Separator();
 

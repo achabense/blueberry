@@ -669,13 +669,12 @@ public:
         }
 
         {
-            // TODO: the current logics to handle these are horrifying...
             // Precedence:
             // Line-selecting > iterating > (starting line-selection) > left-click setting
             std::optional<int> iter_pos = display_header(m_rules.size(), m_pos);
             if (!m_rules.empty()) {
                 ImGui::SameLine();
-                ImGui::Checkbox("Preview", &m_preview.enabled);
+                ImGui::Checkbox("Preview", &m_preview.enabled); // TODO: or always enable?
                 if (m_preview.enabled) {
                     ImGui::SameLine();
                     m_preview.config.set("Settings");

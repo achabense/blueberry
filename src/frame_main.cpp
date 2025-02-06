@@ -65,7 +65,7 @@ static void get_reversal_dual(const bool button_result, sync_point& sync) {
 void frame_main() {
     // Make collapsed windows obvious to see.
     ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, ImGui::GetColorU32(ImGuiCol_TitleBgActive, 0.8f));
-    if (compact_mode) {
+    if constexpr (compact_mode) {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{3, 2});
     }
 
@@ -250,7 +250,7 @@ void frame_main() {
         rule_recorder::record(sync.rec_type, *sync.out_rule, &sync.rule);
     }
 
-    if (compact_mode) {
+    if constexpr (compact_mode) {
         ImGui::PopStyleVar();
     }
     ImGui::PopStyleColor();

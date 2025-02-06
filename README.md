@@ -7,9 +7,9 @@ https://github.com/achabense/blueberry
 
 This program helps to explore a set of cellular automaton rules known as "[MAP rules](https://golly.sourceforge.io/Help/Algorithms/QuickLife.html#map)". In short, MAP rules are 2-state rules in the range-1 Moore neighborhood. They are a strict superset of isotropic rules and outer-totalistic (aka life-like) rules, the most famous one being [Conway's Game of Life](https://conwaylife.com/wiki/Conway%27s_Game_of_Life). Below are some discoveries found by this program.
 
-<img width="200" alt="Example" src="https://github.com/user-attachments/assets/1242708a-65ca-4095-9b05-3d2b9b1362fa">
-<img width="200" alt="Example" src="https://github.com/user-attachments/assets/25085603-7d94-4537-8cec-33f0c7cc9fc2">
-<img width="200" alt="Example" src="https://github.com/user-attachments/assets/5d2c914d-2c90-4f75-a330-6d21c39231f5">
+<img width="200" alt="MAPBSEBKiGAcMxBVCdvQAH//ySAf8+AAd1aAEE/DwAT728JCDX/DgF9/6VEf34MAX7bAAB3/QkTVX3Mkf57g397Xw" src="https://github.com/user-attachments/assets/1242708a-65ca-4095-9b05-3d2b9b1362fa">
+<img width="200" alt="MAPFAgghg2AwFFSkCAAgQIRFGAAikEABAcACABkMhQMgkEoQAKEQAAgkoWWBjEUI8EMiBcBCBwABskEiREsEQUkkw" src="https://github.com/user-attachments/assets/25085603-7d94-4537-8cec-33f0c7cc9fc2">
+<img width="200" alt="MAPBQgEAEASAKBuS0EEikACIkkQICICJDDoCCgAChiCIgh80AkQWQgEMMwAhEEAIAkAQEIAMGCQUECgQEgECAAEAA" src="https://github.com/user-attachments/assets/5d2c914d-2c90-4f75-a330-6d21c39231f5">
 
 #### Features
 The program supports a series of subsets. You can easily identify which subsets a rule belongs to, and explore rules in the subsets or their intersections (e.g., self-complementary isotropic rules). You can get random rules in the `Random` window, or test all rules in the set with the `Traverse` window (practical if the set is reasonably small), or modify existing ones - with the help of preview windows (`Preview`), it's easy to discover interesting rules around a given rule.
