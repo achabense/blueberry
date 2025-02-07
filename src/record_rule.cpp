@@ -146,6 +146,7 @@ void rule_recorder::load_record(sync_point& sync) {
     ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
     ImGui::SetNextItemWidth(imgui_CalcTextSize("Random access    ").x);
     if (ImGui::BeginCombo("##Select", active_term->label)) {
+        lock_scroll();
         for (int id = 0; const termT& term : record_terms) {
             if (imgui_SelectableStyledButtonEx(id++, term.label, active_term == &term) &&
                 compare_update(active_term, &term)) {

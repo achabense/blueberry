@@ -243,7 +243,7 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
 
 // TODO: whether to support this?
 // There is intended to be at most one call to this function in each window hierarchy.
-/*[[deprecated]] */inline void set_scroll_by_up_down(float dy) {
+/*[[deprecated]] */ inline void set_scroll_by_up_down(float dy) {
     if (may_scroll() && shortcuts::keys_avail() && shortcuts::window_focused()) {
         if (shortcuts::test(ImGuiKey_DownArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() + dy);

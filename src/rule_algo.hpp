@@ -800,6 +800,13 @@ namespace aniso {
             });
         }
 
+        // Less restrictive than `other`.
+        bool includes(const partialT& other) const {
+            return for_each_code_all_of([&](codeT code) { //
+                return !lock[code] || (other.lock[code] && rule[code] == other.rule[code]);
+            });
+        }
+
         friend bool operator==(const partialT& a, const partialT& b) {
             return for_each_code_all_of([&](codeT code) {
                 if (a.lock[code] != b.lock[code]) {
