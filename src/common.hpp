@@ -86,7 +86,7 @@ namespace aniso::_misc {
 
 // The texture is only valid for the current frame.
 enum class scaleE { Nearest, Linear };
-[[nodiscard]] ImTextureID make_screen(aniso::_misc::tile_ref_<const aniso::cellT> tile, scaleE scale);
+[[nodiscard]] ImTextureID to_texture(aniso::_misc::tile_ref_<const aniso::cellT> tile, scaleE scale);
 
 // ImGui::Image and ImGui::ImageButton for `codeT`.
 void code_image(aniso::codeT code, int zoom, const ImVec4& tint_col = ImVec4(1, 1, 1, 1),
@@ -183,36 +183,6 @@ public:
         return false;
     }
 };
-
-#if 0
-inline void quick_info(std::string_view msg) {
-    if (shortcuts::global_flag(ImGuiKey_H) && ImGui::IsItemVisible()) {
-        imgui_ItemRect(IM_COL32_WHITE);
-
-        assert(!msg.empty());
-        const char *const text_beg = msg.data(), *const text_end = msg.data() + msg.size();
-        const ImVec2 padding = ImGui::GetStyle().FramePadding;
-        const ImVec2 msg_size = ImGui::CalcTextSize(text_beg, text_end) + padding * 2;
-        const ImVec2 msg_min = [&]() -> ImVec2 {
-            const ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
-            if (msg[0] == '<') {
-                return ImVec2(max.x + ImGui::GetStyle().ItemInnerSpacing.x, min.y);
-            } else if (msg[0] == '^') {
-                return ImVec2(min.x, max.y + ImGui::GetStyle().ItemSpacing.y);
-            } else {
-                assert(msg[0] == 'v');
-                return ImVec2(min.x, min.y - ImGui::GetStyle().ItemSpacing.y - msg_size.y);
-            }
-        }();
-        const ImVec2 msg_max = msg_min + msg_size;
-        // TODO: ideally, the message should be rendered on the foreground of individual windows...
-        ImDrawList* const drawlist = ImGui::GetForegroundDrawList();
-        drawlist->AddRectFilled(msg_min, msg_max, IM_COL32_GREY(48, 255));
-        drawlist->AddRect(msg_min, msg_max, IM_COL32_WHITE);
-        drawlist->AddText(msg_min + padding, IM_COL32_WHITE, text_beg, text_end);
-    }
-}
-#endif
 
 class guide_mode : no_create {
     inline static bool enable_tooltip = false;
@@ -611,76 +581,6 @@ public:
     }
 };
 
-#if 0
-class imgui_StepSliderShortcuts : no_create {
-    friend bool imgui_StepSliderInt(const char* label, int* v, int v_min, int v_max, const char* format);
-
-    inline static ImGuiKey minus = ImGuiKey_None;
-    inline static ImGuiKey plus = ImGuiKey_None;
-    inline static std::optional<bool> cond = std::nullopt; // Shared by both buttons.
-
-public:
-    static void reset() {
-        minus = plus = ImGuiKey_None;
-        cond.reset();
-    }
-
-    static void set(ImGuiKey m, ImGuiKey p, std::optional<bool> c = std::nullopt) {
-        minus = m;
-        plus = p;
-        cond = c;
-    }
-};
-
-// (Referring to ImGui::InputScalar; moved here to support shortcuts.)
-inline bool imgui_StepSliderInt(const char* label, int* v, int v_min, int v_max, const char* format = "%d") {
-    if (GImGui->CurrentWindow->SkipItems) {
-        return false;
-    }
-
-    int v2 = *v;
-
-    const float r = ImGui::GetFrameHeight();
-    const float s = imgui_ItemInnerSpacingX();
-    ImGui::BeginGroup();
-    ImGui::PushID(label);
-    ImGui::SetNextItemWidth(std::max(1.0f, ImGui::CalcItemWidth() - 2 * (r + s)));
-    ImGui::SliderInt("", &v2, v_min, v_max, format, ImGuiSliderFlags_NoInput);
-    ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
-    ImGui::SameLine(0, s);
-    // (`InputScalar` makes .FramePadding.x = y for these buttons, not added here.)
-    if (ImGui::Button("-", ImVec2(r, r)) ||
-        shortcuts::item_shortcut(imgui_StepSliderShortcuts::minus, true, imgui_StepSliderShortcuts::cond)) {
-        --v2;
-    }
-    ImGui::SameLine(0, s);
-    if (ImGui::Button("+", ImVec2(r, r)) ||
-        shortcuts::item_shortcut(imgui_StepSliderShortcuts::plus, true, imgui_StepSliderShortcuts::cond)) {
-        ++v2;
-    }
-    ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
-    const char* label_end = ImGui::FindRenderedTextEnd(label);
-    if (label != label_end) {
-        ImGui::SameLine(0, s);
-        imgui_Str(std::string_view(label, label_end));
-    }
-    ImGui::PopID();
-    ImGui::EndGroup();
-
-    return compare_update(*v, std::clamp(v2, v_min, v_max));
-}
-
-// `v_str` should be the direct string for `v`, instead of a format str.
-inline bool imgui_StepSliderIntEx(const char* label, int* v, int v_min, int v_max, int v_step, const char* v_str) {
-    assert(v_min < v_max && v_step > 0 && ((v_max - v_min) % v_step) == 0);
-    const int u_max = (v_max - v_min) / v_step;
-    int u = std::clamp((*v - v_min) / v_step, 0, u_max);
-    imgui_StepSliderInt(label, &u, 0, u_max, v_str);
-
-    return compare_update(*v, u * v_step + v_min);
-}
-
-#endif
 class imgui_StepSliderInt : no_create {
     inline static ImGuiKey shortcut_minus = ImGuiKey_None;
     inline static ImGuiKey shortcut_plus = ImGuiKey_None;

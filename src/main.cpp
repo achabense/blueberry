@@ -36,8 +36,8 @@ static SDL_Texture* create_texture(SDL_TextureAccess access, int w, int h) {
     return texture;
 }
 
-// Manage textures for `make_screen`.
-class screen_textures : no_create {
+// Manage textures for `to_texture`.
+class texture_pool : no_create {
     struct blobT {
         bool used;
         int w, h;
@@ -88,8 +88,8 @@ public:
     }
 };
 
-[[nodiscard]] ImTextureID make_screen(const aniso::_misc::tile_ref_<const aniso::cellT> tile, const scaleE scale) {
-    SDL_Texture* texture = screen_textures::get(tile.size.x, tile.size.y);
+[[nodiscard]] ImTextureID to_texture(const aniso::_misc::tile_ref_<const aniso::cellT> tile, const scaleE scale) {
+    SDL_Texture* texture = texture_pool::get(tile.size.x, tile.size.y);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
     if (scale == scaleE::Nearest) {
         SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
@@ -294,10 +294,10 @@ int main(int, char**) {
         SDL_RenderPresent(renderer);
     };
 
-    screen_textures::begin();
+    texture_pool::begin();
     code_atlas::begin();
     while (begin_frame()) {
-        screen_textures::begin_frame();
+        texture_pool::begin_frame();
 
         frame_main();
 
@@ -316,7 +316,7 @@ int main(int, char**) {
         }
     }
     code_atlas::end();
-    screen_textures::end();
+    texture_pool::end();
 
     ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();

@@ -85,7 +85,7 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
         }
     }
 
-    ImGui::Image(make_screen(dest_data, scaleE::Linear), to_imvec(window_size));
+    ImGui::Image(to_texture(dest_data, scaleE::Linear), to_imvec(window_size));
 }
 
 // TODO: whether to hard-block when !is-hex-rule ?
@@ -685,7 +685,7 @@ public:
                 ImGui::SameLine(0, 0);
                 imgui_Str(" ~ ");
                 ImGui::SameLine(0, 0);
-                ImGui::Image(make_screen(demo.data(), scaleE::Nearest), to_imvec(demo.size() * demo_zoom));
+                ImGui::Image(to_texture(demo.data(), scaleE::Nearest), to_imvec(demo.size() * demo_zoom));
                 imgui_ItemRect(IM_COL32_GREY(160, 255));
 
                 static aniso::tileT init, curr;
@@ -700,7 +700,7 @@ public:
                 ImGui::SameLine(0, 0);
                 imgui_Str(" ~ ");
                 ImGui::SameLine(0, 0);
-                ImGui::Image(make_screen(curr.data(), scaleE::Nearest), to_imvec(curr.size() * demo_zoom));
+                ImGui::Image(to_texture(curr.data(), scaleE::Nearest), to_imvec(curr.size() * demo_zoom));
                 imgui_ItemRect(IM_COL32_GREY(160, 255));
 
                 static global_timer::timerT timer{200};
@@ -1070,7 +1070,7 @@ public:
 
                 const scaleE scale_mode = m_coord.zoom < 1 ? scaleE::Linear : scaleE::Nearest;
                 if (!m_paste) {
-                    const ImTextureID texture = make_screen(m_torus.read_only(), scale_mode);
+                    const ImTextureID texture = to_texture(m_torus.read_only(), scale_mode);
 
                     drawlist->AddImage(texture, screen_min, screen_max);
                     if (zoom_center.has_value()) {
@@ -1091,7 +1091,7 @@ public:
                             } else {
                                 // TODO: is it possible to reuse the texture in a different scale mode?
                                 // (Related: https://github.com/ocornut/imgui/issues/7616)
-                                ImGui::Image(make_screen(m_torus.read_only(clamped), scaleE::Nearest),
+                                ImGui::Image(to_texture(m_torus.read_only(clamped), scaleE::Nearest),
                                              to_imvec(clamped.size() * 3));
                             }
 
@@ -1124,7 +1124,7 @@ public:
                         // Detect backgrounds of the pattern and the target area (?not practical?).
                         // 'copy_diff' only if the backgrounds are the same and aligns properly.
                         aniso::blit(paste_area, m_paste->data(), paste_mode);
-                        texture = make_screen(tile, scale_mode);
+                        texture = to_texture(tile, scale_mode);
                         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
                             m_paste.reset();
                             return true;
@@ -1595,7 +1595,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     // Unless paused, the initial state will not be shown. This is intentional for better visual effect.
 
     const scaleE scale_mode = config.zoom_ >= 1 ? scaleE::Nearest : scaleE::Linear;
-    const ImTextureID texture = make_screen(term.tile.data(), scale_mode);
+    const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
     bool hex_mode = false;
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
     if (imgui_ItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
@@ -1613,8 +1613,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                 ImGui::Image(texture, to_imvec(clamped.size() * 3), to_imvec(clamped.begin) / to_imvec(tile_size),
                              to_imvec(clamped.end) / to_imvec(tile_size));
             } else {
-                ImGui::Image(make_screen(term.tile.data().clip(clamped), scaleE::Nearest),
-                             to_imvec(clamped.size() * 3));
+                ImGui::Image(to_texture(term.tile.data().clip(clamped), scaleE::Nearest), to_imvec(clamped.size() * 3));
             }
 
             ImGui::EndTooltip();
