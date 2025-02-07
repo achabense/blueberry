@@ -979,6 +979,7 @@ void load_file(sync_point& out) {
     }
 }
 
+// TODO: 'Read' -> create a temp window that will be destroyed when closed?
 void load_clipboard(sync_point& out) {
     static textT text;
     static std::string last_str;
@@ -987,7 +988,7 @@ void load_clipboard(sync_point& out) {
     // (The page will hold roughly at most 1.5*max_size/line.)
     const bool too_much_content = text.roughly_check_larger(max_size, max_line, 100);
     ImGui::BeginDisabled(too_much_content);
-    if (ImGui::SmallButton("Read") || shortcuts::item_shortcut(ImGuiKey_W)) {
+    if (ImGui::SmallButton("Read")) {
         const std::string_view str = read_clipboard();
         if (str.size() > max_size / 2) {
             messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));

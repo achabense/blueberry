@@ -97,17 +97,6 @@ void frame_main() {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
         }
 
-        // This is a workaround to support shortcut for clipboard-reading.
-        // TODO: using 'W' to avoid conflicts with pattern-pasting; not quite conventional...
-        // TODO: paste -> create a temp window that will be destroyed when closed?
-        if (&open == &show_clipboard) {
-            if (shortcuts::keys_avail_and_window_hoverable() && shortcuts::test(ImGuiKey_W)) {
-                open = true;
-                ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
-                ImGui::SetNextWindowFocus();
-            }
-        }
-
         if (open) {
             ImGui::SetNextWindowPos(ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4),
                                     ImGuiCond_FirstUseEver);
@@ -130,8 +119,7 @@ void frame_main() {
         guide_mode::item_tooltip("Load rules from files.");
         ImGui::SameLine();
         load_rule(show_clipboard, "Clipboard", load_clipboard);
-        guide_mode::item_tooltip("Load rules from the clipboard. Shortcut: 'W'.\n\n"
-                                 "('V' is for pasting patterns in the right panel.)");
+        guide_mode::item_tooltip("Load rules from the clipboard.");
         ImGui::SameLine();
         load_rule(show_doc, "Documents", load_doc);
         guide_mode::item_tooltip("Concepts, example rules, etc.");
@@ -175,7 +163,7 @@ void frame_main() {
             "(...)",
             "Press 'H' to toggle on/off additional tooltips.\n\n"
             "The \"current rule\" is shown in the right panel. The left panel highlights which sets the current rule belongs to, and can generate new rules based on the \"working set\".\n\n"
-            "The current rule and rules shown in \"preview windows\" (turn on 'Preview' for examples) can be copied to the clipboard; 'Files' can load rules from files; 'Clipboard' can load rules from the clipboard (shortcut: 'W').\n\n"
+            "The current rule and rules shown in \"preview windows\" (turn on 'Preview' for examples) can be copied to the clipboard; 'Files' can load rules from files; 'Clipboard' can load rules from the clipboard.\n\n"
             "(See 'Documents' for more info.)");
 
         ImGui::SameLine();
