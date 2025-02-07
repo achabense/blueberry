@@ -1208,8 +1208,7 @@ void edit_rule(sync_point& sync) {
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
-        // TODO: document the behavior.
-        set_scroll_by_up_down(preview_mode ? floor(config.height() * 0.5) : ImGui::GetFrameHeight());
+        // set_scroll_by_up_down(preview_mode ? floor(config.height() * 0.5) : ImGui::GetFrameHeight());
 
         const char labels_normal[2][3]{{'-', chr_0, '\0'}, {'-', chr_1, '\0'}};
         const char labels_preview[2][9]{{'-', chr_0, ' ', '-', '>', ' ', chr_1, ':', '\0'},

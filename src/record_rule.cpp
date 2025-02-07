@@ -34,7 +34,7 @@ static std::optional<int> display_page(const int total, const std::function<anis
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Page")) {
-        set_scroll_by_up_down(floor(config.height() * 0.5)); // TODO: document the behavior.
+        // set_scroll_by_up_down(floor(config.height() * 0.5));
 
         for (int l = 0; l < total; ++l) {
             if (l != 0) {

@@ -765,7 +765,7 @@ private:
 
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Content")) {
-            set_scroll_by_up_down(ImGui::GetTextLineHeight() * 2); // TODO: document the behavior.
+            // set_scroll_by_up_down(ImGui::GetTextLineHeight() * 2);
 
             const bool test_hover = (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos();
