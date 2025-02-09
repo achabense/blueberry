@@ -2,7 +2,6 @@
 #include <filesystem>
 #include <fstream>
 #include <ranges>
-#include <unordered_map>
 
 #include "common.hpp"
 
@@ -1055,12 +1054,10 @@ void load_doc(sync_point& out) {
                 set_clipboard_and_notify(url);
             }
 
-            if constexpr (debug_mode) {
-                ImGuiContext& g = *ImGui::GetCurrentContext();
-                if (g.PlatformIO.Platform_OpenInShellFn) {
-                    if (ImGui::Selectable("Open in browser")) {
-                        g.PlatformIO.Platform_OpenInShellFn(&g, url);
-                    }
+            ImGuiContext& g = *ImGui::GetCurrentContext();
+            if (g.PlatformIO.Platform_OpenInShellFn) {
+                if (ImGui::Selectable("Open in browser")) {
+                    g.PlatformIO.Platform_OpenInShellFn(&g, url);
                 }
             }
         });

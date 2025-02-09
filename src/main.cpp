@@ -4,6 +4,7 @@
 // Unfortunately, SDL2-renderer backend doesn't support docking features...
 // https://github.com/ocornut/imgui/issues/5835
 
+// TODO: switch to SDL3...
 #include <SDL.h>
 
 #include "imgui_impl_sdl2.h"
@@ -240,9 +241,9 @@ int main(int, char**) {
     // Setup Platform/Renderer backends
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer2_Init(renderer);
-    if constexpr (!debug_mode) {
-        ImGui::GetPlatformIO().Platform_OpenInShellFn = nullptr;
-    }
+    ImGui::GetPlatformIO().Platform_OpenInShellFn = [](ImGuiContext*, const char* u8path) {
+        return SDL_OpenURL(u8path) == 0;
+    };
 
 #if 0
     // Test-only.
