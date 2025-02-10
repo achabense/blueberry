@@ -496,11 +496,8 @@ namespace aniso {
     }
 
     // (The size is calculated from the contents instead of header.)
-    inline void from_RLE_str(std::string_view text, const auto& prepare) {
-        static_assert(requires {
-            { prepare((long long)(0), (long long)(0)) } -> std::same_as<std::optional<tile_ref>>;
-        });
-
+    inline void from_RLE_str(std::string_view text,
+                             const func_ref<std::optional<tile_ref>(long long, long long)> prepare) {
         text = strip_RLE_header(text);
 
         struct takerT {
@@ -552,7 +549,7 @@ namespace aniso {
             return std::pair{xmax, x == 0 ? y : y + 1};
         }();
 
-        if (std::optional<tile_ref> tile_opt = prepare(width, height)) {
+        if (const std::optional<tile_ref> tile_opt = prepare(width, height)) {
             assert(width != 0 && height != 0);
             const tile_ref tile = *tile_opt;
             assert(tile.size.x == width && tile.size.y == height);

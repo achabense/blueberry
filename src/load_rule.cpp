@@ -464,7 +464,7 @@ struct preview_setting {
 // See: https://github.com/ocornut/imgui/issues/2313
 // So, currently `textT` is line-based, and only recognizes the first rule for each line, and will
 // highlight the whole line if the line contains a rule.
-class textT {
+class textT : no_copy {
     std::string m_text{};
     std::vector<aniso::compressT> m_rules{};
 
@@ -530,9 +530,6 @@ class textT {
 public:
     textT() = default;
     // textT(std::string_view str) { append(str); }
-
-    textT(const textT&) = delete;
-    textT& operator=(const textT&) = delete;
 
     bool empty() const { return m_lines.empty(); }
 
@@ -834,7 +831,8 @@ private:
                         } else {
                             // Workaround to avoid affecting popup & tooltip.
                             ImGui::PopStyleVar();
-                            previewer::preview(rule.pos, m_preview.config, [&] { return rule.get(m_rules); });
+                            previewer::preview(rule.pos, m_preview.config,
+                                               [&]() -> decltype(auto) /*return ref*/ { return rule.get(m_rules); });
                             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
                         }
                         ImGui::EndGroup();

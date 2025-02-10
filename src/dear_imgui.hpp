@@ -6,6 +6,8 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 
+#include "utils.hpp"
+
 // Follows `IM_COL32_XX`; note that `constexpr` cannot guarantee `fn(100, 255)` be
 // calculated at compile time, especially in debug mode.
 consteval ImU32 IM_COL32_GREY(ImU8 v, ImU8 alpha) { return IM_COL32(v, v, v, alpha); }
@@ -77,7 +79,7 @@ inline bool imgui_ItemHoveredForTooltip(const char* str_id = nullptr) {
 
 inline const char* imgui_ItemTooltip_StrID = nullptr;
 
-inline bool imgui_ItemTooltip(const std::invocable<> auto& desc) {
+inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
     const char* str_id = std::exchange(imgui_ItemTooltip_StrID, nullptr);
     if (GImGui->CurrentWindow->SkipItems) {
         return false;
@@ -133,7 +135,7 @@ inline void imgui_StrDisabled(std::string_view str) {
 }
 
 // Similar to `HelpMarker` in "imgui_demo.cpp".
-inline bool imgui_StrTooltip(std::string_view str, const std::invocable<> auto& desc) {
+inline bool imgui_StrTooltip(std::string_view str, const func_ref<void()> desc) {
     imgui_StrDisabled(str);
     return ::imgui_ItemTooltip(desc);
 }
@@ -142,10 +144,8 @@ inline bool imgui_StrTooltip(std::string_view str, std::string_view desc) { //
     return imgui_StrTooltip(str, [desc] { imgui_Str(desc); });
 }
 
-struct [[nodiscard]] imgui_Window {
-    imgui_Window(const imgui_Window&) = delete;
-    imgui_Window& operator=(const imgui_Window&) = delete;
-
+class [[nodiscard]] imgui_Window : no_copy {
+public:
     const bool visible;
     explicit imgui_Window(const char* name, bool* p_open = nullptr, ImGuiWindowFlags flags = {})
         : visible(ImGui::Begin(name, p_open, flags)) {}
@@ -155,10 +155,8 @@ struct [[nodiscard]] imgui_Window {
     explicit operator bool() const { return visible; }
 };
 
-struct [[nodiscard]] imgui_ChildWindow {
-    imgui_ChildWindow(const imgui_ChildWindow&) = delete;
-    imgui_ChildWindow& operator=(const imgui_ChildWindow&) = delete;
-
+class [[nodiscard]] imgui_ChildWindow : no_copy {
+public:
     const bool visible;
     explicit imgui_ChildWindow(const char* name, const ImVec2& size = {}, ImGuiChildFlags child_flags = {},
                                ImGuiWindowFlags window_flags = {})

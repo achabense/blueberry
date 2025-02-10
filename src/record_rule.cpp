@@ -27,47 +27,6 @@ static std::optional<int> display_header(const int total, const std::optional<in
     return pos;
 }
 
-static std::optional<int> display_page(const int total, const std::function<aniso::ruleT(int)> access,
-                                       const previewer::configT& config, const std::optional<int> highlight,
-                                       const std::optional<int> locate) {
-    std::optional<int> sel_pos = std::nullopt;
-
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
-    if (auto child = imgui_ChildWindow("Page")) {
-        // set_scroll_by_up_down(floor(config.height() * 0.5));
-
-        for (int l = 0; l < total; ++l) {
-            if (l != 0) {
-                ImGui::Separator();
-            }
-
-            if (l == highlight) {
-                const ImVec2 min = ImGui::GetCursorScreenPos();
-                const ImVec2 max = {min.x + ImGui::GetContentRegionAvail().x, min.y + config.height()};
-                const ImVec2 pad = {0, ImGui::GetStyle().ItemSpacing.y};
-                ImGui::GetWindowDrawList()->AddRectFilled(min - pad + ImVec2(0, 1) /*to avoid hiding the separator*/,
-                                                          max + pad, IM_COL32_GREY(36, 255));
-            }
-
-            ImGui::TextDisabled("%2d -", l + 1);
-            ImGui::SameLine();
-            previewer::preview(l, config, [&] { return access(l); } /*()*/);
-            if (l == locate && !imgui_ItemFullyVisible()) {
-                ImGui::SetScrollHereY();
-            }
-            ImGui::SameLine();
-            ImGui::PushID(l);
-            if (ImGui::Button(">> Cur") && !locate) {
-                sel_pos = l;
-            }
-            ImGui::PopID();
-        }
-    }
-    ImGui::PopStyleColor();
-
-    return sel_pos;
-}
-
 class recordT {
     using keyT = aniso::compressT;
     using mapT = std::unordered_map<keyT, int /*-> m_vec[i]*/, keyT::hashT>;
@@ -82,7 +41,7 @@ public:
         return m_vec.size();
     }
 
-    const keyT& at(int i) {
+    const keyT& at(int i) const {
         assert(0 <= i && i < m_vec.size());
         return *m_vec[i];
     }
@@ -106,6 +65,47 @@ public:
         m_map.clear();
     }
 };
+
+static std::optional<int> display_page(const recordT& record, const previewer::configT& config,
+                                       const std::optional<int> highlight, const std::optional<int> locate) {
+    std::optional<int> sel_pos = std::nullopt;
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
+    if (auto child = imgui_ChildWindow("Page")) {
+        // set_scroll_by_up_down(floor(config.height() * 0.5));
+
+        const int total = record.size();
+        for (int l = 0; l < total; ++l) {
+            if (l != 0) {
+                ImGui::Separator();
+            }
+
+            if (l == highlight) {
+                const ImVec2 min = ImGui::GetCursorScreenPos();
+                const ImVec2 max = {min.x + ImGui::GetContentRegionAvail().x, min.y + config.height()};
+                const ImVec2 pad = {0, ImGui::GetStyle().ItemSpacing.y};
+                ImGui::GetWindowDrawList()->AddRectFilled(min - pad + ImVec2(0, 1) /*to avoid hiding the separator*/,
+                                                          max + pad, IM_COL32_GREY(36, 255));
+            }
+
+            ImGui::TextDisabled("%2d -", l + 1);
+            ImGui::SameLine();
+            previewer::preview(l, config, [&]() -> decltype(auto) { return record.at(l); } /*()*/);
+            if (l == locate && !imgui_ItemFullyVisible()) {
+                ImGui::SetScrollHereY();
+            }
+            ImGui::SameLine();
+            ImGui::PushID(l);
+            if (ImGui::Button(">> Cur") && !locate) {
+                sel_pos = l;
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::PopStyleColor();
+
+    return sel_pos;
+}
 
 static recordT record_current;
 static recordT record_copied;
@@ -201,8 +201,7 @@ void rule_recorder::load_record(sync_point& sync) {
         ImGui::SetNextWindowScroll({0, 0});
     }
     // (`iter_pos` should be updated after `display_page`, as locate -> ImGui::SetScrollHereY will have one-frame delay.)
-    if (const auto sel =
-            display_page(record_size, [&](int i) { return active_record.at(i); }, config, iter_pos, locate)) {
+    if (const auto sel = display_page(active_record, config, iter_pos, locate)) {
         assert(!locate);
         sync.set(active_record.at(*sel));
         locate = *sel;

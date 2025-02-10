@@ -123,9 +123,6 @@ namespace aniso {
                 }
             }
 
-            // TODO: (wontfix?) there are several uses of `const std::invocable<...> auto& fn` in the project.
-            // In these cases, the concept applies to `T` instead of `const T`, so it is requiring non-const-invocable
-            // instead. (Also, should these `fn` really be passed as `const auto&`?)
             void for_all_data(const auto& fn) const {
                 static_assert(requires { fn(std::span{data, data + size.x * size.y}); });
                 if (size.x == stride) {

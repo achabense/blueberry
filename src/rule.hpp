@@ -13,6 +13,9 @@
 #include <utility>
 #include <vector>
 
+#include "utils.hpp"
+
+// TODO: lift some to "utils.hpp"?
 #ifndef NDEBUG
 #define assert_val(v) v
 inline constexpr bool debug_mode = true;

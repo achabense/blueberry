@@ -358,7 +358,7 @@ public:
         m_index = index_1;
     }
     void slide(int di) { m_index = std::clamp(m_index + di, 0, index_max); }
-    void select(const std::invocable<bool, float, const char*> auto& fn) {
+    void select(const func_ref<bool(bool, float, const char*)> fn) {
         int n_index = m_index;
         for (int i = 0; const auto [z, s] : terms) {
             const int this_i = i++;
@@ -446,7 +446,7 @@ class runnerT {
             return m_torus.data().clip(range);
         }
 
-        void read_and_maybe_write(const std::invocable<aniso::tile_ref> auto& fn) {
+        void read_and_maybe_write(const func_ref<bool(aniso::tile_ref)> fn) {
             if (fn(m_torus.data())) {
                 skip_next = true;
             }
@@ -490,8 +490,8 @@ class runnerT {
             return std::exchange(m_resized, false);
         }
 
-        void set_ctrl(const auto& fn) { fn(m_ctrl); }
-        bool set_init(const auto& fn) {
+        void set_ctrl(const func_ref<void(ctrlT&)> fn) { fn(m_ctrl); }
+        bool set_init(const func_ref<bool(initT&, bool&)> fn) {
             const initT old_init = m_init;
             if (fn(m_init, m_ctrl.pause) || old_init != m_init) {
                 const bool restarted = resize(m_torus.size()); // In case the background is resized.
@@ -823,12 +823,7 @@ public:
 
             ImGui::Separator(); // To align with the left panel.
 
-            // TODO: workaround to pass to `to_str`.
-            // (`imgui_StepSliderInt` is intentionally taking `to_str` as function pointer instead of std::function or auto.
-            // Ideally, such fn params should be passed as function-ref, but that's not available for now.)
-            static bool is_strobing = false;
-            is_strobing = strobing(ctrl.rule);
-            const auto to_str = [](int step) {
+            const auto to_str = [is_strobing = strobing(ctrl.rule)](int step) {
                 if (!is_strobing) {
                     return std::to_string(step);
                 } else {

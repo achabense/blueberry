@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <format>
-#include <functional>
 
 #include "rule.hpp"
 
@@ -29,20 +28,6 @@ inline void assert_utf8_encoding() {
 // (Well, are there even guarantees that we can get a valid fs::path from main's argv?)
 // To make things easy the program does not try to deal with these strings.
 #endif
-
-struct no_create {
-    no_create() = delete;
-};
-
-template <class T, class U>
-inline bool compare_update(T& t, const U& u) {
-    if (t == u) {
-        return false;
-    } else {
-        t = u; // -> assert(t == u);
-        return true;
-    }
-}
 
 // Managed by `main`.
 bool set_home(const char* u8path = nullptr); // nullptr ~ filesystem::current_path.
@@ -255,7 +240,7 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
     }
 }
 
-inline void global_tooltip(const bool highlight, const std::invocable<> auto& func) {
+inline void global_tooltip(const bool highlight, const func_ref<void()> func) {
     // TODO: are there simpler ways to prevent inheriting styles?
     // const ImGuiStyle old_style = GImGui->Style;
     // auto old_stack = GImGui->StyleVarStack;
@@ -376,7 +361,7 @@ public:
     // TODO: improve highlighting logic; should this be callback or RAII class? (& `begin_popup_for_item`)
     // Not meant to be used recursively.
     template <highlight_fn highlight = default_highlight>
-    static void popup(const idT id, const std::invocable<> auto& fn) {
+    static void popup(const idT id, const func_ref<void()> fn) {
         const bool hovered = ImGui::IsItemHovered();
         if (!hovered && id != bound_id) {
             return;
@@ -620,7 +605,7 @@ public:
 
     // (Referring to ImGui::InputScalar.)
     static bool fn(const char* label, int* v, int v_min, int v_max, int v_step = 1,
-                   std::string (*to_str)(int) = to_str_default) {
+                   const func_ref<std::string(int)> to_str = to_str_default) {
         if (GImGui->CurrentWindow->SkipItems) {
             return false;
         }
@@ -825,6 +810,8 @@ public:
         }
     }
 
+    // (Note: `get_rule` shouldn't be type-erased here.)
+    // (`const ruleT&()` cannot adapt `ruleT()` calls, while `ruleT()` is unnecessarily costly for `const ruleT&()` calls.)
     static void preview(uint32_t id, const configT& config, const std::invocable<> auto& get_rule) {
         ImGui::Dummy(config.size_imvec());
         if (ImGui::IsItemVisible()) {
@@ -852,7 +839,7 @@ private:
     static void _identify_rule(const aniso::ruleT& rule);
 };
 
-class sync_point {
+class sync_point : no_copy {
     friend void frame_main();
 
     std::optional<aniso::ruleT> out_rule = std::nullopt;
@@ -861,9 +848,6 @@ class sync_point {
     sync_point(const aniso::ruleT& rule) : rule{rule} {}
 
 public:
-    sync_point(const sync_point&) = delete;
-    sync_point& operator=(const sync_point&) = delete;
-
     const aniso::ruleT rule;
 
     void set(const aniso::ruleT& rule, rule_recorder::typeE type = rule_recorder::Ignore) {

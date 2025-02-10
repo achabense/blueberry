@@ -648,7 +648,7 @@ struct page_adapter {
 
     // `page_resized` should be able to access *this someway.
     void display(const previewer::configT& config, sync_point& out, ImVec2& min_req_size,
-                 std::function<void()> page_resized, std::function<const aniso::ruleT*(int)> access) {
+                 const func_ref<void()> page_resized, const func_ref<const aniso::ruleT*(int)> access) {
         const ImVec2 avail_size = ImGui::GetContentRegionAvail();
         // (The same value as in `edit_rule`.)
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
@@ -861,7 +861,7 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
                     fill_page(adapter.page_size);
                 }
             },
-            [](int j) { return j < page.size() ? &page[j] : nullptr; });
+            [](int j) -> const aniso::ruleT* { return j < page.size() ? &page[j] : nullptr; });
     }
 }
 
@@ -957,7 +957,7 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
 
         // TODO: reconsider page-resized logic (seeking to the last page may still be confusing).
         aniso::ruleT buffer{}; // To provide `const ruleT*`.
-        adapter.display(config, sync, size_constraint_min, set_last_page, [&](int j) {
+        adapter.display(config, sync, size_constraint_min, set_last_page, [&](int j) -> const aniso::ruleT* {
             const int r = page_no * adapter.page_size + j;
             assert(r >= 0);
             return r < rules.size() ? (buffer = rules[r], &buffer) : nullptr;

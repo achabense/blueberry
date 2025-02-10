@@ -386,7 +386,7 @@ namespace aniso {
     // Firstly get approximate(subset, rule), then transform the rule to another one.
     // The groups are listed as a sequence of values (relative to `mask`) and re-assigned by `fn`.
     inline ruleT transform(const subsetT& subset, const maskT& mask, const ruleT& rule,
-                           const std::invocable<bool*, bool*> auto& fn) {
+                           const func_ref<void(bool*, bool*)> fn) {
         assert(subset.contains(mask));
 
         const partitionT& par = subset.get_par();
