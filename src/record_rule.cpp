@@ -158,9 +158,8 @@ void rule_recorder::load_record(sync_point& sync) {
     }
     ImGui::PopStyleVar();
     ImGui::SameLine();
-    // !!TODO: require double-clicking?
-    if (ImGui::SmallButton("Clear")) {
-        set_msg_cleared(true); // !!TODO: redesign...
+    if (double_click_button_small("Clear")) {
+        set_msg_cleared();
         iter_pos.reset();
         reset_scroll = true;
         active_term->record->clear();

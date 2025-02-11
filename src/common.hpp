@@ -396,6 +396,16 @@ public:
     }
 };
 
+inline bool double_click_button_small(const char* label) {
+    for (const auto col : {ImGuiCol_Button, ImGuiCol_ButtonActive, ImGuiCol_ButtonHovered}) {
+        ImGui::PushStyleColor(col, ImLerp(ImGui::GetStyleColorVec4(col), ImVec4(1, 0, 0, 1), 0.2f));
+    }
+    ImGui::SmallButton(label);
+    ImGui::PopStyleColor(3);
+    guide_mode::item_tooltip("This requires double-clicking.");
+    return ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+}
+
 // TODO: should finally be replaced by Ex version.
 // Looks like `ImGui::Selectable` but behaves like a button (not designed for tables).
 // (`menu_shortcut` is a workaround to mimic `MenuItem` in the range-ops window. Ideally, that window
@@ -862,13 +872,14 @@ inline void set_clipboard_and_notify(const std::string& str) {
         ImGui::SetClipboardText(str.c_str());
         messenger::set_msg("Copied.");
     } else {
-        // This can happen when the user opens a data file and tries to copy lines.
+        // This can happen when the user tries to copy lines in a data file.
         // If copied, the result will be incomplete, and nothing in worst case (if starts with '\0').
         messenger::set_msg("The text contains null characters.");
     }
 }
 
-inline void set_msg_cleared(bool /*has_effect*/) {
+// TODO: whether to check `has_effect`?
+inline void set_msg_cleared(bool /*has_effect*/ = true) {
     // if (has_effect) {
     messenger::set_msg("Cleared.");
     // }

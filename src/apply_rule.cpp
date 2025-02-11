@@ -812,10 +812,10 @@ public:
             imgui_StrTooltip("(?)", [] {
                 imgui_Str("+s: ");
                 ImGui::SameLine(0, 0);
-                imgui_Str("Run manually (firstly pause the space, then advance generation by step afterwards).");
+                imgui_Str("Manual mode (firstly pause the space, then advance generation by step afterwards).");
                 imgui_Str("+1: ");
                 ImGui::SameLine(0, 0);
-                imgui_Str("Advance generation by 1 instead of step.");
+                imgui_Str("Advance generation by 1 (instead of step).");
                 imgui_Str("+!: ");
                 ImGui::SameLine(0, 0);
                 imgui_Str("Fast mode (advance generation by at least 10 in every frame).");

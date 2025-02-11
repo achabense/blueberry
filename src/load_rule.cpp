@@ -8,8 +8,8 @@
 // By default the project does not care about exceptions (taking as if they don't exist), but std::filesystem is an exception to this...
 // (& `bad_alloc` is always considered impossible to happen.)
 
-// TODO: whether to support write access (file-editing)?
-// Or at least support saving rules into file (without relying on the clipboard)?
+// The program is not going to support write access to files. However, there should be an easy way to open text file with default text editor...
+// TODO: how to do that? `SDL_OpenUrl` is not suitable as it will open path in the "preferred way"...
 
 using pathT = std::filesystem::path;
 
@@ -106,6 +106,7 @@ static pathT cpp17_u8path(const std::string_view path) noexcept {
     }
 }
 
+// TODO: whether to support opening folder with `Platform_OpenInShellFn` (SDL_OpenUrl)?
 static void display_path(const pathT& p, float avail_w) {
     bool clipped = false;
     imgui_Str(clip_path(p, avail_w, &clipped));
@@ -113,7 +114,6 @@ static void display_path(const pathT& p, float avail_w) {
         if (ImGui::Selectable("Copy path")) {
             set_clipboard_and_notify(cpp17_u8string(p));
         }
-        // (As tested, `Platform_OpenInShellFn` will fail for some paths (likely due to encoding mismatch).)
     });
     if (clipped) {
         imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string(p)); });
@@ -547,7 +547,7 @@ public:
         m_pos.reset();
         m_sel.reset();
 
-        // do_rewind = false; // !!TODO: reconfirm whether this matters.
+        do_rewind = false;
         go_line = -1;
     }
 
@@ -571,13 +571,6 @@ public:
             }
         }
     }
-
-#if 0
-    void append(const aniso::ruleT& rule) {
-        line_ref& line = _append_line(aniso::to_MAP_str(rule));
-        _attach_rule(line, rule);
-    }
-#endif
 
     void reset_scroll() { do_rewind = true; }
 
@@ -658,8 +651,7 @@ public:
                     }
                     str += m_lines[i].str.get(m_text);
                 }
-                // (wontfix) `SetClipboardText` will skip contents after '\0' (normally a utf8 text file
-                // should not contain '\0' between the lines).
+                // (wontfix) Won't copy if `str` contains '\0' (not expected to appear in utf8 text files).
                 set_clipboard_and_notify(str);
             }
         }
@@ -1006,8 +998,8 @@ void load_clipboard(sync_point& out) {
     }
 
     ImGui::SameLine();
-    // !!TODO: require double clicking?
-    if (ImGui::SmallButton("Clear")) {
+    if (double_click_button_small("Clear")) {
+        set_msg_cleared();
         text.clear();
         last_str.clear();
         last_index = 0;
