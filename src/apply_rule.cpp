@@ -1621,7 +1621,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     border_col = default_border_color();
     rclick_popup::popup<[](bool popup) {
         border_col = ImGui::GetColorU32(popup ? ImGuiCol_Text : ImGuiCol_TextDisabled);
-    }>(imgui_GetItemPosID(), [&] {
+    }>(id_pair{imgui_GetItemPosID(), (ImGuiID)(intptr_t)&term} /*absolutely impossible to clash*/, [&] {
         // TODO: 'C' to copy rule?
         if (ImGui::Selectable("Copy rule")) {
             set_clipboard_and_notify(aniso::to_MAP_str(rule));

@@ -337,22 +337,24 @@ inline bool begin_popup_for_item() {
     return false;
 }
 
+struct id_pair {
+    ImGuiID id0 = 0, id1 = 0;
+
+    explicit id_pair() = default;
+    /*implicit*/ id_pair(ImGuiID i, ImGuiID j = 1) : id0(i), id1(j) {}
+    /*implicit*/ id_pair(const char* s, ImGuiID j = 1) : id0(ImGui::GetID(s)), id1(j) {}
+
+    operator bool() const { return id0 || id1; }
+    friend bool operator==(const id_pair&, const id_pair&) = default;
+};
+
 class rclick_popup {
-    inline static ImGuiID bound_id = 0, bound_id_next = 0;
+    inline static id_pair bound_id{}, bound_id_next{};
 
     friend void frame_main();
-    static void begin_frame() { bound_id = std::exchange(bound_id_next, 0); }
+    static void begin_frame() { bound_id = std::exchange(bound_id_next, id_pair{}); }
 
 public:
-    struct idT {
-        ImGuiID id;
-        /*implicit*/ operator ImGuiID() const { return id; }
-
-        // idT() : id{ImGui::GetItemID()} { assert(id); }
-        /*implicit*/ idT(ImGuiID id) : id{id} { assert(id); }
-        /*implicit*/ idT(const char* str_id) : id{ImGui::GetID(str_id)} { assert(id); }
-    };
-
     using highlight_fn = void (*)(bool popup);
     static void default_highlight(bool popup) { //
         imgui_ItemUnderline(ImGui::GetColorU32(popup ? ImGuiCol_Text : ImGuiCol_TextDisabled));
@@ -361,7 +363,7 @@ public:
     // TODO: improve highlighting logic; should this be callback or RAII class? (& `begin_popup_for_item`)
     // Not meant to be used recursively.
     template <highlight_fn highlight = default_highlight>
-    static void popup(const idT id, const func_ref<void()> fn) {
+    static void popup(const id_pair id, const func_ref<void()> fn) {
         const bool hovered = ImGui::IsItemHovered();
         if (!hovered && id != bound_id) {
             return;
