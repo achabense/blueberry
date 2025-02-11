@@ -344,11 +344,11 @@ struct id_pair {
     /*implicit*/ id_pair(ImGuiID i, ImGuiID j = 1) : id0(i), id1(j) {}
     /*implicit*/ id_pair(const char* s, ImGuiID j = 1) : id0(ImGui::GetID(s)), id1(j) {}
 
-    operator bool() const { return id0 || id1; }
+    explicit operator bool() const { return id0 || id1; }
     friend bool operator==(const id_pair&, const id_pair&) = default;
 };
 
-class rclick_popup {
+class rclick_popup : no_create {
     inline static id_pair bound_id{}, bound_id_next{};
 
     friend void frame_main();
