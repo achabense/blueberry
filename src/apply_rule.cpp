@@ -850,13 +850,12 @@ public:
         ImGui::SameLine(floor(1.5 * item_width));
         ImGui::BeginGroup();
         ImGui::Button("Init state");
-        if (begin_popup_for_item()) {
+        item_popup_menu_like([&] {
             if (m_torus.set_init(set_init_state)) {
                 m_sel.reset();
                 m_paste.reset();
             }
-            ImGui::EndPopup();
-        }
+        });
         ImGui::SameLine();
         ImGui::Text("Generation:%d", m_torus.gen());
 

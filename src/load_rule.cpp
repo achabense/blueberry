@@ -581,11 +581,6 @@ public:
     }
 
     void select_line() {
-        if (!begin_popup_for_item()) {
-            return;
-        }
-        // In popup.
-
         const bool window_appearing = ImGui::IsWindowAppearing();
         static input_int<6> input_line;
         if (window_appearing) {
@@ -623,8 +618,6 @@ public:
                 }
             }
         }
-
-        ImGui::EndPopup();
     }
 
     void display(sync_point& out) {
@@ -890,8 +883,7 @@ void load_file(sync_point& out) {
 
     static textT text;
     static std::optional<pathT> path;
-
-    auto try_load = [](const pathT& p) -> bool {
+    static auto try_load = [](const pathT& p) -> bool {
         if (std::string str; load_binary(p, str)) {
             if (const int l = count_line(str); l > max_line) {
                 messenger::set_msg("The file contains too many lines: {} > {}", l, max_line);
@@ -919,10 +911,7 @@ void load_file(sync_point& out) {
         ImGui::SmallButton("Recent");
         // `BeginPopup` will consume the settings, even if not opened.
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
-        if (begin_popup_for_item()) {
-            nav.select_history();
-            ImGui::EndPopup();
-        }
+        item_popup_menu_like([] { nav.selet_history(); });
 #endif
         ImGui::SameLine();
         nav.show_current();
@@ -943,7 +932,7 @@ void load_file(sync_point& out) {
         ImGui::SameLine();
         ImGui::SmallButton("Select");
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
-        if (begin_popup_for_item()) {
+        item_popup_menu_like([] {
             std::optional<pathT> sel = std::nullopt;
             const pathT name = path->filename();
             nav.select_file(sel, &name);
@@ -951,13 +940,12 @@ void load_file(sync_point& out) {
                 text.reset_scroll(); // Even if the new path is the same as the old one.
                 path = std::move(*sel);
             }
-            ImGui::EndPopup();
-        }
+        });
         ImGui::SameLine();
         display_filename(*path);
         ImGui::SameLine();
         ImGui::SmallButton(">");
-        text.select_line();
+        item_popup_menu_like([] { text.select_line(); });
 
         ImGui::Separator();
         text.display(out);
@@ -1008,7 +996,7 @@ void load_clipboard(sync_point& out) {
     imgui_Str("Clipboard");
     ImGui::SameLine();
     ImGui::SmallButton(">");
-    text.select_line();
+    item_popup_menu_like([] { text.select_line(); });
 
     ImGui::Separator();
     text.display(out);
@@ -1058,15 +1046,12 @@ void load_doc(sync_point& out) {
         const bool close = ImGui::SmallButton("Close");
         ImGui::SameLine();
         ImGui::SmallButton("Select");
-        if (begin_popup_for_item()) {
-            select();
-            ImGui::EndPopup();
-        }
+        item_popup_menu_like([] { select(); });
         ImGui::SameLine();
         imgui_Str(docs[*doc_id][0]);
         ImGui::SameLine();
         ImGui::SmallButton(">");
-        text.select_line();
+        item_popup_menu_like([] { text.select_line(); });
 
         ImGui::Separator();
         text.display(out);

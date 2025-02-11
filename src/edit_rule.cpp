@@ -1007,10 +1007,7 @@ void edit_rule(sync_point& sync) {
         } else {
             ImGui::SameLine();
             ImGui::Button("Select");
-            if (begin_popup_for_item()) {
-                select();
-                ImGui::EndPopup();
-            }
+            item_popup_menu_like([&] { select(); });
         }
     }
     const aniso::subsetT& working_set = select_working.get();
@@ -1088,7 +1085,7 @@ void edit_rule(sync_point& sync) {
 
         ImGui::SameLine();
         ImGui::Button("Select##Super"); // TODO: this is a bit awkward...
-        if (begin_popup_for_item()) {
+        item_popup_menu_like([&] {
             if (ImGui::Button("Clear##Super")) {
                 select_super.clear();
             }
@@ -1100,7 +1097,7 @@ void edit_rule(sync_point& sync) {
             guide_mode::item_tooltip("Reset to be the same as the working set.");
             ImGui::SameLine();
             ImGui::Button("Examples");
-            if (begin_popup_for_item()) {
+            item_popup_menu_like([&] {
                 using namespace aniso::_subsets;
                 int id = 0;
                 if (imgui_SelectableStyledButtonEx(id++, "Outer-totalistic vs isotropic")) {
@@ -1118,17 +1115,14 @@ void edit_rule(sync_point& sync) {
                 if (imgui_SelectableStyledButtonEx(id++, "(Hex) outer-totalistic vs isotropic")) {
                     set_superset_example = {.working = &hex_tot_exc_s, .super = &hex_isotropic};
                 }
-                ImGui::EndPopup();
-            }
+            });
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
                 "A superset can be any combination of the sets selectable in this table (which are what the working set belongs to, i.e. those center-marked in working set's selection table).");
             ImGui::Separator();
             select_super.select({.select = true, .subset = &working_set /*no tooltip*/});
-
-            ImGui::EndPopup();
-        }
+        });
 
         assert(select_super.get().includes(working_set));
         assert(select_super.get().contains(mask));

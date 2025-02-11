@@ -274,26 +274,13 @@ inline void global_tooltip(const bool highlight, const func_ref<void()> func) {
     // GImGui->StyleVarStack.swap(old_stack);
 }
 
-#if 0
-// (Referring to ImGui::BeginPopupContextItem().)
-inline bool begin_popup_for_item(bool open, const char* str_id = nullptr) {
-    if (GImGui->CurrentWindow->SkipItems) {
-        return false;
-    }
-    const ImGuiID id = str_id ? ImGui::GetID(str_id) : ImGui::GetItemID();
-    assert(id != 0);
-    if (open) { // Instead of MouseReleased && ItemHovered
-        ImGui::OpenPopupEx(id);
-    }
-    return ImGui::BeginPopupEx(id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
-                                       ImGuiWindowFlags_NoSavedSettings);
-}
-#endif
-
 // Looks like a common popup, and will appear like a menu (but with more consistent closing behavior).
 // (Can be called recursively.)
-// (This could be made into an RAII class, but I find that would be even harder to name properly...)
-inline bool begin_popup_for_item() {
+inline void item_popup_menu_like(const func_ref<void()> fn) {
+    // if (GImGui->CurrentWindow->SkipItems) {
+    //     return false; ? whether to do `GImGui->NextWindowData.ClearFlags()`?
+    // }
+
     const ImRect item_rect = imgui_GetItemRect();
     const ImGuiID item_id = ImGui::GetItemID();
     assert(item_id != 0); // Mainly designed for buttons.
@@ -306,35 +293,33 @@ inline bool begin_popup_for_item() {
 
     if (ImGui::BeginPopupEx(item_id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
                                          ImGuiWindowFlags_NoSavedSettings)) {
-        if (!ImGui::IsWindowContentHoverable(ImGui::GetCurrentWindowRead())) {
-            return true;
+        if (ImGui::IsWindowContentHoverable(ImGui::GetCurrentWindowRead())) { // Topmost popup.
+            ImGui::NavHighlightActivated(item_id);
+
+            const ImVec2 mouse_pos = ImGui::GetMousePos();
+            const auto window_rect = imgui_GetWindowRect();
+            if (!window_rect.Contains(mouse_pos)) {
+                // Disable mouse scrolling in other windows.
+                lock_scroll();
+            }
+
+            if (!window_rect.Contains(mouse_pos) && item_rect.Contains(mouse_pos)) {
+                // Avoid closing the popup when the item is clicked; relying on the impl details of this function:
+                (void)&ImGui::UpdateMouseMovingWindowEndFrame;
+                // Initially I tried to use modal popup to avoid the closing behavior, but that caused much more
+                // trouble than it solved :|
+
+                GImGui->IO.MouseClicked[0] = GImGui->IO.MouseClicked[1] = false;
+            } else if (const ImVec2 pad = square_size(); !ImGui::IsAnyItemActive() &&
+                                                         !item_rect.ContainsWithPad(mouse_pos, pad * 1.5) &&
+                                                         !window_rect.ContainsWithPad(mouse_pos, pad * 2.5)) {
+                ImGui::CloseCurrentPopup();
+            }
         }
 
-        // Topmost popup.
-        ImGui::NavHighlightActivated(item_id);
-
-        const ImVec2 mouse_pos = ImGui::GetMousePos();
-        const auto window_rect = imgui_GetWindowRect();
-        if (!window_rect.Contains(mouse_pos)) {
-            // Disable mouse scrolling in other windows.
-            lock_scroll();
-        }
-
-        if (!window_rect.Contains(mouse_pos) && item_rect.Contains(mouse_pos)) {
-            // Avoid closing the popup when the item is clicked; relying on the impl details of this function:
-            (void)&ImGui::UpdateMouseMovingWindowEndFrame;
-            // Initially I tried to use modal popup to avoid the closing behavior, but that caused much more
-            // trouble than it solved :|
-
-            GImGui->IO.MouseClicked[0] = GImGui->IO.MouseClicked[1] = false;
-        } else if (const ImVec2 pad = square_size(); !ImGui::IsAnyItemActive() &&
-                                                     !item_rect.ContainsWithPad(mouse_pos, pad * 1.5) &&
-                                                     !window_rect.ContainsWithPad(mouse_pos, pad * 2.5)) {
-            ImGui::CloseCurrentPopup();
-        }
-        return true;
+        fn();
+        ImGui::EndPopup();
     }
-    return false;
 }
 
 struct id_pair {
@@ -350,9 +335,13 @@ struct id_pair {
 
 class rclick_popup : no_create {
     inline static id_pair bound_id{}, bound_id_next{};
+    inline static bool in_popup = false;
 
     friend void frame_main();
-    static void begin_frame() { bound_id = std::exchange(bound_id_next, id_pair{}); }
+    static void begin_frame() {
+        bound_id = std::exchange(bound_id_next, id_pair{});
+        assert(!in_popup);
+    }
 
 public:
     using highlight_fn = void (*)(bool popup);
@@ -360,10 +349,11 @@ public:
         imgui_ItemUnderline(ImGui::GetColorU32(popup ? ImGuiCol_Text : ImGuiCol_TextDisabled));
     }
 
-    // TODO: improve highlighting logic; should this be callback or RAII class? (& `begin_popup_for_item`)
-    // Not meant to be used recursively.
+    // TODO: improve highlighting logic.
     template <highlight_fn highlight = default_highlight>
     static void popup(const id_pair id, const func_ref<void()> fn) {
+        assert(!in_popup); // Shouldn't be called recursively.
+
         const bool hovered = ImGui::IsItemHovered();
         if (!hovered && id != bound_id) {
             return;
@@ -390,10 +380,15 @@ public:
                 bound_id_next = id;
 
                 lock_scroll();
+                in_popup = true;
                 fn();
+                in_popup = false;
                 ImGui::EndPopup();
             }
-            // else: `bound_id` will become 0 next frame.
+            // else: `bound_id` will become {} next frame.
+        } else {
+            // To respect ImGui::SetNextWindow... calls.
+            GImGui->NextWindowData.ClearFlags();
         }
     }
 };
@@ -796,10 +791,7 @@ public:
 
         void set(const char* label) {
             ImGui::Button(label);
-            if (begin_popup_for_item()) {
-                _set();
-                ImGui::EndPopup();
-            }
+            item_popup_menu_like([&] { _set(); });
         }
     };
 
