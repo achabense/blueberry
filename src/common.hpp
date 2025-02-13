@@ -352,13 +352,13 @@ public:
     // TODO: improve highlighting logic.
     template <highlight_fn highlight = default_highlight>
     static void popup(const id_pair id, const func_ref<void()> fn) {
-        assert(!in_popup); // Shouldn't be called recursively.
-
+        // assert(!in_popup); (Too strict; ok as long as never hovered (e.g. in tooltip).)
         const bool hovered = ImGui::IsItemHovered();
         if (!hovered && id != bound_id) {
             return;
         }
 
+        assert(!in_popup); // Cannot open recursively.
         highlight(bound_id == id);
 
         // (Avoid creating windows for one-off usage.)
