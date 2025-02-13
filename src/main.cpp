@@ -89,7 +89,7 @@ public:
     }
 };
 
-[[nodiscard]] ImTextureID to_texture(const aniso::_misc::tile_ref_<const aniso::cellT> tile, const scaleE scale) {
+ImTextureID backend_fn::to_texture(const aniso::_misc::tile_ref_<const aniso::cellT> tile, const scaleE scale) {
     SDL_Texture* texture = texture_pool::get(tile.size.x, tile.size.y);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
     if (scale == scaleE::Nearest) {
@@ -161,14 +161,14 @@ public:
     static ImTextureID get() { return (ImTextureID)(intptr_t)texture; }
 };
 
-void code_image(aniso::codeT code, int zoom, const ImVec4& tint_col, const ImVec4& border_col) {
+void backend_fn::code_image(aniso::codeT code, int zoom, const ImVec4& tint_col, const ImVec4& border_col) {
     const ImVec2 size(3 * zoom, 3 * zoom);
     const ImVec2 uv0(0, code * (1.0f / 512));
     const ImVec2 uv1(1, (code + 1) * (1.0f / 512));
     ImGui::Image(code_atlas::get(), size, uv0, uv1, tint_col, border_col);
 }
 
-bool code_button(aniso::codeT code, int zoom, const ImVec4& bg_col, const ImVec4& tint_col) {
+bool backend_fn::code_button(aniso::codeT code, int zoom, const ImVec4& bg_col, const ImVec4& tint_col) {
     const ImVec2 size(3 * zoom, 3 * zoom);
     const ImVec2 uv0(0, code * (1.0f / 512));
     const ImVec2 uv1(1, (code + 1) * (1.0f / 512));
@@ -176,6 +176,16 @@ bool code_button(aniso::codeT code, int zoom, const ImVec4& bg_col, const ImVec4
     const bool hit = ImGui::ImageButton("Code", code_atlas::get(), size, uv0, uv1, bg_col, tint_col);
     ImGui::PopID();
     return hit;
+}
+
+std::string backend_fn::home_path_utf8() {
+    if (char* base_path = SDL_GetBasePath()) {
+        std::string str = base_path;
+        SDL_free(base_path);
+        return str;
+    } else {
+        return ".";
+    }
 }
 
 // The encoding of `argv` cannot be relied upon, see:
@@ -214,15 +224,6 @@ int main(int, char**) {
 
     // Setup Dear ImGui context
     ImGui::CreateContext();
-    {
-        char* const base_path = SDL_GetBasePath();
-        if (!set_home(base_path)) {
-            resource_failure();
-        }
-        if (base_path) {
-            SDL_free(base_path);
-        }
-    }
 
     // Currently the controls of the program work poorly with navigation mode.
     assert(!(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NavEnableKeyboard));

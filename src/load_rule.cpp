@@ -130,28 +130,6 @@ static void display_filename(const pathT& p) {
     imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string(p)); });
 }
 
-static pathT home_path{};
-bool set_home(const char* u8path) /*noexcept*/ {
-    std::error_code ec{};
-    if (u8path) {
-        const pathT p = cpp17_u8path(u8path);
-        if (!p.empty() && std::filesystem::is_directory(p, ec)) {
-            if (pathT cp = std::filesystem::canonical(p, ec); !ec) {
-                home_path.swap(cp);
-                return true;
-            }
-        }
-    }
-    if (const pathT p = std::filesystem::current_path(ec); !ec) {
-        if (pathT cp = std::filesystem::canonical(p, ec); !ec) {
-            home_path.swap(cp);
-            return true;
-        }
-    }
-
-    return false;
-}
-
 class folderT {
     struct entryT {
         pathT name;
@@ -295,17 +273,12 @@ public:
     }
 };
 
-class file_nav {
+class file_nav : no_copy {
     char buf_path[200]{};
     char buf_filter[20]{}; // For files.
 
-    folderT m_current;
-
-    void set_dir(const pathT& path) {
-        if (!m_current.assign_dir(path)) {
-            messenger::set_msg("Cannot open this folder.");
-        }
-    }
+    pathT m_home{};
+    folderT m_current{};
 
 public:
     bool valid() const { return m_current.valid(); }
@@ -317,10 +290,18 @@ public:
         }
     }
 
-    file_nav() {
-        // (The message by `set_dir` is unlikely to be useful.)
-        // set_dir(home_path);
-        m_current.assign_dir(home_path);
+    explicit file_nav(const std::string& u8path) {
+        if (!u8path.empty()) {
+            std::error_code ec{};
+            const pathT p = cpp17_u8path(u8path);
+            if (!p.empty() && std::filesystem::is_directory(p, ec)) {
+                if (pathT cp = std::filesystem::canonical(p, ec); !ec) {
+                    if (m_current.assign_dir(cp)) {
+                        m_home.swap(cp);
+                    }
+                }
+            }
+        }
     }
 
     void select_file(std::optional<pathT>& target, const pathT* current_file /*name*/ = nullptr, int* pid = nullptr) {
@@ -391,6 +372,11 @@ public:
     // Return one of file path in `m_current`.
     std::optional<pathT> display() {
         std::optional<pathT> target = std::nullopt;
+        auto set_dir = [&](const pathT& path) {
+            if (!m_current.assign_dir(path)) {
+                messenger::set_msg("Cannot open this folder.");
+            }
+        };
 
         if (ImGui::BeginTable("##Table", 2, ImGuiTableFlags_Resizable)) {
             imgui_LockTableLayoutWithMinColumnWidth(140); // TODO: improve...
@@ -412,14 +398,14 @@ public:
                 ImGui::Separator();
 
                 // TODO: reconsider disabled vs hiding...
-                // ImGui::BeginDisabled(home_path.empty());
-                if (!home_path.empty()) {
+                // ImGui::BeginDisabled(m_home.empty());
+                if (!m_home.empty()) {
                     if (imgui_SelectableStyledButtonEx(id++, "Home")) {
-                        set_dir(home_path);
+                        set_dir(m_home);
                     }
                 }
                 // ImGui::EndDisabled();
-                // if (home_path.empty()) {
+                // if (m_home.empty()) {
                 //     imgui_ItemTooltip("Not available.");
                 // }
 
@@ -879,7 +865,7 @@ static int count_line(const std::string_view str) { //
 // TODO: support opening multiple files?
 // TODO: add a mode to avoid opening files without rules?
 void load_file(sync_point& out) {
-    static file_nav nav;
+    static file_nav nav(home_path_utf8());
 
     static textT text;
     static std::optional<pathT> path;

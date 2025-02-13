@@ -30,7 +30,6 @@ inline void assert_utf8_encoding() {
 #endif
 
 // Managed by `main`.
-bool set_home(const char* u8path = nullptr); // nullptr ~ filesystem::current_path.
 void frame_main();
 
 // Managed by `frame_main`.
@@ -69,15 +68,19 @@ namespace aniso::_misc {
     struct tile_ref_;
 } // namespace aniso::_misc
 
-// The texture is only valid for the current frame.
-enum class scaleE { Nearest, Linear };
-[[nodiscard]] ImTextureID to_texture(aniso::_misc::tile_ref_<const aniso::cellT> tile, scaleE scale);
+inline namespace backend_fn {
+    // The texture is only valid for the current frame.
+    enum class scaleE { Nearest, Linear };
+    ImTextureID to_texture(aniso::_misc::tile_ref_<const aniso::cellT> tile, scaleE scale);
 
-// ImGui::Image and ImGui::ImageButton for `codeT`.
-void code_image(aniso::codeT code, int zoom, const ImVec4& tint_col = ImVec4(1, 1, 1, 1),
-                const ImVec4& border_col = ImVec4(0, 0, 0, 0));
-bool code_button(aniso::codeT code, int zoom, const ImVec4& bg_col = ImVec4(0, 0, 0, 0),
-                 const ImVec4& tint_col = ImVec4(1, 1, 1, 1));
+    // ImGui::Image and ImGui::ImageButton for `codeT`.
+    void code_image(aniso::codeT code, int zoom, const ImVec4& tint_col = ImVec4(1, 1, 1, 1),
+                    const ImVec4& border_col = ImVec4(0, 0, 0, 0));
+    bool code_button(aniso::codeT code, int zoom, const ImVec4& bg_col = ImVec4(0, 0, 0, 0),
+                     const ImVec4& tint_col = ImVec4(1, 1, 1, 1));
+
+    std::string home_path_utf8(); // "." ~ current path, empty ~ unavailable.
+} // namespace backend_fn
 
 inline const int item_width = 220;
 
