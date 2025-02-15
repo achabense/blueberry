@@ -723,8 +723,8 @@ class messenger : no_create {
             const ImVec2 window_size = ImGui::CalcTextSize(text_beg, text_end, false, text_wrap) + padding * 2;
 
             if (!m_min) {
-                m_count = 10;
-                m_time = clockT::now() + std::chrono::milliseconds(500);
+                m_count = 12;
+                m_time = clockT::now() + std::chrono::milliseconds(600);
 
                 const ImVec2 main_size = ImGui::GetMainViewport()->Size;
                 if (ImGui::IsMousePosValid()) {
@@ -863,9 +863,18 @@ public:
     }
 };
 
+// TODO: whether to check `has_effect`?
+inline void set_msg_cleared(bool /*has_effect*/ = true) {
+    // if (has_effect) {
+    messenger::set_msg("Cleared.");
+    // }
+}
+
 inline void set_clipboard_and_notify(const std::string& str) {
-    if (str.empty() || str.find('\0') == str.npos) {
-        // TODO: whether to copy when str is empty?
+    if (str.empty()) {
+        // Ignore silently...
+        // messenger::set_msg("Ignored empty str.");
+    } else if (str.find('\0') == str.npos) {
         ImGui::SetClipboardText(str.c_str());
         messenger::set_msg("Copied.");
     } else {
@@ -875,20 +884,15 @@ inline void set_clipboard_and_notify(const std::string& str) {
     }
 }
 
-// TODO: whether to check `has_effect`?
-inline void set_msg_cleared(bool /*has_effect*/ = true) {
-    // if (has_effect) {
-    messenger::set_msg("Cleared.");
-    // }
-}
-
-// It's not obvious whether `ImGui::GetClipboardText` can return nullptr, and
-// in some cases the function returns empty string "" for errors...
 inline std::string_view read_clipboard() {
+    // It's not obvious whether `ImGui::GetClipboardText` can return nullptr...
     const char* str = ImGui::GetClipboardText();
     if (!str || *str == '\0') {
-        // If the clipboard contains a real empty string, the result is also "".
-        // messenger::set_msg("Failed to read from the clipboard.");
+        // As tested, the reasons can be:
+        // The clipboard is actually empty.
+        // The clipboard contains non-text content, so the read fails.
+        // The clipboard contains a real empty string.
+        messenger::set_msg("No text available.");
         return {};
     }
     return str;
