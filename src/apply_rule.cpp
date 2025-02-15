@@ -592,15 +592,10 @@ public:
 
         const char* const canvas_name = "Canvas";
         const ImGuiID canvas_id = ImGui::GetID(canvas_name);
-        // The shortcuts are available only when the canvas is hovered or active (which won't happen when the window
-        // is blocked by popups).
-        // (`keys_avail` is needed in hover case, as the canvas can still be hovered when another text-input is
-        // active. Also, `keys_avail` is not true when the canvas is being held, but this does not matter.)
-        const bool enable_shortcuts =
-            (ImGui::GetActiveID() == canvas_id) || (shortcuts::keys_avail() && (ImGui::GetHoveredID() == canvas_id));
-        auto test_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
-            return enable_shortcuts && shortcuts::test(key, repeat);
-        };
+        // The shortcuts are available only when the canvas is hovered or held.
+        // (`keys_avail` is needed for hover case, as the canvas can still be hovered when another text-input is active (won't actually happen now).)
+        const bool canvas_hovered_or_held =
+            ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
 
         auto set_init_state = [&](initT& init, bool& pause) {
             // TODO: highlight() does not work here as it conflicts with popup's.
@@ -772,10 +767,7 @@ public:
         ImGui::PushItemWidth(item_width);
         ImGui::BeginGroup();
         m_torus.set_ctrl([&](ctrlT& ctrl) {
-            auto item_shortcut = [&](ImGuiKey key, bool repeat) {
-                return test_shortcut(key, repeat) && shortcuts::highlight();
-            };
-
+            bool tooltip_hovered = false;
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip("(...)", "Keyboard shortcuts:\n"
                                           "Restart : R (or T)\n"
@@ -784,9 +776,16 @@ public:
                                           "-/+ Step    : 1/2 (repeatable)\n"
                                           "-/+ Interval: 3/4 (repeatable)\n\n"
                                           "These shortcuts are available only when the space window is hovered or held "
-                                          "by mouse button.")) {
+                                          "by mouse button (or when this tooltip is displayed).")) {
                 highlight_canvas = true;
+                tooltip_hovered = true;
             }
+
+            const bool enable_shortcuts = canvas_hovered_or_held || (tooltip_hovered && shortcuts::keys_avail());
+            auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
+                return enable_shortcuts && shortcuts::test(key, repeat) && shortcuts::highlight();
+            };
+
             ImGui::SameLine();
             // (_T and _G are initially for preview windows; also apply here for convenience.)
             if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false) || item_shortcut(ImGuiKey_T, false)) {
@@ -1196,12 +1195,10 @@ public:
                 // `skip` is a workaround to make the highlight appear in the same frame with the tooltip.
                 // (Tooltips will be hidden for one extra frame before appearing.)
                 static bool skip = true;
-                if (highlight_canvas) {
-                    if (std::exchange(skip, false)) {
-                        highlight_canvas = false;
-                    }
-                } else {
+                if (!highlight_canvas) {
                     skip = true;
+                } else if (std::exchange(skip, false)) {
+                    highlight_canvas = false;
                 }
 
                 if (hovered || highlight_canvas) {
@@ -1243,7 +1240,7 @@ public:
                 operationE op = _none;
 
                 auto checked_shortcut = [&](ImGuiKey key, bool valid /*!use_sel || m_sel.has_value()*/) {
-                    if (test_shortcut(key, false)) {
+                    if (canvas_hovered_or_held && shortcuts::test(key, false)) {
                         if (valid) {
                             return true;
                         }
