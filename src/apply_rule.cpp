@@ -341,13 +341,13 @@ struct initT {
     }
 };
 
-class zoomT {
-    struct termT {
-        float val;
-        const char* str;
-    };
-    static constexpr termT terms[]{{0.5, "0.5"}, {1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}, {5, "5"}};
+struct float_pair {
+    float val;
+    const char* str;
+};
 
+class zoomT {
+    static constexpr float_pair terms[]{{0.5, "0.5"}, {1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}, {5, "5"}};
     static constexpr int index_1 = 1;
     static constexpr int index_max = std::size(terms) - 1; // ]
     int m_index = index_1;
@@ -358,11 +358,11 @@ public:
         m_index = index_1;
     }
     void slide(int di) { m_index = std::clamp(m_index + di, 0, index_max); }
-    void select(const func_ref<bool(bool, float, const char*)> fn) {
+    void select(const func_ref<bool(bool, const float_pair&)> fn) {
         int n_index = m_index;
-        for (int i = 0; const auto [z, s] : terms) {
+        for (int i = 0; const auto& term : terms) {
             const int this_i = i++;
-            if (fn(m_index == this_i, z, s)) {
+            if (fn(m_index == this_i, term)) {
                 n_index = this_i;
             }
         }
@@ -748,9 +748,9 @@ public:
         auto select_zoom = [&] {
             ImGui::AlignTextToFramePadding();
             imgui_Str("Zoom ~");
-            m_coord.zoom.select([&](const bool is_cur, float, const char* const s) {
+            m_coord.zoom.select([&](const bool is_cur, const float_pair& z) {
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                if (ImGui::RadioButton(s, is_cur)) {
+                if (ImGui::RadioButton(z.str, is_cur)) {
                     resize_fullscreen = true;
                     return true;
                 }
@@ -964,8 +964,9 @@ public:
                 // (wontfix) Poorly written, but works...
                 // Select the largest zoom that can hold the entire tile.
                 m_coord.zoom.slide(-100); // -> smallest.
-                m_coord.zoom.select([&](bool, float z, const char*) {
-                    const aniso::vecT size = m_torus.calc_size(from_imvec_floor((canvas_size - ImVec2(20, 20)) / z));
+                m_coord.zoom.select([&](bool, const float_pair& z) {
+                    const aniso::vecT size =
+                        m_torus.calc_size(from_imvec_floor((canvas_size - ImVec2(20, 20)) / z.val));
                     return size.both_gteq(m_torus.size());
                 });
             }
@@ -1163,10 +1164,10 @@ public:
 
             // Range operations.
             {
-                enum operationE {
+                enum class operationE {
                     _none,
-                    _capture_closed,
-                    _capture_open,
+                    // _capture_closed,
+                    // _capture_open,
                     _random_fill,
                     _clear_inside,
                     _clear_outside,
@@ -1178,6 +1179,7 @@ public:
                     _paste,
                     _identify
                 };
+                using enum operationE;
 
                 static percentT fill_den = 0.5; // Random-fill.
                 static bool add_rule = true;    // Copy / cut.
@@ -1217,36 +1219,6 @@ public:
                         imgui_ItemTooltip("There is no selected area.");
                     }
                 };
-
-                // v (Preserved for reference.)
-#if 0
-                // Pattern capturing.
-                sync.display_if_enable_lock([&](bool /* visible */) {
-                    ImGui::Separator();
-
-                    ImGui::AlignTextToFramePadding();
-                    imgui_StrTooltip(
-                        "(...)",
-                        "Open-capture: Record what there exists in the selected area (in the current frame, and "
-                        "not including the border). The result will always be appended to the current lock.\n\n"
-                        "Closed-capture: Run the selected area as torus space (with the current rule) and "
-                        "record all mappings. Depending on the setting, the result will replace the current lock "
-                        "directly, or will be appended to the current lock like open-capture.");
-                    ImGui::SameLine();
-                    imgui_RadioButton("Replace", &replace, true);
-                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    imgui_RadioButton("Append", &replace, false);
-                    ImGui::SameLine();
-                    imgui_StrTooltip("(?)", "This affects only closed-capture. See '(...)' for explanation.");
-                    term("Capture (open)", "O (repeatable)", ImGuiKey_O, true, _capture_open);
-                    // (`ImGui::IsKeyPressed(..., repeat = true)` does not return true in every frame.)
-                    // TODO: or `shortcuts::global_flag`? Should `enable_shortcuts` be respected here?
-                    if (m_sel && enable_shortcuts && ImGui::IsKeyDown(ImGuiKey_O) && shortcuts::highlight()) {
-                        op = _capture_open;
-                    }
-                    term("Capture (closed)", "P", ImGuiKey_P, true, _capture_closed);
-                });
-#endif
 
                 auto range_operations_display = [&] {
                     const auto set_tag = [](bool& tag, const char* label, const char* message) {
@@ -1347,13 +1319,7 @@ public:
                 }
 
                 // TODO: disable some operations if `m_paste.has_value`?
-                if (op == _capture_closed && m_sel) {
-                    // capture_closed;
-                    assert(false); // TODO: temporarily preserved.
-                } else if (op == _capture_open && m_sel) {
-                    // aniso::fake_apply;
-                    assert(false); // TODO: temporarily preserved.
-                } else if (op == _random_fill && m_sel) {
+                if (op == _random_fill && m_sel) {
                     // TODO: or `random_flip`?
                     static std::mt19937 rand = rand_source::create();
                     aniso::random_fill(m_torus.write_only(m_sel->to_range()), rand, fill_den.get());
@@ -1499,10 +1465,9 @@ void previewer::configT::_set() {
 
     ImGui::AlignTextToFramePadding();
     imgui_Str("Zoom ~"); // TODO: should this be "zoom" or "scale"?
-    for (const auto [label, v] :
-         std::initializer_list<std::pair<const char*, float>>{{"0.5", 0.5}, {"1", 1}, {"2", 2}}) {
-        ImGui::SameLine(/*0, imgui_ItemInnerSpacingX()*/);
-        imgui_RadioButton(label, &zoom_, v);
+    for (const auto& [val, str] : std::initializer_list<float_pair>{{0.5, "0.5"}, {1, "1"}, {2, "2"}}) {
+        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+        imgui_RadioButton(str, &zoom_, val);
     }
     ImGui::Separator();
 

@@ -168,6 +168,7 @@ public:
 };
 
 template <class T>
+    requires(!std::is_const_v<T>)
 inline bool imgui_RadioButton(const char* label, T* v, std::type_identity_t<T> c) {
     assert(v != nullptr);
     if (ImGui::RadioButton(label, bool(*v == c))) {
