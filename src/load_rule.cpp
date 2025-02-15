@@ -306,7 +306,7 @@ public:
 
     void select_file(std::optional<pathT>& target, const pathT* current_file /*name*/ = nullptr, int* pid = nullptr) {
         ImGui::SetNextItemWidth(std::min(ImGui::CalcItemWidth(), (float)item_width));
-        ImGui::InputText("Filter", buf_filter, std::size(buf_filter));
+        input_text("Filter", buf_filter);
         ImGui::Separator();
         if (auto child = imgui_ChildWindow("Files")) {
             int id = pid ? *pid : 0;
@@ -385,8 +385,7 @@ public:
             int id = 0; // For selectables.
             {
                 ImGui::SetNextItemWidth(std::min(ImGui::CalcItemWidth(), (float)item_width));
-                if (ImGui::InputTextWithHint("Open", "Folder or file path", buf_path, std::size(buf_path),
-                                             ImGuiInputTextFlags_EnterReturnsTrue) &&
+                if (input_text("Open", buf_path, "Folder or file path", ImGuiInputTextFlags_EnterReturnsTrue) &&
                     buf_path[0] != '\0') {
                     // It's impressive that path has implicit c-str ctor... why?
                     if (!m_current.assign_dir_or_file(cpp17_u8path(buf_path), target)) {

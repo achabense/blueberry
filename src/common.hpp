@@ -373,7 +373,6 @@ public:
         //     return;
         // }
 
-        // TODO: will be blocked by input field (not ideal, but not a big problem either...)
         if (!bound_id && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
             ImGui::OpenPopup(shared_popup);
             bound_id = id;
@@ -949,6 +948,17 @@ public:
     };
 };
 
+inline bool input_text(const char* label, std::span<char> buf, const char* hint = nullptr, ImGuiInputFlags flags = 0,
+                       ImGuiInputTextCallback callback = nullptr) {
+    const bool ret = hint ? ImGui::InputTextWithHint(label, hint, buf.data(), buf.size(), flags, callback)
+                          : ImGui::InputText(label, buf.data(), buf.size(), flags, callback);
+    if (ImGui::IsItemActive() && !ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
+        !imgui_GetItemRect().ContainsWithPad(ImGui::GetMousePos(), ImGui::GetStyle().ItemSpacing * 2)) {
+        ImGui::ClearActiveID();
+    }
+    return ret;
+}
+
 // TODO: the name is too casual but I cannot think of a very suitable one...
 template <int max_digit = 5>
 class input_int {
@@ -974,8 +984,7 @@ public:
             return (data->EventChar >= '0' && data->EventChar <= '9') ? 0 : 1;
         };
 
-        if (hint ? ImGui::InputTextWithHint(label, hint, buf, std::size(buf), input_flags, input_filter)
-                 : ImGui::InputText(label, buf, std::size(buf), input_flags, input_filter)) {
+        if (input_text(label, buf, hint, input_flags, input_filter)) {
             return flush();
         }
         return std::nullopt;
