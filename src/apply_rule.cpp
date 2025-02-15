@@ -538,8 +538,15 @@ class runnerT {
     coordT m_coord{};
     ImVec2 to_rotate = {0, 0};
 
-    std::optional<aniso::tileT> m_paste = std::nullopt;
-    aniso::vecT paste_beg{0, 0}; // Valid if paste.has_value().
+    struct pasteT {
+        std::optional<aniso::ruleT> rule = std::nullopt;
+        aniso::tileT tile{};
+        aniso::vecT beg{0, 0};
+        aniso::blitE mode = aniso::blitE::Copy;
+
+        aniso::vecT size() const { return tile.size(); }
+    };
+    std::optional<pasteT> m_paste = std::nullopt;
 
     struct selectT {
         bool active = true;
@@ -570,7 +577,6 @@ public:
 
         // TODO: move settings into a class-local object...
         static aniso::cellT background{0};
-        static aniso::blitE paste_mode = aniso::blitE::Copy;
 
         bool resize_fullscreen = false;
         bool locate_center = false;
@@ -871,16 +877,11 @@ public:
 
         ImGui::AlignTextToFramePadding();
         if (imgui_StrTooltip("(...)", "Mouse operations:\n"
-                                      "- Scroll in the window to zoom in/out.\n\n"
-                                      "When there is no pattern to paste:\n"
+                                      "- Scroll in the window to zoom in/out.\n"
                                       "- Drag with left button to move the window.\n"
                                       "- 'Ctrl' and drag to \"rotate\" the space.\n"
                                       "- Drag with right button to select area.\n"
-                                      "- (The selection can be cleared with a single right-click.)\n\n"
-                                      "When there is pattern to paste:\n"
-                                      "- Left-click to decide where to paste.\n"
-                                      "- Drag with right button to move the window.\n"
-                                      "- (Rotating and selecting are not available in this case.)")) {
+                                      "- (The selection can be cleared with a single right-click.)")) {
             highlight_canvas = true;
         }
 
@@ -929,15 +930,54 @@ public:
         } else {
             imgui_Str("Pattern:N/A");
         }
-        rclick_popup::popup("Pattern", [&] {
-            if (ImGui::Selectable("Clear")) {
-                set_msg_cleared(m_paste.has_value());
-                m_paste.reset();
-            }
-        });
         if (guide_mode::item_tooltip(
                 "Pattern to paste. (Hover on the space window and press 'V' to read pattern from the clipboard.)")) {
             highlight_canvas = true;
+        }
+
+        constexpr bool paste_once = true; // !!TODO: (v0.9.9?v0.9.8) support pasting multiple times.
+        if (m_paste) {
+            // !!TODO: recheck...
+            ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos());
+            if (auto window = imgui_Window("Pasted", 0,
+                                           ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                                               ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize)) {
+                if (imgui_StrTooltip("(...)", "Double-click to decide where to paste.\n\n"
+                                              "'Clear' (or press 'V' again) to quit pasting.")) {
+                    highlight_canvas = true;
+                }
+                ImGui::SameLine();
+                const bool clear = ImGui::SmallButton("Clear");
+                if (m_paste->rule && m_paste->rule != sync.rule) {
+                    ImGui::SameLine();
+                    // TODO: ideally, the pattern should be preserved for this case.
+                    // (Currently, `m_paste` 1. will be reset if the current rule changes 2. will pause the space.
+                    // Neither seems strictly necessary; especially, relaxing 2 can help relax 1 as well.)
+                    if (double_click_button_small("Rule")) {
+                        sync.set(*(m_paste->rule));
+                    }
+                    ImGui::SameLine();
+                    imgui_StrTooltip("(?)", "The pattern specified a different rule."); // TODO: add preview?
+                }
+
+                ImGui::AlignTextToFramePadding();
+                imgui_Str("Paste mode ~");
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                imgui_RadioButton("Copy##Mode", &m_paste->mode, aniso::blitE::Copy);
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                imgui_RadioButton("Or##Mode", &m_paste->mode, aniso::blitE::Or);
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                imgui_RadioButton("And##Mode", &m_paste->mode, aniso::blitE::And);
+                ImGui::SameLine();
+                imgui_StrTooltip(
+                    "(?)",
+                    "Use 'Copy' mode to copy the pattern directly.\n\n"
+                    "Use 'Or' mode to treat black cells as transparent background. ('And' ~ white background.)\n\n"
+                    "(Only 'Copy' works for periodic background.)");
+                if (clear) {
+                    m_paste.reset();
+                }
+            }
         }
 
         {
@@ -1000,9 +1040,9 @@ public:
                 assert(ImGui::IsMousePosValid(&io.MousePos));
                 const ImVec2 mouse_pos = io.MousePos - canvas_min;
 
-                // TODO: this looks messy...
-                if (active && (l_down || (m_paste && r_down))) {
-                    if (!r_down && io.KeyCtrl) {
+                // !!TODO: whether to support moving (but not rotating) when !m_paste && l_down && r_down?
+                if (active && (!m_paste ? l_down && !r_down : l_down || r_down)) {
+                    if (io.KeyCtrl) {
                         to_rotate += io.MouseDelta / m_coord.zoom;
                         const int dx = to_rotate.x, dy = to_rotate.y; // Truncate.
                         if (dx || dy) {
@@ -1012,7 +1052,9 @@ public:
                     } else {
                         m_coord.corner_pos -= io.MouseDelta / m_coord.zoom;
                     }
-                }
+                } /*else if (active && !m_paste && l_down && r_down) {
+                    m_coord.corner_pos -= io.MouseDelta / m_coord.zoom;
+                }*/
 
                 if (imgui_MouseScrolling()) {
                     to_rotate = {0, 0};
@@ -1043,7 +1085,7 @@ public:
 
                 if (m_paste) {
                     assert(m_paste->size().both_lteq(tile_size));
-                    paste_beg = aniso::clamp(cel_pos - m_paste->size() / 2, {0, 0}, tile_size - m_paste->size());
+                    m_paste->beg = aniso::clamp(cel_pos - m_paste->size() / 2, {0, 0}, tile_size - m_paste->size());
                 } else {
                     if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                         const aniso::vecT pos = aniso::clamp(cel_pos, {0, 0}, tile_size.minus(1, 1));
@@ -1107,8 +1149,9 @@ public:
                 } else {
                     assert(!zoom_center);
                     assert(m_paste->size().both_lteq(tile_size));
-                    paste_beg = aniso::clamp(paste_beg, {0, 0}, tile_size - m_paste->size());
+                    const aniso::vecT paste_beg = aniso::clamp(m_paste->beg, {0, 0}, tile_size - m_paste->size());
                     const aniso::vecT paste_end = paste_beg + m_paste->size();
+                    m_paste->beg = paste_beg;
 
                     ImTextureID texture = 0;
                     // (wontfix) Wasteful, but after all this works...
@@ -1118,10 +1161,14 @@ public:
                         // An ideal way to copy patterns with arbitrary periodic background will be:
                         // Detect backgrounds of the pattern and the target area (?not practical?).
                         // 'copy_diff' only if the backgrounds are the same and aligns properly.
-                        aniso::blit(paste_area, m_paste->data(), paste_mode);
+                        aniso::blit(paste_area, m_paste->tile.data(), m_paste->mode);
                         texture = to_texture(tile, scale_mode);
-                        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-                            m_paste.reset();
+                        if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                            if (paste_once) {
+                                m_paste.reset();
+                            } /*else {
+                                messenger::set_msg("Pasted.");
+                            }*/
                             return true;
                         } else { // Restore.
                             aniso::copy(paste_area, temp.data());
@@ -1129,8 +1176,8 @@ public:
                         }
                     });
 
-                    // (`paste_beg` and `paste_end` remain valid even if `paste` has been consumed.)
                     drawlist->AddImage(texture, screen_min, screen_max);
+                    // (It's ok to render for this frame even if `m_paste` has been consumed.)
                     const ImVec2 paste_min = screen_min + to_imvec(paste_beg) * m_coord.zoom;
                     const ImVec2 paste_max = screen_min + to_imvec(paste_end) * m_coord.zoom;
                     drawlist->AddRectFilled(paste_min, paste_max, IM_COL32(255, 0, 0, 60));
@@ -1251,7 +1298,7 @@ public:
                     term("Test background", "P", ImGuiKey_P, true, _test_bg_period); // TODO: redesign...
                     guide_mode::item_tooltip("Test the size and period of periodic background.");
 
-                    // Copy/Cut/Paste.
+                    // Copy/Cut/Identify.
                     ImGui::Separator();
                     set_tag(add_rule, "Rule info",
                             "Whether to include rule info ('rule = ...') in the header for the patterns.\n\n"
@@ -1263,20 +1310,8 @@ public:
                                              "(e.g., pure white, pure black, striped, or checkerboard background), and "
                                              "copy its smallest phase to the clipboard.");
 
+                    // Paste.
                     ImGui::Separator();
-                    ImGui::AlignTextToFramePadding();
-                    imgui_Str("Paste mode ~");
-                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    imgui_RadioButton("Copy##M", &paste_mode, aniso::blitE::Copy);
-                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    imgui_RadioButton("Or", &paste_mode, aniso::blitE::Or);
-                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    imgui_RadioButton("And", &paste_mode, aniso::blitE::And);
-                    ImGui::SameLine();
-                    imgui_StrTooltip("(?)", "Use 'Copy' mode for patterns with unknown or arbitrary (periodic) "
-                                            "background.\n\n"
-                                            "Use 'Or' mode to treat black cells as transparent background. "
-                                            "('And' ~ white background.)");
                     term("Paste", "V", ImGuiKey_V, false, _paste);
                 };
 
@@ -1377,12 +1412,14 @@ public:
                     copy_sel();
                     aniso::fill(m_torus.write_only(m_sel->to_range()), background);
                 } else if (op == _paste) {
-                    // m_paste.reset();
                     if (m_sel) {
                         m_sel->active = false;
                     }
-
-                    if (std::string_view text = read_clipboard(); !text.empty()) {
+                    // !!TODO: a word starting with 'b' or 'o' will be recognized as 1*1 pattern (should be avoided)...
+                    // TODO: whether to support toggling?
+                    if (m_paste) {
+                        m_paste.reset();
+                    } else if (std::string_view text = read_clipboard(); !text.empty()) {
                         std::optional<aniso::ruleT> rule = std::nullopt;
                         text = aniso::strip_RLE_header(text, &rule);
                         aniso::from_RLE_str(text, [&](long long w, long long h) -> std::optional<aniso::tile_ref> {
@@ -1398,19 +1435,11 @@ public:
                                                    tile_size.x, tile_size.y, w, h);
                                 return std::nullopt;
                             } else {
-                                // Set the rule only if the text really contains pattern data,
-                                // so the next paste is guaranteed to succeed.
-                                if (rule && *rule != sync.rule) {
-                                    // !!TODO: sometimes users may don't want to replace the rule...
-                                    sync.set(*rule);
-                                    messenger::set_msg("Loaded a different rule specified by the header. Paste again "
-                                                       "for the pattern.");
-                                    m_paste.reset();
-                                    return std::nullopt;
-                                }
-
-                                m_paste.emplace(aniso::vecT{.x = (int)w, .y = (int)h});
-                                return m_paste->data();
+                                m_paste = {.rule = rule,
+                                           .tile{aniso::vecT{.x = (int)w, .y = (int)h}},
+                                           .beg = {0, 0},
+                                           .mode = aniso::blitE::Copy};
+                                return m_paste->tile.data();
                             }
                         });
                     }
