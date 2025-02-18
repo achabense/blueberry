@@ -1394,28 +1394,27 @@ public:
                     if (m_sel) {
                         m_sel->active = false;
                     }
-                    // !!TODO: a word starting with 'b' or 'o' will be recognized as 1*1 pattern (should be avoided)...
                     // TODO: whether to support toggling?
                     if (m_paste) {
                         m_paste.reset();
                     } else if (std::string_view text = read_clipboard(); !text.empty()) {
                         std::optional<aniso::ruleT> rule = std::nullopt;
                         text = aniso::strip_RLE_header(text, &rule);
-                        aniso::from_RLE_str(text, [&](long long w, long long h) -> std::optional<aniso::tile_ref> {
-                            if (w == 0 || h == 0) {
+                        aniso::from_RLE_str(text, [&](const aniso::prepareT p_size) -> std::optional<aniso::tile_ref> {
+                            if (p_size.empty()) {
                                 messenger::set_msg("Found no pattern.\n\n"
                                                    "('V' is for pasting patterns. If you want to read rules from the "
                                                    "clipboard, use the 'Clipboard' window instead.)");
                                 return std::nullopt;
-                            } else if (w > tile_size.x || h > tile_size.y) {
+                            } else if (p_size.x > tile_size.x || p_size.y > tile_size.y) {
                                 messenger::set_msg("The space is not large enough for the pattern.\n"
                                                    "Space size: x = {}, y = {}\n"
                                                    "Pattern size: x = {}, y = {}",
-                                                   tile_size.x, tile_size.y, w, h);
+                                                   tile_size.x, tile_size.y, p_size.x, p_size.y);
                                 return std::nullopt;
                             } else {
                                 m_paste = {.rule = rule,
-                                           .tile = aniso::tileT(aniso::vecT{.x = (int)w, .y = (int)h}),
+                                           .tile = aniso::tileT(aniso::vecT{.x = (int)p_size.x, .y = (int)p_size.y}),
                                            .beg = {0, 0},
                                            .mode = aniso::blitE::Copy,
                                            .paste_once = true};

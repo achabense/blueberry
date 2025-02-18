@@ -473,7 +473,7 @@ namespace aniso {
     [[nodiscard]] inline std::string_view strip_RLE_header(std::string_view text,
                                                            std::optional<ruleT>* rule = nullptr) {
         const auto line_size = [](std::string_view str) {
-            const auto find_nl = str.find('\n');
+            const auto find_nl = str.find('\n'); // Able to deal with "\r\n".
             return find_nl == str.npos ? str.size() : find_nl + 1;
         };
 
@@ -495,20 +495,31 @@ namespace aniso {
         return text;
     }
 
+    struct prepareT {
+        long long x, y;
+
+        bool empty() const {
+            assert((x == 0 && y == 0) || (x > 0 && y > 0));
+            return x <= 0 || y <= 0;
+        }
+    };
+
     // (The size is calculated from the contents instead of header.)
-    inline void from_RLE_str(std::string_view text,
-                             const func_ref<std::optional<tile_ref>(long long, long long)> prepare) {
+    inline void from_RLE_str(std::string_view text, const func_ref<std::optional<tile_ref>(prepareT)> prepare) {
         text = strip_RLE_header(text);
 
         struct takerT {
             const char *str, *end;
             takerT(std::string_view text) : str(text.data()), end(str + text.size()) {}
 
+            // '?' ~ parsing error.
             std::pair<int, char> take() {
                 while (str != end && (*str == '\n' || *str == '\r' || *str == ' ')) {
                     ++str;
                 }
                 if (str == end) {
+                    return {1, '?'};
+                } else if (*str == '!') {
                     return {1, '!'};
                 }
 
@@ -516,8 +527,9 @@ namespace aniso {
                 if (*str >= '1' && *str <= '9') {
                     const auto [ptr, ec] = std::from_chars(str, end, n);
                     if (ec != std::errc{} || ptr == end) {
-                        return {1, '!'};
+                        return {1, '?'};
                     }
+                    assert(n > 0);
                     str = ptr;
                 }
                 assert(str != end);
@@ -525,18 +537,19 @@ namespace aniso {
                     case 'b': return {n, 'b'};
                     case 'o': return {n, 'o'};
                     case '$': return {n, '$'};
-                    default: return {1, '!'};
+                    default: return {1, '?'};
                 }
             }
         };
 
-        const auto [width, height] = [text] {
+        const prepareT p_size = [text] {
             long long x = 0, y = 0, xmax = 0;
             for (takerT taker(text);;) {
                 const auto [n, c] = taker.take();
-                assert(n >= 0);
                 if (c == '!') {
-                    break;
+                    return prepareT{xmax, x == 0 ? y : y + 1};
+                } else if (n <= 0 || c == '?') {
+                    return prepareT{0, 0};
                 } else if (c == 'b' || c == 'o') {
                     x += n;
                     xmax = std::max(xmax, x);
@@ -546,13 +559,12 @@ namespace aniso {
                     x = 0;
                 }
             }
-            return std::pair{xmax, x == 0 ? y : y + 1};
         }();
 
-        if (const std::optional<tile_ref> tile_opt = prepare(width, height)) {
-            assert(width != 0 && height != 0);
+        if (const std::optional<tile_ref> tile_opt = prepare(p_size)) {
+            assert(!p_size.empty());
             const tile_ref tile = *tile_opt;
-            assert(tile.size.x == width && tile.size.y == height);
+            assert(p_size.x == tile.size.x && p_size.y == tile.size.y);
             fill(tile, {0}); // `tile` data might be dirty.
 
             int x = 0, y = 0;
@@ -581,11 +593,20 @@ namespace aniso {
                 const tile_ref a{a_data.get(), size};
                 const tile_ref b{b_data.get(), size};
                 random_fill(a, testT::rand, 0.5);
-                from_RLE_str(to_RLE_str(a, nullptr), [&](long long w, long long h) {
-                    assert(w == size.x && h == size.y);
+                from_RLE_str(to_RLE_str(a, nullptr), [&](const prepareT p_size) {
+                    assert(p_size.x == size.x && p_size.y == size.y);
                     return std::optional{b};
                 });
                 assert(equal(a_data.get(), b_data.get(), size.xy()));
+            }
+        };
+
+        inline const testT test_RLE_str_2 = [] {
+            for (const char* str : {"", "o", "b", "book", "0b!", "-1o!", "!", "b2!", "b1!"}) {
+                from_RLE_str(str, [](const prepareT p_size) {
+                    assert(p_size.empty());
+                    return std::nullopt;
+                });
             }
         };
     } // namespace _tests
