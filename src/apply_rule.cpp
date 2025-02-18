@@ -1433,7 +1433,7 @@ public:
                                 return std::nullopt;
                             } else {
                                 m_paste = {.rule = rule,
-                                           .tile{aniso::vecT{.x = (int)w, .y = (int)h}},
+                                           .tile = aniso::tileT(aniso::vecT{.x = (int)w, .y = (int)h}),
                                            .beg = {0, 0},
                                            .mode = aniso::blitE::Copy};
                                 return m_paste->tile.data();
