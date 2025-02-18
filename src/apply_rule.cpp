@@ -432,7 +432,7 @@ class runnerT {
             skip_next = true;
         }
         void pause_for_this_frame() { extra_pause = true; }
-        void skip_next_run() { skip_next = true; }
+        // void skip_next_run() { skip_next = true; }
 
         aniso::tile_const_ref read_only() const { return m_torus.data(); }
         aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_torus.data().clip(range); }
@@ -543,6 +543,7 @@ class runnerT {
         aniso::tileT tile{};
         aniso::vecT beg{0, 0};
         aniso::blitE mode = aniso::blitE::Copy;
+        bool paste_once = true; // TODO: static or per object?
 
         aniso::vecT size() const { return tile.size(); }
     };
@@ -572,7 +573,7 @@ public:
         const bool rule_changed = m_torus.begin_frame(sync.rule);
         if (rule_changed) {
             // m_sel.reset();
-            m_paste.reset();
+            // m_paste.reset();
         }
 
         // TODO: move settings into a class-local object...
@@ -600,6 +601,7 @@ public:
         auto set_init_state = [&](initT& init, bool& pause) {
             // TODO: highlight() does not work here as it conflicts with popup's.
             // Ideally and neither should use `NavHighlightActivated` for highlighting...
+            // TODO: support reset-all?
             const bool force_restart =
                 ImGui::Button("Restart") ||
                 (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_R) /*&& shortcuts::highlight()*/);
@@ -609,9 +611,8 @@ public:
                 pause = !pause;
             }
             ImGui::SameLine();
-            imgui_StrTooltip(
-                "(?)", "The space will restart and pause if you 'Restart' or change init settings.\n\n"
-                       "For convenience, the shortcuts for 'Restart' ('R') and 'Pause' ('Space') also work here.");
+            imgui_StrTooltip("(?)", "The space will pause and restart if you 'Restart' or change init settings.\n\n"
+                                    "The shortcuts for 'Restart' ('R') and 'Pause' ('Space') also work here.");
 
             ImGui::PushItemWidth(item_width);
             imgui_StepSliderInt::fn("Seed", &init.seed, 0, 29);
@@ -627,11 +628,6 @@ public:
                                       "'Ctrl' and left-click a cell to resize to that position.");
             ImGui::SameLine();
             imgui_Str("Background");
-            ImGui::SameLine();
-            if (ImGui::Button("Clear##Bg")) {
-                aniso::fill(init.background.data(), {0});
-                // TODO: whether to force-restart in this case?
-            }
 
             // There are:
             // demo_size.z is a multiple of any i <= max_period.z, and
@@ -768,14 +764,14 @@ public:
         m_torus.set_ctrl([&](ctrlT& ctrl) {
             bool tooltip_hovered = false;
             ImGui::AlignTextToFramePadding();
-            if (imgui_StrTooltip("(...)", "Keyboard shortcuts:\n"
-                                          "Restart : R (or T)\n"
-                                          "Pause   : Space\n"
-                                          "+s/+1/+!: S/D/F (or G) (repeatable)\n"
-                                          "-/+ Step    : 1/2 (repeatable)\n"
-                                          "-/+ Interval: 3/4 (repeatable)\n\n"
-                                          "These shortcuts are available only when the space window is hovered or held "
-                                          "by mouse button (or when this tooltip is displayed).")) {
+            if (imgui_StrTooltip(
+                    "(...)",
+                    "Restart : R (or T)\n"
+                    "Pause   : Space\n"
+                    "+s/+1/+!: S/D/F (or G) (repeatable)\n"
+                    "-/+ Step    : 1/2 (repeatable)\n"
+                    "-/+ Interval: 3/4 (repeatable)\n\n"
+                    "These shortcuts are available only when the space window is hovered or held, or when this tooltip is displayed.")) {
                 highlight_canvas = true;
                 tooltip_hovered = true;
             }
@@ -822,7 +818,7 @@ public:
                 imgui_Str("Advance generation by 1 (instead of step).");
                 imgui_Str("+!: ");
                 ImGui::SameLine(0, 0);
-                imgui_Str("Fast mode (advance generation by at least 10 in every frame).");
+                imgui_Str("Fast mode (advance generation by max(10,step) in every frame).");
             });
 
             ImGui::Separator(); // To align with the left panel.
@@ -843,8 +839,9 @@ public:
             imgui_StrTooltip(
                 "(?)",
                 "If the current rule maps '000...' to 1 and '111...' to 0 (aka \"strobing rule\"), the step will be ceiled to 2*n (e.g. 1->2, 2->2) to avoid large spans of 0/1 areas flashing between two colors.\n\n"
-                "The adjustment applies to '+s' mode as well, but does not affect '+1' (so you can change the parity of generation with it).\n\n"
+                "The adjustment also applies to '+s' and '+!', but does not affect '+1' (so '+1' can serve to change the parity of generation).\n\n"
                 "Sometimes you may also find rules that are non-strobing (so the adjustment won't take place) but can develop non-trivial flashing areas. The effect can usually be avoided by manually setting a 2*n step.");
+            // TODO: the last sec is terrible but I have no idea how to improve it...
 
             imgui_StepSliderInt::set_shortcuts(ImGuiKey_3, ImGuiKey_4, enable_shortcuts);
             ctrl.interval.step_slide("Interval", 0, 400);
@@ -874,12 +871,10 @@ public:
         ImGui::Separator();
 
         ImGui::AlignTextToFramePadding();
-        if (imgui_StrTooltip("(...)", "Mouse operations:\n"
-                                      "- Scroll in the window to zoom in/out.\n"
-                                      "- Drag with left button to move the window.\n"
-                                      "- 'Ctrl' and drag to \"rotate\" the space.\n"
-                                      "- Drag with right button to select area.\n"
-                                      "- (The selection can be cleared with a single right-click.)")) {
+        if (imgui_StrTooltip("(...)",
+                             "Scroll in the space window to zoom in/out.\n\n"
+                             "Drag with left button to move the window; 'Ctrl' and drag to \"rotate\" the space.\n\n"
+                             "Drag with right button to select area; single right-click to unselect.")) {
             highlight_canvas = true;
         }
 
@@ -897,30 +892,11 @@ public:
         if (imgui_StrTooltip(
                 "(?)",
                 "The shortcuts listed in 'Range ops', including 'V' for pasting, are available only when the space window "
-                "is hovered or held by mouse button.")) {
+                "is hovered or held.")) {
             highlight_canvas = true;
         }
 
         const int wide_spacing = ImGui::CalcTextSize(" ").x * 2;
-        ImGui::SameLine(0, wide_spacing);
-        if (m_sel) {
-            ImGui::Text("Area:%d*%d", m_sel->width(), m_sel->height());
-        } else {
-            imgui_Str("Area:N/A");
-        }
-        rclick_popup::popup("Area", [&] {
-            if (ImGui::Selectable("Clear")) {
-                set_msg_cleared(m_sel.has_value());
-                m_sel.reset();
-            }
-            if (imgui_StrTooltip(
-                    "(?)",
-                    "When there is no pattern to paste, a more direct way is to single right-click the space window.")) {
-                highlight_canvas = true;
-            }
-        });
-        guide_mode::item_tooltip("Selected area.");
-
         ImGui::SameLine(0, wide_spacing);
         if (m_paste) {
             const aniso::vecT size = m_paste->size();
@@ -928,29 +904,37 @@ public:
         } else {
             imgui_Str("Pattern:N/A");
         }
-        if (guide_mode::item_tooltip(
-                "Pattern to paste. (Hover on the space window and press 'V' to read pattern from the clipboard.)")) {
+        if (guide_mode::item_tooltip("Hover on the space window and press 'V' to load pattern from the clipboard.")) {
+            highlight_canvas = true;
+        }
+        ImGui::SameLine(0, wide_spacing);
+        if (m_sel) {
+            ImGui::Text("Area:%d*%d", m_sel->width(), m_sel->height());
+        } else {
+            imgui_Str("Area:N/A");
+        }
+        if (guide_mode::item_tooltip("Drag with right button to select area; single right-click to unselect.")) {
             highlight_canvas = true;
         }
 
-        constexpr bool paste_once = true; // !!TODO: (v0.9.9?v0.9.8) support pasting multiple times.
         if (m_paste) {
-            // !!TODO: recheck...
-            ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos());
+            ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos(), ImGuiCond_Appearing);
             if (auto window = imgui_Window("Pasted", 0,
-                                           ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
-                                               ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize)) {
-                if (imgui_StrTooltip("(...)", "Double-click to decide where to paste.\n\n"
-                                              "'Clear' (or press 'V' again) to quit pasting.")) {
-                    highlight_canvas = true;
-                }
+                                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDecoration |
+                                               ImGuiWindowFlags_AlwaysAutoResize)) {
+                // !!TODO: the space remains paused if the current rule changes, which is not ideal...
+                imgui_StrTooltip("Double-click to decide where to paste.",
+                                 "The generation can still be advanced with +s/+1/+!.\n\n"
+                                 "Use 'Clear' (or press 'V' again) to cancel pasting.\n\n"
+                                 "Turn off 'Auto clear' to paste multiple times.");
+
+                ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
+                ImGui::Checkbox("Auto clear", &m_paste->paste_once);
+                ImGui::PopStyleVar();
                 ImGui::SameLine();
-                const bool clear = ImGui::SmallButton("Clear");
+                const bool clear = double_click_button_small("Clear");
                 if (m_paste->rule && m_paste->rule != sync.rule) {
                     ImGui::SameLine();
-                    // TODO: ideally, the pattern should be preserved for this case.
-                    // (Currently, `m_paste` 1. will be reset if the current rule changes 2. will pause the space.
-                    // Neither seems strictly necessary; especially, relaxing 2 can help relax 1 as well.)
                     if (double_click_button_small("Rule")) {
                         sync.set(*(m_paste->rule));
                     }
@@ -1161,11 +1145,11 @@ public:
                         aniso::blit(paste_area, m_paste->tile.data(), m_paste->mode);
                         texture = to_texture(tile, scale_mode);
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                            if (paste_once) {
+                            if (m_paste->paste_once) {
                                 m_paste.reset();
-                            } /*else {
+                            } else {
                                 messenger::set_msg("Pasted.");
-                            }*/
+                            }
                             return true;
                         } else { // Restore.
                             aniso::copy(paste_area, temp.data());
@@ -1433,7 +1417,8 @@ public:
                                 m_paste = {.rule = rule,
                                            .tile = aniso::tileT(aniso::vecT{.x = (int)w, .y = (int)h}),
                                            .beg = {0, 0},
-                                           .mode = aniso::blitE::Copy};
+                                           .mode = aniso::blitE::Copy,
+                                           .paste_once = true};
                                 return m_paste->tile.data();
                             }
                         });
@@ -1447,7 +1432,7 @@ public:
         }
 
         if (m_paste) {
-            m_torus.skip_next_run();
+            m_torus.pause_for_this_frame();
         }
 
         assert(!m_torus.resized_since_last_check());
@@ -1618,13 +1603,12 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
 
         imgui_StrTooltip(
             "(...)",
-            "Operations:\n"
-            "- Left-click and hold to pause.\n"
-            "- 'R' to restart. ('T' for all windows in the hovered area.)\n"
-            "- 'F' to speed up. ('G' for all windows in the hovered area.)\n"
-            "- 'Z' to see which subsets the rule belongs to.\n\n"
+            "Left-click and hold to pause.\n"
+            "'R' to restart. ('T' for all windows in the hovered area.)\n"
+            "'F' to speed up. ('G' for all windows in the hovered area.)\n"
+            "'Z' to see which subsets the rule belongs to.\n\n"
             "If the rule belongs to 'Hex' subset:\n"
-            "- '6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
+            "'6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
     });
 
     if (hovered && shortcuts::global_flag(ImGuiKey_Z)) {

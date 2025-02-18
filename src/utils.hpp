@@ -60,6 +60,9 @@ class func_ref_impl<R(Args...)> {
     R (*thunk)(const void*, Args&&...);
 
 public:
+    func_ref_impl(const func_ref_impl&) = default;
+    func_ref_impl& operator=(const func_ref_impl&) = default;
+
     template <class F>
         requires requires(const F& fn, Args&&... args) {
             { fn(static_cast<Args&&>(args)...) } -> safely_implicitly_convertible_to<R>;
@@ -79,3 +82,5 @@ public:
 
 template <class S>
 using func_ref = std::conditional_t<may_store_fp_as_voidp, func_ref_impl<S>, std::function<S>>;
+
+static_assert(!may_store_fp_as_voidp || std::is_trivially_copyable_v<func_ref<void()>>);
