@@ -392,7 +392,7 @@ class runnerT {
 
         bool pause = false;
         int extra_step = 0;
-        global_timer::timerT timer{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
+        global_timer::intervalT interval{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
     };
 
     // TODO: ideally the space window should skip the initial state as well (if not paused).
@@ -507,14 +507,14 @@ class runnerT {
         void end_frame() {
             if (skip_next) {
                 // Intentionally not affected by (extra_)pause.
-                if (m_ctrl.extra_step || m_ctrl.timer.test()) {
+                if (m_ctrl.extra_step || m_ctrl.interval.test()) {
                     skip_next = false;
                 }
                 return;
             }
 
             int count = m_ctrl.extra_step;
-            if (count == 0 && !m_ctrl.pause && !extra_pause && m_ctrl.timer.test()) {
+            if (count == 0 && !m_ctrl.pause && !extra_pause && m_ctrl.interval.test()) {
                 count = m_ctrl.actual_step();
             }
             for (int c = 0; c < count; ++c) {
@@ -704,8 +704,7 @@ public:
                 ImGui::Image(to_texture(curr.data(), scaleE::Nearest), to_imvec(curr.size() * demo_zoom));
                 imgui_ItemRect(IM_COL32_GREY(160, 255));
 
-                static global_timer::timerT timer{200};
-                if (timer.test() && !std::exchange(skip_next, false)) {
+                if (global_timer::test(200) && !std::exchange(skip_next, false)) {
                     curr.run_torus(sync.rule);
                 }
             }
@@ -848,7 +847,7 @@ public:
                 "Sometimes you may also find rules that are non-strobing (so the adjustment won't take place) but can develop non-trivial flashing areas. The effect can usually be avoided by manually setting a 2*n step.");
 
             imgui_StepSliderInt::set_shortcuts(ImGuiKey_3, ImGuiKey_4, enable_shortcuts);
-            ctrl.timer.slide_interval("Interval", 0, 400);
+            ctrl.interval.step_slide("Interval", 0, 400);
             imgui_StepSliderInt::reset_shortcuts();
         });
         ImGui::EndGroup();
@@ -1039,7 +1038,6 @@ public:
                 assert(ImGui::IsMousePosValid(&io.MousePos));
                 const ImVec2 mouse_pos = io.MousePos - canvas_min;
 
-                // !!TODO: whether to support moving (but not rotating) when !m_paste && l_down && r_down?
                 if (active && (!m_paste ? l_down && !r_down : l_down || r_down)) {
                     if (io.KeyCtrl) {
                         to_rotate += io.MouseDelta / m_coord.zoom;
@@ -1051,9 +1049,9 @@ public:
                     } else {
                         m_coord.corner_pos -= io.MouseDelta / m_coord.zoom;
                     }
-                } /*else if (active && !m_paste && l_down && r_down) {
+                } else if (active && !m_paste && l_down && r_down) { // No rotating.
                     m_coord.corner_pos -= io.MouseDelta / m_coord.zoom;
-                }*/
+                }
 
                 if (imgui_MouseScrolling()) {
                     to_rotate = {0, 0};
@@ -1186,7 +1184,7 @@ public:
                     const auto [sel_beg, sel_end] = m_sel->to_range();
                     const ImVec2 sel_min = screen_min + to_imvec(sel_beg) * m_coord.zoom;
                     const ImVec2 sel_max = screen_min + to_imvec(sel_end) * m_coord.zoom;
-                    drawlist->AddRectFilled(sel_min, sel_max, IM_COL32(0, 255, 0, 40));
+                    drawlist->AddRectFilled(sel_min, sel_max, IM_COL32(0, 255, 0, !m_paste ? 40 : 20));
                     // drawlist->AddRect(sel_min, sel_max, IM_COL32(0, 255, 0, 160));
                 }
                 drawlist->AddRect(screen_min, screen_max, previewer::default_border_color());
@@ -1466,7 +1464,7 @@ void apply_rule(sync_point& sync) {
 class global_config : no_create {
     friend class previewer;
 
-    inline static global_timer::timerT timer{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
+    inline static global_timer::intervalT interval{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
     inline static percentT area = 1.0;
 };
 
@@ -1505,7 +1503,7 @@ void previewer::configT::_set() {
     ImGui::Separator();
 
     imgui_StepSliderInt::fn("Step", &step, 1, 24);
-    global_config::timer.slide_interval("Interval", 0, 400);
+    global_config::interval.step_slide("Interval", 0, 400);
     ImGui::SameLine();
     imgui_StrTooltip("(?)", "This is shared by all preview windows in the program.");
 
@@ -1571,7 +1569,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const bool pause = hovered && l_down;
     const bool fast = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_down(ImGuiKey_F)) ||
                       (shortcuts::keys_avail() && shortcuts::test_down(ImGuiKey_G) && ImGui::IsWindowHovered());
-    if (fast || (!pause && (restart || (global_config::timer.test() && !std::exchange(term.skip_run, false))))) {
+    if (fast || (!pause && (restart || (global_config::interval.test() && !std::exchange(term.skip_run, false))))) {
         const int p = adjust_step(fast ? std::max(config.step, step_fast) : config.step, strobing(rule));
         for (int i = 0; i < p; ++i) {
             term.tile.run_torus(rule);

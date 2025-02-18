@@ -683,7 +683,7 @@ class messenger : no_create {
             m_min.reset();
 
             size_t subsize = 0;
-            for (int line = 0; line < 20; ++line) {
+            for (int line = 0; line < 15; ++line) {
                 subsize = str.find_first_of('\n', subsize);
                 if (subsize == str.npos) {
                     break;
@@ -929,20 +929,19 @@ public:
     // 0: will return true every frame.
     static constexpr int min_nonzero_interval = time_unit;
 
-    // `timerT` with the same interval will always be activated at the same frame.
-    struct timerT {
+    class intervalT {
         int i; // terms[i].
 
     public:
         bool test() const { return terms[i].active_at_this_frame; }
 
-        timerT(int ms) {
+        /*implicit*/ intervalT(int ms) {
             assert(min_time <= ms && ms <= max_time);
             assert(ms % time_unit == 0);
             i = std::clamp(ms, min_time, max_time) / time_unit;
         }
 
-        void slide_interval(const char* label, int min_ms, int max_ms) {
+        void step_slide(const char* label, int min_ms, int max_ms) {
             assert(min_time <= min_ms && min_ms < max_ms && max_ms <= max_time);
             assert(min_ms % time_unit == 0);
             assert(max_ms % time_unit == 0);
@@ -950,6 +949,8 @@ public:
                                     [](int i) { return std::format("{} ms", i * time_unit); });
         }
     };
+
+    static bool test(intervalT i) { return i.test(); }
 };
 
 inline bool input_text(const char* label, std::span<char> buf, const char* hint = nullptr, ImGuiInputFlags flags = 0,
