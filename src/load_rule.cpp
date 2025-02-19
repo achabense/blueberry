@@ -444,6 +444,8 @@ struct preview_setting {
     previewer::configT config = previewer::configT::_220_160;
 };
 
+// !!TODO: (v0.9.9?v0.9.8) support loading pattern from text page directly.
+
 // It is easy to locate all rules in the text via `extract_MAP_str`.
 // However there are no easy ways to locate or highlight (only) the rule across the lines.
 // See: https://github.com/ocornut/imgui/issues/2313
@@ -950,7 +952,7 @@ void load_clipboard(sync_point& out) {
     // (The page will hold roughly at most 1.5*max_size/line.)
     const bool too_much_content = text.roughly_check_larger(max_size, max_line, 100);
     ImGui::BeginDisabled(too_much_content);
-    if (ImGui::SmallButton("Read")) {
+    if (ImGui::SmallButton("Read") || shortcuts::item_shortcut(ImGuiKey_W)) {
         const std::string_view str = read_clipboard();
         if (str.size() > max_size / 2) {
             messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));

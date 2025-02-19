@@ -602,9 +602,6 @@ public:
             // m_paste.reset();
         }
 
-        // TODO: move settings into a class-local object...
-        static aniso::cellT background{0};
-
         bool resize_fullscreen = false;
         bool locate_center = false;
         bool find_suitable_zoom = false;
@@ -797,7 +794,7 @@ public:
                     "+s/+1/+!: S/D/F (or G) (repeatable)\n"
                     "-/+ Step    : 1/2 (repeatable)\n"
                     "-/+ Interval: 3/4 (repeatable)\n\n"
-                    "These shortcuts are available only when the space window is hovered or held, or when this tooltip is displayed.")) {
+                    "These shortcuts are available only when the space window is hovered, or when this tooltip is displayed.")) {
                 highlight_canvas = true;
                 tooltip_hovered = true;
             }
@@ -885,6 +882,13 @@ public:
             }
         });
         ImGui::SameLine();
+        if (ImGui::Button("Reset pos")) {
+            locate_center = true;
+            find_suitable_zoom = true;
+        }
+        guide_mode::item_tooltip(
+            "Move the space to the center, and select suitable zoom for it. (As if the space is newly resized.)");
+        ImGui::SameLine();
         ImGui::Text("Generation:%d", m_torus.gen());
 
         ImGui::Spacing(); // To align with the separator.
@@ -898,31 +902,17 @@ public:
         ImGui::Separator();
 
         ImGui::AlignTextToFramePadding();
-        if (imgui_StrTooltip("(...)",
-                             "Scroll in the space window to zoom in/out.\n\n"
-                             "Drag with left button to move the window; 'Ctrl' and drag to \"rotate\" the space.\n\n"
-                             "Drag with right button to select area; single right-click to unselect.")) {
+        if (imgui_StrTooltip(
+                "(...)",
+                "Scroll in the space window to zoom in/out.\n\n"
+                "Drag with left button to move the space; 'Ctrl' and drag to \"rotate\" the space.\n\n"
+                "Drag with right button to select area; single right-click to unselect.\n\n"
+                "See 'Range ops' for more operations (e.g. 'C' to copy selected area, 'V' to load pattern). The shortcuts (including 'V') are available only when the space window is hovered.")) {
             highlight_canvas = true;
         }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Rewind")) {
-            locate_center = true;
-            find_suitable_zoom = true;
-        }
-        guide_mode::item_tooltip("Reset space window's position and zoom.");
-
         ImGui::SameLine();
         static bool show_range_window = false;
         ImGui::Checkbox("Range ops", &show_range_window);
-        ImGui::SameLine();
-        if (imgui_StrTooltip(
-                "(?)",
-                "The shortcuts listed in 'Range ops', including 'V' for pasting, are available only when the space window "
-                "is hovered or held.")) {
-            highlight_canvas = true;
-        }
-
         const int wide_spacing = ImGui::CalcTextSize(" ").x * 2;
         ImGui::SameLine(0, wide_spacing);
         if (m_paste) {
@@ -931,17 +921,11 @@ public:
         } else {
             imgui_Str("Pattern:N/A");
         }
-        if (guide_mode::item_tooltip("Hover on the space window and press 'V' to load pattern from the clipboard.")) {
-            highlight_canvas = true;
-        }
         ImGui::SameLine(0, wide_spacing);
         if (m_sel) {
             ImGui::Text("Area:%d*%d", m_sel->width(), m_sel->height());
         } else {
             imgui_Str("Area:N/A");
-        }
-        if (guide_mode::item_tooltip("Drag with right button to select area; single right-click to unselect.")) {
-            highlight_canvas = true;
         }
 
         if (m_paste) {
@@ -1235,6 +1219,7 @@ public:
                 };
                 using enum operationE;
 
+                static aniso::cellT background{0};
                 static percentT fill_den = 0.5; // Random-fill.
                 static bool add_rule = true;    // Copy / cut.
                 auto copy_sel = [&] {
