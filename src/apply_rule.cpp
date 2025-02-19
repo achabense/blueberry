@@ -408,7 +408,21 @@ class runnerT {
 
         bool m_resized = true; // Init ~ resized.
 
+        // TODO: the interop between different parts is pretty awkward...
+        // m_paste.create -> push_pause_for_m_paste.
+        // any interrupting write-access to m_ctrl.pause -> invalidate stashed_pause.
+        // m_paste.reset -> pop_pause_for_m_paste (~ restore if not invalidated).
+        std::optional<bool> stashed_pause = std::nullopt;
+
     public:
+        void push_pause_for_m_paste() { stashed_pause = std::exchange(m_ctrl.pause, true); }
+        void pop_pause_for_m_paste() {
+            if (stashed_pause) {
+                m_ctrl.pause = *stashed_pause;
+                stashed_pause.reset();
+            }
+        }
+
         torusT() {
             assert(m_torus.size() == calc_size(m_torus.size()));
             restart();
@@ -420,6 +434,7 @@ class runnerT {
 
             if (compare_update(m_ctrl.rule, rule)) {
                 m_ctrl.pause = false;
+                stashed_pause.reset();
 
                 restart();
                 return true;
@@ -490,16 +505,27 @@ class runnerT {
             return std::exchange(m_resized, false);
         }
 
-        void set_ctrl(const func_ref<void(ctrlT&)> fn) { fn(m_ctrl); }
+        void set_ctrl(const func_ref<void(ctrlT&)> fn) {
+            const bool old_pause = m_ctrl.pause;
+            fn(m_ctrl);
+            if (old_pause != m_ctrl.pause) {
+                stashed_pause.reset();
+            }
+        }
         bool set_init(const func_ref<bool(initT&, bool&)> fn) {
             const initT old_init = m_init;
+            const bool old_pause = m_ctrl.pause;
             if (fn(m_init, m_ctrl.pause) || old_init != m_init) {
                 const bool restarted = resize(m_torus.size()); // In case the background is resized.
                 if (!restarted) {
                     restart();
                 }
                 m_ctrl.pause = true;
+                stashed_pause.reset();
                 return true;
+            }
+            if (old_pause != m_ctrl.pause) {
+                stashed_pause.reset();
             }
             return false;
         }
@@ -543,7 +569,7 @@ class runnerT {
         aniso::tileT tile{};
         aniso::vecT beg{0, 0};
         aniso::blitE mode = aniso::blitE::Copy;
-        bool paste_once = true; // TODO: static or per object?
+        inline static bool paste_once = true; // TODO: static or per object?
 
         aniso::vecT size() const { return tile.size(); }
     };
@@ -855,6 +881,7 @@ public:
             if (m_torus.set_init(set_init_state)) {
                 m_sel.reset();
                 m_paste.reset();
+                m_torus.pop_pause_for_m_paste();
             }
         });
         ImGui::SameLine();
@@ -922,9 +949,7 @@ public:
             if (auto window = imgui_Window("Pasted", 0,
                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDecoration |
                                                ImGuiWindowFlags_AlwaysAutoResize)) {
-                // !!TODO: the space remains paused if the current rule changes, which is not ideal...
                 imgui_StrTooltip("Double-click to decide where to paste.",
-                                 "The generation can still be advanced with +s/+1/+!.\n\n"
                                  "Use 'Clear' (or press 'V' again) to cancel pasting.\n\n"
                                  "Turn off 'Auto clear' to paste multiple times.");
 
@@ -958,6 +983,7 @@ public:
                     "(Only 'Copy' works for periodic background.)");
                 if (clear) {
                     m_paste.reset();
+                    m_torus.pop_pause_for_m_paste();
                 }
             }
         }
@@ -998,6 +1024,7 @@ public:
             if (m_torus.resized_since_last_check()) {
                 m_sel.reset();
                 m_paste.reset();
+                m_torus.pop_pause_for_m_paste();
             }
 
             if (locate_center) {
@@ -1147,6 +1174,7 @@ public:
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                             if (m_paste->paste_once) {
                                 m_paste.reset();
+                                m_torus.pop_pause_for_m_paste();
                             } else {
                                 messenger::set_msg("Pasted.");
                             }
@@ -1397,11 +1425,14 @@ public:
                     // TODO: whether to support toggling?
                     if (m_paste) {
                         m_paste.reset();
+                        m_torus.pop_pause_for_m_paste();
                     } else if (std::string_view text = read_clipboard(); !text.empty()) {
                         std::optional<aniso::ruleT> rule = std::nullopt;
                         text = aniso::strip_RLE_header(text, &rule);
                         aniso::from_RLE_str(text, [&](const aniso::prepareT p_size) -> std::optional<aniso::tile_ref> {
                             if (p_size.empty()) {
+                                // TODO: whether to tell apart [no pattern] vs [wrong format e.g. not ending with '!']?
+                                // (At least, explain expected format in this case?)
                                 messenger::set_msg("Found no pattern.\n\n"
                                                    "('V' is for pasting patterns. If you want to read rules from the "
                                                    "clipboard, use the 'Clipboard' window instead.)");
@@ -1413,11 +1444,11 @@ public:
                                                    tile_size.x, tile_size.y, p_size.x, p_size.y);
                                 return std::nullopt;
                             } else {
+                                m_torus.push_pause_for_m_paste();
                                 m_paste = {.rule = rule,
                                            .tile = aniso::tileT(aniso::vecT{.x = (int)p_size.x, .y = (int)p_size.y}),
                                            .beg = {0, 0},
-                                           .mode = aniso::blitE::Copy,
-                                           .paste_once = true};
+                                           .mode = aniso::blitE::Copy};
                                 return m_paste->tile.data();
                             }
                         });
@@ -1428,10 +1459,6 @@ public:
             }
 
             assert(tile_size == m_torus.size());
-        }
-
-        if (m_paste) {
-            m_torus.pause_for_this_frame();
         }
 
         assert(!m_torus.resized_since_last_check());
