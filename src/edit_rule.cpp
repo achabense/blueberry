@@ -21,6 +21,12 @@ namespace aniso {
         static const subsetT ignore_hex = make_subset({mp_hex_ignore});
         static const subsetT ignore_von = make_subset({mp_von_ignore});
 
+        // rule[{0}] == rule[{511}].
+        static const subsetT single_stable_state{mask_zero, []() -> equivT {
+                                                     equivT eq{};
+                                                     eq.add_eq({0}, {511});
+                                                     return eq;
+                                                 }()};
         static const subsetT self_complementary = make_subset({mp_reverse}, mask_identity);
 
         static const subsetT native_isotropic = make_subset({mp_refl_wsx, mp_refl_qsc});
@@ -214,6 +220,7 @@ public:
         terms_ignore.emplace_back("x", &ignore_x, "See 'q' for details.");
         terms_ignore.emplace_back("c", &ignore_c, "See 'q' for details.");
 
+#if 0
         terms_misc.emplace_back(
             "s(*)", &ignore_s_i,
             "Similar to 's' - for any two cases where only 's' differs, the rule will map the center cell to values so that the resulting \"flip-ness\" will be the same. That is:\n\n"
@@ -222,6 +229,7 @@ public:
             "     |z x c|             |z x c|\n\n"
             "So when the surrounding cells are the same, there must be: either s:0->0, s:1->1 (no flip in either case) or s:0->1, s:1->0 (flip in both cases).\n\n"
             "(This is provided for completeness; it's not obvious what's special about this set.)");
+#endif
         // TODO: refine descriptions.
         terms_misc.emplace_back(
             "Hex", &ignore_hex,
@@ -236,6 +244,11 @@ public:
         terms_misc.emplace_back(
             "Comp", &self_complementary,
             "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].");
+        terms_misc.emplace_back("Mono", &single_stable_state,
+                                "Rules that map '000...' and '111...' to the same value.\n\n"
+                                "    |0 0 0|       |1 1 1|\n"
+                                "rule|0 0 0| = rule|1 1 1|\n"
+                                "    |0 0 0|       |1 1 1|");
 
         terms_native.emplace_back("All", &native_isotropic,
                                   "Isotropic MAP rules, i.e. rules that preserve all symmetries.\n\n"
