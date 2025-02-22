@@ -300,7 +300,7 @@ public:
                                 [](int val) { return std::format("{:.2f}", val / 100.0); });
     }
 
-    friend bool operator==(const percentT&, const percentT&) = default;
+    bool operator==(const percentT&) const = default;
 };
 
 struct initT {
@@ -311,7 +311,7 @@ struct initT {
     // TODO: avoid dynamic allocation?
     aniso::tileT background; // Periodic background.
 
-    friend bool operator==(const initT&, const initT&) = default;
+    bool operator==(const initT&) const = default;
 
     void initialize(aniso::tileT& tile) const {
         assert(!tile.empty() && !background.empty());
