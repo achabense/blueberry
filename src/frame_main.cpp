@@ -96,7 +96,7 @@ void frame_main() {
         if (ImGui::Checkbox(title, &open) && open) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
         } else if (&open == &show_clipboard && shortcuts::keys_avail_and_window_hoverable() &&
-                   shortcuts::test(ImGuiKey_W)) {
+                   shortcuts::test_pressed(ImGuiKey_W)) {
             // (Added back as this is very convenient...)
             // !!TODO: currently undocumented.
             open = true;

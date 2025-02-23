@@ -136,7 +136,7 @@ private:
     }
 
 public:
-    static bool test(ImGuiKey key, bool repeat = false) { //
+    static bool test_pressed(ImGuiKey key, bool repeat = false) { //
         return filter(key) && ImGui::IsKeyPressed(key, repeat);
     }
 
@@ -156,7 +156,7 @@ public:
     static bool item_shortcut(ImGuiKey key, bool repeat = false, std::optional<bool> cond = std::nullopt) {
         if (key != ImGuiKey_None && !imgui_TestItemFlag(ImGuiItemFlags_Disabled)) {
             if (cond.has_value() ? *cond : keys_avail_and_window_hoverable()) { // `value_or` won't short-circuit.
-                return test(key, repeat) && highlight();
+                return test_pressed(key, repeat) && highlight();
             }
         }
         return false;
@@ -179,7 +179,7 @@ class guide_mode : no_create {
     friend void frame_main();
 
     static void begin_frame() {
-        if (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_H)) {
+        if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_H)) {
             enable_tooltip = !enable_tooltip;
         }
     }
@@ -234,10 +234,10 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
 // There is intended to be at most one call to this function in each window hierarchy.
 /*[[deprecated]] */ inline void set_scroll_by_up_down(float dy) {
     if (may_scroll() && shortcuts::keys_avail() && shortcuts::window_focused()) {
-        if (shortcuts::test(ImGuiKey_DownArrow, true)) {
+        if (shortcuts::test_pressed(ImGuiKey_DownArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() + dy);
             shortcuts::highlight(ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindowRead(), ImGuiAxis_Y));
-        } else if (shortcuts::test(ImGuiKey_UpArrow, true)) {
+        } else if (shortcuts::test_pressed(ImGuiKey_UpArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() - dy);
             shortcuts::highlight(ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindowRead(), ImGuiAxis_Y));
         }
@@ -569,7 +569,7 @@ public:
 
         if ((tag != None) ||
             (bound_id == 0 && window_focused && !pair_disabled && shortcuts::keys_avail() && extra_cond() &&
-             (shortcuts::test(ImGuiKey_LeftArrow) || shortcuts::test(ImGuiKey_RightArrow)))) {
+             (shortcuts::test_pressed(ImGuiKey_LeftArrow) || shortcuts::test_pressed(ImGuiKey_RightArrow)))) {
             bound_id_next = id_prev;
         }
 

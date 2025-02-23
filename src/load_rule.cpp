@@ -304,10 +304,21 @@ public:
         }
     }
 
+    void input_path(std::optional<pathT>& target) {
+        if (input_text("Open", buf_path, "Folder or file path", ImGuiInputTextFlags_EnterReturnsTrue) &&
+            buf_path[0] != '\0') {
+            // It's impressive that path has implicit c-str ctor... why?
+            if (!m_current.assign_dir_or_file(cpp17_u8path(buf_path), target)) {
+                messenger::set_msg("Cannot open this path.");
+            }
+
+            buf_path[0] = '\0';
+        }
+    }
+
+    void input_filter() { input_text("Filter", buf_filter); }
+
     void select_file(std::optional<pathT>& target, const pathT* current_file /*name*/ = nullptr, int* pid = nullptr) {
-        ImGui::SetNextItemWidth(std::min(ImGui::CalcItemWidth(), (float)item_width));
-        input_text("Filter", buf_filter);
-        ImGui::Separator();
         if (auto child = imgui_ChildWindow("Files")) {
             int id = pid ? *pid : 0;
             bool has = false;
@@ -385,15 +396,7 @@ public:
             int id = 0; // For selectables.
             {
                 ImGui::SetNextItemWidth(std::min(ImGui::CalcItemWidth(), (float)item_width));
-                if (input_text("Open", buf_path, "Folder or file path", ImGuiInputTextFlags_EnterReturnsTrue) &&
-                    buf_path[0] != '\0') {
-                    // It's impressive that path has implicit c-str ctor... why?
-                    if (!m_current.assign_dir_or_file(cpp17_u8path(buf_path), target)) {
-                        messenger::set_msg("Cannot open this path.");
-                    }
-
-                    buf_path[0] = '\0';
-                }
+                input_path(target);
                 ImGui::Separator();
 
                 // TODO: reconsider disabled vs hiding...
@@ -431,6 +434,9 @@ public:
                 }
             }
             ImGui::TableNextColumn();
+            ImGui::SetNextItemWidth(std::min(ImGui::CalcItemWidth(), (float)item_width));
+            input_filter();
+            ImGui::Separator();
             select_file(target, nullptr, &id);
             ImGui::EndTable();
         }
@@ -622,7 +628,7 @@ public:
                 // release right mouse [left-down], then a menu will appear -> minimize and restore the program.
                 m_sel.reset();
             } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) /* From anywhere */ ||
-                       shortcuts::test(ImGuiKey_C) /*Raw test; the interaction will be locked by `m_sel`*/) {
+                       shortcuts::test_pressed(ImGuiKey_C) /*Raw test; the interaction will be locked by `m_sel`*/) {
                 const auto [min, max] = m_sel->minmax();
                 std::string str;
                 for (int i = min; i <= max; ++i) {
@@ -921,8 +927,17 @@ void load_file(sync_point& out) {
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
         item_popup_menu_like([] {
             std::optional<pathT> sel = std::nullopt;
-            const pathT name = path->filename();
-            nav.select_file(sel, &name);
+            {
+                if (ImGui::Button("Refresh")) {
+                    nav.refresh_if_valid();
+                }
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(floor(item_width * 0.75));
+                nav.input_filter();
+                ImGui::Separator();
+                const pathT name = path->filename();
+                nav.select_file(sel, &name);
+            }
             if (sel && try_load(*sel)) {
                 text.reset_scroll(); // Even if the new path is the same as the old one.
                 path = std::move(*sel);

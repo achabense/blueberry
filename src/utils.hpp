@@ -4,6 +4,7 @@
 #include <concepts>
 #include <functional>
 #include <type_traits>
+#include <utility>
 
 struct no_create {
     no_create() = delete;
@@ -61,7 +62,7 @@ class func_ref_impl<R(Args...)> {
 
 public:
     func_ref_impl(const func_ref_impl&) = default;
-    func_ref_impl& operator=(const func_ref_impl&) = default;
+    func_ref_impl& operator=(const func_ref_impl&) = delete;
 
     template <class F>
         requires requires(const F& fn, Args&&... args) {
@@ -76,11 +77,10 @@ public:
     }
 
     R operator()(Args... args) const { //
+        static_assert(std::is_trivially_copyable_v<func_ref_impl>);
         return thunk(context, static_cast<Args&&>(args)...);
     }
 };
 
 template <class S>
 using func_ref = std::conditional_t<may_store_fp_as_voidp, func_ref_impl<S>, std::function<S>>;
-
-static_assert(!may_store_fp_as_voidp || std::is_trivially_copyable_v<func_ref<void()>>);

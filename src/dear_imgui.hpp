@@ -137,7 +137,7 @@ inline void imgui_StrDisabled(std::string_view str) {
 // Similar to `HelpMarker` in "imgui_demo.cpp".
 inline bool imgui_StrTooltip(std::string_view str, const func_ref<void()> desc) {
     imgui_StrDisabled(str);
-    return ::imgui_ItemTooltip(desc);
+    return imgui_ItemTooltip(desc);
 }
 
 inline bool imgui_StrTooltip(std::string_view str, std::string_view desc) { //

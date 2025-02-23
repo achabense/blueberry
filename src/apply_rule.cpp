@@ -627,10 +627,10 @@ public:
             // TODO: support reset-all?
             const bool force_restart =
                 ImGui::Button("Restart") ||
-                (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_R) /*&& shortcuts::highlight()*/);
+                (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_R) /*&& shortcuts::highlight()*/);
             ImGui::SameLine();
             ImGui::Checkbox("Pause", &pause);
-            if (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_Space) /*&& shortcuts::highlight()*/) {
+            if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_Space) /*&& shortcuts::highlight()*/) {
                 pause = !pause;
             }
             ImGui::SameLine();
@@ -801,7 +801,7 @@ public:
 
             const bool enable_shortcuts = canvas_hovered_or_held || (tooltip_hovered && shortcuts::keys_avail());
             auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
-                return enable_shortcuts && shortcuts::test(key, repeat) && shortcuts::highlight();
+                return enable_shortcuts && shortcuts::test_pressed(key, repeat) && shortcuts::highlight();
             };
 
             ImGui::SameLine();
@@ -930,7 +930,7 @@ public:
 
         if (m_paste) {
             ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos(), ImGuiCond_Appearing);
-            if (auto window = imgui_Window("Pasted", 0,
+            if (auto window = imgui_Window("Pasted", nullptr,
                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDecoration |
                                                ImGuiWindowFlags_AlwaysAutoResize)) {
                 imgui_StrTooltip("Double-click to decide where to paste.",
@@ -1235,7 +1235,7 @@ public:
                 operationE op = _none;
 
                 auto checked_shortcut = [&](ImGuiKey key, bool valid /*!use_sel || m_sel.has_value()*/) {
-                    if (canvas_hovered_or_held && shortcuts::test(key, false)) {
+                    if (canvas_hovered_or_held && shortcuts::test_pressed(key, false)) {
                         if (valid) {
                             return true;
                         }
@@ -1465,6 +1465,7 @@ class global_config : no_create {
 };
 
 void previewer::configT::_set() {
+    // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {3, 2});
     ImGui::PushItemWidth(item_width);
 
 #if 0
@@ -1504,6 +1505,7 @@ void previewer::configT::_set() {
     imgui_StrTooltip("(?)", "This is shared by all preview windows in the program.");
 
     ImGui::PopItemWidth();
+    // ImGui::PopStyleVar();
 }
 
 class previewer_data : no_create {
@@ -1535,6 +1537,11 @@ void previewer::begin_frame() {
 void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
+    static auto keys_avail_and_window_hovered = [] { //
+        // (Window-hovered should go before test-pressed to avoid messing with shortcut precedence.)
+        // TODO: let this be tested by configT?
+        return (shortcuts::keys_avail() || !ImGui::GetHoveredID()) && ImGui::IsWindowHovered();
+    };
 
     previewer_data::termT& term = previewer_data::terms[id];
     if (term.active) [[unlikely]] { // ID conflict
@@ -1547,8 +1554,8 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
     const bool hovered = ImGui::IsItemHovered();
     const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-    const bool restart = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test(ImGuiKey_R)) ||
-                         (shortcuts::keys_avail() && shortcuts::test(ImGuiKey_T) && ImGui::IsWindowHovered()) ||
+    const bool restart = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_pressed(ImGuiKey_R)) ||
+                         (keys_avail_and_window_hovered() && shortcuts::test_pressed(ImGuiKey_T)) ||
                          term.tile.size() != tile_size || term.seed != config.seed ||
                          term.area != global_config::area || term.rule != rule;
     if (restart) {
@@ -1564,7 +1571,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     // (_R and _F will override pause mode, while _T and _G will not.
     const bool pause = hovered && l_down;
     const bool fast = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_down(ImGuiKey_F)) ||
-                      (shortcuts::keys_avail() && shortcuts::test_down(ImGuiKey_G) && ImGui::IsWindowHovered());
+                      (keys_avail_and_window_hovered() && shortcuts::test_down(ImGuiKey_G));
     if (fast || (!pause && (restart || (global_config::interval.test() && !std::exchange(term.skip_run, false))))) {
         const int p = adjust_step(fast ? std::max(config.step, step_fast) : config.step, strobing(rule));
         for (int i = 0; i < p; ++i) {
@@ -1614,7 +1621,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
 
         imgui_StrTooltip(
             "(...)",
-            "Left-click and hold to pause.\n"
+            "Hold to pause.\n"
             "'R' to restart. ('T' for all windows in the hovered area.)\n"
             "'F' to speed up. ('G' for all windows in the hovered area.)\n"
             "'Z' to see which subsets the rule belongs to.\n\n"
