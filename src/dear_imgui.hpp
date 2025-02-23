@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
 #include <string>
 
 #include "imgui.h"
@@ -49,13 +50,13 @@ inline bool imgui_IsItemOrNoneActive() { //
     return GImGui->ActiveId == 0 || GImGui->ActiveId == GImGui->LastItemData.ID;
 }
 
-// Workaround to provide stable result for some cases.
+// Workaround to provide stable hovering check for texts and groups.
 // Related: https://github.com/ocornut/imgui/issues/7984 and 7945
-inline bool imgui_ItemHoveredForTooltip(const char* str_id = nullptr) {
-    if (!str_id) {
+inline bool imgui_ItemHoveredForTooltip(const std::optional<ImGuiID> id = std::nullopt) {
+    if (!id) {
         return ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
     } else {
-        const ImGuiID using_id = ImGui::GetID(str_id);
+        const ImGuiID using_id = *id;
 
         // HoverFlagsForTooltipMouse ~ Stationary | DelayShort | AllowWhenDisabled
         if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -77,15 +78,15 @@ inline bool imgui_ItemHoveredForTooltip(const char* str_id = nullptr) {
     }
 }
 
-inline const char* imgui_ItemTooltip_StrID = nullptr;
-
 inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
-    const char* str_id = std::exchange(imgui_ItemTooltip_StrID, nullptr);
     if (GImGui->CurrentWindow->SkipItems) {
         return false;
     }
-    if (imgui_ItemHoveredForTooltip(str_id)) {
+    if (imgui_ItemHoveredForTooltip()) {
         if (ImGui::BeginTooltip()) {
+            if (GImGui->CurrentWindow->BeginCount > 1) {
+                ImGui::Separator();
+            }
             // The same as the one in `HelpMarker` in "imgui_demo.cpp".
             ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
             desc();
@@ -124,14 +125,14 @@ inline void imgui_StrWrapped(std::string_view str, float min_len) {
     ImGui::PopTextWrapPos();
 }
 
-inline void imgui_StrColored(const ImVec4& col, std::string_view str) {
+inline void imgui_StrColored(std::string_view str, const ImVec4& col) {
     ImGui::PushStyleColor(ImGuiCol_Text, col);
     imgui_Str(str);
     ImGui::PopStyleColor();
 }
 
-inline void imgui_StrDisabled(std::string_view str) {
-    imgui_StrColored(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), str);
+inline void imgui_StrDisabled(std::string_view str) { //
+    imgui_StrColored(str, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 }
 
 // Similar to `HelpMarker` in "imgui_demo.cpp".
@@ -140,15 +141,41 @@ inline bool imgui_StrTooltip(std::string_view str, const func_ref<void()> desc) 
     return imgui_ItemTooltip(desc);
 }
 
-inline bool imgui_StrTooltip(std::string_view str, std::string_view desc) { //
-    return imgui_StrTooltip(str, [desc] { imgui_Str(desc); });
+inline bool imgui_StrTooltip(std::string_view str, std::string_view desc) {
+    imgui_StrDisabled(str);
+    return imgui_ItemTooltip(desc);
+}
+
+// Related: https://github.com/ocornut/imgui/issues/5115
+inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::string_view tooltip) {
+    ImGuiWindow* const window = ImGui::GetCurrentWindow();
+    const bool old_skip = std::exchange(window->SkipItems, false); // Display regardless of wether collapsed.
+    const auto [min, max] = window->TitleBarRect();
+    ImGui::PushClipRect(min, max, false);
+    {
+        ImGui::SetCursorPos(
+            ImVec2(ImGui::CalcTextSize(window->Name, nullptr, true).x + ImGui::GetFrameHeight() * 2, 0));
+        ImGui::AlignTextToFramePadding();
+        imgui_StrColored(
+            str, ImLerp(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.5));
+        imgui_ItemTooltip(tooltip);
+    }
+    ImGui::PopClipRect();
+    window->SkipItems = old_skip;
 }
 
 class [[nodiscard]] imgui_Window : no_copy {
 public:
+    // (Without this, to show tooltip unconditionally, the window have to be declared outside of if scope.)
+    inline static const char* next_window_titlebar_tooltip = nullptr;
+
     const bool visible;
     explicit imgui_Window(const char* name, bool* p_open = nullptr, ImGuiWindowFlags flags = {})
-        : visible(ImGui::Begin(name, p_open, flags)) {}
+        : visible(ImGui::Begin(name, p_open, flags)) {
+        if (const char* tooltip = std::exchange(next_window_titlebar_tooltip, nullptr)) {
+            imgui_StrTooltipForTitleBar("(?)", tooltip);
+        }
+    }
     ~imgui_Window() {
         ImGui::End(); // Unconditional.
     }
@@ -166,6 +193,11 @@ public:
     }
     explicit operator bool() const { return visible; }
 };
+
+inline void imgui_CenterNextWindow(ImGuiCond_ cond) {
+    // (The position will be finally rounded in `SetWindowPos`.)
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), cond, {0.5, 0.5});
+}
 
 template <class T>
     requires(!std::is_const_v<T>)

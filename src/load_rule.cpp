@@ -321,10 +321,10 @@ public:
     void select_file(std::optional<pathT>& target, const pathT* current_file /*name*/ = nullptr, int* pid = nullptr) {
         if (auto child = imgui_ChildWindow("Files")) {
             int id = pid ? *pid : 0;
-            bool has = false;
+            bool any = false;
             for (const auto& [file, str] : m_current.files()) {
                 if (!buf_filter[0] || str.find(buf_filter) != str.npos) {
-                    has = true;
+                    any = true;
                     const bool selected = current_file && file == *current_file;
                     if (imgui_SelectableStyledButtonEx(id++, str, selected)) {
                         target = m_current / file;
@@ -334,7 +334,7 @@ public:
                     }
                 }
             }
-            if (!has) {
+            if (!any) {
                 imgui_StrDisabled("None");
             }
             if (pid) {

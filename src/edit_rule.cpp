@@ -719,6 +719,10 @@ struct page_adapter {
             }
         }
     }
+
+    static constexpr const char* resizing_policy =
+        "The number of preview windows can be changed by resizing the window, and conversely, "
+        "the window can be resized to fit the content by double-clicking the resize border.";
 };
 
 static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subsetT& working_set,
@@ -727,6 +731,7 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
     static ImVec2 size_constraint_min{};
     ImGui::SetNextWindowSizeConstraints(size_constraint_min, ImVec2(FLT_MAX, FLT_MAX));
     // TODO: better title...
+    imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
     if (auto window = imgui_Window("Traverse the working set", &show_trav,
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static std::deque<aniso::ruleT> page;
@@ -883,6 +888,7 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
     assert(show_rand);
     static ImVec2 size_constraint_min{};
     ImGui::SetNextWindowSizeConstraints(size_constraint_min, ImVec2(FLT_MAX, FLT_MAX));
+    imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
     if (auto window =
             imgui_Window("Random rules", &show_rand, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         const int c_group = working_set.get_par().k();
@@ -936,19 +942,12 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
             page_no = (rules.size() / adapter.page_size) - 1; // == last_page().
         };
 
-        ImGui::BeginGroup();
         switch (sequence::seq("<|", "<<", ">>>", "|>")) {
             case 0: page_no = 0; break;
             case 1: page_no = std::max(page_no - 1, 0); break;
             case 2: set_next_page(); break;
             case 3: set_last_page(); break;
         }
-        ImGui::EndGroup();
-        imgui_ItemTooltip_StrID = "Seq##Pages";
-        guide_mode::item_tooltip(
-            "'>>>' will generate pages of rules when you are at the last page. See '(...)' for details.\n\n"
-            "(When a button is clicked, or when the window is focused and you press the left/right arrow key, the left/right arrow keys will begin to serve as the shortcuts for '<</>>>'. The same applies to sequences in other places.)");
-        // TODO: still not the best place to record this...
 
         ImGui::SameLine();
         if (!rules.empty()) {
@@ -1051,9 +1050,8 @@ void edit_rule(sync_point& sync) {
     std::optional<exampleT> set_superset_example = std::nullopt;
     {
         const bool clicked = ImGui::Checkbox("Traverse", &show_trav);
-        guide_mode::item_tooltip(
-            "Iterate through all rules in the working set.\n\n"
-            "(The page can be resized by resizing the window. And conversely, the window can be resized to fit the page by double-clicking its resize border. The same applies to 'Random'.)");
+        guide_mode::item_tooltip("Iterate through all rules in the working set.\n\n"
+                                 "(This is mainly useful for small sets.)");
         if (clicked && show_trav) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
             ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -120), ImGuiCond_FirstUseEver);
@@ -1076,8 +1074,9 @@ void edit_rule(sync_point& sync) {
     }
     ImGui::SameLine(0, ImGui::CalcTextSize(" ").x * 3);
     ImGui::Checkbox("Preview", &preview_mode);
-    guide_mode::item_tooltip("Preview the effect of random-access flipping.\n\n"
-                             "(You may 'Collapse' the set table to leave more room for the preview windows.)");
+    guide_mode::item_tooltip(
+        "Preview the effect of random-access flipping. If the current rule already belongs to the working set, this effectively presents all rules with dist = 1 to the current rule (in the set).\n\n"
+        "(You may 'Collapse' the set table to leave more room for the preview windows.)");
 
     if (select_working.rep() != rep_before) {
         /* working-set changes -> */ show_superset = false;
@@ -1228,7 +1227,7 @@ void edit_rule(sync_point& sync) {
             imgui_AddCursorPosY(std::max(0.0f, (height - ImGui::GetTextLineHeight()) / 2));
         };
 
-        const int button_zoom = compact_mode ? 6 : 7;
+        const int button_zoom = init_compact_mode ? 6 : 7;
         const ImVec2 button_padding{2, 2};
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
         const int group_size_x = [&]() {

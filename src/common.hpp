@@ -99,7 +99,8 @@ inline float wrap_len() {
 // inline const bool init_maximize_window = false;
 inline const bool init_zero_interval = false;
 inline const bool init_random_access_preview_mode = false;
-inline const bool compact_mode = false;
+inline const bool init_show_intro = true;
+inline const bool init_compact_mode = false;
 
 // TODO: consider using ImGui::Shortcut?
 // Some features cannot easily be satisfied with `ImGui::Shortcut` and `ImGui::SetNextItemShortcut`.
@@ -177,41 +178,20 @@ class guide_mode : no_create {
     inline static bool enable_tooltip = false;
 
     friend void frame_main();
-
     static void begin_frame() {
         if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_H)) {
             enable_tooltip = !enable_tooltip;
         }
     }
 
-    static void _highlight() { //
-        imgui_ItemRectFilled(ImGui::GetColorU32(ImGuiCol_PlotHistogram, 0.3f));
-    }
-
 public:
-#if 0
-    // For use in combination with other tooltips.
-    static bool enabled() { return enable_tooltip; }
-
-    // It's getting unclear what should really be highlighted...
-    static void highlight() {
-        if (enable_tooltip) {
-            _highlight();
-        }
-    }
-#endif
+    static bool& get_enable() { return enable_tooltip; }
 
     static bool item_tooltip(const std::string_view tooltip) {
         if (enable_tooltip) {
-            _highlight();
-            return imgui_ItemTooltip([tooltip] {
-                if (ImGui::GetCurrentWindowRead()->BeginCount > 1) {
-                    ImGui::Separator();
-                }
-                imgui_Str(tooltip);
-            });
+            imgui_ItemRectFilled(ImGui::GetColorU32(ImGuiCol_PlotHistogram, 0.3f));
+            return imgui_ItemTooltip(tooltip);
         } else {
-            imgui_ItemTooltip_StrID = nullptr;
             return false;
         }
     }
@@ -253,8 +233,7 @@ inline void global_tooltip(const bool highlight, const func_ref<void()> func) {
     if (highlight) {
         ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(0, 128, 255, 255));
     }
-    // (The position will be finally rounded in `SetWindowPos`.)
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always, {0.5, 0.5});
+    imgui_CenterNextWindow(ImGuiCond_Always);
     // Multiple tooltips: https://github.com/ocornut/imgui/issues/1345
     if (auto tooltip = imgui_Window("global_tooltip", nullptr,
                                     ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar |
@@ -402,7 +381,6 @@ inline bool double_click_button_small(const char* label) {
     }
     ImGui::SmallButton(label);
     ImGui::PopStyleColor(3);
-    guide_mode::item_tooltip("This requires double-clicking.");
     return ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 }
 

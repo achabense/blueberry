@@ -62,10 +62,81 @@ static void get_reversal_dual(const bool button_result, sync_point& sync) {
     });
 }
 
+// !!TODO: unfinished...
+static void load_intro(sync_point& out) {
+    ImGui::PushTextWrapPos(wrap_len());
+
+    {
+        ImGui::Checkbox("Additional tooltips", &guide_mode::get_enable());
+        ImGui::SameLine();
+        imgui_StrTooltip("(?)", "Or press 'H' anywhere to toggle on/off.");
+    }
+    ImGui::Separator();
+    {
+        imgui_Str("Right-click underlined text or \"preview windows\" to open menu.");
+        rclick_popup::popup(imgui_GetItemPosID(), [] {
+            if (ImGui::Selectable("...")) {
+                messenger::set_msg("Clicked.");
+            }
+        });
+
+        imgui_Str("Buttons like ");
+        ImGui::SameLine(0, 0);
+        if (double_click_button_small("this")) {
+            messenger::set_msg("Clicked.");
+        }
+        ImGui::SameLine(0, 0);
+        imgui_Str(" requires double-clicking.");
+    }
+    ImGui::Separator();
+    {
+        // (Selected from "Documents/Rules in different sets")
+        // !!TODO: better examples.
+        static const auto rules = aniso::extract_all_rules(
+            "MAPAAAAAQABARcAAQEXARcXfwABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
+            "MAPIIAAAYABARcAAQEXARcXf4ABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
+            "MAPAAEAAAEBABcAEQEHARcXfwABARcBFxd/AVcXPxd/f/8AAQEXAxcVfwEXF38Xf3//ARcXfx9/d/8X/39///9//w "
+            "MAPAAAAEQAREXcAAAARABERdwAREXcRd3f/ABERdxF3d/8AERF3EXd3/wAREXcRd3f/EXd3/3f///8Rd3f/d////w ");
+        static int at = 0;
+        static previewer::configT config{previewer::configT::_220_160};
+        const int total = rules.size();
+        assert(total == 4);
+
+        imgui_Str(
+            "All rules aside from the \"current rule\" (the rule shown in the right panel) are shown in \"preview windows\":");
+        switch (sequence::seq("<|", "Prev", "Next", "|>")) {
+            case 0: at = 0; break;
+            case 1: at = std::max(0, at - 1); break;
+            case 2: at = std::min(total - 1, at + 1); break;
+            case 3: at = total - 1; break;
+        }
+        ImGui::SameLine();
+        imgui_StrTooltip(
+            "(?)",
+            "When one of seq buttons is clicked, or when the window is focused and you press left/right arrow key, the left/right keys will begin to serve as the shortcuts for the sequence.");
+        ImGui::SameLine();
+        ImGui::Text("Total:%d At:%d", total, at + 1);
+        ImGui::SameLine();
+        config.set("Settings");
+        previewer::preview(at, config, rules[at]);
+        ImGui::SameLine();
+        if (ImGui::Button(">> Cur")) {
+            out.set(rules[at]);
+        }
+        guide_mode::item_tooltip("Set as current rule.");
+    }
+    ImGui::Separator();
+    {
+        imgui_Str("The program relies on the clipboard for output (e.g. to save rules and patterns). ...");
+    }
+
+    ImGui::PopTextWrapPos();
+}
+
 void frame_main() {
     // Make collapsed windows obvious to see.
     ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, ImGui::GetColorU32(ImGuiCol_TitleBgActive, 0.8f));
-    if constexpr (compact_mode) {
+    if constexpr (init_compact_mode) {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{3, 2});
     }
 
@@ -88,11 +159,12 @@ void frame_main() {
 
     messenger::display();
 
+    static bool show_intro = init_show_intro;
     static bool show_file = false;
     static bool show_clipboard = false;
     static bool show_doc = false;
     static bool show_record = false;
-    auto load_rule = [&](bool& open, const char* title, void (*load_fn)(sync_point&)) {
+    auto load_rule = [&sync](bool& open, const char* title, void (*load_fn)(sync_point&)) {
         if (ImGui::Checkbox(title, &open) && open) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
         } else if (&open == &show_clipboard && shortcuts::keys_avail_and_window_hoverable() &&
@@ -105,12 +177,22 @@ void frame_main() {
         }
 
         if (open) {
-            ImGui::SetNextWindowPos(ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4),
-                                    ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
-            if (auto window = imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings)) {
-                load_fn(sync);
+            if (&open != &show_intro) {
+                ImGui::SetNextWindowPos(ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4),
+                                        ImGuiCond_FirstUseEver);
+                ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
+                ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
+                if (auto window = imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings)) {
+                    load_fn(sync);
+                }
+            } else {
+                imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
+                imgui_Window::next_window_titlebar_tooltip =
+                    "Click the collapsing button, or double-click title bar to collapse/uncollapse.";
+                if (auto window = imgui_Window(title, &open,
+                                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                    load_fn(sync);
+                }
             }
         }
     };
@@ -122,6 +204,10 @@ void frame_main() {
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
     if (auto window = imgui_Window("Main", nullptr, flags)) {
+        const int wide_spacing = ImGui::CalcTextSize(" ").x * 3;
+        load_rule(show_intro, "Intro", load_intro);
+
+        ImGui::SameLine(0, wide_spacing);
         load_rule(show_file, "Files", load_file);
         guide_mode::item_tooltip("Load rules from files.");
         ImGui::SameLine();
@@ -131,7 +217,6 @@ void frame_main() {
         load_rule(show_doc, "Documents", load_doc);
         guide_mode::item_tooltip("Concepts, example rules, etc.");
 
-        const int wide_spacing = ImGui::CalcTextSize(" ").x * 3;
         ImGui::SameLine(0, wide_spacing);
         load_rule(show_record, "Record", rule_recorder::load_record);
         guide_mode::item_tooltip("Record for current rule, copied rules, etc.");
@@ -162,10 +247,10 @@ void frame_main() {
 
         // TODO: recheck usage of '-': MAP-rule/MAP rule, MAP-string/MAP string.
         // !!TODO: about 'Record' (should be redesigned)...
+        // !!TODO: rewrite...
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)",
-            "Press 'H' to toggle on/off additional tooltips.\n\n"
             "The \"current rule\" is shown in the right panel. The left panel highlights which sets the current rule belongs to, and can generate new rules based on the \"working set\".\n\n"
             "The current rule and rules shown in \"preview windows\" (turn on 'Preview' for examples) can be copied to the clipboard; 'Files' can load rules from files; 'Clipboard' can load rules from the clipboard.\n\n"
             "(See 'Documents' for more info.)");
@@ -182,9 +267,7 @@ void frame_main() {
             }
             get_reversal_dual(ImGui::Selectable("0/1 reversal"), sync);
         });
-        guide_mode::item_tooltip(
-            "MAP-string for the current rule.\n\n"
-            "(Right-click underlined text like this, or \"preview windows\" (turn on 'Preview' for examples) to open popup.)");
+        guide_mode::item_tooltip("MAP-string for the current rule.");
 
         ImGui::Separator();
 
@@ -242,7 +325,7 @@ void frame_main() {
         rule_recorder::record(sync.rec_type, *sync.out_rule, &sync.rule);
     }
 
-    if constexpr (compact_mode) {
+    if constexpr (init_compact_mode) {
         ImGui::PopStyleVar();
     }
     ImGui::PopStyleColor();

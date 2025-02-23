@@ -401,6 +401,18 @@ namespace aniso {
         return extrT(data, ignore_lock);
     }
 
+    inline std::vector<ruleT> extract_all_rules(std::string_view str) {
+        std::vector<ruleT> rules;
+        for (;;) {
+            if (const auto extr = extract_MAP_str(str, true); extr.has_rule()) {
+                rules.push_back(extr.get_rule());
+                str = extr.suffix;
+            } else {
+                return rules;
+            }
+        }
+    }
+
 #ifdef ENABLE_TESTS
     namespace _tests {
         inline const testT test_MAP_str = [] {
@@ -445,6 +457,9 @@ namespace aniso {
                 assert(extr2.get_rule() == rule);
                 assert(!extr1.has_lock());
                 assert(extr2.get_lock() == lock);
+
+                assert(extract_all_rules("").empty());
+                assert(extract_all_rules(rule_only).size() == 1);
             }
         };
     } // namespace _tests
