@@ -1460,8 +1460,15 @@ void apply_rule(sync_point& sync) {
 class global_config : no_create {
     friend class previewer;
 
-    inline static global_timer::intervalT interval{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
+    inline static int seed = 0;
+    inline static percentT density = 0.5;
     inline static percentT area = 1.0;
+
+    static void reset() {
+        seed = 0;
+        density = 0.5;
+        area = 1.0;
+    }
 };
 
 void previewer::configT::_set() {
@@ -1479,30 +1486,34 @@ void previewer::configT::_set() {
 
     imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20);
     imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20);
-    ImGui::SameLine();
-    imgui_StrTooltip(
-        "(?)",
-        "Unlike space window's 'Size ~' (which refers to space size), the width and height here refer to image size (in pixels) and are unrelated to zoom setting.");
-
     ImGui::AlignTextToFramePadding();
     imgui_Str("Zoom ~"); // TODO: should this be "zoom" or "scale"?
     for (const auto& [val, str] : std::initializer_list<float_pair>{{0.5, "0.5"}, {1, "1"}, {2, "2"}}) {
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         imgui_RadioButton(str, &zoom_, val);
     }
-    ImGui::Separator();
-
-    imgui_StepSliderInt::fn("Seed", &seed, 0, 9);
-    global_config::area.step_slide("Area", 10, 100, 10);
     ImGui::SameLine();
-    imgui_StrTooltip("(?)", "This is shared by all preview windows in the program.");
-    imgui_Str("Density ~ 0.5, background ~ default");
-    ImGui::Separator();
+    imgui_StrTooltip(
+        "(?)",
+        "Unlike space window's 'Size ~' (which refers to space size), 'Width' and 'Height' here refer to image size (in pixels) and are unrelated to zoom setting.");
 
+    ImGui::Separator();
     imgui_StepSliderInt::fn("Step", &step, 1, 24);
-    global_config::interval.step_slide("Interval", 0, 400);
-    ImGui::SameLine();
-    imgui_StrTooltip("(?)", "This is shared by all preview windows in the program.");
+    interval.step_slide("Interval", 0, 400);
+
+    ImGui::Separator();
+    ImGui::Button("Init state");
+    item_popup_menu_like([] {
+        if (ImGui::Button("Reset")) {
+            global_config::reset();
+        }
+        ImGui::SameLine();
+        imgui_StrTooltip("(?)", "These settings are shared by all preview windows across the program.");
+        imgui_StepSliderInt::fn("Seed", &global_config::seed, 0, 9);
+        global_config::density.step_slide("Density", 10, 100, 10);
+        global_config::area.step_slide("Area", 10, 100, 10);
+        imgui_Str("Background ~ default (single black cell)");
+    });
 
     ImGui::PopItemWidth();
     // ImGui::PopStyleVar();
@@ -1515,6 +1526,7 @@ class previewer_data : no_create {
         bool active = false;
         bool skip_run = false;
         int seed = 0;
+        percentT density = 0.5;
         percentT area = 0;
         aniso::ruleT rule = {};
         aniso::tileT tile = {};
@@ -1556,14 +1568,16 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     const bool restart = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_pressed(ImGuiKey_R)) ||
                          (keys_avail_and_window_hovered() && shortcuts::test_pressed(ImGuiKey_T)) ||
-                         term.tile.size() != tile_size || term.seed != config.seed ||
-                         term.area != global_config::area || term.rule != rule;
+                         term.tile.size() != tile_size || term.seed != global_config::seed ||
+                         term.density != global_config::density || term.area != global_config::area ||
+                         term.rule != rule;
     if (restart) {
         term.tile.resize(tile_size);
-        term.seed = config.seed;
+        term.seed = global_config::seed;
+        term.density = global_config::density;
         term.area = global_config::area;
         term.rule = rule;
-        initT::initialize(term.tile, config.seed, 0.5 /*density*/, global_config::area);
+        initT::initialize(term.tile, global_config::seed, global_config::density, global_config::area);
         term.skip_run = true;
     }
 
@@ -1572,7 +1586,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const bool pause = hovered && l_down;
     const bool fast = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_down(ImGuiKey_F)) ||
                       (keys_avail_and_window_hovered() && shortcuts::test_down(ImGuiKey_G));
-    if (fast || (!pause && (restart || (global_config::interval.test() && !std::exchange(term.skip_run, false))))) {
+    if (fast || (!pause && (restart || (config.interval.test() && !std::exchange(term.skip_run, false))))) {
         const int p = adjust_step(fast ? std::max(config.step, step_fast) : config.step, strobing(rule));
         for (int i = 0; i < p; ++i) {
             term.tile.run_torus(rule);

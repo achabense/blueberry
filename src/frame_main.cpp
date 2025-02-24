@@ -86,7 +86,7 @@ static void load_intro(sync_point& out) {
             messenger::set_msg("Clicked.");
         }
         ImGui::SameLine(0, 0);
-        imgui_Str(" requires double-clicking.");
+        imgui_Str(" require double-clicking.");
     }
     ImGui::Separator();
     {

@@ -740,6 +740,61 @@ public:
     static void display() { m_msg.display(); }
 };
 
+class global_timer : no_create {
+    static constexpr int time_unit = 25;                // ms.
+    static constexpr int min_time = 0, max_time = 1000; // ms.
+    static_assert(max_time % time_unit == 0);
+
+    using clockT = std::chrono::steady_clock;
+    struct termT {
+        clockT::time_point last;   // = {};
+        bool active_at_this_frame; // = false; (Will cause trouble when building with gcc or clang...)
+    };
+    inline static termT terms[1 + (max_time / time_unit)]{};
+
+    // TODO: what's the most suitable place to call this?
+    friend void frame_main();
+    static void begin_frame() {
+        const clockT::time_point now = clockT::now();
+        for (int i = 0; i < std::size(terms); ++i) {
+            const int dur = i * time_unit;
+            if (terms[i].last + std::chrono::milliseconds(dur) <= now) {
+                terms[i].last = now;
+                terms[i].active_at_this_frame = true;
+            } else {
+                terms[i].active_at_this_frame = false;
+            }
+        }
+    }
+
+public:
+    // 0: will return true every frame.
+    static constexpr int min_nonzero_interval = time_unit;
+
+    class intervalT {
+        int i; // terms[i].
+
+    public:
+        bool test() const { return terms[i].active_at_this_frame; }
+
+        /*implicit*/ intervalT(int ms) {
+            assert(min_time <= ms && ms <= max_time);
+            assert(ms % time_unit == 0);
+            i = std::clamp(ms, min_time, max_time) / time_unit;
+        }
+
+        void step_slide(const char* label, int min_ms, int max_ms) {
+            assert(min_time <= min_ms && min_ms < max_ms && max_ms <= max_time);
+            assert(min_ms % time_unit == 0);
+            assert(max_ms % time_unit == 0);
+            imgui_StepSliderInt::fn(label, &i, min_ms / time_unit, max_ms / time_unit, 1,
+                                    [](int i) { return std::format("{} ms", i * time_unit); });
+        }
+    };
+
+    static bool test(intervalT i) { return i.test(); }
+};
+
 // Preview rules.
 class previewer : no_create {
 public:
@@ -749,8 +804,8 @@ public:
         int width_ = 220;
         int height_ = 160;
 
-        int seed = 0;
         int step = 1;
+        global_timer::intervalT interval = init_zero_interval ? 0 : global_timer::min_nonzero_interval;
 
         void _set();
         void _reset_size_zoom() {
@@ -875,61 +930,6 @@ inline std::string_view read_clipboard() {
     }
     return str;
 }
-
-class global_timer : no_create {
-    static constexpr int time_unit = 25;                // ms.
-    static constexpr int min_time = 0, max_time = 1000; // ms.
-    static_assert(max_time % time_unit == 0);
-
-    using clockT = std::chrono::steady_clock;
-    struct termT {
-        clockT::time_point last;   // = {};
-        bool active_at_this_frame; // = false; (Will cause trouble when building with gcc or clang...)
-    };
-    inline static termT terms[1 + (max_time / time_unit)]{};
-
-    // TODO: what's the most suitable place to call this?
-    friend void frame_main();
-    static void begin_frame() {
-        const clockT::time_point now = clockT::now();
-        for (int i = 0; i < std::size(terms); ++i) {
-            const int dur = i * time_unit;
-            if (terms[i].last + std::chrono::milliseconds(dur) <= now) {
-                terms[i].last = now;
-                terms[i].active_at_this_frame = true;
-            } else {
-                terms[i].active_at_this_frame = false;
-            }
-        }
-    }
-
-public:
-    // 0: will return true every frame.
-    static constexpr int min_nonzero_interval = time_unit;
-
-    class intervalT {
-        int i; // terms[i].
-
-    public:
-        bool test() const { return terms[i].active_at_this_frame; }
-
-        /*implicit*/ intervalT(int ms) {
-            assert(min_time <= ms && ms <= max_time);
-            assert(ms % time_unit == 0);
-            i = std::clamp(ms, min_time, max_time) / time_unit;
-        }
-
-        void step_slide(const char* label, int min_ms, int max_ms) {
-            assert(min_time <= min_ms && min_ms < max_ms && max_ms <= max_time);
-            assert(min_ms % time_unit == 0);
-            assert(max_ms % time_unit == 0);
-            imgui_StepSliderInt::fn(label, &i, min_ms / time_unit, max_ms / time_unit, 1,
-                                    [](int i) { return std::format("{} ms", i * time_unit); });
-        }
-    };
-
-    static bool test(intervalT i) { return i.test(); }
-};
 
 inline bool input_text(const char* label, std::span<char> buf, const char* hint = nullptr, ImGuiInputFlags flags = 0,
                        ImGuiInputTextCallback callback = nullptr) {
