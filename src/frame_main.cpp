@@ -225,8 +225,8 @@ void frame_main() {
         ImGui::Text("(%d FPS)", (int)round(ImGui::GetIO().Framerate));
 #ifdef SET_FRAME_RATE
         ImGui::SameLine();
-        ImGui::SmallButton("Set");
-        item_popup_menu_like([] { timer.set_fps(); });
+        menu_like_popup::small_button("Set");
+        menu_like_popup::popup([] { timer.set_fps(); });
 #endif // SET_FRAME_RATE
 
         if constexpr (debug_mode) {

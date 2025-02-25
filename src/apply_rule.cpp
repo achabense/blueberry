@@ -622,15 +622,13 @@ public:
             ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
 
         auto set_init_state = [&](initT& init, bool& pause) {
-            // TODO: highlight() does not work here as it conflicts with popup's.
-            // Ideally and neither should use `NavHighlightActivated` for highlighting...
             // TODO: support reset-all?
             const bool force_restart =
                 ImGui::Button("Restart") ||
-                (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_R) /*&& shortcuts::highlight()*/);
+                (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_R) && shortcuts::highlight());
             ImGui::SameLine();
             ImGui::Checkbox("Pause", &pause);
-            if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_Space) /*&& shortcuts::highlight()*/) {
+            if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_Space) && shortcuts::highlight()) {
                 pause = !pause;
             }
             ImGui::SameLine();
@@ -873,8 +871,8 @@ public:
         ImGui::EndGroup();
         ImGui::SameLine(floor(1.5 * item_width));
         ImGui::BeginGroup();
-        ImGui::Button("Init state");
-        item_popup_menu_like([&] {
+        menu_like_popup::button("Init state");
+        menu_like_popup::popup([&] {
             if (m_torus.set_init(set_init_state)) {
                 m_sel.reset();
                 m_paste.reset();
@@ -1502,8 +1500,8 @@ void previewer::configT::_set() {
     interval.step_slide("Interval", 0, 400);
 
     ImGui::Separator();
-    ImGui::Button("Init state");
-    item_popup_menu_like([] {
+    menu_like_popup::button("Init state");
+    menu_like_popup::popup([] {
         if (ImGui::Button("Reset")) {
             global_config::reset();
         }

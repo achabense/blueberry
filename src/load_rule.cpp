@@ -901,10 +901,10 @@ void load_file(sync_point& out) {
         // ImGui::EndDisabled();
 #if 0
         ImGui::SameLine();
-        ImGui::SmallButton("Recent");
         // `BeginPopup` will consume the settings, even if not opened.
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
-        item_popup_menu_like([] { nav.selet_history(); });
+        menu_like_popup::small_button("Recent");
+        menu_like_popup::popup([] { nav.selet_history(); });
 #endif
         ImGui::SameLine();
         nav.show_current();
@@ -923,9 +923,9 @@ void load_file(sync_point& out) {
         }
         guide_mode::item_tooltip("Reload from disk.");
         ImGui::SameLine();
-        ImGui::SmallButton("Select");
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
-        item_popup_menu_like([] {
+        menu_like_popup::small_button("Select");
+        menu_like_popup::popup([] {
             std::optional<pathT> sel = std::nullopt;
             {
                 if (ImGui::Button("Refresh")) {
@@ -946,8 +946,8 @@ void load_file(sync_point& out) {
         ImGui::SameLine();
         display_filename(*path);
         ImGui::SameLine();
-        ImGui::SmallButton(">");
-        item_popup_menu_like([] { text.select_line(); });
+        menu_like_popup::small_button(">");
+        menu_like_popup::popup([] { text.select_line(); });
 
         ImGui::Separator();
         text.display(out);
@@ -997,8 +997,8 @@ void load_clipboard(sync_point& out) {
     ImGui::SameLine();
     imgui_Str("Clipboard");
     ImGui::SameLine();
-    ImGui::SmallButton(">");
-    item_popup_menu_like([] { text.select_line(); });
+    menu_like_popup::small_button(">");
+    menu_like_popup::popup([] { text.select_line(); });
 
     ImGui::Separator();
     text.display(out);
@@ -1047,13 +1047,13 @@ void load_doc(sync_point& out) {
     } else {
         const bool close = ImGui::SmallButton("Close");
         ImGui::SameLine();
-        ImGui::SmallButton("Select");
-        item_popup_menu_like([] { select(); });
+        menu_like_popup::small_button("Select");
+        menu_like_popup::popup(select);
         ImGui::SameLine();
         imgui_Str(docs[*doc_id][0]);
         ImGui::SameLine();
-        ImGui::SmallButton(">");
-        item_popup_menu_like([] { text.select_line(); });
+        menu_like_popup::small_button(">");
+        menu_like_popup::popup([] { text.select_line(); });
 
         ImGui::Separator();
         text.display(out);

@@ -259,51 +259,67 @@ inline void global_tooltip(const bool highlight, const func_ref<void()> func) {
 
 // Looks like a common popup, and will appear like a menu (but with more consistent closing behavior).
 // (Can be called recursively.)
-inline void item_popup_menu_like(const func_ref<void()> fn) {
-    // if (GImGui->CurrentWindow->SkipItems) {
-    //     return false; ? whether to do `GImGui->NextWindowData.ClearFlags()`?
-    // }
+class menu_like_popup : no_create {
+    inline static ImGuiID expected_id = 0;
 
-    const ImRect item_rect = imgui_GetItemRect();
-    const ImGuiID item_id = ImGui::GetItemID();
-    assert(item_id != 0); // Mainly designed for buttons.
-
-    if (!ImGui::IsPopupOpen(item_id, 0) && imgui_IsItemOrNoneActive() && imgui_ItemHoveredForTooltip()) {
-        ImGui::OpenPopupEx(item_id, ImGuiPopupFlags_NoReopen);
-        assert(ImGui::IsPopupOpen(item_id, 0));
-        ImGui::SetNextWindowPos(item_rect.GetTR(), ImGuiCond_Appearing); // Like a menu.
+public:
+    // (There seems no good way to apply the style change retroactively in `popup()`.)
+    // (Used to be `NavHighlightActivated`, but that's problematic in some cases.)
+    static void button(const char* label, bool small = false) {
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+        const bool is_open = ImGui::IsPopupOpen((expected_id = ImGui::GetID(label)), 0);
+        if (is_open) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+        }
+        small ? ImGui::SmallButton(label) : ImGui::Button(label);
+        if (is_open) {
+            ImGui::PopStyleColor();
+        }
+        ImGui::PopStyleColor();
     }
 
-    if (ImGui::BeginPopupEx(item_id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
-                                         ImGuiWindowFlags_NoSavedSettings)) {
-        if (ImGui::IsWindowContentHoverable(ImGui::GetCurrentWindowRead())) { // Topmost popup.
-            ImGui::NavHighlightActivated(item_id);
+    static void small_button(const char* label) { button(label, true); }
 
-            const ImVec2 mouse_pos = ImGui::GetMousePos();
-            const auto window_rect = imgui_GetWindowRect();
-            if (!window_rect.Contains(mouse_pos)) {
-                // Disable mouse scrolling in other windows.
-                lock_scroll();
-            }
+    static void popup(const func_ref<void()> fn) {
+        const ImRect item_rect = imgui_GetItemRect();
+        const ImGuiID item_id = ImGui::GetItemID();
+        assert(item_id != 0 && item_id == expected_id); // Must follow `(small_)button()`.
 
-            if (!window_rect.Contains(mouse_pos) && item_rect.Contains(mouse_pos)) {
-                // Avoid closing the popup when the item is clicked; relying on the impl details of this function:
-                (void)&ImGui::UpdateMouseMovingWindowEndFrame;
-                // Initially I tried to use modal popup to avoid the closing behavior, but that caused much more
-                // trouble than it solved :|
-
-                GImGui->IO.MouseClicked[0] = GImGui->IO.MouseClicked[1] = false;
-            } else if (const ImVec2 pad = square_size(); !ImGui::IsAnyItemActive() &&
-                                                         !item_rect.ContainsWithPad(mouse_pos, pad * 1.5) &&
-                                                         !window_rect.ContainsWithPad(mouse_pos, pad * 2.5)) {
-                ImGui::CloseCurrentPopup();
-            }
+        if (!ImGui::IsPopupOpen(item_id, 0) && imgui_IsItemOrNoneActive() && imgui_ItemHoveredForTooltip()) {
+            ImGui::OpenPopupEx(item_id, ImGuiPopupFlags_NoReopen);
+            assert(ImGui::IsPopupOpen(item_id, 0));
+            ImGui::SetNextWindowPos(item_rect.GetTR(), ImGuiCond_Appearing); // Like a menu.
         }
 
-        fn();
-        ImGui::EndPopup();
+        if (ImGui::BeginPopupEx(item_id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
+                                             ImGuiWindowFlags_NoSavedSettings)) {
+            if (ImGui::IsWindowContentHoverable(ImGui::GetCurrentWindowRead())) { // Topmost popup.
+                const ImVec2 mouse_pos = ImGui::GetMousePos();
+                const auto window_rect = imgui_GetWindowRect();
+                if (!window_rect.Contains(mouse_pos)) {
+                    // Disable mouse scrolling in other windows.
+                    lock_scroll();
+                }
+
+                if (!window_rect.Contains(mouse_pos) && item_rect.Contains(mouse_pos)) {
+                    // Avoid closing the popup when the item is clicked; relying on the impl details of this function:
+                    (void)&ImGui::UpdateMouseMovingWindowEndFrame;
+                    // Initially I tried to use modal popup to avoid the closing behavior, but that caused much more
+                    // trouble than it solved :|
+
+                    GImGui->IO.MouseClicked[0] = GImGui->IO.MouseClicked[1] = false;
+                } else if (const ImVec2 pad = square_size(); !ImGui::IsAnyItemActive() &&
+                                                             !item_rect.ContainsWithPad(mouse_pos, pad * 1.5) &&
+                                                             !window_rect.ContainsWithPad(mouse_pos, pad * 2.5)) {
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+
+            fn();
+            ImGui::EndPopup();
+        }
     }
-}
+};
 
 struct id_pair {
     ImGuiID id0 = 0, id1 = 0;
@@ -826,8 +842,8 @@ public:
         ImVec2 size_imvec() const { return ImVec2(width_, height_); }
 
         void set(const char* label) {
-            ImGui::Button(label);
-            item_popup_menu_like([&] { _set(); });
+            menu_like_popup::button(label);
+            menu_like_popup::popup([&] { _set(); });
         }
     };
 

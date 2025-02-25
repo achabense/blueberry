@@ -1019,8 +1019,8 @@ void edit_rule(sync_point& sync) {
             select();
         } else {
             ImGui::SameLine();
-            ImGui::Button("Select");
-            item_popup_menu_like([&] { select(); });
+            menu_like_popup::button("Select");
+            menu_like_popup::popup(select);
         }
     }
     const aniso::subsetT& working_set = select_working.get();
