@@ -434,12 +434,13 @@ public:
     struct select_mode {
         const aniso::ruleT* rule = nullptr;
         bool select = false;
-        const aniso::subsetT* subset = nullptr; // `current` should include it.
+        /*[[deprecated]]*/ const aniso::subsetT* subset = nullptr; // `current` should include it.
         bool tooltip = false;
 
         void verify() const {
             assert(rule || select);
-            assert_implies(subset, select);
+            assert(!subset);
+            // assert_implies(subset, select);
         }
     };
 
@@ -987,7 +988,7 @@ void previewer::_identify_rule(const aniso::ruleT& rule) {
 void edit_rule(sync_point& sync) {
     // Select subsets.
     static subset_selector select_working{&aniso::_subsets::native_isotropic};
-    const auto rep_before = select_working.rep();
+    // const auto rep_before = select_working.rep();
     {
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip("(...)", subset_selector::about);
@@ -1042,12 +1043,6 @@ void edit_rule(sync_point& sync) {
     static bool show_rand = false;
     static bool preview_mode = init_random_access_preview_mode;
     static previewer::configT config{previewer::configT::_220_160};
-    static bool show_superset = false;
-    static subset_selector select_super;
-    struct exampleT {
-        const aniso::subsetT *working, *super;
-    };
-    std::optional<exampleT> set_superset_example = std::nullopt;
     {
         const bool clicked = ImGui::Checkbox("Traverse", &show_trav);
         guide_mode::item_tooltip("Iterate through all rules in the working set.\n\n"
@@ -1072,75 +1067,11 @@ void edit_rule(sync_point& sync) {
             random_rule_window(show_rand, sync, working_set, mask);
         }
     }
-    ImGui::SameLine(0, ImGui::CalcTextSize(" ").x * 3);
+    ImGui::SameLine();
     ImGui::Checkbox("Preview", &preview_mode);
     guide_mode::item_tooltip(
         "Preview the effect of random-access flipping. If the current rule already belongs to the working set, this effectively presents all rules with dist = 1 to the current rule (in the set).\n\n"
         "(You may 'Collapse' the set table to leave more room for the preview windows.)");
-
-    if (select_working.rep() != rep_before) {
-        /* working-set changes -> */ show_superset = false;
-    }
-
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Superset", &show_superset) && show_superset) {
-        select_super = select_working;
-    }
-    guide_mode::item_tooltip(
-        "Compare the working set with its superset.\n\n"
-        "The superset will initially be the same as the working set (and has no effect) after you turn on this mode. Select a strict superset to see the difference.\n\n"
-        "The mode will be turned off automatically if the working set changes.");
-    if (show_superset) {
-        if (!select_super.get().includes(working_set)) {
-            select_super = select_working;
-        }
-
-        ImGui::SameLine();
-        ImGui::Button("Select##Super"); // TODO: this is a bit awkward...
-        item_popup_menu_like([&] {
-            if (ImGui::Button("Clear##Super")) {
-                select_super.clear();
-            }
-            guide_mode::item_tooltip("Unselect all sets (to be the entire MAP set).");
-            ImGui::SameLine();
-            if (ImGui::Button("Reset##Super")) {
-                select_super = select_working;
-            }
-            guide_mode::item_tooltip("Reset to be the same as the working set.");
-            ImGui::SameLine();
-            ImGui::Button("Examples");
-            item_popup_menu_like([&] {
-                using namespace aniso::_subsets;
-                int id = 0;
-                if (imgui_SelectableStyledButtonEx(id++, "Outer-totalistic vs isotropic")) {
-                    set_superset_example = {.working = &native_tot_exc_s, .super = &native_isotropic};
-                }
-                if (imgui_SelectableStyledButtonEx(id++, "Inner-totalistic vs outer-totalistic")) {
-                    set_superset_example = {.working = &native_tot_inc_s, .super = &native_tot_exc_s};
-                }
-                if (imgui_SelectableStyledButtonEx(id++, "Isotropic vs C4")) {
-                    set_superset_example = {.working = &native_isotropic, .super = &native_C4};
-                }
-                if (imgui_SelectableStyledButtonEx(id++, "Isotropic vs entire MAP set")) {
-                    set_superset_example = {.working = &native_isotropic, .super = nullptr};
-                }
-                if (imgui_SelectableStyledButtonEx(id++, "(Hex) outer-totalistic vs isotropic")) {
-                    set_superset_example = {.working = &hex_tot_exc_s, .super = &hex_isotropic};
-                }
-            });
-            ImGui::SameLine();
-            imgui_StrTooltip(
-                "(?)",
-                "A superset can be any combination of the sets selectable in this table (which are what the working set belongs to, i.e. those center-marked in working set's selection table).");
-            ImGui::Separator();
-            select_super.select({.select = true, .subset = &working_set /*no tooltip*/});
-        });
-
-        assert(select_super.get().includes(working_set));
-        assert(select_super.get().contains(mask));
-    }
-
-    // (Shown after 'Select' for better visual.)
     if (preview_mode) {
         ImGui::SameLine();
         config.set("Settings");
@@ -1187,29 +1118,6 @@ void edit_rule(sync_point& sync) {
                 });
             }
         }
-
-        if (show_superset) {
-            ImGui::SameLine(0, ImGui::CalcTextSize(" ").x * 3);
-
-            const aniso::subsetT& superset = select_super.get();
-            // TODO: avoid repeated calculations...
-            if (working_set.includes(superset)) { // ==
-                imgui_Str("vs superset: Same");
-                ImGui::SameLine();
-                imgui_StrTooltip("(?)", "Select a strict superset ('Select') to see the difference.");
-            } else {
-                const bool super_contains = superset.contains(sync.rule);
-
-                std::string str = std::format("vs superset: Groups:{}", superset.get_par().k());
-                if (super_contains) {
-                    const int dist = aniso::distance(superset, mask, sync.rule);
-                    str += std::format(" ({}:{} {}:{})", chr_1, dist, chr_0, superset.get_par().k() - dist);
-                } else {
-                    str += " !contained"; // TODO: add '(?)' as well?
-                }
-                imgui_Str(str);
-            }
-        }
     }
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
@@ -1243,11 +1151,10 @@ void edit_rule(sync_point& sync) {
             return fit_count(avail_x, group_size_x, spacing_x);
         };
 
-        auto show_group = [&](const bool set_contains, const char* const require_ctrl, const int preview_id,
-                              const aniso::groupT& group) {
+        auto show_group = [&](const int preview_id, const aniso::groupT& group) {
             const bool has_lock = false; // TODO: temporarily preserved.
 
-            const bool pure = set_contains || aniso::all_same_or_different(group, mask, sync.rule);
+            const bool pure = working_contains || aniso::all_same_or_different(group, mask, sync.rule);
             const aniso::codeT head = group[0];
             const auto get_adjacent_rule = [&] {
                 aniso::ruleT rule = sync.rule;
@@ -1257,11 +1164,11 @@ void edit_rule(sync_point& sync) {
             const auto group_details = [&] {
                 const int group_size = group.size();
 
-                if (!require_ctrl) {
+                if (working_contains) {
                     imgui_Str("Click to flip the values in this group.");
                 } else {
-                    ImGui::Text("The current rule does not belong to the %s; press 'Ctrl' to enable flipping anyway.",
-                                require_ctrl);
+                    imgui_Str(
+                        "The current rule does not belong to the working set; press 'Ctrl' to enable flipping anyway.");
                 }
                 if constexpr (debug_mode) {
                     if (!preview_mode) {
@@ -1313,7 +1220,7 @@ void edit_rule(sync_point& sync) {
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color[1]);
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, button_color[2]);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
-            const bool enable_edit = !require_ctrl || ImGui::GetIO().KeyCtrl;
+            const bool enable_edit = working_contains || ImGui::GetIO().KeyCtrl;
             if (!enable_edit) {
                 // Not using ImGui::BeginDisabled(), so the button color will not be affected.
                 ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
@@ -1341,102 +1248,26 @@ void edit_rule(sync_point& sync) {
             }
         };
 
-        if (!show_superset || working_set.includes(select_super.get()) /*==*/) {
-            const int perline = calc_perline(ImGui::GetContentRegionAvail().x);
+        const int perline = calc_perline(ImGui::GetContentRegionAvail().x);
 
-            std::vector<aniso::groupT> working_set_groups = working_set.get_par().group_vec();
-            if (!working_contains) {
-                std::ranges::stable_partition(working_set_groups, [&](const aniso::groupT& group) {
-                    return !aniso::all_same_or_different(group, mask, sync.rule);
-                });
+        std::vector<aniso::groupT> working_set_groups = working_set.get_par().group_vec();
+        if (!working_contains) {
+            std::ranges::stable_partition(working_set_groups, [&](const aniso::groupT& group) {
+                return !aniso::all_same_or_different(group, mask, sync.rule);
+            });
+        }
+        for (int n = 0; const aniso::groupT& group : working_set_groups) {
+            const int this_n = n++;
+
+            if (this_n % perline != 0) {
+                ImGui::SameLine(0, spacing_x);
+            } else {
+                ImGui::Separator();
             }
-            for (int n = 0; const aniso::groupT& group : working_set_groups) {
-                const int this_n = n++;
-
-                if (this_n % perline != 0) {
-                    ImGui::SameLine(0, spacing_x);
-                } else {
-                    ImGui::Separator();
-                }
-                show_group(working_contains, !working_contains ? "working set" : nullptr, this_n, group);
-            }
-        } else {
-            // (This ensures the positions are not affected by the table.)
-            ImGui::PushStyleVar(ImGuiStyleVar_CellPadding,
-                                ImVec2((spacing_x - 1) / 2, ImGui::GetStyle().ItemSpacing.y));
-            ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, ImGui::GetColorU32(ImGuiCol_Separator));
-            if (ImGui::BeginTable("Table", 2,
-                                  ImGuiTableFlags_BordersInner | ImGuiTableFlags_BordersOuterH |
-                                      ImGuiTableFlags_NoKeepColumnsVisible)) {
-                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed,
-                                        group_size_x /*provides stable visual when the layout switches*/);
-                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
-
-                const aniso::subsetT& superset = select_super.get();
-                const bool super_contains = superset.contains(sync.rule);
-                aniso::codeT::map_to<bool> visited;
-                visited.fill(false);
-                std::vector<aniso::groupT> subgroups; // Superset has smaller groups.
-                for (int _j = 0; const aniso::groupT& group : working_set.get_par().groups()) {
-                    const int j = _j++;
-
-                    subgroups.clear();
-                    for (const aniso::codeT code : group) {
-                        if (!visited[code]) {
-                            const aniso::groupT subgroup = superset.get_par().group_for(code);
-                            for (const aniso::codeT c : subgroup) {
-                                visited[c] = true;
-                            }
-                            subgroups.push_back(subgroup);
-                        }
-                    }
-
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    // TODO: the ctrl-check for superset case is somewhat under-documented...
-                    // It's fine to require superset-contains here (especially when subgroups.size = 1, the group is shown on the working set's side),
-                    // but this may be a bit confusing to users...
-                    show_group(working_contains, !super_contains ? "superset" : nullptr, j, group);
-                    ImGui::TableNextColumn();
-                    if (subgroups.size() == 1) {
-                        // The same as the working set's group; no need to display.
-                        if (!preview_mode) {
-                            align_text(button_zoom * 3); // TODO: fragile...
-                        }
-                        imgui_StrDisabled("(Same)");
-                    } else {
-                        const int perline = calc_perline(ImGui::GetContentRegionAvail().x);
-
-                        if (!super_contains) {
-                            std::ranges::stable_partition(subgroups, [&](const aniso::groupT& group) {
-                                return !aniso::all_same_or_different(group, mask, sync.rule);
-                            });
-                        }
-                        ImGui::PushID(j);
-                        for (int n = 0; const aniso::groupT& subgroup : subgroups) {
-                            const int this_n = n++;
-
-                            if (this_n % perline != 0) {
-                                ImGui::SameLine(0, spacing_x);
-                            }
-                            show_group(super_contains, !super_contains ? "superset" : nullptr, this_n, subgroup);
-                        }
-                        ImGui::PopID();
-                    }
-                }
-                ImGui::EndTable();
-            }
-            ImGui::PopStyleColor();
-            ImGui::PopStyleVar();
+            show_group(this_n, group);
         }
     }
     ImGui::PopStyleColor();
-
-    if (set_superset_example) {
-        select_working.select_single(set_superset_example->working);
-        select_super.select_single(set_superset_example->super);
-        // preview_mode = false;
-    }
 }
 
 [[maybe_unused]] static void static_constraints(aniso::partialT& out) {
