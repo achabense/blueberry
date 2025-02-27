@@ -399,7 +399,7 @@ class runnerT {
     // (This change is not as easy to make as it seems, as the current impl is toooo fragile...)
     class torusT {
         initT m_init{.seed = 0, .density = 0.5, .area = 0.5, .background = aniso::tileT{{.x = 1, .y = 1}}};
-        aniso::tileT m_torus{{.x = 600, .y = 400}};
+        aniso::tileT m_torus{};
         ctrlT m_ctrl{.rule{}, .step = 1, .pause = false};
         int m_gen = 0;
 
@@ -423,10 +423,7 @@ class runnerT {
             }
         }
 
-        torusT() {
-            assert(m_torus.size() == calc_size(m_torus.size()));
-            restart();
-        }
+        torusT() { resize_and_restart({.x = 600, .y = 400}); }
 
         bool begin_frame(const aniso::ruleT& rule) {
             extra_pause = false;
@@ -491,19 +488,18 @@ class runnerT {
             return n_size;
         }
 
-        bool resize(const aniso::vecT size) {
+        void resize(const aniso::vecT size, bool force_restart = false) {
             const aniso::vecT n_size = calc_size(size);
             if (m_torus.size() != n_size) {
                 m_torus.resize(n_size);
                 m_resized = true;
                 restart();
-                return true;
+            } else if (force_restart) {
+                restart();
             }
-            return false;
         }
-        bool resized_since_last_check() { //
-            return std::exchange(m_resized, false);
-        }
+        void resize_and_restart(const aniso::vecT size) { resize(size, true); }
+        bool resized_since_last_check() { return std::exchange(m_resized, false); }
 
         void set_ctrl(const func_ref<void(ctrlT&)> fn) {
             const bool old_pause = m_ctrl.pause;
@@ -516,10 +512,7 @@ class runnerT {
             const initT old_init = m_init;
             const bool old_pause = m_ctrl.pause;
             if (fn(m_init, m_ctrl.pause) || old_init != m_init) {
-                const bool restarted = resize(m_torus.size()); // In case the background is resized.
-                if (!restarted) {
-                    restart();
-                }
+                resize_and_restart(m_torus.size()); // In case the background is resized.
                 m_ctrl.pause = true;
                 stashed_pause.reset();
                 return true;

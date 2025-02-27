@@ -114,6 +114,14 @@ static void display_path(const pathT& p, float avail_w) {
         if (ImGui::Selectable("Copy path")) {
             set_clipboard_and_notify(cpp17_u8string(p));
         }
+        if constexpr (debug_mode) {
+            ImGuiContext& g = *ImGui::GetCurrentContext();
+            if (g.PlatformIO.Platform_OpenInShellFn) {
+                if (ImGui::Selectable("Open locally")) {
+                    g.PlatformIO.Platform_OpenInShellFn(&g, cpp17_u8string(p).c_str());
+                }
+            }
+        }
     });
     if (clipped) {
         imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string(p)); });
@@ -284,9 +292,13 @@ public:
     bool valid() const { return m_current.valid(); }
 
     void refresh_if_valid() {
-        if (m_current.valid() && !m_current.refresh()) {
-            messenger::set_msg("Cannot refresh the current folder.");
-            // TODO: whether to clear m_current?
+        if (m_current.valid()) {
+            if (!m_current.refresh()) {
+                messenger::set_msg("Cannot refresh the current folder.");
+                // TODO: whether to clear m_current?
+            } else {
+                messenger::set_msg("Done.");
+            }
         }
     }
 
@@ -918,7 +930,9 @@ void load_file(sync_point& out) {
         const bool close = ImGui::SmallButton("Close");
         ImGui::SameLine();
         if (ImGui::SmallButton("Reload")) {
-            try_load(*path);
+            if (try_load(*path)) {
+                messenger::set_msg("Done.");
+            }
             // Won't reset scroll.
         }
         guide_mode::item_tooltip("Reload from disk.");

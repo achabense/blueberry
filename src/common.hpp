@@ -146,10 +146,7 @@ public:
     }
 
     static bool highlight(ImGuiID id = 0) {
-        if (id == 0) {
-            id = ImGui::GetItemID();
-        }
-        ImGui::NavHighlightActivated(id);
+        ImGui::NavHighlightActivated(id ? id : ImGui::GetItemID());
         return true;
     }
 
@@ -906,9 +903,13 @@ class sync_point : no_copy {
 public:
     const aniso::ruleT rule;
 
-    void set(const aniso::ruleT& rule, rule_recorder::typeE type = rule_recorder::Ignore) {
-        out_rule.emplace(rule);
-        rec_type = type;
+    void set(const aniso::ruleT& new_rule, rule_recorder::typeE type = rule_recorder::Ignore) {
+        if (rule == new_rule) {
+            messenger::set_msg("The same as the current rule.");
+        } else {
+            out_rule.emplace(new_rule);
+            rec_type = type;
+        }
     }
 };
 

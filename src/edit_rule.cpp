@@ -422,7 +422,7 @@ public:
         update_current();
     }
 
-    void show_working(const sync_point& target) {
+    void show_working(const sync_point& target) const {
         ImGui::AlignTextToFramePadding();
         imgui_Str("Working set ~");
         ImGui::SameLine();
@@ -514,7 +514,7 @@ public:
                 r_logic();
             };
 
-            put_row("Neighborhood\n/ Misc", [&] {
+            put_row("Neighborhood\n& misc", [&] {
                 ImGui::BeginGroup();
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2));
                 for (int l = 0; l < 3; ++l) {
@@ -634,10 +634,7 @@ public:
                     mask_custom = {sync.rule};
                     mask_tag = Custom;
 
-                    // It will be strange to call a shortcut function here.
-                    // shortcuts::highlight(radio_id);
-                    ImGui::NavHighlightActivated(radio_id);
-
+                    shortcuts::highlight(radio_id);
                     messenger::set_msg("Updated.");
                 }
                 ImGui::EndDisabled();
@@ -1162,8 +1159,6 @@ void edit_rule(sync_point& sync) {
                 return rule;
             };
             const auto group_details = [&] {
-                const int group_size = group.size();
-
                 if (working_contains) {
                     imgui_Str("Click to flip the values in this group.");
                 } else {
@@ -1186,7 +1181,8 @@ void edit_rule(sync_point& sync) {
                 ImGui::Separator();
 
                 ImGui::PushTextWrapPos(-1); // No wrapping.
-                ImGui::Text("Group size: %d", group_size);
+                const int group_size = group.size();
+                ImGui::Text("Members: %d", group_size);
                 const int max_to_show = 48;
                 const int perline = 8;
                 for (int n = 0; const aniso::codeT code : group.first(std::min(group_size, max_to_show))) {
@@ -1204,7 +1200,6 @@ void edit_rule(sync_point& sync) {
                 ImGui::PopTextWrapPos();
             };
 
-            // TODO: better color... (will be ugly if using green colors...)
             // _ButtonHovered: ImVec4(0.26f, 0.59f, 0.98f, 1.00f)
             // [0]:Button, [1]:Hover, [2]:Active
             static const ImVec4 button_col_normal[3]{
