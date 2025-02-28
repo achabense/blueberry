@@ -386,7 +386,6 @@ class runnerT {
     struct ctrlT {
         aniso::ruleT rule{};
 
-        static constexpr int step_min = 1, step_max = 100;
         int step = 1;
         int actual_step() const { return adjust_step(step, strobing(rule)); }
 
@@ -847,7 +846,7 @@ public:
 
             // TODO: recheck this design... Ideally these sliders should use locally-defined `item_shortcut`.
             imgui_StepSliderInt::set_shortcuts(ImGuiKey_1, ImGuiKey_2, enable_shortcuts);
-            imgui_StepSliderInt::fn("Step", &ctrl.step, ctrl.step_min, ctrl.step_max, 1, to_str);
+            imgui_StepSliderInt::fn("Step", &ctrl.step, 1, 100, 1, to_str);
             imgui_StepSliderInt::reset_shortcuts();
             ImGui::SameLine();
             imgui_StrTooltip(
@@ -898,12 +897,12 @@ public:
                 "Scroll in the space window to zoom in/out.\n\n"
                 "Drag with left button to move the space; 'Ctrl' and drag to \"rotate\" the space.\n\n"
                 "Drag with right button to select area; single right-click to unselect.\n\n"
-                "See 'Range ops' for more operations (e.g. 'C' to copy selected area, 'V' to load pattern). The shortcuts (including 'V') are available only when the space window is hovered.")) {
+                "See 'Space ops' for more operations (e.g. 'C' to copy selected area, 'V' to load pattern). The shortcuts (including 'V') are available only when the space window is hovered.")) {
             highlight_canvas = true;
         }
         ImGui::SameLine();
         static bool show_range_window = false;
-        ImGui::Checkbox("Range ops", &show_range_window);
+        ImGui::Checkbox("Space ops", &show_range_window);
         const int wide_spacing = ImGui::CalcTextSize(" ").x * 2;
         ImGui::SameLine(0, wide_spacing);
         if (m_paste) {
@@ -1325,7 +1324,7 @@ public:
                             ImGui::SetNextWindowPos(ImGui::GetMousePos() + ImVec2(2, 2), ImGuiCond_Appearing);
                         }
                         if (auto window =
-                                imgui_Window("Range operations", &show_range_window,
+                                imgui_Window("Space operations", &show_range_window,
                                              ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                             range_operations_display();
                             displayed = true;
