@@ -779,9 +779,9 @@ public:
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip(
                     "(...)",
-                    "Restart : R (or T)\n"
+                    "Restart : R\n"
                     "Pause   : Space\n"
-                    "+s/+1/+!: S/D/F (or G) (repeatable)\n"
+                    "+s/+1/+!: S/D/F (repeatable)\n"
                     "-/+ Step    : 1/2 (repeatable)\n"
                     "-/+ Interval: 3/4 (repeatable)\n\n"
                     "These shortcuts are available only when the space window is hovered, or when this tooltip is displayed.")) {
@@ -795,8 +795,7 @@ public:
             };
 
             ImGui::SameLine();
-            // (_T and _G are initially for preview windows; also apply here for convenience.)
-            if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false) || item_shortcut(ImGuiKey_T, false)) {
+            if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false)) {
                 m_torus.restart();
             }
             ImGui::SameLine();
@@ -816,8 +815,7 @@ public:
             ImGui::SameLine();
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
-                (enable_shortcuts && (shortcuts::test_down(ImGuiKey_F) || shortcuts::test_down(ImGuiKey_G)) &&
-                 shortcuts::highlight())) {
+                (enable_shortcuts && shortcuts::test_down(ImGuiKey_F) && shortcuts::highlight())) {
                 ctrl.extra_step = std::max(ctrl.actual_step(), step_fast);
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
@@ -1542,7 +1540,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     static auto keys_avail_and_window_hovered = [] { //
         // (Window-hovered should go before test-pressed to avoid messing with shortcut precedence.)
         // TODO: let this be tested by configT?
-        return (shortcuts::keys_avail() || !ImGui::GetHoveredID()) && ImGui::IsWindowHovered();
+        return (shortcuts::keys_avail() || imgui_IsBgHeld()) && ImGui::IsWindowHovered();
     };
 
     previewer_data::termT& term = previewer_data::terms[id];
@@ -1556,8 +1554,9 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
     const bool hovered = ImGui::IsItemHovered();
     const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-    const bool restart = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_pressed(ImGuiKey_R)) ||
-                         (keys_avail_and_window_hovered() && shortcuts::test_pressed(ImGuiKey_T)) ||
+    const bool enable_shortcuts = shortcuts::global_flag(ImGuiKey_A) ? keys_avail_and_window_hovered()
+                                                                     : (hovered && (l_down || shortcuts::keys_avail()));
+    const bool restart = (enable_shortcuts && shortcuts::test_pressed(ImGuiKey_R)) || //
                          term.tile.size() != tile_size || term.seed != global_config::seed ||
                          term.density != global_config::density || term.area != global_config::area ||
                          term.rule != rule;
@@ -1574,8 +1573,8 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     // (`IsItemActive` does not work as preview-window is based on `Dummy`.)
     // (_R and _F will override pause mode, while _T and _G will not.
     const bool pause = hovered && l_down;
-    const bool fast = (hovered && (l_down || shortcuts::keys_avail()) && shortcuts::test_down(ImGuiKey_F)) ||
-                      (keys_avail_and_window_hovered() && shortcuts::test_down(ImGuiKey_G));
+    const bool fast = enable_shortcuts &&
+                      shortcuts::global_flag(ImGuiKey_F); // Using unfiltered version for smoother inter with <</>>.
     if (fast || (!pause && (restart || (config.interval.test() && !std::exchange(term.skip_run, false))))) {
         const int p = adjust_step(fast ? std::max(config.step, step_fast) : config.step, strobing(rule));
         for (int i = 0; i < p; ++i) {
@@ -1588,7 +1587,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
     bool hex_mode = false;
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-    if (imgui_ItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
+    if (hovered /*perf*/ && imgui_ItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
         assert(ImGui::IsMousePosValid());
         const aniso::vecT pos = from_imvec_floor((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
@@ -1611,13 +1610,9 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         ImGui::PopStyleVar();
     }
 
-    // (Using static to pass to highlight-fn.)
-    static ImU32 border_col{};
-    border_col = default_border_color();
-    rclick_popup::popup<[](bool popup) {
-        border_col = ImGui::GetColorU32(popup ? ImGuiCol_Text : ImGuiCol_TextDisabled);
-    }>(id_pair{imgui_GetItemPosID(), (ImGuiID)(intptr_t)&term} /*absolutely impossible to clash*/, [&] {
-        // TODO: 'C' to copy rule?
+    ImU32 border_col = default_border_color();
+    const id_pair popup_id{imgui_GetItemPosID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
+    const auto hov = rclick_popup::popup_no_highlight(popup_id, [&] {
         if (ImGui::Selectable("Copy rule")) {
             set_clipboard_and_notify(aniso::to_MAP_str(rule));
             rule_recorder::record(rule_recorder::Copied, rule);
@@ -1626,12 +1621,15 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         imgui_StrTooltip(
             "(...)",
             "Hold to pause.\n"
-            "'R' to restart. ('T' for all windows in the hovered area.)\n"
-            "'F' to speed up. ('G' for all windows in the hovered area.)\n"
+            "'R' to restart. (+ 'A' to apply to the entire group.)\n"
+            "'F' to speed up. (+ 'A' to apply to the entire group.)\n"
             "'Z' to see which subsets the rule belongs to.\n\n"
             "If the rule belongs to 'Hex' subset:\n"
             "'6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
     });
+    if (hov != rclick_popup::None) {
+        border_col = rclick_popup::highlight_col(hov == rclick_popup::Popup);
+    }
 
     if (hovered && shortcuts::global_flag(ImGuiKey_Z)) {
         // TODO: also hide zoom tooltip in this case?

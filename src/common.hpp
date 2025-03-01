@@ -340,22 +340,18 @@ class rclick_popup : no_create {
     }
 
 public:
-    using highlight_fn = void (*)(bool popup);
-    static void default_highlight(bool popup) { //
-        imgui_ItemUnderline(ImGui::GetColorU32(popup ? ImGuiCol_Text : ImGuiCol_TextDisabled));
-    }
+    enum class hoverE { None, Hovered, Popup };
+    using enum hoverE;
 
-    // TODO: improve highlighting logic.
-    template <highlight_fn highlight = default_highlight>
-    static void popup(const id_pair id, const func_ref<void()> fn) {
+    [[nodiscard]] static hoverE popup_no_highlight(const id_pair id, const func_ref<void()> fn) {
         // assert(!in_popup); (Too strict; ok as long as never hovered (e.g. in tooltip).)
         const bool hovered = ImGui::IsItemHovered();
         if (!hovered && id != bound_id) {
-            return;
+            return None;
         }
 
         assert(!in_popup); // Cannot open recursively.
-        highlight(bound_id == id);
+        hoverE hov = Hovered;
 
         // (Avoid creating windows for one-off usage.)
         constexpr const char* shared_popup = "Shared-popup";
@@ -373,6 +369,7 @@ public:
         if (bound_id == id) {
             if (ImGui::BeginPopup(shared_popup)) {
                 bound_id_next = id;
+                hov = Popup;
 
                 lock_scroll();
                 in_popup = true;
@@ -385,6 +382,20 @@ public:
             // To respect ImGui::SetNextWindow... calls.
             GImGui->NextWindowData.ClearFlags();
         }
+
+        return hov;
+    }
+
+    static ImU32 highlight_col(const bool bright) {
+        return ImGui::GetColorU32(bright ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+    }
+
+    static hoverE popup(const id_pair id, const func_ref<void()> fn) {
+        const hoverE hov = popup_no_highlight(id, fn);
+        if (hov != None) {
+            imgui_ItemUnderline(highlight_col(hov == Popup));
+        }
+        return hov;
     }
 };
 

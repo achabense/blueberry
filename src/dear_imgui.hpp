@@ -50,6 +50,10 @@ inline bool imgui_IsItemOrNoneActive() { //
     return GImGui->ActiveId == 0 || GImGui->ActiveId == GImGui->LastItemData.ID;
 }
 
+inline bool imgui_IsBgHeld() { //
+    return !ImGui::GetHoveredID() && GImGui->ActiveId == GImGui->CurrentWindow->MoveId;
+}
+
 // Workaround to provide stable hovering check for texts and groups.
 // Related: https://github.com/ocornut/imgui/issues/7984 and 7945
 inline bool imgui_ItemHoveredForTooltip(const std::optional<ImGuiID> id = std::nullopt) {
