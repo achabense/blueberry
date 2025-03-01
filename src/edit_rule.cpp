@@ -592,6 +592,7 @@ public:
             "The 'Zero' and 'Identity' rules are special in the sense that, the values masked by them have natural interpretations (actual mapped value and flip-ness). 'Fallback' is provided to guarantee there is at least one rule known to belong to the working set. Any other rule in the working set can serve as a mask via 'Custom' and '<< Cur'.\n\n"
             "Both 'Traverse' and 'Random' generate rules based on the distance to the masking rule.\n\n"
             "The group table lists every group of the working set. The values of the current rule are viewed through the mask and shown as masked values. By clicking a group, you will flip all values of the current rule (in that group); the result is unrelated to the masking rule.");
+        // !!TODO: rewrite...
     }
 
     // `working_set` must not be a temporary.
@@ -1038,7 +1039,7 @@ void edit_rule(sync_point& sync) {
 
     static bool show_trav = false;
     static bool show_rand = false;
-    static bool preview_mode = init_random_access_preview_mode;
+    static bool preview_mode = init_random_access_preview_mode; // TODO: rename.
     static previewer::configT config{previewer::configT::_220_160};
     {
         const bool clicked = ImGui::Checkbox("Traverse", &show_trav);
@@ -1065,10 +1066,10 @@ void edit_rule(sync_point& sync) {
         }
     }
     ImGui::SameLine();
-    ImGui::Checkbox("Preview", &preview_mode);
+    ImGui::Checkbox("Random-access", &preview_mode);
     guide_mode::item_tooltip(
-        "Preview the effect of random-access flipping. If the current rule already belongs to the working set, this effectively presents all rules with dist = 1 to the current rule (in the set).\n\n"
-        "(You may 'Collapse' the set table to leave more room for the preview windows.)");
+        "Enable random-access editing, i.e. flipping the values of the current rule by groups. If the current rule already belongs to the working set, this effectively presents all rules with dist = 1 to the current rule (in the set).\n\n"
+        "(You can 'Collapse' the set table to leave more room for the preview windows.)");
     if (preview_mode) {
         ImGui::SameLine();
         config.set("Settings");
@@ -1117,6 +1118,7 @@ void edit_rule(sync_point& sync) {
         }
     }
 
+    // !!TODO: (?v0.9.9) ideally random-access editing can be independent of the current rule as well...
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
         // set_scroll_by_up_down(preview_mode ? floor(config.height() * 0.5) : ImGui::GetFrameHeight());
@@ -1144,14 +1146,23 @@ void edit_rule(sync_point& sync) {
             }
             return group_size;
         }();
-        const auto calc_perline = [&](const int avail_x) { //
-            return fit_count(avail_x, group_size_x, spacing_x);
-        };
+        const int perline = fit_count(ImGui::GetContentRegionAvail().x, group_size_x, spacing_x);
 
-        auto show_group = [&](const int preview_id, const aniso::groupT& group) {
-            const bool has_lock = false; // TODO: temporarily preserved.
+        std::vector<aniso::groupT> working_set_groups = working_set.get_par().group_vec();
+        if (!working_contains) {
+            std::ranges::stable_partition(working_set_groups, [&](const aniso::groupT& group) {
+                return !aniso::all_same_or_different(group, mask, sync.rule);
+            });
+        }
+        for (int n = 0; const aniso::groupT& group : working_set_groups) {
+            const int this_n = n++;
+            if (this_n % perline != 0) {
+                ImGui::SameLine(0, spacing_x);
+            } else {
+                ImGui::Separator();
+            }
 
-            const bool pure = working_contains || aniso::all_same_or_different(group, mask, sync.rule);
+            const bool pure = working_contains /*perf*/ || aniso::all_same_or_different(group, mask, sync.rule);
             const aniso::codeT head = group[0];
             const auto get_adjacent_rule = [&] {
                 aniso::ruleT rule = sync.rule;
@@ -1159,26 +1170,15 @@ void edit_rule(sync_point& sync) {
                 return rule;
             };
             const auto group_details = [&] {
-                if (working_contains) {
-                    imgui_Str("Click to flip the values in this group.");
-                } else {
-                    imgui_Str(
-                        "The current rule does not belong to the working set; press 'Ctrl' to enable flipping anyway.");
-                }
-                if constexpr (debug_mode) {
-                    if (!preview_mode) {
-                        imgui_Str("(Debug mode) 'Z' to preview the flipping result.");
-                        if (shortcuts::global_flag(ImGuiKey_Z)) {
-                            lock_scroll();
-                            global_tooltip(true, [&] {
-                                imgui_Str("Preview:");
-                                ImGui::SameLine();
-                                previewer::preview(-1, config, get_adjacent_rule() /*in tooltip*/);
-                            });
-                        }
+                if (preview_mode) {
+                    if (working_contains) {
+                        imgui_Str("Click to flip the values in this group.");
+                    } else {
+                        imgui_Str(
+                            "The current rule does not belong to the working set; press 'Ctrl' to enable flipping anyway.");
                     }
+                    ImGui::Separator();
                 }
-                ImGui::Separator();
 
                 ImGui::PushTextWrapPos(-1); // No wrapping.
                 const int group_size = group.size();
@@ -1215,7 +1215,7 @@ void edit_rule(sync_point& sync) {
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color[1]);
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, button_color[2]);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
-            const bool enable_edit = working_contains || ImGui::GetIO().KeyCtrl;
+            const bool enable_edit = preview_mode && (working_contains || ImGui::GetIO().KeyCtrl);
             if (!enable_edit) {
                 // Not using ImGui::BeginDisabled(), so the button color will not be affected.
                 ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
@@ -1233,33 +1233,13 @@ void edit_rule(sync_point& sync) {
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             align_text(ImGui::GetItemRectSize().y);
             imgui_Str(!pure ? "-x" : (preview_mode ? labels_preview[masked[head]] : labels_normal[masked[head]]));
-            if (has_lock) {
-                imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2));
-            }
+            // if (has_lock) { imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2)); }
 
             if (preview_mode) {
+                const int preview_id = this_n;
                 previewer::preview(preview_id, config, get_adjacent_rule /*()*/);
                 ImGui::EndGroup();
             }
-        };
-
-        const int perline = calc_perline(ImGui::GetContentRegionAvail().x);
-
-        std::vector<aniso::groupT> working_set_groups = working_set.get_par().group_vec();
-        if (!working_contains) {
-            std::ranges::stable_partition(working_set_groups, [&](const aniso::groupT& group) {
-                return !aniso::all_same_or_different(group, mask, sync.rule);
-            });
-        }
-        for (int n = 0; const aniso::groupT& group : working_set_groups) {
-            const int this_n = n++;
-
-            if (this_n % perline != 0) {
-                ImGui::SameLine(0, spacing_x);
-            } else {
-                ImGui::Separator();
-            }
-            show_group(this_n, group);
         }
     }
     ImGui::PopStyleColor();

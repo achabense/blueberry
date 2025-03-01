@@ -1534,6 +1534,7 @@ void previewer::begin_frame() {
 }
 
 // TODO: allow setting the step and interval with shortcuts when the window is hovered?
+// !!TODO: (v0.9.9?v0.9.8) whether to support setting as current rule via preview windows?
 void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
@@ -1571,7 +1572,6 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     }
 
     // (`IsItemActive` does not work as preview-window is based on `Dummy`.)
-    // (_R and _F will override pause mode, while _T and _G will not.
     const bool pause = hovered && l_down;
     const bool fast = enable_shortcuts &&
                       shortcuts::global_flag(ImGuiKey_F); // Using unfiltered version for smoother inter with <</>>.
