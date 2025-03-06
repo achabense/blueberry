@@ -625,7 +625,7 @@ public:
         }
     }
 
-    void display(sync_point& out) {
+    void display() {
         assert_implies(m_lines.empty(), m_text.empty() && m_rules.empty());
 
         if (m_sel) {
@@ -689,7 +689,7 @@ public:
                 m_sel = sel;
             } else if (click_pos) {
                 assert(*click_pos >= 0 && *click_pos < int(m_rules.size()));
-                out.set(m_rules[*click_pos]);
+                // out.set(m_rules[*click_pos]); // !!TODO: redesign...
                 m_pos = *click_pos;
             }
         }
@@ -884,7 +884,7 @@ static int count_line(const std::string_view str) { //
 
 // TODO: support opening multiple files?
 // TODO: add a mode to avoid opening files without rules?
-void load_file(sync_point& out) {
+void load_file() {
     static file_nav nav(home_path_utf8());
 
     static textT text;
@@ -965,7 +965,7 @@ void load_file(sync_point& out) {
         menu_like_popup::popup([] { text.select_line(); });
 
         ImGui::Separator();
-        text.display(out);
+        text.display();
         if (close) {
             path.reset();
             text.clear();
@@ -974,7 +974,7 @@ void load_file(sync_point& out) {
 }
 
 // TODO: 'Read' -> create a temp window that will be destroyed when closed?
-void load_clipboard(sync_point& out) {
+void load_clipboard() {
     static textT text;
     static std::string last_str;
     static int last_index = 0;
@@ -1016,13 +1016,13 @@ void load_clipboard(sync_point& out) {
     menu_like_popup::popup([] { text.select_line(); });
 
     ImGui::Separator();
-    text.display(out);
+    text.display();
 }
 
 // Defined in "docs.cpp". [0]:title [1]:contents, null-terminated.
 extern const char* const docs[][2];
 
-void load_doc(sync_point& out) {
+void load_doc() {
     static textT text;
     static std::optional<int> doc_id = std::nullopt;
     static auto select = []() {
@@ -1071,7 +1071,7 @@ void load_doc(sync_point& out) {
         menu_like_popup::popup([] { text.select_line(); });
 
         ImGui::Separator();
-        text.display(out);
+        text.display();
         if (close) {
             text.clear();
             doc_id.reset();

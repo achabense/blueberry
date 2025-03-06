@@ -33,12 +33,11 @@ inline void assert_utf8_encoding() {
 void frame_main();
 
 // Managed by `frame_main`.
-class sync_point;
-void load_file(sync_point&);
-void load_clipboard(sync_point&);
-void load_doc(sync_point&);
-void edit_rule(sync_point&);
-void apply_rule(sync_point&);
+void load_file();
+void load_clipboard();
+void load_doc();
+void edit_rule();
+void apply_rule();
 
 class rand_source : no_create {
     static uint32_t seed() { return time(0); }
@@ -48,13 +47,14 @@ public:
     static void perturb(std::mt19937& rand) { rand.discard(1 + (seed() % 16)); }
 };
 
+// !!TODO: currently broken.
 class rule_recorder : no_create {
 public:
     enum class typeE { Current, Copied, RandomAccess, Ignore };
     using enum typeE;
 
     static void record(typeE type, const aniso::ruleT& rule, const aniso::ruleT* from = nullptr);
-    static void load_record(sync_point&);
+    static void load_record();
 };
 
 class rule_algo : no_create {
@@ -98,7 +98,6 @@ inline float wrap_len() {
 // TODO: should finally be configurable in the program.
 // inline const bool init_maximize_window = false;
 inline const bool init_zero_interval = false;
-inline const bool init_random_access_preview_mode = false;
 inline const bool init_show_intro = true;
 inline const bool init_compact_mode = false;
 
@@ -868,7 +867,9 @@ public:
     }
 
     static void preview(uint32_t id, const configT& config, const aniso::ruleT& rule) {
-        ImGui::Dummy(config.size_imvec());
+        ImGui::PushID(id);
+        ImGui::InvisibleButton("Preview", config.size_imvec());
+        ImGui::PopID();
         if (ImGui::IsItemVisible()) {
             _preview(_get_id(id), config, rule);
         }
@@ -877,7 +878,9 @@ public:
     // (Note: `get_rule` shouldn't be type-erased here.)
     // (`const ruleT&()` cannot adapt `ruleT()` calls, while `ruleT()` is unnecessarily costly for `const ruleT&()` calls.)
     static void preview(uint32_t id, const configT& config, const std::invocable<> auto& get_rule) {
-        ImGui::Dummy(config.size_imvec());
+        ImGui::PushID(id);
+        ImGui::InvisibleButton("Preview", config.size_imvec());
+        ImGui::PopID();
         if (ImGui::IsItemVisible()) {
             _preview(_get_id(id), config, get_rule());
         }
@@ -903,6 +906,7 @@ private:
     static void _identify_rule(const aniso::ruleT& rule);
 };
 
+#if 0
 class sync_point : no_copy {
     friend void frame_main();
 
@@ -921,6 +925,82 @@ public:
             out_rule.emplace(new_rule);
             rec_type = type;
         }
+    }
+};
+#endif
+
+// !!TODO: recheck logic...
+// TODO: add scope? some source->dest may be meaningless.
+class pass_rule : no_create {
+    inline static ImGuiID active = 0;
+    inline static bool keep_active = false;
+    inline static bool consumed = false;
+    inline static aniso::ruleT rule{};
+
+    // TODO: improve style...
+    static void render_rect(const bool bright) {
+        ImGui::PushStyleColor(ImGuiCol_DragDropTarget, IM_COL32(0, 128, 255, bright ? 255 : 64));
+        ImGui::RenderDragDropTargetRect(imgui_GetItemRect(), ImGui::GetCurrentWindowRead()->ClipRect);
+        ImGui::PopStyleColor();
+    }
+
+    friend void frame_main();
+    static void begin_frame() {
+        if (!active || !keep_active || consumed) {
+            active = 0;
+        }
+        keep_active = false;
+        consumed = false;
+    }
+
+public:
+    static const aniso::ruleT* peek() { return active ? &rule : nullptr; }
+
+    static bool source(const aniso::ruleT& r) {
+        const ImGuiID id = ImGui::GetItemID();
+        assert(id != 0);
+
+        if ((active == id) || (ImGui::IsItemActive() && !ImGui::IsItemHovered())) {
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers |
+                                           ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+                static char dummy = 0;
+                ImGui::SetDragDropPayload("#Rule", &dummy, sizeof(dummy));
+                ImGui::EndDragDropSource();
+                render_rect(true);
+
+                lock_scroll();
+                active = id;
+                keep_active = true;
+                rule = r;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    [[nodiscard]] static const aniso::ruleT* dest(/*const func_ref<void(const aniso::ruleT&)> fn*/) {
+        if (!active) {
+            return nullptr;
+        }
+
+        render_rect(false);
+        if (ImGui::BeginDragDropTarget()) {
+            const bool deliv = ImGui::AcceptDragDropPayload("#Rule", ImGuiDragDropFlags_AcceptNoPreviewTooltip |
+                                                                         ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
+            ImGui::EndDragDropTarget();
+            render_rect(true);
+
+            if (ImGui::BeginTooltip()) { // (Should be outside of target scope for normal bg transparency.)
+                // fn(rule);
+                imgui_Str("..."); // !!TODO: unfinished...
+                ImGui::EndTooltip();
+            }
+            if (deliv) {
+                consumed = true;
+            }
+            return deliv ? &rule : nullptr;
+        }
+        return nullptr;
     }
 };
 

@@ -41,6 +41,8 @@ public:
 };
 #endif
 
+// !!TODO: redesign...
+#if 0
 static void get_reversal_dual(const bool button_result, sync_point& sync) {
     if (button_result) {
         sync.set(rule_algo::trans_reverse(sync.rule));
@@ -61,9 +63,10 @@ static void get_reversal_dual(const bool button_result, sync_point& sync) {
         ImGui::PopTextWrapPos();
     });
 }
+#endif
 
 // !!TODO: unfinished...
-static void load_intro(sync_point& out) {
+static void load_intro() {
     ImGui::PushTextWrapPos(wrap_len());
 
     {
@@ -102,8 +105,9 @@ static void load_intro(sync_point& out) {
         const int total = rules.size();
         assert(total == 4);
 
-        imgui_Str(
-            "All rules aside from the \"current rule\" (the rule shown in the right panel) are shown in \"preview windows\":");
+        imgui_Str("!!TODO...");
+        // imgui_Str(
+        //     "All rules aside from the \"current rule\" (the rule shown in the right panel) are shown in \"preview windows\":");
         switch (sequence::seq("<|", "Prev", "Next", "|>")) {
             case 0: at = 0; break;
             case 1: at = std::max(0, at - 1); break;
@@ -119,11 +123,6 @@ static void load_intro(sync_point& out) {
         ImGui::SameLine();
         config.set("Settings");
         previewer::preview(at, config, rules[at]);
-        ImGui::SameLine();
-        if (ImGui::Button(">> Cur")) {
-            out.set(rules[at]);
-        }
-        guide_mode::item_tooltip("Set as current rule.");
     }
     ImGui::Separator();
     {
@@ -151,11 +150,7 @@ void frame_main() {
     sequence::begin_frame();
     rclick_popup::begin_frame();
     previewer::begin_frame();
-
-    static aniso::ruleT sync_rule = aniso::game_of_life();
-    sync_point sync = sync_rule;
-
-    rule_recorder::record(rule_recorder::Current, sync.rule);
+    pass_rule::begin_frame();
 
     messenger::display();
 
@@ -164,7 +159,7 @@ void frame_main() {
     static bool show_clipboard = false;
     static bool show_doc = false;
     static bool show_record = false;
-    auto load_rule = [&sync](bool& open, const char* title, void (*load_fn)(sync_point&)) {
+    auto load_rule = [](bool& open, const char* title, void (*load_fn)()) {
         if (ImGui::Checkbox(title, &open) && open) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
         } else if (&open == &show_clipboard && shortcuts::keys_avail_and_window_hoverable() &&
@@ -183,7 +178,7 @@ void frame_main() {
                 ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
                 ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
                 if (auto window = imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings)) {
-                    load_fn(sync);
+                    load_fn();
                 }
             } else {
                 imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
@@ -191,7 +186,7 @@ void frame_main() {
                     "Click the collapsing button, or double-click title bar to collapse/uncollapse.";
                 if (auto window = imgui_Window(title, &open,
                                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                    load_fn(sync);
+                    load_fn();
                 }
             }
         }
@@ -217,9 +212,10 @@ void frame_main() {
         load_rule(show_doc, "Documents", load_doc);
         guide_mode::item_tooltip("Concepts, example rules, etc.");
 
-        ImGui::SameLine(0, wide_spacing);
-        load_rule(show_record, "Record", rule_recorder::load_record);
-        guide_mode::item_tooltip("Record for current rule, copied rules, etc.");
+        // !!TODO: redesign...
+        // ImGui::SameLine(0, wide_spacing);
+        // load_rule(show_record, "Record", rule_recorder::load_record);
+        // guide_mode::item_tooltip("Record for current rule, copied rules, etc.");
 
         ImGui::SameLine(0, wide_spacing);
         ImGui::Text("(%d FPS)", (int)round(ImGui::GetIO().Framerate));
@@ -245,6 +241,8 @@ void frame_main() {
 
         ImGui::Separator();
 
+        // !!TODO: temporarily preserved...
+#if 0
         // TODO: recheck usage of '-': MAP-rule/MAP rule, MAP-string/MAP string.
         // !!TODO: about 'Record' (should be redesigned)...
         // !!TODO: rewrite...
@@ -270,6 +268,7 @@ void frame_main() {
         guide_mode::item_tooltip("MAP-string for the current rule.");
 
         ImGui::Separator();
+#endif
 
         if (ImGui::BeginTable("Layout", 2, ImGuiTableFlags_Resizable)) {
             auto try_hide = [](const float width) {
@@ -307,22 +306,17 @@ void frame_main() {
             // The child window is required here (for stable scrolling).
             if (auto child = imgui_ChildWindow("Edit", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
                 if (!try_hide(min_w)) {
-                    edit_rule(sync);
+                    edit_rule();
                 }
             }
             ImGui::TableNextColumn();
             if (auto child = imgui_ChildWindow("Apply", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
                 if (!(right_was_hidden = try_hide(min_w))) {
-                    apply_rule(sync);
+                    apply_rule();
                 }
             }
             ImGui::EndTable();
         }
-    }
-
-    if (sync.out_rule) {
-        sync_rule = *sync.out_rule;
-        rule_recorder::record(sync.rec_type, *sync.out_rule, &sync.rule);
     }
 
     if constexpr (init_compact_mode) {

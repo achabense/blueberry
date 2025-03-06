@@ -399,7 +399,7 @@ class runnerT {
     class torusT {
         initT m_init{.seed = 0, .density = 0.5, .area = 0.5, .background = aniso::tileT{{.x = 1, .y = 1}}};
         aniso::tileT m_torus{};
-        ctrlT m_ctrl{.rule{}, .step = 1, .pause = false};
+        ctrlT m_ctrl{.rule = aniso::game_of_life()};
         int m_gen = 0;
 
         bool extra_pause = false;
@@ -413,6 +413,9 @@ class runnerT {
         // m_paste.reset -> pop_pause_for_m_paste (~ restore if not invalidated).
         std::optional<bool> stashed_pause = std::nullopt;
 
+        // !!TODO: temp; should the rule should be managed by the entire class instead of `torusT`?
+        std::optional<aniso::ruleT> next_rule = std::nullopt;
+
     public:
         void push_pause_for_m_paste() { stashed_pause = std::exchange(m_ctrl.pause, true); }
         void pop_pause_for_m_paste() {
@@ -424,14 +427,15 @@ class runnerT {
 
         torusT() { resize_and_restart({.x = 600, .y = 400}); }
 
-        bool begin_frame(const aniso::ruleT& rule) {
+        bool begin_frame() {
             extra_pause = false;
             m_ctrl.extra_step = 0;
 
-            if (compare_update(m_ctrl.rule, rule)) {
+            if (next_rule && compare_update(m_ctrl.rule, *next_rule)) {
+                next_rule.reset();
+
                 m_ctrl.pause = false;
                 stashed_pause.reset();
-
                 restart();
                 return true;
             }
@@ -470,6 +474,9 @@ class runnerT {
                 m_torus.swap(temp);
             }
         }
+
+        void set_rule(const aniso::ruleT& r) { next_rule = r; }
+        const aniso::ruleT& rule() const { return m_ctrl.rule; }
 
         // int area() const { return m_torus.size().xy(); }
         int gen() const { return m_gen; }
@@ -587,11 +594,32 @@ public:
     // TODO: (wontfix?) there cannot actually be multiple instances in the program.
     // For example, there are a lot of static variables in `display`, and the keyboard controls are not designed
     // for per-object use.
-    void display(sync_point& sync) {
-        const bool rule_changed = m_torus.begin_frame(sync.rule);
+    void display() {
+        const bool rule_changed = m_torus.begin_frame();
         if (rule_changed) {
             // m_sel.reset();
             // m_paste.reset();
+        }
+
+        {
+            ImGui::AlignTextToFramePadding();
+            imgui_StrTooltip("(...)", "!!TODO");
+            ImGui::SameLine();
+
+            const auto map_str = aniso::to_MAP_str(m_torus.rule());
+            const ImGuiID map_id = ImGui::GetID("MAP-str");
+            imgui_StrWithID(map_str, map_id);
+            if (!pass_rule::source(m_torus.rule())) {
+                assert(ImGui::GetItemID() == map_id);
+                rclick_popup::popup(map_id, [&] {
+                    if (ImGui::Selectable("Copy rule")) {
+                        set_clipboard_and_notify(map_str);
+                        rule_recorder::record(rule_recorder::Copied, m_torus.rule());
+                    }
+                });
+            }
+            guide_mode::item_tooltip("MAP-string for ... !!TODO");
+            ImGui::Separator();
         }
 
         bool resize_fullscreen = false;
@@ -714,7 +742,7 @@ public:
                 imgui_ItemRect(IM_COL32_GREY(160, 255));
 
                 if (global_timer::test(200) && !std::exchange(skip_next, false)) {
-                    curr.run_torus(sync.rule);
+                    curr.run_torus(m_torus.rule());
                 }
             }
 
@@ -930,13 +958,14 @@ public:
                 ImGui::PopStyleVar();
                 ImGui::SameLine();
                 const bool clear = double_click_button_small("Clear");
-                if (m_paste->rule && m_paste->rule != sync.rule) {
+                if (m_paste->rule && m_paste->rule != m_torus.rule()) {
+                    // !!TODO: redesign... this can be a rule-source...
                     ImGui::SameLine();
                     if (double_click_button_small("Rule")) {
-                        sync.set(*(m_paste->rule));
+                        m_torus.set_rule(*(m_paste->rule));
                     }
                     ImGui::SameLine();
-                    imgui_StrTooltip("(?)", "The pattern specified a different rule."); // TODO: add preview?
+                    imgui_StrTooltip("(?)", "The pattern specified a different rule.");
                 }
 
                 ImGui::AlignTextToFramePadding();
@@ -968,6 +997,13 @@ public:
             const ImVec2 canvas_max = ImGui::GetItemRectMax();
             const ImVec2 canvas_size = ImGui::GetItemRectSize();
             assert(canvas_id == ImGui::GetItemID());
+            if (const auto* r = pass_rule::dest()) { // !!TODO: compare in advance?
+                if (*r == m_torus.rule()) {
+                    messenger::set_msg("Identical.");
+                } else {
+                    m_torus.set_rule(*r);
+                }
+            }
 
             const bool active = ImGui::IsItemActive();
             const bool hovered = ImGui::IsItemHovered();
@@ -1056,7 +1092,7 @@ public:
                 if (!m_paste && !(m_sel && m_sel->active && m_sel->to_range().size().xy() > 2)) {
                     if (imgui_ItemHoveredForTooltip() && cel_pos.both_gteq({-10, -10}) &&
                         cel_pos.both_lt(tile_size.plus(10, 10))) {
-                        hex_mode = want_hex_mode(sync.rule);
+                        hex_mode = want_hex_mode(m_torus.rule());
                         if (hex_mode || m_coord.zoom <= 1) {
                             zoom_center = cel_pos;
                         }
@@ -1212,8 +1248,8 @@ public:
                 static bool add_rule = true;    // Copy / cut.
                 auto copy_sel = [&] {
                     if (m_sel) {
-                        std::string rle_str =
-                            aniso::to_RLE_str(m_torus.read_only(m_sel->to_range()), add_rule ? &sync.rule : nullptr);
+                        std::string rle_str = aniso::to_RLE_str(m_torus.read_only(m_sel->to_range()),
+                                                                add_rule ? &m_torus.rule() : nullptr);
                         ImGui::SetClipboardText(rle_str.c_str());
 
                         messenger::set_msg(std::move(rle_str));
@@ -1376,7 +1412,8 @@ public:
                 } else if (op == _test_bg_period && m_sel) {
                     const aniso::tile_const_ref sel_area = m_torus.read_only(m_sel->to_range());
                     if (const auto p_size = aniso::spatial_period_full_area(sel_area, {30, 30})) {
-                        if (const auto period = aniso::torus_period(sync.rule, sel_area.clip_corner(*p_size), 60)) {
+                        if (const auto period =
+                                aniso::torus_period(m_torus.rule(), sel_area.clip_corner(*p_size), 60)) {
                             messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size->x, p_size->y, *period);
                         } else {
                             messenger::set_msg("Spatial period: x = {}, y = {} (not temporally periodic)", p_size->x,
@@ -1427,7 +1464,7 @@ public:
                         });
                     }
                 } else if (op == _identify) {
-                    identify(m_torus.read_only(m_sel->to_range()), sync.rule);
+                    identify(m_torus.read_only(m_sel->to_range()), m_torus.rule());
                 }
             }
 
@@ -1439,9 +1476,9 @@ public:
     }
 };
 
-void apply_rule(sync_point& sync) {
+void apply_rule() {
     static runnerT runner;
-    return runner.display(sync);
+    return runner.display();
 }
 
 // TODO: let users decide which to be globally shared?
@@ -1534,7 +1571,6 @@ void previewer::begin_frame() {
 }
 
 // TODO: allow setting the step and interval with shortcuts when the window is hovered?
-// !!TODO: (v0.9.9?v0.9.8) whether to support setting as current rule via preview windows?
 void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
@@ -1552,11 +1588,14 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     term.active = true;
 
     // TODO: (though the actual behaviors are ok) these op logics are quite messy...
+    const bool passing = pass_rule::source(term.rule);
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
-    const bool hovered = ImGui::IsItemHovered();
-    const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    const bool hovered = !passing && ImGui::IsItemHovered();
+    const bool active = ImGui::IsItemActive();
     const bool enable_shortcuts = shortcuts::global_flag(ImGuiKey_A) ? keys_avail_and_window_hovered()
-                                                                     : (hovered && (l_down || shortcuts::keys_avail()));
+                                                                     : (hovered && (active || shortcuts::keys_avail()));
+    assert_implies(passing, !enable_shortcuts);
+
     const bool restart = (enable_shortcuts && shortcuts::test_pressed(ImGuiKey_R)) || //
                          term.tile.size() != tile_size || term.seed != global_config::seed ||
                          term.density != global_config::density || term.area != global_config::area ||
@@ -1572,7 +1611,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     }
 
     // (`IsItemActive` does not work as preview-window is based on `Dummy`.)
-    const bool pause = hovered && l_down;
+    const bool pause = passing || active;
     const bool fast = enable_shortcuts &&
                       shortcuts::global_flag(ImGuiKey_F); // Using unfiltered version for smoother inter with <</>>.
     if (fast || (!pause && (restart || (config.interval.test() && !std::exchange(term.skip_run, false))))) {
@@ -1587,7 +1626,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
     bool hex_mode = false;
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-    if (hovered /*perf*/ && imgui_ItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
+    if (hovered && imgui_ItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
         assert(ImGui::IsMousePosValid());
         const aniso::vecT pos = from_imvec_floor((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
@@ -1611,24 +1650,26 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     }
 
     ImU32 border_col = default_border_color();
-    const id_pair popup_id{imgui_GetItemPosID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
-    const auto hov = rclick_popup::popup_no_highlight(popup_id, [&] {
-        if (ImGui::Selectable("Copy rule")) {
-            set_clipboard_and_notify(aniso::to_MAP_str(rule));
-            rule_recorder::record(rule_recorder::Copied, rule);
-        }
+    if (!passing) {
+        const id_pair popup_id{ImGui::GetItemID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
+        const auto hov = rclick_popup::popup_no_highlight(popup_id, [&] {
+            if (ImGui::Selectable("Copy rule")) {
+                set_clipboard_and_notify(aniso::to_MAP_str(rule));
+                rule_recorder::record(rule_recorder::Copied, rule);
+            }
 
-        imgui_StrTooltip(
-            "(...)",
-            "Hold to pause.\n"
-            "'R' to restart. (+ 'A' to apply to the entire group.)\n"
-            "'F' to speed up. (+ 'A' to apply to the entire group.)\n"
-            "'Z' to see which subsets the rule belongs to.\n\n"
-            "If the rule belongs to 'Hex' subset:\n"
-            "'6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
-    });
-    if (hov != rclick_popup::None) {
-        border_col = rclick_popup::highlight_col(hov == rclick_popup::Popup);
+            imgui_StrTooltip(
+                "(...)",
+                "Hold to pause.\n"
+                "'R' to restart. (+ 'A' to apply to the entire group.)\n"
+                "'F' to speed up. (+ 'A' to apply to the entire group.)\n"
+                "'Z' to see which subsets the rule belongs to.\n\n"
+                "If the rule belongs to 'Hex' subset:\n"
+                "'6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
+        });
+        if (hov != rclick_popup::None) {
+            border_col = rclick_popup::highlight_col(hov == rclick_popup::Popup);
+        }
     }
 
     if (hovered && shortcuts::global_flag(ImGuiKey_Z)) {
@@ -1638,8 +1679,6 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         imgui_ItemRectFilled(IM_COL32(0, 128, 255, 16));
         border_col = IM_COL32(0, 128, 255, 255);
         _identify_rule(rule);
-        // TODO: 'X' -> create a temp editable space with the same init?
-        // TODO: support 'M' for 'Match'? Then 'Z'->'M' can be very convenient...
     }
     imgui_ItemRect(border_col);
 }

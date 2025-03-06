@@ -383,6 +383,11 @@ namespace aniso {
         return res;
     }
 
+    inline ruleT approximate(const subsetT& subset, const ruleT& rule) {
+        assert(!subset.empty());
+        return approximate(subset.get_par(), subset.get_mask(), rule);
+    }
+
     // Firstly get approximate(subset, rule), then transform the rule to another one.
     // The groups are listed as a sequence of values (relative to `mask`) and re-assigned by `fn`.
     inline ruleT transform(const subsetT& subset, const maskT& mask, const ruleT& rule,

@@ -232,9 +232,9 @@ int main(int, char**) {
     // !!TODO: update readme.
     ImGui::GetIO().IniFilename = nullptr;
     ImGui::GetIO().LogFilename = nullptr;
-    if constexpr (!debug_mode) {
-        ImGui::GetIO().ConfigDebugHighlightIdConflicts = false;
-    }
+    // if constexpr (!debug_mode) {
+    //     ImGui::GetIO().ConfigDebugHighlightIdConflicts = false;
+    // }
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();

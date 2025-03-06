@@ -414,14 +414,15 @@ public:
         update_current();
     }
 
-    void match(const sync_point& target) {
+    void match(const aniso::ruleT& rule) {
         for_each_term([&](termT& t) {
             t.disabled = false; // Will be updated by `update_current`.
-            t.selected = t.set->contains(target.rule);
+            t.selected = t.set->contains(rule);
         });
         update_current();
     }
 
+#if 0
     void show_working(const sync_point& target) const {
         ImGui::AlignTextToFramePadding();
         imgui_Str("Working set ~");
@@ -430,6 +431,7 @@ public:
         put_term(current.contains(target.rule), None, '\0', false);
         guide_mode::item_tooltip("Light green ~ the current rule belongs to the working set (every selected set).");
     }
+#endif
 
     struct select_mode {
         const aniso::ruleT* rule = nullptr;
@@ -596,7 +598,7 @@ public:
     }
 
     // `working_set` must not be a temporary.
-    const aniso::maskT& select(const aniso::subsetT& working_set, const sync_point& sync) {
+    const aniso::maskT& select(const aniso::subsetT& working_set) {
         const aniso::maskT* const mask_ptrs[]{&aniso::mask_zero, &aniso::mask_identity, &working_set.get_mask(),
                                               &mask_custom};
 
@@ -612,7 +614,7 @@ public:
 
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::BeginDisabled(!m_avail);
-            imgui_RadioButton(mask_terms[m].label, &mask_tag, m);
+            imgui_RadioButton(mask_terms[m].label, &mask_tag, m); // !!TODO: these can be sources...
             ImGui::EndDisabled();
 
             imgui_ItemTooltip([&] {
@@ -626,23 +628,12 @@ public:
             });
 
             if (m == Custom) {
-                ImGui::SameLine();
-                const int radio_id = ImGui::GetItemID();
-                // TODO: share with `edit_rule`?
-                const bool working_contains = working_set.contains(sync.rule);
-                ImGui::BeginDisabled(!working_contains);
-                if (ImGui::Button("<< Cur")) {
-                    mask_custom = {sync.rule};
+                if (const auto* r = pass_rule::dest()) {
+                    // !!TODO: redesign...
+                    mask_custom = {aniso::approximate(working_set, *r)};
                     mask_tag = Custom;
-
-                    shortcuts::highlight(radio_id);
                     messenger::set_msg("Updated.");
                 }
-                ImGui::EndDisabled();
-                if (!working_contains) {
-                    imgui_ItemTooltip("The current rule does not belong to the working set.");
-                }
-                guide_mode::item_tooltip("Update the custom masking rule to the current rule.");
             }
         }
 
@@ -659,8 +650,8 @@ struct page_adapter {
     int page_size = 6, perline = 3;
 
     // `page_resized` should be able to access *this someway.
-    void display(const previewer::configT& config, sync_point& out, ImVec2& min_req_size,
-                 const func_ref<void()> page_resized, const func_ref<const aniso::ruleT*(int)> access) {
+    void display(const previewer::configT& config, ImVec2& min_req_size, const func_ref<void()> page_resized,
+                 const func_ref<const aniso::ruleT*(int)> access) {
         const ImVec2 avail_size = ImGui::GetContentRegionAvail();
         // (The same value as in `edit_rule`.)
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
@@ -671,15 +662,10 @@ struct page_adapter {
 
         // Resize the page so all previewers can fit into the area. This should be done before the loop.
         if (!ImGui::IsWindowAppearing()) {
-            const ImVec2 button_size = imgui_CalcButtonSize(">> Cur");
             const ImVec2 previewer_size = config.size_imvec();
-            const float item_spacing_y = ImGui::GetStyle().ItemSpacing.y;
-            const float group_size_x = std::max(button_size.x, previewer_size.x);
-            const float group_size_y = item_spacing_y /*separator*/ + button_size.y +
-                                       item_spacing_y /*between the button and previewer*/ + previewer_size.y;
-
-            const int xc = fit_count(avail_size.x, group_size_x, spacing_x);
-            const int yc = fit_count(avail_size.y, group_size_y, item_spacing_y);
+            const float spacing_y = ImGui::GetStyle().ItemSpacing.y;
+            const int xc = fit_count(avail_size.x, previewer_size.x, spacing_x);
+            const int yc = fit_count(avail_size.y, previewer_size.y + spacing_y /*separator*/, spacing_y);
             perline = xc;
             if (compare_update(page_size, xc * yc)) {
                 page_resized();
@@ -695,19 +681,8 @@ struct page_adapter {
 
             ImGui::BeginGroup();
             if (const aniso::ruleT* rule = access(j); rule != nullptr) {
-                ImGui::PushID(j);
-                if (ImGui::Button(">> Cur")) {
-                    out.set(*rule);
-                }
-                ImGui::PopID();
                 previewer::preview(j, config, *rule);
             } else {
-                ImGui::BeginDisabled();
-                ImGui::PushID(j);
-                ImGui::Button(">> Cur");
-                ImGui::PopID();
-                ImGui::EndDisabled();
-                imgui_ItemTooltip("Empty.");
                 previewer::dummy(config);
             }
             ImGui::EndGroup();
@@ -724,8 +699,7 @@ struct page_adapter {
         "the window can be resized to fit the content by double-clicking the resize border.";
 };
 
-static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subsetT& working_set,
-                            const aniso::maskT& mask) {
+static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, const aniso::maskT& mask) {
     assert(show_trav);
     static ImVec2 size_constraint_min{};
     ImGui::SetNextWindowSizeConstraints(size_constraint_min, ImVec2(FLT_MAX, FLT_MAX));
@@ -781,21 +755,15 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
             }
         }
 
-        // TODO: improve...
-        // TODO: share with `edit_rule`?
-        const bool working_contains = working_set.contains(sync.rule);
-        ImGui::BeginDisabled(!working_contains);
-        if (ImGui::Button("Locate")) {
-            assert(working_set.contains(sync.rule));
+        ImGui::BeginDisabled();
+        ImGui::Button("Locate"); // !!TODO: redesign...
+        ImGui::EndDisabled();
+        if (const auto* r = pass_rule::dest()) {
             page.clear();
-            page.push_back(sync.rule);
+            page.push_back(aniso::approximate(working_set, *r));
             fill_page(adapter.page_size);
         }
-        ImGui::EndDisabled();
-        if (!working_contains) {
-            imgui_ItemTooltip("The current rule does not belong to the working set.");
-        }
-        guide_mode::item_tooltip("Go to where the current rule belongs in the sequence.");
+        // guide_mode::item_tooltip("Go to where the current rule belongs in the sequence.");
 
         static input_int input_dist{};
         ImGui::SameLine();
@@ -868,7 +836,7 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
         config.set("Settings");
 
         adapter.display(
-            config, sync, size_constraint_min,
+            config, size_constraint_min,
             [&] {
                 if (page.size() > adapter.page_size) {
                     while (page.size() > adapter.page_size) {
@@ -882,8 +850,7 @@ static void traverse_window(bool& show_trav, sync_point& sync, const aniso::subs
     }
 }
 
-static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::subsetT& working_set,
-                               const aniso::maskT& mask) {
+static void random_rule_window(bool& show_rand, const aniso::subsetT& working_set, const aniso::maskT& mask) {
     assert(show_rand);
     static ImVec2 size_constraint_min{};
     ImGui::SetNextWindowSizeConstraints(size_constraint_min, ImVec2(FLT_MAX, FLT_MAX));
@@ -968,13 +935,16 @@ static void random_rule_window(bool& show_rand, sync_point& sync, const aniso::s
 
         // TODO: reconsider page-resized logic (seeking to the last page may still be confusing).
         aniso::ruleT buffer{}; // To provide `const ruleT*`.
-        adapter.display(config, sync, size_constraint_min, set_last_page, [&](int j) -> const aniso::ruleT* {
+        adapter.display(config, size_constraint_min, set_last_page, [&](int j) -> const aniso::ruleT* {
             const int r = page_no * adapter.page_size + j;
             assert(r >= 0);
             return r < rules.size() ? (buffer = rules[r], &buffer) : nullptr;
         });
     }
 }
+
+// !!TODO: support random-access in a separate window?
+// static void random_access_window(bool& show_rand_access, const aniso::subsetT& working_set, const aniso::maskT& mask) {}
 
 void previewer::_identify_rule(const aniso::ruleT& rule) {
     global_tooltip(true, [&rule] {
@@ -983,7 +953,7 @@ void previewer::_identify_rule(const aniso::ruleT& rule) {
     });
 }
 
-void edit_rule(sync_point& sync) {
+void edit_rule() {
     // Select subsets.
     static subset_selector select_working{&aniso::_subsets::native_isotropic};
     // const auto rep_before = select_working.rep();
@@ -991,39 +961,44 @@ void edit_rule(sync_point& sync) {
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
-        select_working.show_working(sync);
+        imgui_Str("Working set");
 
+        // !!TODO: remove support for collapsing?
         static bool collapse = false;
         ImGui::SameLine();
         ImGui::Checkbox("Collapse", &collapse);
 
-        auto select = [&] {
+        auto select = [](bool show_match) {
             if (ImGui::Button("Clear##Sets")) {
                 select_working.clear();
             }
             guide_mode::item_tooltip("Unselect all sets. The resulting working set will be the entire MAP set.");
-            ImGui::SameLine();
-            if (ImGui::Button("Match")) {
-                select_working.match(sync);
+            if (show_match) {
+                ImGui::SameLine();
+                ImGui::BeginDisabled(); // !!TODO: redesign...
+                ImGui::Button("Match");
+                ImGui::EndDisabled();
+                if (const auto* r = pass_rule::dest()) {
+                    select_working.match(*r);
+                }
+                guide_mode::item_tooltip("Select every set that contains ... !!TODO");
             }
-            guide_mode::item_tooltip("Select every set that contains the current rule.");
 
             ImGui::Separator();
-            select_working.select({.rule = &sync.rule, .select = true, .tooltip = true});
+            select_working.select({.rule = pass_rule::peek(), .select = true, .tooltip = true});
         };
 
         if (!collapse) {
             ImGui::SameLine();
-            select();
+            select(true);
         } else {
             ImGui::SameLine();
             menu_like_popup::button("Select");
-            menu_like_popup::popup(select);
+            menu_like_popup::popup([&] { select(false); });
         }
     }
     const aniso::subsetT& working_set = select_working.get();
     assert(!working_set.empty());
-    const bool working_contains = working_set.contains(sync.rule);
 
     ImGui::Separator();
 
@@ -1032,54 +1007,76 @@ void edit_rule(sync_point& sync) {
     ImGui::AlignTextToFramePadding();
     imgui_StrTooltip("(...)", mask_selector::about);
     ImGui::SameLine();
-    const aniso::maskT& mask = select_mask.select(working_set, sync);
+    const aniso::maskT& mask = select_mask.select(working_set);
     const auto [chr_0, chr_1] = select_mask.masked_char();
 
     ImGui::Separator();
 
     static bool show_trav = false;
     static bool show_rand = false;
-    static bool preview_mode = init_random_access_preview_mode; // TODO: rename.
+    static bool show_random_access = false;
+    static aniso::ruleT target{}; // Random-access // !!TODO: workaround; should redesign...
     static previewer::configT config{previewer::configT::_220_160};
     {
-        const bool clicked = ImGui::Checkbox("Traverse", &show_trav);
+        ImGui::Checkbox("Traverse", &show_trav);
         guide_mode::item_tooltip("Iterate through all rules in the working set.\n\n"
                                  "(This is mainly useful for small sets.)");
-        if (clicked && show_trav) {
-            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
-            ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -120), ImGuiCond_FirstUseEver);
-        }
         if (show_trav) {
-            traverse_window(show_trav, sync, working_set, mask);
+            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+            ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
+            traverse_window(show_trav, working_set, mask);
         }
     }
     ImGui::SameLine();
     {
-        const bool clicked = ImGui::Checkbox("Random", &show_rand);
+        ImGui::Checkbox("Random", &show_rand);
         guide_mode::item_tooltip("Get random rules in the working set.");
-        if (clicked && show_rand) {
-            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
-            ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -120), ImGuiCond_FirstUseEver);
-        }
         if (show_rand) {
-            random_rule_window(show_rand, sync, working_set, mask);
+            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+            ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
+            random_rule_window(show_rand, working_set, mask);
         }
     }
     ImGui::SameLine();
-    ImGui::Checkbox("Random-access", &preview_mode);
-    guide_mode::item_tooltip(
-        "Enable random-access editing, i.e. flipping the values of the current rule by groups. If the current rule already belongs to the working set, this effectively presents all rules with dist = 1 to the current rule (in the set).\n\n"
-        "(You can 'Collapse' the set table to leave more room for the preview windows.)");
-    if (preview_mode) {
-        ImGui::SameLine();
-        config.set("Settings");
+    {
+        ImGui::Checkbox("Random-access", &show_random_access);
+        guide_mode::item_tooltip(
+            "Enable random-access editing, i.e. flipping the values of the current rule by groups. If the current rule already belongs to the working set, this effectively presents all rules with dist = 1 to the current rule (in the set).\n\n"
+            "(You can 'Collapse' the set table to leave more room for the preview windows.)");
+        const auto init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
+        if (const auto* r = pass_rule::dest()) {
+            // !!TODO: whether to support dirty editing (the target doesn't have to belong to the set)?
+            target = aniso::approximate(working_set, *r);
+            show_random_access = true;
+        }
+
+        if (show_random_access) {
+            if (!working_set.contains(target)) {
+                target = mask;
+            }
+
+            ImGui::SameLine();
+            config.set("Settings");
+
+            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+            ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
+            if (auto window = imgui_Window("!!TODO (not quite convenient)", nullptr,
+                                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
+                previewer::preview(0, config, target);
+                if (const auto* r = pass_rule::dest()) {
+                    target = aniso::approximate(working_set, *r);
+                }
+            }
+        }
     }
 
-    {
+    const bool working_contains = working_set.contains(target);
+
+    if (show_random_access) {
         const int c_group = working_set.get_par().k();
 
         if (working_contains) {
-            const int dist = aniso::distance(working_set, mask, sync.rule);
+            const int dist = aniso::distance(working_set, mask, target);
             std::string str = std::format("Groups:{} ({}:{} {}:{})", c_group, chr_1, dist, chr_0, c_group - dist);
 
             // v (Preserved for reference.)
@@ -1099,6 +1096,7 @@ void edit_rule(sync_point& sync) {
                              "Check the '-x' groups for details - no matter which mask is selected, for any rule in "
                              "the working set, the masked values should be all the same in any group.\n\n"
                              "You can get rules in the working set from the 'Traverse' or 'Random' window.");
+#if 0
             if constexpr (debug_mode) { // TODO: whether to remove this?
                 rclick_popup::popup(imgui_GetItemPosID(), [&] {
                     if (ImGui::Selectable("Approx")) {
@@ -1115,10 +1113,12 @@ void edit_rule(sync_point& sync) {
                     });
                 });
             }
+#endif
         }
+    } else {
+        ImGui::Text("Groups:%d", working_set.get_par().k());
     }
 
-    // !!TODO: (?v0.9.9) ideally random-access editing can be independent of the current rule as well...
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
         // set_scroll_by_up_down(preview_mode ? floor(config.height() * 0.5) : ImGui::GetFrameHeight());
@@ -1126,7 +1126,7 @@ void edit_rule(sync_point& sync) {
         const char labels_normal[2][3]{{'-', chr_0, '\0'}, {'-', chr_1, '\0'}};
         const char labels_preview[2][9]{{'-', chr_0, ' ', '-', '>', ' ', chr_1, ':', '\0'},
                                         {'-', chr_1, ' ', '-', '>', ' ', chr_0, ':', '\0'}};
-        const aniso::ruleT_masked masked = mask ^ sync.rule;
+        const aniso::ruleT_masked masked = mask ^ target;
 
         // Precise vertical alignment:
         // https://github.com/ocornut/imgui/issues/2064
@@ -1138,10 +1138,9 @@ void edit_rule(sync_point& sync) {
         const ImVec2 button_padding{2, 2};
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
         const int group_size_x = [&]() {
-            // button-size + inner-spacing + label-size
-            int group_size = (button_padding.x * 2 + 3 * button_zoom) + imgui_ItemInnerSpacingX() +
-                             ImGui::CalcTextSize(preview_mode ? labels_preview[0] : labels_normal[0]).x;
-            if (preview_mode) {
+            int group_size = button_padding.x * 2 + 3 * button_zoom; // button-size
+            if (show_random_access) {
+                group_size += imgui_ItemInnerSpacingX() + ImGui::CalcTextSize(labels_preview[0]).x;
                 group_size = std::max(group_size, config.width());
             }
             return group_size;
@@ -1151,7 +1150,7 @@ void edit_rule(sync_point& sync) {
         std::vector<aniso::groupT> working_set_groups = working_set.get_par().group_vec();
         if (!working_contains) {
             std::ranges::stable_partition(working_set_groups, [&](const aniso::groupT& group) {
-                return !aniso::all_same_or_different(group, mask, sync.rule);
+                return !aniso::all_same_or_different(group, mask, target);
             });
         }
         for (int n = 0; const aniso::groupT& group : working_set_groups) {
@@ -1162,15 +1161,15 @@ void edit_rule(sync_point& sync) {
                 ImGui::Separator();
             }
 
-            const bool pure = working_contains /*perf*/ || aniso::all_same_or_different(group, mask, sync.rule);
+            const bool pure = working_contains /*perf*/ || aniso::all_same_or_different(group, mask, target);
             const aniso::codeT head = group[0];
             const auto get_adjacent_rule = [&] {
-                aniso::ruleT rule = sync.rule;
+                aniso::ruleT rule = target;
                 aniso::flip_values(group, rule);
                 return rule;
             };
             const auto group_details = [&] {
-                if (preview_mode) {
+                if (show_random_access) {
                     if (working_contains) {
                         imgui_Str("Click to flip the values in this group.");
                     } else {
@@ -1190,9 +1189,11 @@ void edit_rule(sync_point& sync) {
                         ImGui::SameLine();
                     }
                     code_image(code, button_zoom /*or 6?*/, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
-                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    align_text(ImGui::GetItemRectSize().y);
-                    imgui_Str(labels_normal[masked[code]]);
+                    if (show_random_access) {
+                        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                        align_text(ImGui::GetItemRectSize().y);
+                        imgui_Str(labels_normal[masked[code]]);
+                    }
                 }
                 if (group_size > max_to_show) {
                     imgui_Str("...");
@@ -1208,20 +1209,20 @@ void edit_rule(sync_point& sync) {
                 {0.26f, 0.59f, 0.98f, 0.30f}, {0.26f, 0.59f, 0.98f, 0.40f}, {0.26f, 0.59f, 0.98f, 0.50f}};
             const ImVec4* const button_color = pure ? button_col_normal : button_col_impure;
 
-            if (preview_mode) {
+            if (show_random_access) {
                 ImGui::BeginGroup();
             }
             ImGui::PushStyleColor(ImGuiCol_Button, button_color[0]);
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color[1]);
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, button_color[2]);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
-            const bool enable_edit = preview_mode && (working_contains || ImGui::GetIO().KeyCtrl);
+            const bool enable_edit = show_random_access && (working_contains || ImGui::GetIO().KeyCtrl);
             if (!enable_edit) {
                 // Not using ImGui::BeginDisabled(), so the button color will not be affected.
                 ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
             }
             if (code_button(head, button_zoom)) {
-                sync.set(get_adjacent_rule(), rule_recorder::RandomAccess);
+                target = get_adjacent_rule();
             }
             if (!enable_edit) {
                 ImGui::PopItemFlag();
@@ -1230,12 +1231,14 @@ void edit_rule(sync_point& sync) {
             ImGui::PopStyleColor(3);
             imgui_ItemTooltip(group_details);
 
-            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-            align_text(ImGui::GetItemRectSize().y);
-            imgui_Str(!pure ? "-x" : (preview_mode ? labels_preview[masked[head]] : labels_normal[masked[head]]));
+            if (show_random_access) {
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                align_text(ImGui::GetItemRectSize().y);
+                imgui_Str(!pure ? "-x" : labels_preview[masked[head]]);
+            }
             // if (has_lock) { imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2)); }
 
-            if (preview_mode) {
+            if (show_random_access) {
                 const int preview_id = this_n;
                 previewer::preview(preview_id, config, get_adjacent_rule /*()*/);
                 ImGui::EndGroup();

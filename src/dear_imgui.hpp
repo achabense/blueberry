@@ -135,6 +135,34 @@ inline void imgui_StrColored(std::string_view str, const ImVec4& col) {
     ImGui::PopStyleColor();
 }
 
+// (Referring to `ImGui::TextLink`.)
+inline void imgui_StrWithID(std::string_view str, const ImGuiID id) {
+    assert(id != 0);
+    ImGuiWindow* const window = ImGui::GetCurrentWindow();
+    if (window->SkipItems) {
+        return;
+    }
+
+    const char* const begin = str.data();
+    const char* const end = begin + str.size();
+
+    const ImVec2 pos = {window->DC.CursorPos.x, window->DC.CursorPos.y + window->DC.CurrLineTextBaseOffset};
+    const ImVec2 size = ImGui::CalcTextSize(begin, end, false);
+    const ImRect bb = {pos, pos + size};
+    ImGui::ItemSize(size, 0.0f);
+    if (!ImGui::ItemAdd(bb, id)) {
+        return;
+    }
+
+    bool hovered, held;
+    (void)ImGui::ButtonBehavior(bb, id, &hovered, &held);
+    (void)hovered, (void)held;
+
+    ImGui::RenderNavCursor(bb, id);
+    ImGui::RenderText(bb.Min, begin, end, false);
+    assert(ImGui::GetItemID() == id);
+}
+
 inline void imgui_StrDisabled(std::string_view str) { //
     imgui_StrColored(str, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 }

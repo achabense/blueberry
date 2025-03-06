@@ -94,12 +94,6 @@ static std::optional<int> display_page(const recordT& record, const previewer::c
             if (l == locate && !imgui_ItemFullyVisible()) {
                 ImGui::SetScrollHereY();
             }
-            ImGui::SameLine();
-            ImGui::PushID(l);
-            if (ImGui::Button(">> Cur") && !locate) {
-                sel_pos = l;
-            }
-            ImGui::PopID();
         }
     }
     ImGui::PopStyleColor();
@@ -129,7 +123,7 @@ void rule_recorder::record(typeE type, const aniso::ruleT& rule, const aniso::ru
 // TODO: ideally there should be special support for random-access editing (e.g. preceding-rule).
 // TODO: support sorting by recentness (especially useful for random-access).
 // TODO: support exporting as text (-> clipboard).
-void rule_recorder::load_record(sync_point& sync) {
+void rule_recorder::load_record() {
     struct termT {
         const char* label;
         recordT* record;
@@ -163,19 +157,19 @@ void rule_recorder::load_record(sync_point& sync) {
         iter_pos.reset();
         reset_scroll = true;
         active_term->record->clear();
-        if (active_term == &record_terms[0]) {
-            active_term->record->emplace(sync.rule);
-        }
+        // if (active_term == &record_terms[0]) {
+        //     active_term->record->emplace(sync.rule);
+        // }
     }
 
     recordT& active_record = *active_term->record;
     const int record_size = active_record.size();
-    const std::optional<int> found = active_record.find(sync.rule);
+    const std::optional<int> found = std::nullopt; // !!TODO: no longer working.
     std::optional<int> locate = std::nullopt;
 
     ImGui::SameLine();
     ImGui::BeginDisabled(!found);
-    if (ImGui::SmallButton("Locate")) {
+    if (ImGui::SmallButton("Locate")) { // !!TODO: can be rule-dest; but whether to support locating at all?
         locate = found;
     }
     ImGui::EndDisabled();
@@ -202,7 +196,7 @@ void rule_recorder::load_record(sync_point& sync) {
     // (`iter_pos` should be updated after `display_page`, as locate -> ImGui::SetScrollHereY will have one-frame delay.)
     if (const auto sel = display_page(active_record, config, iter_pos, locate)) {
         assert(!locate);
-        sync.set(active_record.at(*sel));
+        // sync.set(active_record.at(*sel)); // !!TODO: redesign...
         locate = *sel;
     }
     if (locate) {
