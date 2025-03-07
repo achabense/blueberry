@@ -383,71 +383,100 @@ class runnerT {
     static constexpr aniso::vecT size_max{.x = 1600, .y = 1200};
     static constexpr ImVec2 min_canvas_size{size_min.x * zoomT::max(), size_min.y* zoomT::max()};
 
-    struct ctrlT {
-        aniso::ruleT rule{};
+    class staged_rule {
+        aniso::ruleT rule = aniso::game_of_life();
+        std::optional<aniso::ruleT> next = std::nullopt;
 
+    public:
+        operator const aniso::ruleT&() const { return rule; }
+        const aniso::ruleT& get() const { return rule; }
+
+        void set_next(const aniso::ruleT& r) { next = r; }
+        bool begin_frame() {
+            if (next) { // TODO: whether to compare here?
+                rule = *next;
+                next.reset();
+                return true;
+            }
+            return false;
+        }
+    };
+
+    staged_rule current_rule{};
+
+    struct paceT {
         int step = 1;
-        int actual_step() const { return adjust_step(step, strobing(rule)); }
-
-        bool pause = false;
-        int extra_step = 0;
         global_timer::intervalT interval{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
     };
+
+    class ctrlT {
+        paceT pace{};
+        int extra_step = 0;
+        bool pause = false;
+        bool extra_pause = false;
+
+        // TODO: the interop between different parts is pretty awkward...
+        // m_paste.create -> push_pause_for_m_paste.
+        // any interrupting write-access to pause -> invalidate stashed_pause.
+        // m_paste.reset -> pop_pause_for_m_paste (~ restore if not invalidated).
+        std::optional<bool> stashed_pause = std::nullopt;
+
+    public:
+        void push_pause_for_m_paste() { stashed_pause = std::exchange(pause, true); }
+        void pop_pause_for_m_paste() {
+            if (stashed_pause) {
+                pause = *stashed_pause;
+                stashed_pause.reset();
+            }
+        }
+
+        void begin_frame() {
+            extra_step = 0;
+            extra_pause = false;
+        }
+
+        int calc_step(const aniso::ruleT& rule) const {
+            if (extra_step) {
+                return extra_step;
+            } else if (!pause && !extra_pause && pace.interval.test()) {
+                return adjust_step(pace.step, strobing(rule));
+            } else {
+                return 0;
+            }
+        }
+
+        void pause_for_this_frame() { extra_pause = true; }
+
+        bool get_pause() const { return pause; }
+        void set_pause(bool p) {
+            pause = p;
+            stashed_pause.reset();
+        }
+        void flip_pause() { set_pause(!pause); }
+
+        void set_step_interval(const func_ref<void(paceT&, int&)> fn) { fn(pace, extra_step); }
+    };
+
+    ctrlT m_ctrl{};
 
     // TODO: ideally the space window should skip the initial state as well (if not paused).
     // (This change is not as easy to make as it seems, as the current impl is toooo fragile...)
     class torusT {
         initT m_init{.seed = 0, .density = 0.5, .area = 0.5, .background = aniso::tileT{{.x = 1, .y = 1}}};
         aniso::tileT m_torus{};
-        ctrlT m_ctrl{.rule = aniso::game_of_life()};
         int m_gen = 0;
 
-        bool extra_pause = false;
         bool skip_next = false;
-
         bool m_resized = true; // Init ~ resized.
 
-        // TODO: the interop between different parts is pretty awkward...
-        // m_paste.create -> push_pause_for_m_paste.
-        // any interrupting write-access to m_ctrl.pause -> invalidate stashed_pause.
-        // m_paste.reset -> pop_pause_for_m_paste (~ restore if not invalidated).
-        std::optional<bool> stashed_pause = std::nullopt;
-
-        // !!TODO: temp; should the rule should be managed by the entire class instead of `torusT`?
-        std::optional<aniso::ruleT> next_rule = std::nullopt;
-
     public:
-        void push_pause_for_m_paste() { stashed_pause = std::exchange(m_ctrl.pause, true); }
-        void pop_pause_for_m_paste() {
-            if (stashed_pause) {
-                m_ctrl.pause = *stashed_pause;
-                stashed_pause.reset();
-            }
-        }
-
         torusT() { resize_and_restart({.x = 600, .y = 400}); }
 
-        bool begin_frame() {
-            extra_pause = false;
-            m_ctrl.extra_step = 0;
-
-            if (next_rule && compare_update(m_ctrl.rule, *next_rule)) {
-                next_rule.reset();
-
-                m_ctrl.pause = false;
-                stashed_pause.reset();
-                restart();
-                return true;
-            }
-            return false;
-        }
         void restart() {
             m_gen = 0;
             m_init.initialize(m_torus);
             skip_next = true;
         }
-        void pause_for_this_frame() { extra_pause = true; }
-        // void skip_next_run() { skip_next = true; }
 
         aniso::tile_const_ref read_only() const { return m_torus.data(); }
         aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_torus.data().clip(range); }
@@ -474,9 +503,6 @@ class runnerT {
                 m_torus.swap(temp);
             }
         }
-
-        void set_rule(const aniso::ruleT& r) { next_rule = r; }
-        const aniso::ruleT& rule() const { return m_ctrl.rule; }
 
         // int area() const { return m_torus.size().xy(); }
         int gen() const { return m_gen; }
@@ -507,43 +533,23 @@ class runnerT {
         void resize_and_restart(const aniso::vecT size) { resize(size, true); }
         bool resized_since_last_check() { return std::exchange(m_resized, false); }
 
-        void set_ctrl(const func_ref<void(ctrlT&)> fn) {
-            const bool old_pause = m_ctrl.pause;
-            fn(m_ctrl);
-            if (old_pause != m_ctrl.pause) {
-                stashed_pause.reset();
-            }
-        }
-        bool set_init(const func_ref<bool(initT&, bool&)> fn) {
+        bool set_init(const func_ref<bool(initT&)> fn) {
             const initT old_init = m_init;
-            const bool old_pause = m_ctrl.pause;
-            if (fn(m_init, m_ctrl.pause) || old_init != m_init) {
+            if (fn(m_init) || old_init != m_init) {
                 resize_and_restart(m_torus.size()); // In case the background is resized.
-                m_ctrl.pause = true;
-                stashed_pause.reset();
                 return true;
-            }
-            if (old_pause != m_ctrl.pause) {
-                stashed_pause.reset();
             }
             return false;
         }
 
-        void end_frame() {
-            if (skip_next) {
-                // Intentionally not affected by (extra_)pause.
-                if (m_ctrl.extra_step || m_ctrl.interval.test()) {
-                    skip_next = false;
-                }
+        void run(const aniso::ruleT& rule, const int step) {
+            if (skip_next && step != 0) {
+                skip_next = false;
                 return;
             }
 
-            int count = m_ctrl.extra_step;
-            if (count == 0 && !m_ctrl.pause && !extra_pause && m_ctrl.interval.test()) {
-                count = m_ctrl.actual_step();
-            }
-            for (int c = 0; c < count; ++c) {
-                m_torus.run_torus(m_ctrl.rule);
+            for (int c = 0; c < step; ++c) {
+                m_torus.run_torus(rule);
                 ++m_gen;
             }
         }
@@ -595,10 +601,11 @@ public:
     // For example, there are a lot of static variables in `display`, and the keyboard controls are not designed
     // for per-object use.
     void display() {
-        const bool rule_changed = m_torus.begin_frame();
+        m_ctrl.begin_frame();
+        const bool rule_changed = current_rule.begin_frame();
         if (rule_changed) {
-            // m_sel.reset();
-            // m_paste.reset();
+            m_torus.restart();
+            m_ctrl.set_pause(false);
         }
 
         {
@@ -606,15 +613,15 @@ public:
             imgui_StrTooltip("(...)", "!!TODO");
             ImGui::SameLine();
 
-            const auto map_str = aniso::to_MAP_str(m_torus.rule());
+            const auto map_str = aniso::to_MAP_str(current_rule);
             const ImGuiID map_id = ImGui::GetID("MAP-str");
             imgui_StrWithID(map_str, map_id);
-            if (!pass_rule::source(m_torus.rule())) {
+            if (!pass_rule::source(current_rule)) {
                 assert(ImGui::GetItemID() == map_id);
                 rclick_popup::popup(map_id, [&] {
                     if (ImGui::Selectable("Copy rule")) {
                         set_clipboard_and_notify(map_str);
-                        rule_recorder::record(rule_recorder::Copied, m_torus.rule());
+                        rule_recorder::record(rule_recorder::Copied, current_rule);
                     }
                 });
             }
@@ -641,15 +648,15 @@ public:
         const bool canvas_hovered_or_held =
             ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
 
-        auto set_init_state = [&](initT& init, bool& pause) {
+        auto set_init_state = [&](initT& init) {
             // TODO: support reset-all?
             const bool force_restart =
                 ImGui::Button("Restart") ||
                 (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_R) && shortcuts::highlight());
             ImGui::SameLine();
-            ImGui::Checkbox("Pause", &pause);
-            if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_Space) && shortcuts::highlight()) {
-                pause = !pause;
+            if (imgui_CheckboxV("Pause", m_ctrl.get_pause()) ||
+                (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_Space) && shortcuts::highlight())) {
+                m_ctrl.flip_pause();
             }
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "The space will pause and restart if you 'Restart' or change init settings.\n\n"
@@ -742,7 +749,7 @@ public:
                 imgui_ItemRect(IM_COL32_GREY(160, 255));
 
                 if (global_timer::test(200) && !std::exchange(skip_next, false)) {
-                    curr.run_torus(m_torus.rule());
+                    curr.run_torus(current_rule.get());
                 }
             }
 
@@ -802,7 +809,7 @@ public:
 
         ImGui::PushItemWidth(item_width);
         ImGui::BeginGroup();
-        m_torus.set_ctrl([&](ctrlT& ctrl) {
+        m_ctrl.set_step_interval([&](paceT& pace, int& extra_step) {
             bool tooltip_hovered = false;
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip(
@@ -827,24 +834,24 @@ public:
                 m_torus.restart();
             }
             ImGui::SameLine();
-            if (!ImGui::Checkbox("Pause", &ctrl.pause) && item_shortcut(ImGuiKey_Space, false)) {
-                ctrl.pause = !ctrl.pause;
+            if (imgui_CheckboxV("Pause", m_ctrl.get_pause()) || item_shortcut(ImGuiKey_Space, false)) {
+                m_ctrl.flip_pause();
             }
             ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
             ImGui::SameLine();
             if (ImGui::Button("+s") || item_shortcut(ImGuiKey_S, true)) {
-                ctrl.extra_step = ctrl.pause ? ctrl.actual_step() : 0;
-                ctrl.pause = true;
+                extra_step = m_ctrl.get_pause() ? adjust_step(pace.step, strobing(current_rule)) : 0;
+                m_ctrl.set_pause(true);
             }
             ImGui::SameLine();
             if (ImGui::Button("+1") || item_shortcut(ImGuiKey_D, true)) {
-                ctrl.extra_step = 1;
+                extra_step = 1;
             }
             ImGui::SameLine();
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
                 (enable_shortcuts && shortcuts::test_down(ImGuiKey_F) && shortcuts::highlight())) {
-                ctrl.extra_step = std::max(ctrl.actual_step(), step_fast);
+                extra_step = adjust_step(std::max(pace.step, step_fast), strobing(current_rule));
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
             ImGui::SameLine();
@@ -862,7 +869,7 @@ public:
 
             ImGui::Separator(); // To align with the left panel.
 
-            const auto to_str = [is_strobing = strobing(ctrl.rule)](int step) {
+            const auto to_str = [is_strobing = strobing(current_rule)](int step) {
                 if (!is_strobing) {
                     return std::to_string(step);
                 } else {
@@ -872,7 +879,7 @@ public:
 
             // TODO: recheck this design... Ideally these sliders should use locally-defined `item_shortcut`.
             imgui_StepSliderInt::set_shortcuts(ImGuiKey_1, ImGuiKey_2, enable_shortcuts);
-            imgui_StepSliderInt::fn("Step", &ctrl.step, 1, 100, 1, to_str);
+            imgui_StepSliderInt::fn("Step", &pace.step, 1, 100, 1, to_str);
             imgui_StepSliderInt::reset_shortcuts();
             ImGui::SameLine();
             imgui_StrTooltip(
@@ -883,7 +890,7 @@ public:
             // TODO: the last sec is terrible but I have no idea how to improve it...
 
             imgui_StepSliderInt::set_shortcuts(ImGuiKey_3, ImGuiKey_4, enable_shortcuts);
-            ctrl.interval.step_slide("Interval", 0, 400);
+            pace.interval.step_slide("Interval", 0, 400);
             imgui_StepSliderInt::reset_shortcuts();
         });
         ImGui::EndGroup();
@@ -892,9 +899,10 @@ public:
         menu_like_popup::button("Init state");
         menu_like_popup::popup([&] {
             if (m_torus.set_init(set_init_state)) {
+                m_ctrl.set_pause(true);
                 m_sel.reset();
                 m_paste.reset();
-                m_torus.pop_pause_for_m_paste();
+                m_ctrl.pop_pause_for_m_paste();
             }
         });
         ImGui::SameLine();
@@ -958,11 +966,11 @@ public:
                 ImGui::PopStyleVar();
                 ImGui::SameLine();
                 const bool clear = double_click_button_small("Clear");
-                if (m_paste->rule && m_paste->rule != m_torus.rule()) {
+                if (m_paste->rule && m_paste->rule != current_rule) {
                     // !!TODO: redesign... this can be a rule-source...
                     ImGui::SameLine();
                     if (double_click_button_small("Rule")) {
-                        m_torus.set_rule(*(m_paste->rule));
+                        current_rule.set_next(*(m_paste->rule));
                     }
                     ImGui::SameLine();
                     imgui_StrTooltip("(?)", "The pattern specified a different rule.");
@@ -984,7 +992,7 @@ public:
                     "(Only 'Copy' works for periodic background.)");
                 if (clear) {
                     m_paste.reset();
-                    m_torus.pop_pause_for_m_paste();
+                    m_ctrl.pop_pause_for_m_paste();
                 }
             }
         }
@@ -998,10 +1006,10 @@ public:
             const ImVec2 canvas_size = ImGui::GetItemRectSize();
             assert(canvas_id == ImGui::GetItemID());
             if (const auto* r = pass_rule::dest()) { // !!TODO: compare in advance?
-                if (*r == m_torus.rule()) {
+                if (*r == current_rule) {
                     messenger::set_msg("Identical.");
                 } else {
-                    m_torus.set_rule(*r);
+                    current_rule.set_next(*r);
                 }
             }
 
@@ -1010,7 +1018,7 @@ public:
             const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
             const bool r_down = ImGui::IsMouseDown(ImGuiMouseButton_Right);
             if (active) {
-                m_torus.pause_for_this_frame();
+                m_ctrl.pause_for_this_frame();
             }
 
             if (resize_fullscreen) {
@@ -1032,7 +1040,7 @@ public:
             if (m_torus.resized_since_last_check()) {
                 m_sel.reset();
                 m_paste.reset();
-                m_torus.pop_pause_for_m_paste();
+                m_ctrl.pop_pause_for_m_paste();
             }
 
             if (locate_center) {
@@ -1092,7 +1100,7 @@ public:
                 if (!m_paste && !(m_sel && m_sel->active && m_sel->to_range().size().xy() > 2)) {
                     if (imgui_ItemHoveredForTooltip() && cel_pos.both_gteq({-10, -10}) &&
                         cel_pos.both_lt(tile_size.plus(10, 10))) {
-                        hex_mode = want_hex_mode(m_torus.rule());
+                        hex_mode = want_hex_mode(current_rule);
                         if (hex_mode || m_coord.zoom <= 1) {
                             zoom_center = cel_pos;
                         }
@@ -1182,7 +1190,7 @@ public:
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                             if (m_paste->paste_once) {
                                 m_paste.reset();
-                                m_torus.pop_pause_for_m_paste();
+                                m_ctrl.pop_pause_for_m_paste();
                             } else {
                                 messenger::set_msg("Pasted.");
                             }
@@ -1249,7 +1257,7 @@ public:
                 auto copy_sel = [&] {
                     if (m_sel) {
                         std::string rle_str = aniso::to_RLE_str(m_torus.read_only(m_sel->to_range()),
-                                                                add_rule ? &m_torus.rule() : nullptr);
+                                                                add_rule ? &current_rule.get() : nullptr);
                         ImGui::SetClipboardText(rle_str.c_str());
 
                         messenger::set_msg(std::move(rle_str));
@@ -1412,8 +1420,7 @@ public:
                 } else if (op == _test_bg_period && m_sel) {
                     const aniso::tile_const_ref sel_area = m_torus.read_only(m_sel->to_range());
                     if (const auto p_size = aniso::spatial_period_full_area(sel_area, {30, 30})) {
-                        if (const auto period =
-                                aniso::torus_period(m_torus.rule(), sel_area.clip_corner(*p_size), 60)) {
+                        if (const auto period = aniso::torus_period(current_rule, sel_area.clip_corner(*p_size), 60)) {
                             messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size->x, p_size->y, *period);
                         } else {
                             messenger::set_msg("Spatial period: x = {}, y = {} (not temporally periodic)", p_size->x,
@@ -1435,7 +1442,7 @@ public:
                     // TODO: whether to support toggling?
                     if (m_paste) {
                         m_paste.reset();
-                        m_torus.pop_pause_for_m_paste();
+                        m_ctrl.pop_pause_for_m_paste();
                     } else if (std::string_view text = read_clipboard(); !text.empty()) {
                         std::optional<aniso::ruleT> rule = std::nullopt;
                         text = aniso::strip_RLE_header(text, &rule);
@@ -1454,7 +1461,7 @@ public:
                                                    tile_size.x, tile_size.y, p_size.x, p_size.y);
                                 return std::nullopt;
                             } else {
-                                m_torus.push_pause_for_m_paste();
+                                m_ctrl.push_pause_for_m_paste();
                                 m_paste = {.rule = rule,
                                            .tile = aniso::tileT(aniso::vecT{.x = (int)p_size.x, .y = (int)p_size.y}),
                                            .beg = {0, 0},
@@ -1464,7 +1471,7 @@ public:
                         });
                     }
                 } else if (op == _identify) {
-                    identify(m_torus.read_only(m_sel->to_range()), m_torus.rule());
+                    identify(m_torus.read_only(m_sel->to_range()), current_rule);
                 }
             }
 
@@ -1472,7 +1479,7 @@ public:
         }
 
         assert(!m_torus.resized_since_last_check());
-        m_torus.end_frame();
+        m_torus.run(current_rule, m_ctrl.calc_step(current_rule));
     }
 };
 

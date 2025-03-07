@@ -906,29 +906,6 @@ private:
     static void _identify_rule(const aniso::ruleT& rule);
 };
 
-#if 0
-class sync_point : no_copy {
-    friend void frame_main();
-
-    std::optional<aniso::ruleT> out_rule = std::nullopt;
-    rule_recorder::typeE rec_type = rule_recorder::Ignore;
-
-    sync_point(const aniso::ruleT& rule) : rule{rule} {}
-
-public:
-    const aniso::ruleT rule;
-
-    void set(const aniso::ruleT& new_rule, rule_recorder::typeE type = rule_recorder::Ignore) {
-        if (rule == new_rule) {
-            messenger::set_msg("The same as the current rule.");
-        } else {
-            out_rule.emplace(new_rule);
-            rec_type = type;
-        }
-    }
-};
-#endif
-
 // !!TODO: recheck logic...
 // TODO: add scope? some source->dest may be meaningless.
 class pass_rule : no_create {

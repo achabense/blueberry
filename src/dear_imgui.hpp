@@ -242,6 +242,10 @@ inline bool imgui_RadioButton(const char* label, T* v, std::type_identity_t<T> c
     return false;
 }
 
+inline bool imgui_CheckboxV(const char* label, bool v) { //
+    return ImGui::Checkbox(label, &v);
+}
+
 // TODO: are there public ways to do this?
 inline bool imgui_TestItemFlag(ImGuiItemFlags flag) { //
     return (GImGui->CurrentItemFlags & flag) != 0;

@@ -158,7 +158,7 @@ void frame_main() {
     static bool show_file = false;
     static bool show_clipboard = false;
     static bool show_doc = false;
-    static bool show_record = false;
+    [[maybe_unused]] static bool show_record = false;
     auto load_rule = [](bool& open, const char* title, void (*load_fn)()) {
         if (ImGui::Checkbox(title, &open) && open) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
