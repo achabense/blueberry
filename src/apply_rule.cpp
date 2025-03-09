@@ -935,8 +935,8 @@ public:
             highlight_canvas = true;
         }
         ImGui::SameLine();
-        static bool show_range_window = false;
-        ImGui::Checkbox("Space ops", &show_range_window);
+        static bool show_op_window = false;
+        ImGui::Checkbox("Space ops", &show_op_window);
         const int wide_spacing = ImGui::CalcTextSize(" ").x * 2;
         ImGui::SameLine(0, wide_spacing);
         if (m_paste) {
@@ -1243,13 +1243,30 @@ public:
                     _clear_outside,
                     _select_all,
                     _bounding_box,
-                    _test_bg_period,
+                    _test_bg_period, // !!TODO: (v0.9.9?v0.9.8) enhance to background sampling
                     _copy,
                     _cut,
-                    _paste,
-                    _identify
+                    _identify,
+                    _paste
                 };
                 using enum operationE;
+
+                struct op_term {
+                    operationE op;
+                    bool use_sel;
+                    ImGuiKey key;
+                    const char* key_label;
+                };
+                constexpr op_term op_random_fill{_random_fill, true, ImGuiKey_Equal, "+ (=)"};
+                constexpr op_term op_clear_inside{_clear_inside, true, ImGuiKey_Backspace, "Backspace"};
+                constexpr op_term op_clear_outside{_clear_outside, true, ImGuiKey_0, "0 (zero)"};
+                constexpr op_term op_select_all{_select_all, false, ImGuiKey_A, "A"};
+                constexpr op_term op_bounding_box{_bounding_box, true, ImGuiKey_B, "B"};
+                constexpr op_term op_test_bg_period{_test_bg_period, true, ImGuiKey_P, "P"};
+                constexpr op_term op_copy{_copy, true, ImGuiKey_C, "C"};
+                constexpr op_term op_cut{_cut, true, ImGuiKey_X, "X"};
+                constexpr op_term op_identify{_identify, true, ImGuiKey_I, "I (i)"};
+                constexpr op_term op_paste{_paste, false, ImGuiKey_V, "V"};
 
                 static aniso::cellT background{0};
                 static percentT fill_den = 0.5; // Random-fill.
@@ -1265,115 +1282,91 @@ public:
                 };
 
                 operationE op = _none;
+                operationE op_highlight = _none;
 
-                auto checked_shortcut = [&](ImGuiKey key, bool valid /*!use_sel || m_sel.has_value()*/) {
-                    if (canvas_hovered_or_held && shortcuts::test_pressed(key, false)) {
-                        if (valid) {
-                            return true;
+                if (canvas_hovered_or_held) {
+                    for (const op_term& t :
+                         {op_random_fill, op_clear_inside, op_clear_outside, op_select_all, op_bounding_box,
+                          op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
+                        if (shortcuts::test_pressed(t.key, false)) {
+                            op_highlight = t.op;
+                            const bool valid = !t.use_sel || m_sel.has_value();
+                            if (valid) {
+                                op = t.op;
+                            } else {
+                                messenger::set_msg("There is no selected area.");
+                            }
+                            break;
                         }
-                        messenger::set_msg("There is no selected area.");
                     }
-                    return false;
-                };
+                }
+                if (show_op_window) {
+                    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+                    if (ImGui::IsMousePosValid()) {
+                        ImGui::SetNextWindowPos(ImGui::GetMousePos() + ImVec2(2, 2), ImGuiCond_Appearing);
+                    }
+                    if (auto window =
+                            imgui_Window("Space operations", &show_op_window,
+                                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                        auto term = [&](const char* label, const op_term& t) {
+                            const bool valid = !t.use_sel || m_sel.has_value();
+                            // Was `ImGui::MenuItem(label, shortcut, nullptr, valid)`.
+                            ImGui::BeginDisabled(!valid);
+                            if (imgui_SelectableStyledButton(label, false, t.key_label)) {
+                                assert(valid);
+                                op = t.op;
+                            } else if (op_highlight == t.op) {
+                                shortcuts::highlight();
+                            }
+                            ImGui::EndDisabled();
+                            if (!valid) {
+                                imgui_ItemTooltip("There is no selected area.");
+                            }
+                        };
 
-                auto term = [&](const char* label, const char* shortcut, ImGuiKey key, bool use_sel, operationE op2) {
-                    const bool valid = !use_sel || m_sel.has_value();
-                    // Was `ImGui::MenuItem(label, shortcut, nullptr, valid)`.
-                    ImGui::BeginDisabled(!valid);
-                    const bool clicked = imgui_SelectableStyledButton(label, false, shortcut);
-                    ImGui::EndDisabled();
-                    if (clicked || (checked_shortcut(key, valid) && shortcuts::highlight())) {
-                        assert(valid);
-                        op = op2;
-                    }
-                    if (!valid) {
-                        imgui_ItemTooltip("There is no selected area.");
-                    }
-                };
-
-                auto range_operations_display = [&] {
-                    const auto set_tag = [](bool& tag, const char* label, const char* message) {
-                        ImGui::Checkbox(label, &tag);
+                        ImGui::AlignTextToFramePadding();
+                        imgui_Str("Background ~");
+                        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                        imgui_RadioButton("0", &background, {0});
+                        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                        imgui_RadioButton("1", &background, {1});
                         ImGui::SameLine();
-                        imgui_StrTooltip("(?)", message);
-                    };
+                        imgui_StrTooltip("(?)",
+                                         "'Clear inside/outside' and 'Cut' will clear the range with this value.");
 
-                    ImGui::AlignTextToFramePadding();
-                    imgui_Str("Background ~");
-                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    imgui_RadioButton("0", &background, {0});
-                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    imgui_RadioButton("1", &background, {1});
-                    ImGui::SameLine();
-                    imgui_StrTooltip("(?)", "'Clear inside/outside' and 'Cut' will clear the range with this value.");
+                        // Filling.
+                        ImGui::Separator();
+                        fill_den.step_slide("Fill density");
+                        term("Random fill", op_random_fill);
+                        term("Clear inside", op_clear_inside);
+                        term("Clear outside", op_clear_outside);
 
-                    // Filling.
-                    ImGui::Separator();
-                    fill_den.step_slide("Fill density");
-                    term("Random fill", "+ (=)", ImGuiKey_Equal, true, _random_fill);
-                    term("Clear inside", "Backspace", ImGuiKey_Backspace, true, _clear_inside);
-                    term("Clear outside", "0 (zero)", ImGuiKey_0, true, _clear_outside);
+                        ImGui::Separator();
+                        term("Select all", op_select_all);
+                        term("Bound", op_bounding_box);
+                        guide_mode::item_tooltip(
+                            "Get the bounding box for the pattern. (The pattern should be enclosed in 2*2 periodic background.)");
+                        term("Test background", op_test_bg_period);
+                        guide_mode::item_tooltip("Test the size and period of periodic background.");
 
-                    ImGui::Separator();
-                    term("Select all", "A", ImGuiKey_A, false, _select_all);
-                    term("Bound", "B", ImGuiKey_B, true, _bounding_box);
-                    guide_mode::item_tooltip(
-                        "Get the bounding box for the pattern. (The pattern should be enclosed in 2*2 periodic background.)");
-                    term("Test background", "P", ImGuiKey_P, true, _test_bg_period); // TODO: redesign...
-                    guide_mode::item_tooltip("Test the size and period of periodic background.");
+                        // Copy/Cut/Identify.
+                        ImGui::Separator();
+                        ImGui::Checkbox("Rule info", &add_rule);
+                        ImGui::SameLine();
+                        imgui_StrTooltip(
+                            "(?)", "Whether to include rule info ('rule = ...') in the header for the patterns.\n\n"
+                                   "(This applies to 'Copy' and 'Cut'. 'Identify' will always include rule info.)");
+                        term("Copy", op_copy);
+                        term("Cut", op_cut);
+                        term("Identify", op_identify);
+                        guide_mode::item_tooltip(
+                            "Identify a single oscillator or spaceship in 2*2 periodic background "
+                            "(e.g., pure white, pure black, striped, or checkerboard background), and "
+                            "copy its smallest phase to the clipboard.");
 
-                    // Copy/Cut/Identify.
-                    ImGui::Separator();
-                    set_tag(add_rule, "Rule info",
-                            "Whether to include rule info ('rule = ...') in the header for the patterns.\n\n"
-                            "(This applies to 'Copy' and 'Cut'. 'Identify' will always include rule info.)");
-                    term("Copy", "C", ImGuiKey_C, true, _copy);
-                    term("Cut", "X", ImGuiKey_X, true, _cut);
-                    term("Identify", "I (i)", ImGuiKey_I, true, _identify);
-                    guide_mode::item_tooltip("Identify a single oscillator or spaceship in 2*2 periodic background "
-                                             "(e.g., pure white, pure black, striped, or checkerboard background), and "
-                                             "copy its smallest phase to the clipboard.");
-
-                    // Paste.
-                    ImGui::Separator();
-                    term("Paste", "V", ImGuiKey_V, false, _paste);
-                };
-
-                auto range_operations_shortcut_only = [&] {
-                    auto term2 = [&](ImGuiKey key, bool use_sel, operationE op2) {
-                        if (checked_shortcut(key, !use_sel || m_sel.has_value())) {
-                            op = op2;
-                        }
-                    };
-
-                    term2(ImGuiKey_Equal, true, _random_fill);
-                    term2(ImGuiKey_Backspace, true, _clear_inside);
-                    term2(ImGuiKey_0, true, _clear_outside);
-                    term2(ImGuiKey_A, false, _select_all);
-                    term2(ImGuiKey_B, true, _bounding_box);
-                    term2(ImGuiKey_P, true, _test_bg_period);
-                    term2(ImGuiKey_C, true, _copy);
-                    term2(ImGuiKey_X, true, _cut);
-                    term2(ImGuiKey_V, false, _paste);
-                    term2(ImGuiKey_I, true, _identify);
-                };
-
-                {
-                    bool displayed = false;
-                    if (show_range_window) {
-                        ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
-                        if (ImGui::IsMousePosValid()) {
-                            ImGui::SetNextWindowPos(ImGui::GetMousePos() + ImVec2(2, 2), ImGuiCond_Appearing);
-                        }
-                        if (auto window =
-                                imgui_Window("Space operations", &show_range_window,
-                                             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                            range_operations_display();
-                            displayed = true;
-                        }
-                    }
-                    if (!displayed) {
-                        range_operations_shortcut_only();
+                        // Paste.
+                        ImGui::Separator();
+                        term("Paste", op_paste);
                     }
                 }
 
