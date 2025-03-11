@@ -212,11 +212,6 @@ void frame_main() {
         load_rule(show_doc, "Documents", load_doc);
         guide_mode::item_tooltip("Concepts, example rules, etc.");
 
-        // !!TODO: redesign...
-        // ImGui::SameLine(0, wide_spacing);
-        // load_rule(show_record, "Record", rule_recorder::load_record);
-        // guide_mode::item_tooltip("Record for current rule, copied rules, etc.");
-
         ImGui::SameLine(0, wide_spacing);
         ImGui::Text("(%d FPS)", (int)round(ImGui::GetIO().Framerate));
 #ifdef SET_FRAME_RATE

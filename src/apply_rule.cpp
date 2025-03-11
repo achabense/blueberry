@@ -621,7 +621,6 @@ public:
                 rclick_popup::popup(map_id, [&] {
                     if (ImGui::Selectable("Copy rule")) {
                         set_clipboard_and_notify(map_str);
-                        rule_recorder::record(rule_recorder::Copied, current_rule);
                     }
                 });
             }
@@ -1655,7 +1654,6 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         const auto hov = rclick_popup::popup_no_highlight(popup_id, [&] {
             if (ImGui::Selectable("Copy rule")) {
                 set_clipboard_and_notify(aniso::to_MAP_str(rule));
-                rule_recorder::record(rule_recorder::Copied, rule);
             }
 
             imgui_StrTooltip(

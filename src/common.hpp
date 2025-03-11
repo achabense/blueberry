@@ -47,16 +47,6 @@ public:
     static void perturb(std::mt19937& rand) { rand.discard(1 + (seed() % 16)); }
 };
 
-// !!TODO: currently broken.
-class rule_recorder : no_create {
-public:
-    enum class typeE { Current, Copied, RandomAccess, Ignore };
-    using enum typeE;
-
-    static void record(typeE type, const aniso::ruleT& rule, const aniso::ruleT* from = nullptr);
-    static void load_record();
-};
-
 class rule_algo : no_create {
 public:
     static aniso::ruleT trans_reverse(const aniso::ruleT&);
