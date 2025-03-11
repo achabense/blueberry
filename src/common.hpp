@@ -866,23 +866,24 @@ public:
         }
     }
 
-    static void preview(uint32_t id, const configT& config, const aniso::ruleT& rule) {
-        ImGui::PushID(id);
-        ImGui::InvisibleButton("Preview", config.size_imvec());
-        ImGui::PopID();
-        if (ImGui::IsItemVisible()) {
-            _preview(_get_id(id), config, rule);
-        }
-    }
-
-    // (Note: `get_rule` shouldn't be type-erased here.)
+    // (Note: type-erasure doesn't apply here.)
     // (`const ruleT&()` cannot adapt `ruleT()` calls, while `ruleT()` is unnecessarily costly for `const ruleT&()` calls.)
-    static void preview(uint32_t id, const configT& config, const std::invocable<> auto& get_rule) {
+    static void preview(uint32_t id, const configT& config, const auto& rule_or_get_rule) {
         ImGui::PushID(id);
         ImGui::InvisibleButton("Preview", config.size_imvec());
         ImGui::PopID();
         if (ImGui::IsItemVisible()) {
-            _preview(_get_id(id), config, get_rule());
+            const uint64_t id2 = (uint64_t(ImGui::GetItemID()) << 32) | id;
+            if constexpr (implicitly_convertible_to<decltype(rule_or_get_rule), const aniso::ruleT&>) {
+                _preview(id2, config, rule_or_get_rule);
+            } else if constexpr (requires {
+                                     { rule_or_get_rule() } -> implicitly_convertible_to<const aniso::ruleT&>;
+                                 }) {
+                _preview(id2, config, rule_or_get_rule());
+            } else {
+                // (Should be `static_assert(false)` when the DR gets widely adopted.)
+                assert(false);
+            }
         }
     }
 
@@ -891,12 +892,6 @@ public:
     }
 
 private:
-    static uint64_t _get_id(uint32_t id) {
-        return (uint64_t(ImGui::GetID("")) << 32) | id;
-        // TODO: consider using window id?
-        // return (uint64_t(ImGui::GetCurrentWindowRead()->ID) << 32) | id;
-    }
-
     friend void frame_main();
     static void begin_frame();
 

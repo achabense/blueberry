@@ -652,16 +652,15 @@ struct page_adapter {
     // `page_resized` should be able to access *this someway.
     void display(const previewer::configT& config, ImVec2& min_req_size, const func_ref<void()> page_resized,
                  const func_ref<const aniso::ruleT*(int)> access) {
-        const ImVec2 avail_size = ImGui::GetContentRegionAvail();
         // (The same value as in `edit_rule`.)
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
 
         // Background
-        ImGui::GetWindowDrawList()->AddRectFilled(ImGui::GetCursorScreenPos(), ImGui::GetCursorScreenPos() + avail_size,
-                                                  IM_COL32_GREY(24, 255));
+        imgui_FillAvailRect(IM_COL32_GREY(24, 255));
 
         // Resize the page so all previewers can fit into the area. This should be done before the loop.
         if (!ImGui::IsWindowAppearing()) {
+            const ImVec2 avail_size = ImGui::GetContentRegionAvail();
             const ImVec2 previewer_size = config.size_imvec();
             const float spacing_y = ImGui::GetStyle().ItemSpacing.y;
             const int xc = fit_count(avail_size.x, previewer_size.x, spacing_x);
@@ -1119,6 +1118,7 @@ void edit_rule() {
         ImGui::Text("Groups:%d", working_set.get_par().k());
     }
 
+    // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
         // set_scroll_by_up_down(preview_mode ? floor(config.height() * 0.5) : ImGui::GetFrameHeight());

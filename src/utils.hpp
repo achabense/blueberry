@@ -44,10 +44,13 @@ inline bool compare_update(T& t, const U& u) {
 // (Using bit-cast as gcc rejects static-cast.)
 inline constexpr bool may_store_fp_as_voidp = requires(void (*fp)()) { std::bit_cast<void*>(fp); };
 
+template <class From, class To>
+concept implicitly_convertible_to = std::is_convertible_v<From, To>;
+
 // (T -> const T& shouldn't go across function calls.)
 template <class From, class To>
-concept safely_implicitly_convertible_to =
-    std::is_convertible_v<From, To> && !(!std::is_reference_v<From> && std::is_reference_v<To>);
+concept implicitly_returnable_as =
+    implicitly_convertible_to<From, To> && !(!std::is_reference_v<From> && std::is_reference_v<To>);
 
 template <class S>
 class func_ref_impl;
@@ -66,7 +69,7 @@ public:
 
     template <class F>
         requires requires(const F& fn, Args&&... args) {
-            { fn(static_cast<Args&&>(args)...) } -> safely_implicitly_convertible_to<R>;
+            { fn(static_cast<Args&&>(args)...) } -> implicitly_returnable_as<R>;
             // { fn(static_cast<Args&&>(args)...) } -> std::same_as<R>;
         }
     func_ref_impl(const F& fn) {

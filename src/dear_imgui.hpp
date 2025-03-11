@@ -20,8 +20,30 @@ inline ImRect imgui_GetWindowRect() {
     return {window_min, window_max};
 }
 
+// (Referring to `ImGui::GetContentRegionAvail`.)
+// (Returning optional as `GetContentRegionAvail` may return negative values.)
+inline std::optional<ImRect> imgui_GetAvailRect() {
+    ImGuiContext& g = *GImGui;
+    ImGuiWindow* window = g.CurrentWindow;
+    const ImVec2 pos_min = window->DC.CursorPos;
+    const ImVec2 pos_max =
+        (window->DC.CurrentColumns || g.CurrentTable) ? window->WorkRect.Max : window->ContentRegionRect.Max;
+    if (pos_min.x < pos_max.x && pos_min.y < pos_max.y) {
+        return ImRect{pos_min, pos_max};
+    } else {
+        return std::nullopt;
+    }
+}
+
 inline ImGuiID imgui_GetItemPosID() { //
     return GImGui->CurrentWindow->GetIDFromPos(ImGui::GetItemRectMin());
+}
+
+inline void imgui_FillAvailRect(ImU32 col) {
+    if (const auto rect = imgui_GetAvailRect()) {
+        const auto [pos_min, pos_max] = *rect;
+        ImGui::GetWindowDrawList()->AddRectFilled(pos_min, pos_max, col);
+    }
 }
 
 // These names are somewhat misleading after the introduction of `imgui_GetItemRect`...
@@ -181,7 +203,7 @@ inline bool imgui_StrTooltip(std::string_view str, std::string_view desc) {
 // Related: https://github.com/ocornut/imgui/issues/5115
 inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::string_view tooltip) {
     ImGuiWindow* const window = ImGui::GetCurrentWindow();
-    const bool old_skip = std::exchange(window->SkipItems, false); // Display regardless of wether collapsed.
+    const bool old_skip = std::exchange(window->SkipItems, false); // Display regardless of whether collapsed.
     const auto [min, max] = window->TitleBarRect();
     ImGui::PushClipRect(min, max, false);
     {

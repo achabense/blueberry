@@ -476,14 +476,14 @@ class textT : no_copy {
     // Won't be invalidated by reallocation.
     struct str_ref {
         int begin = 0, size = 0;
-        std::string_view get(const std::string& str) const { //
-            return {str.data() + begin, (size_t)size};
+        std::string_view get(const decltype(m_text)& text) const { //
+            return {text.data() + begin, (size_t)size};
         }
     };
     struct rule_ref {
         int pos = -1;
         bool has_value() const { return pos != -1; }
-        const aniso::compressT& get(const std::vector<aniso::compressT>& rules) const {
+        const aniso::compressT& get(const decltype(m_rules)& rules) const {
             assert(pos >= 0 && pos < (int)rules.size());
             return rules[pos];
         }
@@ -750,6 +750,7 @@ private:
         assert_implies(m_sel, !locating);
         passT pass{};
 
+        // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Content")) {
             // set_scroll_by_up_down(ImGui::GetTextLineHeight() * 2);
@@ -822,8 +823,7 @@ private:
                         } else {
                             // Workaround to avoid affecting popup & tooltip.
                             ImGui::PopStyleVar();
-                            previewer::preview(rule.pos, m_preview.config,
-                                               [&]() -> decltype(auto) /*return ref*/ { return rule.get(m_rules); });
+                            previewer::preview(rule.pos, m_preview.config, rule.get(m_rules) /*cheap call*/);
                             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
                         }
                         ImGui::EndGroup();
