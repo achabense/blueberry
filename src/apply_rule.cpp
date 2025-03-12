@@ -391,9 +391,15 @@ class runnerT {
         operator const aniso::ruleT&() const { return rule; }
         const aniso::ruleT& get() const { return rule; }
 
-        void set_next(const aniso::ruleT& r) { next = r; }
+        void set_next(const aniso::ruleT& r) {
+            if (rule == r) {
+                messenger::set_msg("Identical.");
+            } else {
+                next = r;
+            }
+        }
         bool begin_frame() {
-            if (next) { // TODO: whether to compare here?
+            if (next) {
                 rule = *next;
                 next.reset();
                 return true;
@@ -597,6 +603,8 @@ class runnerT {
     std::optional<selectT> m_sel = std::nullopt;
 
 public:
+    void set_next_rule(const aniso::ruleT& rule) { current_rule.set_next(rule); }
+
     // TODO: (wontfix?) there cannot actually be multiple instances in the program.
     // For example, there are a lot of static variables in `display`, and the keyboard controls are not designed
     // for per-object use.
@@ -623,6 +631,9 @@ public:
                         set_clipboard_and_notify(map_str);
                     }
                 });
+            }
+            if (const auto* r = pass_rule::dest()) { // !!TODO: compare when hovered?
+                current_rule.set_next(*r);
             }
             guide_mode::item_tooltip("MAP-string for ... !!TODO");
             ImGui::Separator();
@@ -1004,13 +1015,6 @@ public:
             const ImVec2 canvas_max = ImGui::GetItemRectMax();
             const ImVec2 canvas_size = ImGui::GetItemRectSize();
             assert(canvas_id == ImGui::GetItemID());
-            if (const auto* r = pass_rule::dest()) { // !!TODO: compare in advance?
-                if (*r == current_rule) {
-                    messenger::set_msg("Identical.");
-                } else {
-                    current_rule.set_next(*r);
-                }
-            }
 
             const bool active = ImGui::IsItemActive();
             const bool hovered = ImGui::IsItemHovered();
@@ -1475,10 +1479,11 @@ public:
     }
 };
 
-void apply_rule() {
-    static runnerT runner;
-    return runner.display();
-}
+static runnerT runner;
+void apply_rule() { return runner.display(); }
+
+// !!TODO: temporarily static...
+static void set_apply_rule_target(const aniso::ruleT& rule) { runner.set_next_rule(rule); }
 
 // TODO: let users decide which to be globally shared?
 class global_config : no_create {
@@ -1654,6 +1659,9 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         const auto hov = rclick_popup::popup_no_highlight(popup_id, [&] {
             if (ImGui::Selectable("Copy rule")) {
                 set_clipboard_and_notify(aniso::to_MAP_str(rule));
+            }
+            if (ImGui::Selectable("To right panel")) { // TODO: rephrase...
+                set_apply_rule_target(rule);
             }
 
             imgui_StrTooltip(
