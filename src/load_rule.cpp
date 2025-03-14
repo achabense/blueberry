@@ -1,4 +1,3 @@
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <ranges>
@@ -150,8 +149,14 @@ class folderT {
 
     static void collect(const pathT& path, std::vector<entryT>& dirs, std::vector<entryT>& files) noexcept(false) {
         assert(dirs.empty() && files.empty());
+        int max_entry = 5000;
         for (const auto& entry :
              std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied)) {
+            if (--max_entry < 0) [[unlikely]] { // (Undocumented, but should be rare enough.)
+                messenger::set_msg("Too many entries.");
+                return; // Instead of throwing.
+            }
+
             std::error_code ec{};
             if (const auto status = entry.status(ec); !ec) {
                 const bool is_dir = std::filesystem::is_directory(status);
@@ -328,7 +333,7 @@ public:
         }
     }
 
-    void input_filter() { input_text("Filter", buf_filter); }
+    void input_filter() { input_text("Filter", buf_filter, !buf_filter[0] ? ".txt" : nullptr); }
 
     void select_file(std::optional<pathT>& target, const pathT* current_file /*name*/ = nullptr, int* pid = nullptr) {
         if (auto child = imgui_ChildWindow("Files")) {
@@ -343,6 +348,16 @@ public:
                     }
                     if (selected && ImGui::IsWindowAppearing()) {
                         ImGui::SetScrollHereY();
+                    }
+                    if constexpr (debug_mode) {
+                        const auto hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
+                            if (ImGui::Selectable("Copy path")) {
+                                set_clipboard_and_notify(cpp17_u8string(m_current / file));
+                            }
+                        });
+                        if (hov == rclick_popup::Popup) {
+                            shortcuts::highlight();
+                        }
                     }
                 }
             }
@@ -438,6 +453,16 @@ public:
                     for (const auto& [dir, str] : m_current.dirs()) {
                         if (imgui_SelectableStyledButtonEx(id++, str)) {
                             sel = &dir;
+                        }
+                        if constexpr (debug_mode) {
+                            const auto hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
+                                if (ImGui::Selectable("Copy path")) {
+                                    set_clipboard_and_notify(cpp17_u8string(m_current / dir));
+                                }
+                            });
+                            if (hov == rclick_popup::Popup) {
+                                shortcuts::highlight();
+                            }
                         }
                     }
                     if (sel) {
@@ -689,7 +714,7 @@ public:
                 m_sel = sel;
             } else if (click_pos) {
                 assert(*click_pos >= 0 && *click_pos < int(m_rules.size()));
-                // out.set(m_rules[*click_pos]); // !!TODO: redesign...
+                // set_apply_rule_target(m_rules[*click_pos]); // TODO: whether to support this?
                 m_pos = *click_pos;
             }
         }
