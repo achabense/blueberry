@@ -207,12 +207,14 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
     const auto [min, max] = window->TitleBarRect();
     ImGui::PushClipRect(min, max, false);
     {
+        const ImVec2 old_pos = ImGui::GetCursorScreenPos();
         ImGui::SetCursorPos(
             ImVec2(ImGui::CalcTextSize(window->Name, nullptr, true).x + ImGui::GetFrameHeight() * 2, 0));
         ImGui::AlignTextToFramePadding();
         imgui_StrColored(
             str, ImLerp(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.5));
         imgui_ItemTooltip(tooltip);
+        ImGui::SetCursorScreenPos(old_pos);
     }
     ImGui::PopClipRect();
     window->SkipItems = old_skip;

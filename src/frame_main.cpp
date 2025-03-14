@@ -135,6 +135,7 @@ static void load_intro() {
 void frame_main() {
     // Make collapsed windows obvious to see.
     ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, ImGui::GetColorU32(ImGuiCol_TitleBgActive, 0.8f));
+    // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {8, 6});
     if constexpr (init_compact_mode) {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{3, 2});
     }
@@ -317,5 +318,6 @@ void frame_main() {
     if constexpr (init_compact_mode) {
         ImGui::PopStyleVar();
     }
+    // ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 }
