@@ -159,9 +159,8 @@ void frame_main() {
     static bool show_file = false;
     static bool show_clipboard = false;
     static bool show_doc = false;
-    [[maybe_unused]] static bool show_record = false;
-    auto load_rule = [](bool& open, const char* title, void (*load_fn)()) {
-        if (ImGui::Checkbox(title, &open) && open) {
+    auto load_rule = [](bool& open, const char* checkbox_label, const char* window_title, void (*load_fn)()) {
+        if (ImGui::Checkbox(checkbox_label, &open) && open) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
         } else if (&open == &show_clipboard && shortcuts::keys_avail_and_window_hoverable() &&
                    shortcuts::test_pressed(ImGuiKey_W)) {
@@ -178,14 +177,14 @@ void frame_main() {
                                         ImGuiCond_FirstUseEver);
                 ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
                 ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
-                if (auto window = imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings)) {
+                if (auto window = imgui_Window(window_title, &open, ImGuiWindowFlags_NoSavedSettings)) {
                     load_fn();
                 }
             } else {
                 imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
                 imgui_Window::next_window_titlebar_tooltip =
                     "Click the collapsing button, or double-click title bar to collapse/uncollapse.";
-                if (auto window = imgui_Window(title, &open,
+                if (auto window = imgui_Window(window_title, &open,
                                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                     load_fn();
                 }
@@ -200,17 +199,17 @@ void frame_main() {
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
     if (auto window = imgui_Window("Main", nullptr, flags)) {
+        // !!TODO: redesign window titles...
         const int wide_spacing = ImGui::CalcTextSize(" ").x * 3;
-        load_rule(show_intro, "Intro", load_intro);
-
+        load_rule(show_intro, "Intro", "Intro", load_intro);
         ImGui::SameLine(0, wide_spacing);
-        load_rule(show_file, "Files", load_file);
+        load_rule(show_file, "Files", "Files", load_file);
         guide_mode::item_tooltip("Load rules from files.");
         ImGui::SameLine();
-        load_rule(show_clipboard, "Clipboard", load_clipboard);
+        load_rule(show_clipboard, "Clipboard", "Clipboard", load_clipboard);
         guide_mode::item_tooltip("Load rules from the clipboard.");
         ImGui::SameLine();
-        load_rule(show_doc, "Documents", load_doc);
+        load_rule(show_doc, "Documents", "Documents", load_doc);
         guide_mode::item_tooltip("Concepts, example rules, etc.");
 
         ImGui::SameLine(0, wide_spacing);

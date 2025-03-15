@@ -85,6 +85,13 @@ inline float wrap_len() {
     return ImGui::GetFontSize() * 35.0f;
 }
 
+inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
+    const ImVec2 padding = ImGui::GetStyle().WindowPadding;
+    const ImVec2 min = padding;
+    const ImVec2 max = ImGui::GetMainViewport()->Size - padding - size;
+    return (min.x < max.x && min.y < max.y) ? ImClamp(pos, min, max) : pos;
+}
+
 // TODO: should finally be configurable in the program.
 // inline const bool init_maximize_window = false;
 inline const bool init_zero_interval = false;
@@ -658,11 +665,11 @@ public:
 
 class messenger : no_create {
     class messageT {
+        using clockT = std::chrono::steady_clock;
+
         std::string m_str{};
         std::optional<ImVec2> m_min{};
         int m_count{};
-
-        using clockT = std::chrono::steady_clock;
         clockT::time_point m_time{};
 
     public:
@@ -673,6 +680,7 @@ class messenger : no_create {
         void set(std::string&& str) {
             m_min.reset();
 
+            // TODO: ideally should take account of wrap-len...
             size_t subsize = 0;
             for (int line = 0; line < 15; ++line) {
                 subsize = str.find_first_of('\n', subsize);
@@ -709,23 +717,16 @@ class messenger : no_create {
 
             assert(!m_str.empty());
             const float text_wrap = wrap_len();
-            const char *const text_beg = m_str.c_str(), *const text_end = m_str.c_str() + m_str.size();
-            const ImVec2 padding = ImGui::GetStyle().WindowPadding;
-            const ImVec2 window_size = ImGui::CalcTextSize(text_beg, text_end, false, text_wrap) + padding * 2;
-
+            const char *const text_beg = m_str.c_str(), *const text_end = text_beg + m_str.size();
+            const ImVec2 window_padding = ImGui::GetStyle().WindowPadding;
+            const ImVec2 window_size = ImGui::CalcTextSize(text_beg, text_end, false, text_wrap) + window_padding * 2;
             if (!m_min) {
                 m_count = 12;
                 m_time = clockT::now() + std::chrono::milliseconds(600);
-
-                const ImVec2 main_size = ImGui::GetMainViewport()->Size;
-                if (ImGui::IsMousePosValid()) {
-                    const ImVec2 pos = ImClamp(ImGui::GetMousePos(), ImVec2{0, 0}, main_size);
-                    ImGuiDir dir = ImGuiDir_None;
-                    m_min = ImGui::FindBestWindowPosForPopupEx(pos, window_size, &dir, {padding, main_size - padding},
-                                                               {pos - padding, pos + padding},
-                                                               ImGuiPopupPositionPolicy_Default);
+                if (ImGui::IsMousePosValid()) [[likely]] {
+                    m_min = clamp_window_pos(ImGui::GetMousePos() + window_padding, window_size);
                 } else {
-                    m_min = ImFloor(main_size / 2 - window_size / 2);
+                    m_min = window_padding;
                 }
             }
 
@@ -734,7 +735,7 @@ class messenger : no_create {
             ImDrawList* const drawlist = ImGui::GetForegroundDrawList();
             drawlist->AddRectFilled(window_min, window_max, ImGui::GetColorU32(ImGuiCol_PopupBg));
             drawlist->AddRect(window_min, window_max, ImGui::GetColorU32(ImGuiCol_Border));
-            drawlist->AddText(nullptr, 0.0f, window_min + padding, ImGui::GetColorU32(ImGuiCol_Text), text_beg,
+            drawlist->AddText(nullptr, 0.0f, window_min + window_padding, ImGui::GetColorU32(ImGuiCol_Text), text_beg,
                               text_end, text_wrap);
         }
     };

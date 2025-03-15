@@ -349,7 +349,7 @@ public:
                     if (selected && ImGui::IsWindowAppearing()) {
                         ImGui::SetScrollHereY();
                     }
-                    if constexpr (debug_mode) {
+                    /*if constexpr (debug_mode)*/ { // (Undocumented.)
                         const auto hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
                             if (ImGui::Selectable("Copy path")) {
                                 set_clipboard_and_notify(cpp17_u8string(m_current / file));
@@ -454,7 +454,7 @@ public:
                         if (imgui_SelectableStyledButtonEx(id++, str)) {
                             sel = &dir;
                         }
-                        if constexpr (debug_mode) {
+                        /*if constexpr (debug_mode)*/ { // (Undocumented.)
                             const auto hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
                                 if (ImGui::Selectable("Copy path")) {
                                     set_clipboard_and_notify(cpp17_u8string(m_current / dir));
@@ -1034,8 +1034,8 @@ void load_clipboard() {
         last_str.clear();
         last_index = 0;
     }
-    ImGui::SameLine();
-    imgui_Str("Clipboard");
+    // ImGui::SameLine();
+    // imgui_Str("Clipboard");
     ImGui::SameLine();
     menu_like_popup::small_button(">");
     menu_like_popup::popup([] { text.select_line(); });

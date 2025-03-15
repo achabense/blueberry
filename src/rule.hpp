@@ -366,7 +366,7 @@ namespace aniso {
         // !has-rule -> data = prefix
         extrT(const std::span<const char> data, const bool ignore_lock) {
             const char* const begin = data.data();
-            const char* const end = data.data() + data.size();
+            const char* const end = begin + data.size();
             std::string_view str{begin, end};
             for (;;) {
                 if (const auto pos = str.find("MAP"); pos != str.npos && str.size() - pos >= rule_len) {
