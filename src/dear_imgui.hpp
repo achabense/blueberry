@@ -201,15 +201,16 @@ inline bool imgui_StrTooltip(std::string_view str, std::string_view desc) {
 }
 
 // Related: https://github.com/ocornut/imgui/issues/5115
-inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::string_view tooltip) {
+// `window->Name` may not be updated to Begin-name: https://github.com/ocornut/imgui/issues/8493
+inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::string_view tooltip,
+                                        const char* window_name) {
     ImGuiWindow* const window = ImGui::GetCurrentWindow();
     const bool old_skip = std::exchange(window->SkipItems, false); // Display regardless of whether collapsed.
     const auto [min, max] = window->TitleBarRect();
     ImGui::PushClipRect(min, max, false);
     {
         const ImVec2 old_pos = ImGui::GetCursorScreenPos();
-        ImGui::SetCursorPos(
-            ImVec2(ImGui::CalcTextSize(window->Name, nullptr, true).x + ImGui::GetFrameHeight() * 2, 0));
+        ImGui::SetCursorPos({ImGui::CalcTextSize(window_name, nullptr, true).x + ImGui::GetFrameHeight() * 2, 0});
         ImGui::AlignTextToFramePadding();
         imgui_StrColored(
             str, ImLerp(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.5));
@@ -229,7 +230,7 @@ public:
     explicit imgui_Window(const char* name, bool* p_open = nullptr, ImGuiWindowFlags flags = {})
         : visible(ImGui::Begin(name, p_open, flags)) {
         if (const char* tooltip = std::exchange(next_window_titlebar_tooltip, nullptr)) {
-            imgui_StrTooltipForTitleBar("(?)", tooltip);
+            imgui_StrTooltipForTitleBar("(?)", tooltip, name);
         }
     }
     ~imgui_Window() {

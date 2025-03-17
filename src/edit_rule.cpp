@@ -961,27 +961,22 @@ void edit_rule() {
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
         imgui_Str("Working set");
+        if (const auto* r = pass_rule::dest()) { // !!TODO: show set table in tooltip when collapsed ...
+            select_working.match(*r);
+        }
+        guide_mode::item_tooltip("Drag a rule here to select every set that contains the rule.");
 
         // !!TODO: remove support for collapsing?
         static bool collapse = false;
         ImGui::SameLine();
         ImGui::Checkbox("Collapse", &collapse);
 
-        auto select = [](bool show_match) {
-            if (ImGui::Button("Clear##Sets")) {
-                select_working.clear();
+        auto select = []() {
+            // (Was clear-sets.)
+            if (ImGui::Button("Reset##Sets")) {
+                select_working.select_single(&aniso::_subsets::native_isotropic);
             }
-            guide_mode::item_tooltip("Unselect all sets. The resulting working set will be the entire MAP set.");
-            if (show_match) {
-                ImGui::SameLine();
-                ImGui::BeginDisabled(); // !!TODO: redesign...
-                ImGui::Button("Match");
-                ImGui::EndDisabled();
-                if (const auto* r = pass_rule::dest()) {
-                    select_working.match(*r);
-                }
-                guide_mode::item_tooltip("Select every set that contains ... !!TODO");
-            }
+            // guide_mode::item_tooltip("Unselect all sets. The resulting working set will be the entire MAP set.");
 
             ImGui::Separator();
             select_working.select({.rule = pass_rule::peek(), .select = true, .tooltip = true});
@@ -989,11 +984,11 @@ void edit_rule() {
 
         if (!collapse) {
             ImGui::SameLine();
-            select(true);
+            select();
         } else {
             ImGui::SameLine();
             menu_like_popup::button("Select");
-            menu_like_popup::popup([&] { select(false); });
+            menu_like_popup::popup(select);
         }
     }
     const aniso::subsetT& working_set = select_working.get();
