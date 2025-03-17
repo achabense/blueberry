@@ -751,7 +751,7 @@ public:
     }
 
     // Managed by `frame_main`.
-    static void display() { m_msg.display(); }
+    static void display_msg() { m_msg.display(); }
 };
 
 class global_timer : no_create {
@@ -1043,4 +1043,171 @@ public:
         }
         return std::nullopt;
     }
+};
+
+// !!TODO: unfinished...
+class rec_for_rule {
+    int m_capacity;
+    std::vector<aniso::compressT> m_data;
+
+public:
+    explicit rec_for_rule(/*const int cap = 32*/) : m_capacity(32) {
+        // assert(cap > 0 && cap < 100);
+        m_data.reserve(m_capacity);
+    }
+
+    ~rec_for_rule() { m_snapshot.detach(this); }
+
+    bool empty() const { return m_data.empty(); }
+    int size() const { return m_data.size(); }
+    auto find(const aniso::compressT& rule) const { return std::ranges::find(m_data, rule); }
+    bool contains(const aniso::compressT& rule) const { return find(rule) != m_data.end(); }
+
+    // LRU; inefficient but no problem as `m_capacity` is small enough.
+    void add(const aniso::compressT& rule) {
+        if (!std::erase(m_data, rule) && m_data.size() == m_capacity) {
+            m_data.pop_back();
+        }
+        m_data.insert(m_data.begin(), rule);
+    }
+
+    // !!TODO: whether to support clearing? (Never necessary as the buffer is small enough...)
+    // void clear() { m_data.clear(); }
+
+    // (Used by `rclick_popup`.)
+    void selectable_to_take_snapshot(const char* label, const char* source_label) const {
+        const bool empty = m_data.empty();
+        ImGui::BeginDisabled(empty);
+        if (ImGui::Selectable(std::format("{} ({})###{}", label, size(), label).c_str())) {
+            m_snapshot.attach(this, source_label);
+        }
+        ImGui::EndDisabled();
+        if (empty) {
+            imgui_ItemTooltip("No rules.");
+        }
+    }
+
+    // Managed by `frame_main`.
+    static void display_snapshot() { m_snapshot.display(); }
+
+private:
+    class snapshotT {
+        std::vector<aniso::compressT> snapshot{};
+        const rec_for_rule* source{};
+        bool newly_updated{};
+        // !!TODO: it's not hard to maintain these, but idk how to use them in gui...
+        // std::string label{};
+        // bool in_sync{};
+        // (And it's easy to support record for pasting, but still, where to open the record in gui?)
+
+    public:
+        // (gcc workaround)
+        snapshotT() : snapshot{}, source{}, newly_updated{} {}
+
+        void attach(const rec_for_rule* s, const char* /*source_label*/) {
+            assert(!s->empty());
+            snapshot = s->m_data;
+            source = s;
+            newly_updated = true;
+        }
+        void detach(const rec_for_rule* s) {
+            if (source == s) {
+                source = nullptr;
+            }
+        }
+
+        // TODO: ideally, this should not be defined in "common.h"...
+        // !!TODO: improve...
+        void display() {
+            if (snapshot.empty()) {
+                return;
+            }
+            bool updated = std::exchange(newly_updated, false);
+            bool open = true;
+
+            static previewer::configT settings{previewer::configT::_220_160};
+            constexpr const char* label_for_latest = "(Latest)";
+            const ImVec2 min_size = [] {
+                const auto& style = ImGui::GetStyle();
+                const int min_size_x = settings.width() + style.ItemSpacing.x + imgui_CalcTextSize(label_for_latest).x +
+                                       style.ScrollbarSize;
+                const int min_size_y = ImGui::GetFrameHeight() * 2 + style.ItemSpacing.y * 2 + settings.height();
+                return ImVec2(min_size_x, min_size_y) + ImGui::GetStyle().WindowPadding * 2;
+            }();
+
+            ImGui::SetNextWindowSize(min_size, ImGuiCond_Appearing);
+            ImGui::SetNextWindowSizeConstraints(min_size, {1000, 600});
+            if (updated) {
+                ImGui::SetNextWindowCollapsed(false);
+                ImGui::SetNextWindowFocus();
+                if (ImGui::IsMousePosValid()) {
+                    const float h = ImGui::GetFrameHeight();
+                    ImGui::SetNextWindowPos(
+                        clamp_window_pos(ImGui::GetMousePos() - ImVec2{h * 2, floor(h / 2)}, min_size),
+                        ImGuiCond_Always);
+                }
+            }
+            imgui_Window::next_window_titlebar_tooltip = "!!TODO...";
+            if (auto window = imgui_Window("Snapshot", &open, ImGuiWindowFlags_NoSavedSettings)) {
+                settings.set("Settings");
+                if constexpr (debug_mode) {
+                    if (source) {
+                        ImGui::SameLine();
+                        if (ImGui::Button("Refresh")) {
+                            assert(!source->empty()); // (As there is currently no clear method.)
+                            snapshot = source->m_data;
+                            updated = true;
+                        }
+                    }
+                }
+                ImGui::SameLine();
+                const int total = snapshot.size();
+                ImGui::Text("Total:%d", total);
+
+                if (updated) {
+                    ImGui::SetNextWindowScroll({0, 0});
+                }
+                // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
+                if (auto child = imgui_ChildWindow("Page")) {
+                    for (int i = 0; i < total; ++i) {
+                        ImGui::Separator();
+                        previewer::preview(i, settings, snapshot[i]);
+                        if (i == 0) {
+                            ImGui::SameLine();
+                            imgui_Str(label_for_latest);
+                        }
+                    }
+                }
+                ImGui::PopStyleColor();
+            }
+            if (!open) {
+                snapshot.clear();
+                source = nullptr;
+                newly_updated = false;
+            }
+        }
+    };
+
+    inline static snapshotT m_snapshot;
+};
+
+class rule_with_rec : no_copy {
+    aniso::ruleT m_rule;
+    rec_for_rule m_rec;
+
+public:
+    /*implicit*/ rule_with_rec(const aniso::ruleT& r) : m_rec{} {
+        m_rule = r;
+        m_rec.add(r);
+    }
+
+    operator const aniso::ruleT&() const { return m_rule; }
+    const aniso::ruleT& get() const { return m_rule; }
+    void set(const aniso::ruleT& r) {
+        m_rule = r;
+        m_rec.add(r);
+    }
+
+    const rec_for_rule* operator->() const { return &m_rec; }
 };

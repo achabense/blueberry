@@ -384,12 +384,13 @@ class runnerT {
     static constexpr ImVec2 min_canvas_size{size_min.x * zoomT::max(), size_min.y* zoomT::max()};
 
     class staged_rule {
-        aniso::ruleT rule = aniso::game_of_life();
+        rule_with_rec rule = aniso::game_of_life();
         std::optional<aniso::ruleT> next = std::nullopt;
 
     public:
         operator const aniso::ruleT&() const { return rule; }
         const aniso::ruleT& get() const { return rule; }
+        const rec_for_rule* operator->() const { return rule.operator->(); }
 
         void set_next(const aniso::ruleT& r) {
             if (rule == r) {
@@ -400,7 +401,7 @@ class runnerT {
         }
         bool begin_frame() {
             if (next) {
-                rule = *next;
+                rule.set(*next);
                 next.reset();
                 return true;
             }
@@ -630,6 +631,7 @@ public:
                     if (ImGui::Selectable("Copy rule")) {
                         set_clipboard_and_notify(map_str);
                     }
+                    current_rule->selectable_to_take_snapshot("Recent", "right panel");
                 });
             }
             if (const auto* r = pass_rule::dest()) { // !!TODO: compare when hovered?

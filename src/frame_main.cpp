@@ -153,7 +153,8 @@ void frame_main() {
     previewer::begin_frame();
     pass_rule::begin_frame();
 
-    messenger::display();
+    messenger::display_msg();
+    rec_for_rule::display_snapshot();
 
     static bool show_intro = init_show_intro;
     static bool show_file = false;
