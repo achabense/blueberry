@@ -66,7 +66,7 @@ static void get_reversal_dual(const bool button_result, sync_point& sync) {
 #endif
 
 // !!TODO: unfinished...
-static void load_intro() {
+static void load_intro(frame_main_token) {
     ImGui::PushTextWrapPos(wrap_len());
 
     {
@@ -145,22 +145,23 @@ void frame_main() {
     timer.wait();
 #endif // SET_FRAME_RATE
 
-    global_timer::begin_frame();
-    guide_mode::begin_frame();
-    shortcuts::begin_frame();
-    sequence::begin_frame();
-    rclick_popup::begin_frame();
-    previewer::begin_frame();
-    pass_rule::begin_frame();
+    global_timer::begin_frame({});
+    guide_mode::begin_frame({});
+    shortcuts::begin_frame({});
+    sequence::begin_frame({});
+    rclick_popup::begin_frame({});
+    previewer::begin_frame({});
+    pass_rule::begin_frame({});
 
-    messenger::display_msg();
-    rec_for_rule::display_snapshot();
+    messenger::display_msg({});
+    rec_for_rule::display_snapshot({});
 
     static bool show_intro = init_show_intro;
     static bool show_file = false;
     static bool show_clipboard = false;
     static bool show_doc = false;
-    auto load_rule = [](bool& open, const char* checkbox_label, const char* window_title, void (*load_fn)()) {
+    auto load_rule = [](bool& open, const char* checkbox_label, const char* window_title,
+                        void (*load_fn)(frame_main_token)) {
         if (ImGui::Checkbox(checkbox_label, &open) && open) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
         } else if (&open == &show_clipboard && shortcuts::keys_avail_and_window_hoverable() &&
@@ -179,7 +180,8 @@ void frame_main() {
                 ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
                 ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
                 if (auto window = imgui_Window(window_title, &open, ImGuiWindowFlags_NoSavedSettings)) {
-                    load_fn();
+                    // https://stackoverflow.com/questions/23834845/c-lambda-friendship
+                    load_fn({});
                 }
             } else {
                 imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
@@ -187,7 +189,7 @@ void frame_main() {
                     "Click the collapsing button, or double-click title bar to collapse/uncollapse.";
                 if (auto window = imgui_Window(window_title, &open,
                                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                    load_fn();
+                    load_fn({});
                 }
             }
         }
@@ -302,13 +304,13 @@ void frame_main() {
             // The child window is required here (for stable scrolling).
             if (auto child = imgui_ChildWindow("Edit", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
                 if (!try_hide(min_w)) {
-                    edit_rule();
+                    edit_rule({});
                 }
             }
             ImGui::TableNextColumn();
             if (auto child = imgui_ChildWindow("Apply", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
                 if (!(right_was_hidden = try_hide(min_w))) {
-                    apply_rule();
+                    apply_rule({});
                 }
             }
             ImGui::EndTable();

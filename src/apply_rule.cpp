@@ -1482,7 +1482,7 @@ public:
 };
 
 static runnerT runner;
-void apply_rule() { return runner.display(); }
+void apply_rule(frame_main_token) { return runner.display(); }
 
 // !!TODO: temporarily static...
 static void set_apply_rule_target(const aniso::ruleT& rule) { runner.set_next_rule(rule); }
@@ -1566,7 +1566,7 @@ class previewer_data : no_create {
     inline static std::unordered_map<uint64_t, termT> terms;
 };
 
-void previewer::begin_frame() {
+void previewer::begin_frame(frame_main_token) {
     if (!previewer_data::terms.empty()) {
         // According to https://en.cppreference.com/w/cpp/container/unordered_map/erase_if
         // There seems no requirement on the predicate.

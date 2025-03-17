@@ -952,7 +952,7 @@ void previewer::_identify_rule(const aniso::ruleT& rule) {
     });
 }
 
-void edit_rule() {
+void edit_rule(frame_main_token) {
     // Select subsets.
     static subset_selector select_working{&aniso::_subsets::native_isotropic};
     // const auto rep_before = select_working.rep();

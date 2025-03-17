@@ -909,7 +909,7 @@ static int count_line(const std::string_view str) { //
 
 // TODO: support opening multiple files?
 // TODO: add a mode to avoid opening files without rules?
-void load_file() {
+void load_file(frame_main_token) {
     static file_nav nav(home_path_utf8());
 
     static textT text;
@@ -999,7 +999,7 @@ void load_file() {
 }
 
 // TODO: 'Read' -> create a temp window that will be destroyed when closed?
-void load_clipboard() {
+void load_clipboard(frame_main_token) {
     static textT text;
     static std::string last_str;
     static int last_index = 0;
@@ -1047,7 +1047,7 @@ void load_clipboard() {
 // Defined in "docs.cpp". [0]:title [1]:contents, null-terminated.
 extern const char* const docs[][2];
 
-void load_doc() {
+void load_doc(frame_main_token) {
     static textT text;
     static std::optional<int> doc_id = std::nullopt;
     static auto select = []() {

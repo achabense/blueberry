@@ -32,12 +32,16 @@ inline void assert_utf8_encoding() {
 // Managed by `main`.
 void frame_main();
 
-// Managed by `frame_main`.
-void load_file();
-void load_clipboard();
-void load_doc();
-void edit_rule();
-void apply_rule();
+class frame_main_token : no_copy {
+    friend void frame_main();
+    /*implicit*/ frame_main_token() = default;
+};
+
+void load_file(frame_main_token);
+void load_clipboard(frame_main_token);
+void load_doc(frame_main_token);
+void edit_rule(frame_main_token);
+void apply_rule(frame_main_token);
 
 class rand_source : no_create {
     static uint32_t seed() { return time(0); }
@@ -115,10 +119,7 @@ public:
     }
 
 private:
-    friend void frame_main();
-
     inline static ImGuiKey occupied = ImGuiKey_None;
-    static void begin_frame() { occupied = ImGuiKey_None; }
 
     // Resolve shortcut competition when multiple keys are pressed.
     static bool filter(ImGuiKey key) {
@@ -133,6 +134,8 @@ private:
     }
 
 public:
+    static void begin_frame(frame_main_token) { occupied = ImGuiKey_None; }
+
     static bool test_pressed(ImGuiKey key, bool repeat = false) { //
         return filter(key) && ImGui::IsKeyPressed(key, repeat);
     }
@@ -170,14 +173,13 @@ public:
 class guide_mode : no_create {
     inline static bool enable_tooltip = false;
 
-    friend void frame_main();
-    static void begin_frame() {
+public:
+    static void begin_frame(frame_main_token) {
         if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_H)) {
             enable_tooltip = !enable_tooltip;
         }
     }
 
-public:
     static bool& get_enable() { return enable_tooltip; }
 
     static bool item_tooltip(const std::string_view tooltip) {
@@ -329,13 +331,12 @@ class rclick_popup : no_create {
     inline static id_pair bound_id{}, bound_id_next{};
     inline static bool in_popup = false;
 
-    friend void frame_main();
-    static void begin_frame() {
+public:
+    static void begin_frame(frame_main_token) {
         bound_id = std::exchange(bound_id_next, id_pair{});
         assert(!in_popup);
     }
 
-public:
     enum class hoverE { None, Hovered, Popup };
     using enum hoverE;
 
@@ -500,10 +501,9 @@ class sequence : no_create {
     inline static ImGuiID bound_id = 0;
     inline static ImGuiID bound_id_next = 0;
 
-    friend void frame_main();
-    static void begin_frame() { bound_id = std::exchange(bound_id_next, 0); }
-
 public:
+    static void begin_frame(frame_main_token) { bound_id = std::exchange(bound_id_next, 0); }
+
     // (`disable_prev_next` is a workaround for a sequence in `edit_rule`.)
     // 0:first, 1:prev, 2:next, 3:last
     static int seq(const char* label_first, const char* label_prev, const char* label_next, const char* label_last,
@@ -750,8 +750,7 @@ public:
         m_msg.set(std::format(fmt, args...));
     }
 
-    // Managed by `frame_main`.
-    static void display_msg() { m_msg.display(); }
+    static void display_msg(frame_main_token) { m_msg.display(); }
 };
 
 class global_timer : no_create {
@@ -766,9 +765,8 @@ class global_timer : no_create {
     };
     inline static termT terms[1 + (max_time / time_unit)]{};
 
-    // TODO: what's the most suitable place to call this?
-    friend void frame_main();
-    static void begin_frame() {
+public:
+    static void begin_frame(frame_main_token) {
         const clockT::time_point now = clockT::now();
         for (int i = 0; i < std::size(terms); ++i) {
             const int dur = i * time_unit;
@@ -781,7 +779,6 @@ class global_timer : no_create {
         }
     }
 
-public:
     // 0: will return true every frame.
     static constexpr int min_nonzero_interval = time_unit;
 
@@ -813,7 +810,7 @@ public:
 class previewer : no_create {
 public:
     class configT {
-        friend previewer;
+        friend class previewer;
         float zoom_ = 1;
         int width_ = 220;
         int height_ = 160;
@@ -882,10 +879,9 @@ public:
         return ImGui::GetColorU32(ImGuiCol_TableBorderStrong); // Instead of `ImGuiCol_Border`
     }
 
-private:
-    friend void frame_main();
-    static void begin_frame();
+    static void begin_frame(frame_main_token);
 
+private:
     static void _preview(uint64_t id, const configT& config, const aniso::ruleT& rule);
 
     // TODO: declared here for minimal exposure, but looks strange...
@@ -907,8 +903,8 @@ class pass_rule : no_create {
         ImGui::PopStyleColor();
     }
 
-    friend void frame_main();
-    static void begin_frame() {
+public:
+    static void begin_frame(frame_main_token) {
         if (!active || !keep_active || consumed) {
             active = 0;
         }
@@ -916,7 +912,6 @@ class pass_rule : no_create {
         consumed = false;
     }
 
-public:
     static const aniso::ruleT* peek() { return active ? &rule : nullptr; }
 
     static bool source(const aniso::ruleT& r) {
@@ -1087,8 +1082,7 @@ public:
         }
     }
 
-    // Managed by `frame_main`.
-    static void display_snapshot() { m_snapshot.display(); }
+    static void display_snapshot(frame_main_token) { m_snapshot.display(); }
 
 private:
     class snapshotT {
