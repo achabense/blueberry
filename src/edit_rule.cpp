@@ -1064,7 +1064,8 @@ void edit_rule(frame_main_token) {
         }
     }
 
-    const bool working_contains = working_set.contains(target);
+    // !!TODO: there should finally be one single if-show_random_access scope...
+    const bool working_contains = show_random_access /*workaround*/ && working_set.contains(target);
 
     if (show_random_access) {
         const int c_group = working_set.get_par().k();
@@ -1121,7 +1122,7 @@ void edit_rule(frame_main_token) {
         const char labels_normal[2][3]{{'-', chr_0, '\0'}, {'-', chr_1, '\0'}};
         const char labels_preview[2][9]{{'-', chr_0, ' ', '-', '>', ' ', chr_1, ':', '\0'},
                                         {'-', chr_1, ' ', '-', '>', ' ', chr_0, ':', '\0'}};
-        const aniso::ruleT_masked masked = mask ^ target;
+        // const aniso::ruleT_masked masked = mask ^ target;
 
         // Precise vertical alignment:
         // https://github.com/ocornut/imgui/issues/2064
@@ -1129,16 +1130,18 @@ void edit_rule(frame_main_token) {
             imgui_AddCursorPosY(std::max(0.0f, (height - ImGui::GetTextLineHeight()) / 2));
         };
 
-        const int button_zoom = init_compact_mode ? 6 : 7;
+        const int button_zoom = init_compact_mode ? 6 : 7; // Also for image-zoom.
         const ImVec2 button_padding{2, 2};
-        const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
-        const int group_size_x = [&]() {
-            int group_size = button_padding.x * 2 + 3 * button_zoom; // button-size
+        const ImVec2 image_padding{1, 1};
+        const int spacing_x = ImGui::GetStyle().ItemSpacing.x + (show_random_access ? 3 : 5);
+        const int group_size_x = [&]() -> int {
             if (show_random_access) {
-                group_size += imgui_ItemInnerSpacingX() + ImGui::CalcTextSize(labels_preview[0]).x;
-                group_size = std::max(group_size, config.width());
+                int size = button_padding.x * 2 + 3 * button_zoom; // button-size
+                size += imgui_ItemInnerSpacingX() + ImGui::CalcTextSize(labels_preview[0]).x;
+                return std::max(size, config.width());
+            } else {
+                return image_padding.x * 2 + 3 * button_zoom;
             }
-            return group_size;
         }();
         const int perline = fit_count(ImGui::GetContentRegionAvail().x, group_size_x, spacing_x);
 
@@ -1156,13 +1159,7 @@ void edit_rule(frame_main_token) {
                 ImGui::Separator();
             }
 
-            const bool pure = working_contains /*perf*/ || aniso::all_same_or_different(group, mask, target);
             const aniso::codeT head = group[0];
-            const auto get_adjacent_rule = [&] {
-                aniso::ruleT rule = target;
-                aniso::flip_values(group, rule);
-                return rule;
-            };
             const auto group_details = [&] {
                 if (show_random_access) {
                     if (working_contains) {
@@ -1177,17 +1174,17 @@ void edit_rule(frame_main_token) {
                 ImGui::PushTextWrapPos(-1); // No wrapping.
                 const int group_size = group.size();
                 ImGui::Text("Members: %d", group_size);
-                const int max_to_show = 48;
-                const int perline = 8;
+                const int perline = show_random_access ? 8 : 10;
+                const int max_to_show = perline * 6;
                 for (int n = 0; const aniso::codeT code : group.first(std::min(group_size, max_to_show))) {
                     if (n++ % perline != 0) {
-                        ImGui::SameLine();
+                        ImGui::SameLine(0, show_random_access ? -1 /*default*/ : spacing_x);
                     }
-                    code_image(code, button_zoom /*or 6?*/, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
+                    code_image(code, button_zoom, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
                     if (show_random_access) {
                         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                         align_text(ImGui::GetItemRectSize().y);
-                        imgui_Str(labels_normal[masked[code]]);
+                        imgui_Str(labels_normal[mask[code] ^ target[code]]);
                     }
                 }
                 if (group_size > max_to_show) {
@@ -1196,47 +1193,55 @@ void edit_rule(frame_main_token) {
                 ImGui::PopTextWrapPos();
             };
 
-            // _ButtonHovered: ImVec4(0.26f, 0.59f, 0.98f, 1.00f)
-            // [0]:Button, [1]:Hover, [2]:Active
-            static const ImVec4 button_col_normal[3]{
-                {0.26f, 0.59f, 0.98f, 0.70f}, {0.26f, 0.59f, 0.98f, 0.85f}, {0.26f, 0.59f, 0.98f, 1.00f}};
-            static const ImVec4 button_col_impure[3]{
-                {0.26f, 0.59f, 0.98f, 0.30f}, {0.26f, 0.59f, 0.98f, 0.40f}, {0.26f, 0.59f, 0.98f, 0.50f}};
-            const ImVec4* const button_color = pure ? button_col_normal : button_col_impure;
-
             if (show_random_access) {
+                const bool pure = working_contains /*perf*/ || aniso::all_same_or_different(group, mask, target);
+                const auto get_adjacent_rule = [&] {
+                    aniso::ruleT rule = target;
+                    aniso::flip_values(group, rule);
+                    return rule;
+                };
+
                 ImGui::BeginGroup();
-            }
-            ImGui::PushStyleColor(ImGuiCol_Button, button_color[0]);
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color[1]);
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, button_color[2]);
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
-            const bool enable_edit = show_random_access && (working_contains || ImGui::GetIO().KeyCtrl);
-            if (!enable_edit) {
-                // Not using ImGui::BeginDisabled(), so the button color will not be affected.
-                ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-            }
-            if (code_button(head, button_zoom)) {
-                target = get_adjacent_rule();
-            }
-            if (!enable_edit) {
-                ImGui::PopItemFlag();
-            }
-            ImGui::PopStyleVar();
-            ImGui::PopStyleColor(3);
-            imgui_ItemTooltip(group_details);
+                // _ButtonHovered: ImVec4(0.26f, 0.59f, 0.98f, 1.00f)
+                // [0]:Button, [1]:Hover, [2]:Active
+                static const ImVec4 button_col_normal[3]{
+                    {0.26f, 0.59f, 0.98f, 0.70f}, {0.26f, 0.59f, 0.98f, 0.85f}, {0.26f, 0.59f, 0.98f, 1.00f}};
+                static const ImVec4 button_col_impure[3]{
+                    {0.26f, 0.59f, 0.98f, 0.30f}, {0.26f, 0.59f, 0.98f, 0.40f}, {0.26f, 0.59f, 0.98f, 0.50f}};
+                const ImVec4* const button_color = pure ? button_col_normal : button_col_impure;
+                ImGui::PushStyleColor(ImGuiCol_Button, button_color[0]);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color[1]);
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, button_color[2]);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
+                const bool enable_edit = working_contains || ImGui::GetIO().KeyCtrl;
+                if (!enable_edit) {
+                    // Not using ImGui::BeginDisabled(), so the button color will not be affected.
+                    ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+                }
+                if (code_button(head, button_zoom)) {
+                    target = get_adjacent_rule();
+                    // set_apply_rule_target(target); !!TODO: whether to support this?
+                }
+                if (!enable_edit) {
+                    ImGui::PopItemFlag();
+                }
+                ImGui::PopStyleVar();
+                ImGui::PopStyleColor(3);
 
-            if (show_random_access) {
+                imgui_ItemTooltip(group_details);
+
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 align_text(ImGui::GetItemRectSize().y);
-                imgui_Str(!pure ? "-x" : labels_preview[masked[head]]);
-            }
-            // if (has_lock) { imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2)); }
+                imgui_Str(!pure ? "-x" : labels_preview[mask[head] ^ target[head]]);
+                // if (has_lock) { imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2)); }
 
-            if (show_random_access) {
                 const int preview_id = this_n;
                 previewer::preview(preview_id, config, get_adjacent_rule /*()*/);
                 ImGui::EndGroup();
+            } else {
+                // !!TODO: how to visualize possible values without relying on a specific rule?
+                code_image(head, button_zoom, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
+                imgui_ItemTooltip(group_details);
             }
         }
     }
