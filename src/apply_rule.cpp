@@ -1670,8 +1670,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                 "(...)",
                 "Hold to pause.\n"
                 "'R' to restart. (+ 'A' to apply to the entire group.)\n"
-                "'F' to speed up. (+ 'A' to apply to the entire group.)\n"
-                "'Z' to see which subsets the rule belongs to.\n\n"
+                "'F' to speed up. (+ 'A' to apply to the entire group.)\n\n"
                 "If the rule belongs to 'Hex' subset:\n"
                 "'6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
         });
@@ -1680,13 +1679,5 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         }
     }
 
-    if (hovered && shortcuts::global_flag(ImGuiKey_Z)) {
-        // TODO: also hide zoom tooltip in this case?
-        lock_scroll();
-
-        imgui_ItemRectFilled(IM_COL32(0, 128, 255, 16));
-        border_col = IM_COL32(0, 128, 255, 255);
-        _identify_rule(rule);
-    }
     imgui_ItemRect(border_col);
 }

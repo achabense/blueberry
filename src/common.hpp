@@ -219,7 +219,7 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
     }
 }
 
-inline void global_tooltip(const bool highlight, const func_ref<void()> func) {
+[[deprecated]] inline void global_tooltip(const bool highlight, const func_ref<void()> func) {
     // TODO: are there simpler ways to prevent inheriting styles?
     // const ImGuiStyle old_style = GImGui->Style;
     // auto old_stack = GImGui->StyleVarStack;
@@ -883,9 +883,6 @@ public:
 
 private:
     static void _preview(uint64_t id, const configT& config, const aniso::ruleT& rule);
-
-    // TODO: declared here for minimal exposure, but looks strange...
-    static void _identify_rule(const aniso::ruleT& rule);
 };
 
 // !!TODO: recheck logic...

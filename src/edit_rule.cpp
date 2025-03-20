@@ -945,13 +945,6 @@ static void random_rule_window(bool& show_rand, const aniso::subsetT& working_se
 // !!TODO: support random-access in a separate window?
 // static void random_access_window(bool& show_rand_access, const aniso::subsetT& working_set, const aniso::maskT& mask) {}
 
-void previewer::_identify_rule(const aniso::ruleT& rule) {
-    global_tooltip(true, [&rule] {
-        static subset_selector dummy;
-        dummy.select({.rule = &rule});
-    });
-}
-
 void edit_rule(frame_main_token) {
     // Select subsets.
     static subset_selector select_working{&aniso::_subsets::native_isotropic};
