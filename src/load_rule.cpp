@@ -562,11 +562,8 @@ public:
     // textT(std::string_view str) { append(str); }
 
     bool empty() const { return m_lines.empty(); }
-
-    // (No need to be accurate.)
-    bool roughly_check_larger(int size, int line, int sec) const { //
-        return (m_text.size() + m_lines.size()) > size || m_lines.size() > line || m_highlighted.size() > sec;
-    }
+    int lines() const { return m_lines.size(); }
+    int length() const { return m_lines.empty() ? 0 : m_text.size() + m_lines.size() - 1; }
 
     void clear() {
         m_lines.clear();
@@ -582,6 +579,7 @@ public:
     }
 
     // `str` is assumed to be utf8-encoded. (If not, the rules are still extractable.)
+    // (A single "\n" will append two lines as {}{}; however, length() is still 1 for this case, and copying {}{} still results in a single "\n".)
     void append(std::string str, const std::string_view prefix = {}) {
         std::erase(str, '\r'); // So there won't exist "empty" lines with single invisible '\r'.
         for (const auto& l : std::views::split(str, '\n')) {
@@ -603,10 +601,9 @@ public:
     }
 
     void reset_scroll() { do_rewind = true; }
-
-    void set_last_sec() {
-        if (!m_highlighted.empty()) {
-            go_line = m_highlighted.back();
+    void to_line(int l /*starting from 0*/) {
+        if (!m_lines.empty()) {
+            go_line = std::clamp(l, 0, (int)m_lines.size() - 1);
         }
     }
 
@@ -621,8 +618,8 @@ public:
         imgui_Str("Go to line ~ ");
         ImGui::SameLine(0, 0); // TODO: show "Max:N/A" if m_lines.empty?
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("MAX:000000").x);
-        if (auto l = input_line.input("##Line", std::format("Max:{}", m_lines.size()).c_str()); l && !m_lines.empty()) {
-            go_line = std::clamp(*l - 1, 0, (int)m_lines.size() - 1);
+        if (auto l = input_line.input("##Line", std::format("Max:{}", m_lines.size()).c_str())) {
+            to_line(*l - 1);
         }
         if (!m_highlighted.empty()) {
             ImGui::Separator();
@@ -666,6 +663,7 @@ public:
                 m_sel.reset();
             } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) /* From anywhere */ ||
                        shortcuts::test_pressed(ImGuiKey_C) /*Raw test; the interaction will be locked by `m_sel`*/) {
+                // !!TODO: whether to support _C shortcut here?
                 const auto [min, max] = m_sel->minmax();
                 std::string str;
                 for (int i = min; i <= max; ++i) {
@@ -884,12 +882,9 @@ static std::string to_size(uintmax_t size) {
     std::error_code ec{};
     const auto size = std::filesystem::file_size(path, ec);
     if (!ec && size <= max_size) {
-        std::ifstream file(path, std::ios::in | std::ios::binary);
-        if (file) {
-            std::string data(size, '\0');
-            file.read(data.data(), size);
-            if (file && file.gcount() == size) {
-                str.swap(data);
+        if (std::ifstream file(path, std::ios::in | std::ios::binary); file) {
+            str.resize(size);
+            if (file.read(str.data(), size) && file.gcount() == size) {
                 return true;
             }
         }
@@ -904,7 +899,7 @@ static std::string to_size(uintmax_t size) {
 }
 
 static int count_line(const std::string_view str) { //
-    return std::ranges::count(str, '\n');
+    return str.empty() ? 0 : std::ranges::count(str, '\n') + 1;
 }
 
 // TODO: support opening multiple files?
@@ -1002,10 +997,9 @@ void load_file(frame_main_token) {
 void load_clipboard(frame_main_token) {
     static textT text;
     static std::string last_str;
-    static int last_index = 0;
 
     // (The page will hold roughly at most 1.5*max_size/line.)
-    const bool too_much_content = text.roughly_check_larger(max_size, max_line, 100);
+    const bool too_much_content = text.lines() > max_line || text.length() > max_size;
     ImGui::BeginDisabled(too_much_content);
     if (ImGui::SmallButton("Read") || shortcuts::item_shortcut(ImGuiKey_W)) {
         const std::string_view str = read_clipboard();
@@ -1014,12 +1008,9 @@ void load_clipboard(frame_main_token) {
         } else if (const int l = count_line(str); l > max_line / 2) {
             messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
         } else if (!str.empty() && compare_update(last_str, str)) {
-            if (!text.empty()) {
-                text.append("\n"); // (Will append two lines.)
-            }
-            text.append(std::format("@@[{}]", ++last_index), "@@");
+            const int l = text.lines();
             text.append(std::string(str));
-            text.set_last_sec();
+            text.to_line(l);
         }
     }
     ImGui::EndDisabled();
@@ -1032,7 +1023,6 @@ void load_clipboard(frame_main_token) {
         set_msg_cleared();
         text.clear();
         last_str.clear();
-        last_index = 0;
     }
     // ImGui::SameLine();
     // imgui_Str("Clipboard");
