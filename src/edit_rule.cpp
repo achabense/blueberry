@@ -422,17 +422,6 @@ public:
         update_current();
     }
 
-#if 0
-    void show_working(const sync_point& target) const {
-        ImGui::AlignTextToFramePadding();
-        imgui_Str("Working set ~");
-        ImGui::SameLine();
-        ImGui::Dummy(square_size());
-        put_term(current.contains(target.rule), None, '\0', false);
-        guide_mode::item_tooltip("Light green ~ the current rule belongs to the working set (every selected set).");
-    }
-#endif
-
     struct select_mode {
         const aniso::ruleT* rule = nullptr;
         bool select = false;
@@ -950,17 +939,29 @@ void edit_rule(frame_main_token) {
     static subset_selector select_working{&aniso::_subsets::native_isotropic};
     // const auto rep_before = select_working.rep();
     {
+        static bool collapse = false;
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
         imgui_Str("Working set");
-        if (const auto* r = pass_rule::dest()) { // !!TODO: show set table in tooltip when collapsed ...
-            select_working.match(*r);
+        if (const auto pass = pass_rule::dest_v2(ImGuiKey_W, 'W')) {
+            if (collapse && pass.hov_for_tooltip() && ImGui::BeginTooltip()) {
+                select_working.select({.rule = pass.hov, .select = true, .tooltip = false});
+                ImGui::EndTooltip();
+            }
+            if (pass.deliv) {
+                if (pass.hov || !collapse) {
+                    select_working.match(*pass.deliv);
+                    if (collapse) {
+                        // messenger::set_msg("...");
+                    }
+                } else {
+                    // messenger::set_msg("... !!TODO");
+                }
+            }
         }
         guide_mode::item_tooltip("Drag a rule here to select every set that contains the rule.");
 
-        // !!TODO: remove support for collapsing?
-        static bool collapse = false;
         ImGui::SameLine();
         ImGui::Checkbox("Collapse", &collapse);
 

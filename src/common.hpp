@@ -396,6 +396,29 @@ public:
     }
 };
 
+class item_timer {
+    ImGuiID id = 0;
+    double due = 0;
+
+public:
+    void bind(double sec = 0.1) {
+        id = imgui_GetItemIDNonZero();
+        due = ImGui::GetTime() + sec;
+    }
+
+    bool test() {
+        if (!id) {
+            return false;
+        }
+        if (ImGui::GetTime() < due) {
+            return id == imgui_GetItemIDNonZero();
+        } else {
+            id = 0;
+            return false;
+        }
+    }
+};
+
 inline bool double_click_button_small(const char* label) {
     for (const auto col : {ImGuiCol_Button, ImGuiCol_ButtonActive, ImGuiCol_ButtonHovered}) {
         ImGui::PushStyleColor(col, ImLerp(ImGui::GetStyleColorVec4(col), ImVec4(1, 0, 0, 1), 0.2f));
@@ -723,6 +746,7 @@ class messenger : no_create {
             if (!m_min) {
                 m_count = 12;
                 m_time = clockT::now() + std::chrono::milliseconds(600);
+                // TODO: support specifying appearing pos?
                 if (ImGui::IsMousePosValid()) [[likely]] {
                     m_min = clamp_window_pos(ImGui::GetMousePos() + window_padding, window_size);
                 } else {
@@ -933,6 +957,7 @@ public:
         return false;
     }
 
+    // !!TODO: replace with v2...
     [[nodiscard]] static const aniso::ruleT* dest(/*const func_ref<void(const aniso::ruleT&)> fn*/) {
         if (!active) {
             return nullptr;
@@ -956,6 +981,42 @@ public:
             return deliv ? &rule : nullptr;
         }
         return nullptr;
+    }
+
+    struct passT {
+        const aniso::ruleT* hov;
+        const aniso::ruleT* deliv;
+
+        explicit operator bool() const { return hov || deliv; }
+
+        bool hov_for_tooltip() const {
+            return hov &&
+                   ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+        }
+    };
+
+    // !!TODO: how to document the shortcuts?
+    [[nodiscard]] static passT dest_v2(const ImGuiKey shortcut = ImGuiKey_None, const char /*label*/ = '\0') {
+        if (active) {
+            static item_timer timer{};
+            render_rect(timer.test());
+            if (ImGui::BeginDragDropTarget()) {
+                const bool deliv = ImGui::AcceptDragDropPayload(
+                    "#Rule", ImGuiDragDropFlags_AcceptNoPreviewTooltip | ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
+                ImGui::EndDragDropTarget();
+                render_rect(true);
+                if (deliv) {
+                    consumed = true; // Does not !active immediately.
+                }
+                return {&rule, deliv ? &rule : nullptr};
+            } else if (shortcut != ImGuiKey_None && GImGui->DragDropPayload.SourceId != ImGui::GetItemID() &&
+                       shortcuts::test_pressed(shortcut)) {
+                timer.bind();
+                render_rect(true);
+                return {nullptr, &rule};
+            }
+        }
+        return {nullptr, nullptr};
     }
 };
 

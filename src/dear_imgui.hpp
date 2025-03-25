@@ -39,6 +39,11 @@ inline ImGuiID imgui_GetItemPosID() { //
     return GImGui->CurrentWindow->GetIDFromPos(ImGui::GetItemRectMin());
 }
 
+inline ImGuiID imgui_GetItemIDNonZero() {
+    const ImGuiID id = ImGui::GetItemID();
+    return id ? id : imgui_GetItemPosID();
+}
+
 inline void imgui_FillAvailRect(ImU32 col) {
     if (const auto rect = imgui_GetAvailRect()) {
         const auto [pos_min, pos_max] = *rect;
