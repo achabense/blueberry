@@ -619,7 +619,7 @@ public:
 
         {
             ImGui::AlignTextToFramePadding();
-            imgui_StrTooltip("(...)", "!!TODO");
+            imgui_StrTooltip("(...)", "!!TODO (about space window)");
             ImGui::SameLine();
 
             const auto map_str = aniso::to_MAP_str(current_rule);
@@ -634,8 +634,15 @@ public:
                     current_rule->selectable_to_take_snapshot("Recent", "right panel");
                 });
             }
-            if (const auto* r = pass_rule::dest()) { // !!TODO: compare when hovered?
-                current_rule.set_next(*r);
+            if (const auto pass = pass_rule::dest_v2(ImGuiKey_M, 'M')) {
+                if (pass.hov_for_tooltip() && *pass.hov == current_rule) {
+                    if (ImGui::BeginTooltip()) {
+                        imgui_Str("Identical.");
+                        ImGui::EndTooltip();
+                    }
+                } else if (pass.deliv) {
+                    current_rule.set_next(*pass.deliv);
+                }
             }
             guide_mode::item_tooltip("MAP-string for ... !!TODO");
             ImGui::Separator();
@@ -918,7 +925,7 @@ public:
             }
         });
         ImGui::SameLine();
-        if (ImGui::Button("Reset pos")) {
+        if (ImGui::Button("Reset pos")) { // !!TODO: (v0.9.9) -> menu for resetting pos, size etc..
             locate_center = true;
             find_suitable_zoom = true;
         }
@@ -1482,10 +1489,9 @@ public:
 };
 
 static runnerT runner;
-void apply_rule(frame_main_token) { return runner.display(); }
-
-// !!TODO: temporarily static...
 static void set_apply_rule_target(const aniso::ruleT& rule) { runner.set_next_rule(rule); }
+
+void apply_rule(frame_main_token) { runner.display(); }
 
 // TODO: let users decide which to be globally shared?
 class global_config : no_create {
@@ -1594,7 +1600,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     term.active = true;
 
     // TODO: (though the actual behaviors are ok) these op logics are quite messy...
-    const bool passing = pass_rule::source(term.rule);
+    const bool passing = pass_rule::source(rule);
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
     const bool hovered = !passing && ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();

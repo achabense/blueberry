@@ -239,35 +239,6 @@ void frame_main() {
 
         ImGui::Separator();
 
-        // !!TODO: temporarily preserved...
-#if 0
-        // TODO: recheck usage of '-': MAP-rule/MAP rule, MAP-string/MAP string.
-        // !!TODO: about 'Record' (should be redesigned)...
-        // !!TODO: rewrite...
-        ImGui::AlignTextToFramePadding();
-        imgui_StrTooltip(
-            "(...)",
-            "The \"current rule\" is shown in the right panel. The left panel highlights which sets the current rule belongs to, and can generate new rules based on the \"working set\".\n\n"
-            "The current rule and rules shown in \"preview windows\" (turn on 'Preview' for examples) can be copied to the clipboard; 'Files' can load rules from files; 'Clipboard' can load rules from the clipboard.\n\n"
-            "(See 'Documents' for more info.)");
-
-        ImGui::SameLine();
-        imgui_Str("Current rule ~");
-        ImGui::SameLine();
-        const auto map_str = aniso::to_MAP_str(sync.rule);
-        imgui_Str(map_str);
-        rclick_popup::popup("MAP-string", [&] {
-            if (ImGui::Selectable("Copy rule")) {
-                set_clipboard_and_notify(map_str);
-                rule_recorder::record(rule_recorder::Copied, sync.rule);
-            }
-            get_reversal_dual(ImGui::Selectable("0/1 reversal"), sync);
-        });
-        guide_mode::item_tooltip("MAP-string for the current rule.");
-
-        ImGui::Separator();
-#endif
-
         if (ImGui::BeginTable("Layout", 2, ImGuiTableFlags_Resizable)) {
             auto try_hide = [](const float width) {
                 if (const ImVec2 avail = ImGui::GetContentRegionAvail(); avail.x <= width) {

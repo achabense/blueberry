@@ -350,14 +350,11 @@ public:
                         ImGui::SetScrollHereY();
                     }
                     /*if constexpr (debug_mode)*/ { // (Undocumented.)
-                        const auto hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
+                        rclick_popup::popup2([&] {
                             if (ImGui::Selectable("Copy path")) {
                                 set_clipboard_and_notify(cpp17_u8string(m_current / file));
                             }
                         });
-                        if (hov == rclick_popup::Popup) {
-                            shortcuts::highlight();
-                        }
                     }
                 }
             }
@@ -455,14 +452,11 @@ public:
                             sel = &dir;
                         }
                         /*if constexpr (debug_mode)*/ { // (Undocumented.)
-                            const auto hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
+                            rclick_popup::popup2([&] {
                                 if (ImGui::Selectable("Copy path")) {
                                     set_clipboard_and_notify(cpp17_u8string(m_current / dir));
                                 }
                             });
-                            if (hov == rclick_popup::Popup) {
-                                shortcuts::highlight();
-                            }
                         }
                     }
                     if (sel) {

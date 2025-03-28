@@ -394,6 +394,16 @@ public:
         }
         return hov;
     }
+
+    static hoverE popup2(const func_ref<void()> fn) {
+        const ImGuiID id = ImGui::GetItemID();
+        assert(id);
+        const hoverE hov = popup_no_highlight(id, fn);
+        if (hov == Popup) {
+            shortcuts::highlight(id);
+        }
+        return hov;
+    }
 };
 
 class item_timer {
@@ -996,10 +1006,21 @@ public:
     };
 
     // !!TODO: how to document the shortcuts?
-    [[nodiscard]] static passT dest_v2(const ImGuiKey shortcut = ImGuiKey_None, const char /*label*/ = '\0') {
+    [[nodiscard]] static passT dest_v2(const ImGuiKey shortcut = ImGuiKey_None, const char label = '\0') {
         if (active) {
             static item_timer timer{};
             render_rect(timer.test());
+            if (label) { // !!TODO: improve...
+                const char str[]{'^', ' ', label, '\0'};
+                const ImVec2 pos = imgui_GetItemRect().GetBL() + ImVec2(-4, 5);
+                const ImVec2 padding = ImGui::GetStyle().FramePadding;
+                const ImVec2 size = imgui_CalcTextSize(str) + padding * 2;
+                const float alpha = 0.3f;
+                ImDrawList* const drawlist = ImGui::GetForegroundDrawList();
+                drawlist->AddRectFilled(pos, pos + size, ImGui::GetColorU32(ImGuiCol_PopupBg, alpha));
+                drawlist->AddText(pos + padding, ImGui::GetColorU32(ImGuiCol_Text, alpha), str);
+                drawlist->AddRect(pos, pos + size, ImGui::GetColorU32(ImGuiCol_Border, alpha));
+            }
             if (ImGui::BeginDragDropTarget()) {
                 const bool deliv = ImGui::AcceptDragDropPayload(
                     "#Rule", ImGuiDragDropFlags_AcceptNoPreviewTooltip | ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
