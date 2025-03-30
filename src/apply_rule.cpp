@@ -622,14 +622,13 @@ public:
             imgui_StrTooltip("(...)", "!!TODO (about space window)");
             ImGui::SameLine();
 
-            const auto map_str = aniso::to_MAP_str(current_rule);
             const ImGuiID map_id = ImGui::GetID("MAP-str");
-            imgui_StrWithID(map_str, map_id);
+            imgui_StrWithID(copy_rule::to_str(current_rule), map_id);
             if (!pass_rule::source(current_rule)) {
                 assert(ImGui::GetItemID() == map_id);
                 rclick_popup::popup(map_id, [&] {
                     if (ImGui::Selectable("Copy rule")) {
-                        set_clipboard_and_notify(map_str);
+                        copy_rule::copy(current_rule);
                     }
                     current_rule->selectable_to_take_snapshot("Recent", "right panel");
                 });
@@ -1535,7 +1534,7 @@ void previewer::configT::_set() {
         "Unlike space window's 'Size ~' (which refers to space size), 'Width' and 'Height' here refer to image size (in pixels) and are unrelated to zoom setting.");
 
     ImGui::Separator();
-    imgui_StepSliderInt::fn("Step", &step, 1, 24);
+    imgui_StepSliderInt::fn("Step", &step, 1, 30);
     interval.step_slide("Interval", 0, 400);
 
     ImGui::Separator();
@@ -1666,7 +1665,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         const id_pair popup_id{ImGui::GetItemID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
         const auto hov = rclick_popup::popup_no_highlight(popup_id, [&] {
             if (ImGui::Selectable("Copy rule")) {
-                set_clipboard_and_notify(aniso::to_MAP_str(rule));
+                copy_rule::copy(rule);
             }
             if (ImGui::Selectable("To right panel")) { // TODO: rephrase...
                 set_apply_rule_target(rule);

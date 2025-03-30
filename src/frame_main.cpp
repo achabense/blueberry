@@ -211,6 +211,19 @@ void frame_main() {
         ImGui::SameLine();
         load_rule(show_clipboard, "Clipboard", "Clipboard", load_clipboard);
         guide_mode::item_tooltip("Load rules from the clipboard.");
+        {
+            ImGui::SameLine();
+            imgui_Str("..");
+            if (const auto pass = pass_rule::dest_v2(ImGuiKey_C, 'C'); pass.deliv) {
+                copy_rule::copy(*pass.deliv);
+            }
+            rclick_popup::popup(imgui_GetItemPosID(), [] {
+                copy_rule::get_rec({}).selectable_to_take_snapshot("Recent", "recently copied");
+                guide_mode::item_tooltip("Recently copied rules, including those copied via 'Copy rule'.");
+            });
+            guide_mode::item_tooltip(
+                "Drag a rule here to copy it (as MAP-string) to the clipboard; equivalent to 'Copy rule'.");
+        }
         ImGui::SameLine();
         load_rule(show_doc, "Documents", "Documents", load_doc);
         guide_mode::item_tooltip("Concepts, example rules, etc.");

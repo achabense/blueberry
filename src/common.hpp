@@ -150,8 +150,9 @@ public:
     }
 
     // Should be called after the item.
+    template <bool require_not_disabled = true>
     static bool item_shortcut(ImGuiKey key, bool repeat = false, std::optional<bool> cond = std::nullopt) {
-        if (key != ImGuiKey_None && !imgui_TestItemFlag(ImGuiItemFlags_Disabled)) {
+        if (key != ImGuiKey_None && (!require_not_disabled || !imgui_TestItemFlag(ImGuiItemFlags_Disabled))) {
             if (cond.has_value() ? *cond : keys_avail_and_window_hoverable()) { // `value_or` won't short-circuit.
                 return test_pressed(key, repeat) && highlight();
             }
@@ -1070,7 +1071,7 @@ inline std::string_view read_clipboard() {
         // The clipboard is actually empty.
         // The clipboard contains non-text content, so the read fails.
         // The clipboard contains a real empty string.
-        messenger::set_msg("No text available.");
+        messenger::set_msg("Nothing to paste.");
         return {};
     }
     return str;
@@ -1168,10 +1169,8 @@ private:
         std::vector<aniso::compressT> snapshot{};
         const rec_for_rule* source{};
         bool newly_updated{};
-        // !!TODO: it's not hard to maintain these, but idk how to use them in gui...
         // std::string label{};
         // bool in_sync{};
-        // (And it's easy to support record for pasting, but still, where to open the record in gui?)
 
     public:
         // (gcc workaround)
@@ -1182,6 +1181,7 @@ private:
             snapshot = s->m_data;
             source = s;
             newly_updated = true;
+            // label = source_label;
         }
         void detach(const rec_for_rule* s) {
             if (source == s) {
@@ -1208,7 +1208,7 @@ private:
                 return ImVec2(min_size_x, min_size_y) + ImGui::GetStyle().WindowPadding * 2;
             }();
 
-            ImGui::SetNextWindowSize(min_size, ImGuiCond_Appearing);
+            ImGui::SetNextWindowSize(min_size, updated ? ImGuiCond_Always : ImGuiCond_Appearing);
             ImGui::SetNextWindowSizeConstraints(min_size, {1000, 600});
             if (updated) {
                 ImGui::SetNextWindowCollapsed(false);
@@ -1223,14 +1223,12 @@ private:
             imgui_Window::next_window_titlebar_tooltip = "!!TODO...";
             if (auto window = imgui_Window("Snapshot", &open, ImGuiWindowFlags_NoSavedSettings)) {
                 settings.set("Settings");
-                if constexpr (debug_mode) {
-                    if (source) {
-                        ImGui::SameLine();
-                        if (ImGui::Button("Refresh")) {
-                            assert(!source->empty()); // (As there is currently no clear method.)
-                            snapshot = source->m_data;
-                            updated = true;
-                        }
+                if (source) {
+                    ImGui::SameLine();
+                    if (ImGui::Button("Refresh")) {
+                        assert(!source->empty()); // (As there is currently no clear method.)
+                        snapshot = source->m_data;
+                        updated = true;
                     }
                 }
                 ImGui::SameLine();
@@ -1283,4 +1281,18 @@ public:
     }
 
     const rec_for_rule* operator->() const { return &m_rec; }
+};
+
+class copy_rule : no_create {
+    inline static rec_for_rule rec{};
+
+public:
+    static std::string to_str(const aniso::ruleT& rule) { return aniso::to_MAP_str(rule); }
+
+    static void copy(const aniso::ruleT& rule) {
+        set_clipboard_and_notify(aniso::to_MAP_str(rule));
+        rec.add(rule);
+    }
+
+    static const rec_for_rule& get_rec(frame_main_token) { return rec; }
 };

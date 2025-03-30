@@ -777,8 +777,8 @@ private:
             const float region_max_x = imgui_ContentRegionMaxAbsX();
             ImDrawList* const drawlist = ImGui::GetWindowDrawList();
 
-            // (Not trying to align with larger numbers (>=1000) at the beginning.)
-            const int digit_width = m_lines.size() < 100 ? 2 : 3;
+            // (Inefficient, but not worth bothering.)
+            const int digit_width = m_lines.size() < 100 ? 2 : std::to_string(m_lines.size()).size();
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
             for (int l = 0; const auto& [str, rule, highlight, eq_last] : m_lines) {
                 const int this_l = l++;
@@ -990,21 +990,25 @@ void load_file(frame_main_token) {
 // TODO: 'Read' -> create a temp window that will be destroyed when closed?
 void load_clipboard(frame_main_token) {
     static textT text;
-    static std::string last_str;
+    // static std::string last_str; TODO: whether to prevent dup str?
 
     // (The page will hold roughly at most 1.5*max_size/line.)
     const bool too_much_content = text.lines() > max_line || text.length() > max_size;
     ImGui::BeginDisabled(too_much_content);
-    if (ImGui::SmallButton("Read") || shortcuts::item_shortcut(ImGuiKey_W)) {
-        const std::string_view str = read_clipboard();
-        if (str.size() > max_size / 2) {
-            messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
-        } else if (const int l = count_line(str); l > max_line / 2) {
-            messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
-        } else if (!str.empty() && compare_update(last_str, str)) {
-            const int l = text.lines();
-            text.append(std::string(str));
-            text.to_line(l);
+    if (ImGui::SmallButton("Read") || shortcuts::item_shortcut<false>(ImGuiKey_W)) {
+        if (too_much_content) { // By shortcut.
+            messenger::set_msg("Too much content.");
+        } else {
+            const std::string_view str = read_clipboard();
+            if (str.size() > max_size / 2) {
+                messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
+            } else if (const int l = count_line(str); l > max_line / 2) {
+                messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
+            } else if (!str.empty()) {
+                const int l = text.lines();
+                text.append(std::string(str));
+                text.to_line(l);
+            }
         }
     }
     ImGui::EndDisabled();
@@ -1016,7 +1020,6 @@ void load_clipboard(frame_main_token) {
     if (double_click_button_small("Clear")) {
         set_msg_cleared();
         text.clear();
-        last_str.clear();
     }
     // ImGui::SameLine();
     // imgui_Str("Clipboard");
