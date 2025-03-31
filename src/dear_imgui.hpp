@@ -68,7 +68,7 @@ inline void imgui_ItemUnderline(ImU32 col) {
 }
 
 // (Referring to ImGui::IsRectVisible() and ImGui::GetItemRectMin().)
-inline bool imgui_ItemFullyVisible() { //
+inline bool imgui_IsItemFullyVisible() { //
     return GImGui->CurrentWindow->ClipRect.Contains(GImGui->LastItemData.Rect);
 }
 
@@ -81,9 +81,23 @@ inline bool imgui_IsBgHeld() { //
     return !ImGui::GetHoveredID() && GImGui->ActiveId == GImGui->CurrentWindow->MoveId;
 }
 
+inline bool imgui_IsWindowHoverable(ImGuiHoveredFlags flags = 0) { //
+    return ImGui::IsWindowContentHoverable(GImGui->CurrentWindow, flags);
+}
+
+// ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_NoPopupHierarchy)
+inline bool imgui_IsWindowFocused() {
+    if (const ImGuiWindow* focused = GImGui->NavWindow) {
+        if (const ImGuiWindow* current = GImGui->CurrentWindow) {
+            return current->RootWindow == focused->RootWindow;
+        }
+    }
+    return false;
+}
+
 // Workaround to provide stable hovering check for texts and groups.
 // Related: https://github.com/ocornut/imgui/issues/7984 and 7945
-inline bool imgui_ItemHoveredForTooltip(const std::optional<ImGuiID> id = std::nullopt) {
+inline bool imgui_IsItemHoveredForTooltip(const std::optional<ImGuiID> id = std::nullopt) {
     if (!id) {
         return ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
     } else {
@@ -113,7 +127,7 @@ inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
     if (GImGui->CurrentWindow->SkipItems) {
         return false;
     }
-    if (imgui_ItemHoveredForTooltip()) {
+    if (imgui_IsItemHoveredForTooltip()) {
         if (ImGui::BeginTooltip()) {
             if (GImGui->CurrentWindow->BeginCount > 1) {
                 ImGui::Separator();
@@ -281,10 +295,6 @@ inline bool imgui_TestItemFlag(ImGuiItemFlags flag) { //
     return (GImGui->CurrentItemFlags & flag) != 0;
 }
 
-inline bool imgui_IsWindowHoverable(ImGuiHoveredFlags flags = 0) { //
-    return ImGui::IsWindowContentHoverable(ImGui::GetCurrentWindowRead(), flags);
-}
-
 inline float imgui_ContentRegionMaxAbsX() {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
@@ -314,18 +324,18 @@ inline ImVec2 imgui_CalcButtonSize(std::string_view label) { //
 }
 
 inline ImVec2 imgui_CalcRequiredWindowSize() { //
-    return ImGui::GetCurrentWindowRead()->DC.CursorMaxPos + ImGui::GetStyle().WindowPadding - ImGui::GetWindowPos();
+    return GImGui->CurrentWindow->DC.CursorMaxPos + ImGui::GetStyle().WindowPadding - ImGui::GetWindowPos();
 }
 
 // (Referring to `ImGui::Get/SetCursorScreenPos(...)`.)
 inline void imgui_AddCursorPosX(float dx) {
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    ImGuiWindow* const window = ImGui::GetCurrentWindow();
     window->DC.CursorPos.x = floor(window->DC.CursorPos.x + dx);
     window->DC.IsSetPos = true;
 }
 
 inline void imgui_AddCursorPosY(float dy) {
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    ImGuiWindow* const window = ImGui::GetCurrentWindow();
     window->DC.CursorPos.y = floor(window->DC.CursorPos.y + dy);
     window->DC.IsSetPos = true;
 }

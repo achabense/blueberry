@@ -159,16 +159,6 @@ public:
         }
         return false;
     }
-
-    // ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows | ImGuiFocusedFlags_NoPopupHierarchy)
-    static bool window_focused() {
-        if (const ImGuiWindow* focused = GImGui->NavWindow) {
-            const ImGuiWindow* current = ImGui::GetCurrentWindowRead();
-            assert(current);
-            return current->RootWindow == focused->RootWindow;
-        }
-        return false;
-    }
 };
 
 class guide_mode : no_create {
@@ -208,14 +198,14 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
 
 // TODO: whether to support this?
 // There is intended to be at most one call to this function in each window hierarchy.
-/*[[deprecated]] */ inline void set_scroll_by_up_down(float dy) {
-    if (may_scroll() && shortcuts::keys_avail() && shortcuts::window_focused()) {
+[[deprecated]] inline void set_scroll_by_up_down(float dy) {
+    if (may_scroll() && shortcuts::keys_avail() && imgui_IsWindowFocused()) {
         if (shortcuts::test_pressed(ImGuiKey_DownArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() + dy);
-            shortcuts::highlight(ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindowRead(), ImGuiAxis_Y));
+            shortcuts::highlight(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
         } else if (shortcuts::test_pressed(ImGuiKey_UpArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() - dy);
-            shortcuts::highlight(ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindowRead(), ImGuiAxis_Y));
+            shortcuts::highlight(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
         }
     }
 }
@@ -281,7 +271,7 @@ public:
         const ImGuiID item_id = ImGui::GetItemID();
         assert(item_id != 0 && item_id == expected_id); // Must follow `(small_)button()`.
 
-        if (!ImGui::IsPopupOpen(item_id, 0) && imgui_IsItemOrNoneActive() && imgui_ItemHoveredForTooltip()) {
+        if (!ImGui::IsPopupOpen(item_id, 0) && imgui_IsItemOrNoneActive() && imgui_IsItemHoveredForTooltip()) {
             ImGui::OpenPopupEx(item_id, ImGuiPopupFlags_NoReopen);
             assert(ImGui::IsPopupOpen(item_id, 0));
             ImGui::SetNextWindowPos(item_rect.GetTR(), ImGuiCond_Appearing); // Like a menu.
@@ -289,7 +279,7 @@ public:
 
         if (ImGui::BeginPopupEx(item_id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
                                              ImGuiWindowFlags_NoSavedSettings)) {
-            if (ImGui::IsWindowContentHoverable(ImGui::GetCurrentWindowRead())) { // Topmost popup.
+            if (imgui_IsWindowHoverable()) { // Topmost popup.
                 const ImVec2 mouse_pos = ImGui::GetMousePos();
                 const auto window_rect = imgui_GetWindowRect();
                 if (!window_rect.Contains(mouse_pos)) {
@@ -558,7 +548,7 @@ public:
         const ImGuiID id_prev = ImGui::GetID(label_prev);
         assert(id_prev != 0);
 
-        const bool window_focused = shortcuts::window_focused();
+        const bool window_focused = imgui_IsWindowFocused();
         const bool pair_disabled = imgui_TestItemFlag(ImGuiItemFlags_Disabled);
         // The binding will be preserved if the window is blocked by its popups.
         // (Note: popups from other windows will still disable the binding.)
@@ -668,7 +658,7 @@ public:
             const std::string str = to_str(to_v(u));
             ImGui::RenderTextClipped(rect.Min, rect.Max, str.data(), str.data() + str.size(), nullptr,
                                      ImVec2(0.5f, 0.5f));
-            if (imgui_ItemHoveredForTooltip()) {
+            if (imgui_IsItemHoveredForTooltip()) {
                 imgui_ItemTooltip(
                     to_str(to_v(value_if_clicked(rect.GetWidth(), u_max, ImGui::GetMousePos().x - rect.Min.x))));
             }
@@ -931,7 +921,7 @@ class pass_rule : no_create {
     // TODO: improve style...
     static void render_rect(const bool bright) {
         ImGui::PushStyleColor(ImGuiCol_DragDropTarget, IM_COL32(0, 128, 255, bright ? 255 : 64));
-        ImGui::RenderDragDropTargetRect(imgui_GetItemRect(), ImGui::GetCurrentWindowRead()->ClipRect);
+        ImGui::RenderDragDropTargetRect(imgui_GetItemRect(), GImGui->CurrentWindow->ClipRect);
         ImGui::PopStyleColor();
     }
 

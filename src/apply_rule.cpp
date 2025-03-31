@@ -1109,7 +1109,7 @@ public:
 
                 // (`want_hex_mode` should be tested only when the zoom window is really going to be shown.)
                 if (!m_paste && !(m_sel && m_sel->active && m_sel->to_range().size().xy() > 2)) {
-                    if (imgui_ItemHoveredForTooltip() && cel_pos.both_gteq({-10, -10}) &&
+                    if (imgui_IsItemHoveredForTooltip() && cel_pos.both_gteq({-10, -10}) &&
                         cel_pos.both_lt(tile_size.plus(10, 10))) {
                         hex_mode = want_hex_mode(current_rule);
                         if (hex_mode || m_coord.zoom <= 1) {
@@ -1637,7 +1637,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
     bool hex_mode = false;
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-    if (hovered && imgui_ItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
+    if (hovered && imgui_IsItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
         assert(ImGui::IsMousePosValid());
         const aniso::vecT pos = from_imvec_floor((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});

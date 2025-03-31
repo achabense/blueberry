@@ -847,7 +847,7 @@ private:
                     }
 
                     // It's ok to test fully-visible even if the region is not large enough.
-                    if (rule.pos == locate_rule && !imgui_ItemFullyVisible()) {
+                    if (rule.pos == locate_rule && !imgui_IsItemFullyVisible()) {
                         ImGui::SetScrollHereY();
                     }
                 }
