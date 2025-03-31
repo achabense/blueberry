@@ -257,6 +257,12 @@ int main(int, char**) {
         for (;;) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
+                // Disable tab-related controls (nav menu & cycling through input fields)
+                // Related: https://github.com/ocornut/imgui/issues/8525
+                if ((event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) && event.key.keysym.sym == SDLK_TAB) {
+                    continue;
+                }
+
                 ImGui_ImplSDL2_ProcessEvent(&event);
                 if (event.type == SDL_QUIT) {
                     return false;
