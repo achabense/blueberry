@@ -986,7 +986,7 @@ public:
     };
 
     // !!TODO: how to document the shortcuts?
-    [[nodiscard]] static passT dest_v2(const ImGuiKey shortcut = ImGuiKey_None, const char label = '\0') {
+    [[nodiscard]] static passT dest(const ImGuiKey shortcut = ImGuiKey_None, const char label = '\0') {
         if (active) {
             static item_timer timer{};
             render_rect(timer.test());

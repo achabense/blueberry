@@ -633,7 +633,7 @@ public:
                     current_rule->selectable_to_take_snapshot("Recent", "right panel");
                 });
             }
-            if (const auto pass = pass_rule::dest_v2(ImGuiKey_2, '2')) {
+            if (const auto pass = pass_rule::dest(ImGuiKey_2, '2')) {
                 if (*pass.any() == current_rule) {
                     pass.tooltip_or_message("Identical.");
                 } else if (pass.deliv) {

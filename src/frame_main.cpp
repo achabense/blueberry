@@ -215,7 +215,7 @@ void frame_main() {
         {
             ImGui::SameLine();
             imgui_Str("..");
-            if (const auto pass = pass_rule::dest_v2(ImGuiKey_C, 'C'); pass.deliv) {
+            if (const auto pass = pass_rule::dest(ImGuiKey_C, 'C'); pass.deliv) {
                 copy_rule::copy(*pass.deliv);
             }
             rclick_popup::popup(imgui_GetItemPosID(), [] {

@@ -641,7 +641,7 @@ public:
             });
 
             if (m == Custom) {
-                if (const auto* deliv = get_deliv(pass_rule::dest_v2(), working_set, *mask_ptrs[m])) {
+                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set, *mask_ptrs[m])) {
                     mask_custom = aniso::approximate(working_set, *deliv);
                     mask_tag = Custom;
                     messenger::set_msg("Updated.");
@@ -783,7 +783,7 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set) 
         ImGui::BeginDisabled();
         ImGui::Button("Locate"); // !!TODO: redesign... (e.g. let the first preview window be dest?)
         ImGui::EndDisabled();
-        if (const auto* deliv = get_deliv(pass_rule::dest_v2(), working_set)) {
+        if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
             page.clear();
             page.push_back(aniso::approximate(working_set, *deliv));
             fill_page(adapter.page_size);
@@ -806,7 +806,7 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set) 
             show_in_tooltip(config, orderer);
             rclick_popup::popup(ImGui::GetItemID(), [&] { orderer->selectable_to_take_snapshot("Recent"); });
         }
-        if (const auto* deliv = get_deliv(pass_rule::dest_v2(ImGuiKey_3, '3'), working_set, orderer)) {
+        if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_3, '3'), working_set, orderer)) {
             orderer.set(aniso::approximate(working_set, *deliv));
             page.clear();
             messenger::set_msg("Updated.");
@@ -926,7 +926,7 @@ static void random_rule_window(bool& show_rand, const aniso::subsetT& working_se
             show_in_tooltip(config, target);
             rclick_popup::popup(ImGui::GetItemID(), [&] { target->selectable_to_take_snapshot("Recent"); });
         }
-        if (const auto* deliv = get_deliv(pass_rule::dest_v2(ImGuiKey_4, '4'), working_set, target)) {
+        if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_4, '4'), working_set, target)) {
             target.set(aniso::approximate(working_set, *deliv));
             messenger::set_msg("Updated.");
         }
@@ -1011,7 +1011,7 @@ void edit_rule(frame_main_token) {
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
         imgui_Str("Working set");
-        if (const auto pass = pass_rule::dest_v2(ImGuiKey_1, '1')) {
+        if (const auto pass = pass_rule::dest(ImGuiKey_1, '1')) {
             if (collapse && pass.hov_for_tooltip() && ImGui::BeginTooltip()) {
                 select_working.select({.rule = pass.hov, .select = true, .tooltip = false});
                 ImGui::EndTooltip();
@@ -1111,7 +1111,7 @@ void edit_rule(frame_main_token) {
                 show_in_tooltip(config, target);
                 rclick_popup::popup(ImGui::GetItemID(), [] { target->selectable_to_take_snapshot("Recent"); });
             }
-            if (const auto* deliv = get_deliv(pass_rule::dest_v2(ImGuiKey_5, '5'), working_set, target)) {
+            if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_5, '5'), working_set, target)) {
                 target.set(aniso::approximate(working_set, *deliv));
                 messenger::set_msg("Updated.");
             }
