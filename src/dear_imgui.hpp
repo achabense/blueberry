@@ -240,6 +240,27 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
     window->SkipItems = old_skip;
 }
 
+// (Not general enough to add 'imgui' prefix...)
+inline bool test_esc_single_hit() {
+    static int frame = 0; // Avoid closing multiple windows within one frame.
+    return imgui_IsWindowFocused() && !ImGui::GetIO().WantCaptureKeyboard &&
+           !ImGui::IsMouseDown(ImGuiMouseButton_Left) && imgui_IsWindowHoverable() &&
+           ImGui::IsKeyPressed(ImGuiKey_Escape) && compare_update(frame, ImGui::GetFrameCount());
+}
+
+inline bool test_esc() { // Double-hit.
+    if (test_esc_single_hit()) {
+        static double last = 0;
+        const double now = ImGui::GetTime();
+        if (now < last + ImGui::GetIO().MouseDoubleClickTime) {
+            last = 0;
+            return true;
+        }
+        last = now;
+    }
+    return false;
+}
+
 class [[nodiscard]] imgui_Window : no_copy {
 public:
     // (Without this, to show tooltip unconditionally, the window have to be declared outside of if scope.)
@@ -250,6 +271,9 @@ public:
         : visible(ImGui::Begin(name, p_open, flags)) {
         if (const char* tooltip = std::exchange(next_window_titlebar_tooltip, nullptr)) {
             imgui_StrTooltipForTitleBar("(?)", tooltip, name);
+        }
+        if (p_open && test_esc()) {
+            *p_open = false;
         }
     }
     ~imgui_Window() {

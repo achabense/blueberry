@@ -185,8 +185,9 @@ void frame_main() {
                 }
             } else {
                 imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
-                imgui_Window::next_window_titlebar_tooltip =
-                    "Click the collapsing button, or double-click title bar to collapse/uncollapse.";
+                imgui_Window::next_window_titlebar_tooltip = "Additional window controls:\n\n"
+                                                             "Double-click title bar to collapse/uncollapse.\n"
+                                                             "Double-press 'Esc' to close focused window (or popup).";
                 if (auto window = imgui_Window(window_title, &open,
                                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                     load_fn({});
