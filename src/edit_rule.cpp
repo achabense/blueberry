@@ -534,6 +534,30 @@ public:
     }
 };
 
+static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
+    if (const auto* any = pass.any()) {
+        if (ImGui::GetIO().KeyCtrl || working_set.contains(*any)) {
+            return pass.deliv;
+        }
+        // !!TODO: add a window to support both 0/1 rev & approx, and always require contains here?
+        pass.tooltip_or_message("The rule does not belong to the working set. Press 'Ctrl' to !!TODO...");
+    }
+    return nullptr;
+}
+
+static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set,
+                                     const aniso::ruleT& compare) {
+    if (const auto* any = pass.any()) {
+        if (*any != compare) {
+            return get_deliv(pass, working_set);
+        }
+        pass.tooltip_or_message("Identical.");
+    }
+    return nullptr;
+}
+
+// !!TODO: no longer used by rule-generating funcs.
+// (-> general comparison, i.e. no need to belong to the working set...)
 class mask_selector {
     enum maskE { Zero, Identity, Fallback, Custom };
 
@@ -617,9 +641,8 @@ public:
             });
 
             if (m == Custom) {
-                if (const auto* r = pass_rule::dest()) {
-                    // !!TODO: redesign...
-                    mask_custom = {aniso::approximate(working_set, *r)};
+                if (const auto* deliv = get_deliv(pass_rule::dest_v2(), working_set, *mask_ptrs[m])) {
+                    mask_custom = aniso::approximate(working_set, *deliv);
                     mask_tag = Custom;
                     messenger::set_msg("Updated.");
                 }
@@ -687,7 +710,21 @@ struct page_adapter {
         "the window can be resized to fit the content by double-clicking the resize border.";
 };
 
-static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, const aniso::maskT& mask) {
+// !!TODO: improve...
+static void show_in_tooltip(const previewer::configT& config, const aniso::ruleT& rule) {
+    imgui_ItemTooltip([&] {
+        static bool show_rule = true;
+        imgui_Str("Press 'Z' to toggle display.");
+        if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_Z)) {
+            show_rule = !show_rule;
+        }
+        if (show_rule) {
+            previewer::preview(-1, config, rule);
+        }
+    });
+}
+
+static void traverse_window(bool& show_trav, const aniso::subsetT& working_set) {
     assert(show_trav);
     static ImVec2 size_constraint_min{};
     ImGui::SetNextWindowSizeConstraints(size_constraint_min, ImVec2(FLT_MAX, FLT_MAX));
@@ -695,14 +732,25 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, 
     imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
     if (auto window = imgui_Window("Traverse the working set", &show_trav,
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
+        static rule_with_rec orderer = working_set.get_mask();
         static std::deque<aniso::ruleT> page;
         static page_adapter adapter;
         static previewer::configT config{previewer::configT::_220_160};
+        {
+            static aniso::subsetT cmp_set{};
+            if (compare_update(cmp_set, working_set)) { // TODO: unnecessarily expensive...
+                page.clear();
+            }
+            if (!working_set.contains(orderer)) {
+                orderer.set(working_set.get_mask());
+                page.clear();
+            }
+        }
 
         auto fill_next = [&](int size) {
             assert(!page.empty());
             for (int i = 0; i < size; ++i) {
-                const aniso::ruleT rule = aniso::seq_mixed::next(working_set, mask, page.back());
+                const aniso::ruleT rule = aniso::seq_mixed::next(working_set, orderer, page.back());
                 if (rule == page.back()) {
                     break;
                 }
@@ -713,7 +761,7 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, 
         auto fill_prev = [&](int size) {
             assert(!page.empty());
             for (int i = 0; i < size; ++i) {
-                const aniso::ruleT rule = aniso::seq_mixed::prev(working_set, mask, page.front());
+                const aniso::ruleT rule = aniso::seq_mixed::prev(working_set, orderer, page.front());
                 if (rule == page.front()) {
                     break;
                 }
@@ -732,26 +780,15 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, 
             }
         };
 
-        {
-            static aniso::subsetT cmp_set{};
-            static aniso::maskT cmp_mask{};
-            // TODO: are there better behaviors than clearing directly?
-            const bool _a = compare_update(cmp_set, working_set);
-            const bool _b = compare_update(cmp_mask, mask); // (Shouldn't be short-circuited.)
-            if ((_a || _b) && !page.empty()) {
-                page.clear();
-            }
-        }
-
         ImGui::BeginDisabled();
-        ImGui::Button("Locate"); // !!TODO: redesign...
+        ImGui::Button("Locate"); // !!TODO: redesign... (e.g. let the first preview window be dest?)
         ImGui::EndDisabled();
-        if (const auto* r = pass_rule::dest()) {
+        if (const auto* deliv = get_deliv(pass_rule::dest_v2(), working_set)) {
             page.clear();
-            page.push_back(aniso::approximate(working_set, *r));
+            page.push_back(aniso::approximate(working_set, *deliv));
             fill_page(adapter.page_size);
         }
-        // guide_mode::item_tooltip("Go to where the current rule belongs in the sequence.");
+        guide_mode::item_tooltip("Drag a rule here to go to where the rule belongs in the sequence.");
 
         static input_int input_dist{};
         ImGui::SameLine();
@@ -760,23 +797,39 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, 
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
         if (const auto dist = input_dist.input("##Seek", std::format("Max:{}", working_set.get_par().k()).c_str())) {
             page.clear();
-            page.push_back(aniso::seq_mixed::seek_n(working_set, mask, *dist));
+            page.push_back(aniso::seq_mixed::seek_n(working_set, orderer, *dist));
             fill_page(adapter.page_size);
         }
         ImGui::SameLine();
+        imgui_StrWithID("[R]");
+        if (!pass_rule::source(orderer)) {
+            show_in_tooltip(config, orderer);
+            rclick_popup::popup(ImGui::GetItemID(), [&] { orderer->selectable_to_take_snapshot("Recent"); });
+        }
+        if (const auto* deliv = get_deliv(pass_rule::dest_v2(ImGuiKey_3, '3'), working_set, orderer)) {
+            orderer.set(aniso::approximate(working_set, *deliv));
+            page.clear();
+            messenger::set_msg("Updated.");
+        }
+        ImGui::SameLine();
         imgui_StrTooltip(
-            "(...)",
+            "(...)", // !!TODO: rewrite...
             "The sequence represents a list of all rules in the working set, in the following order: firstly the masking rule ('<00..'), then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance ('11..>') (which is the number of groups in the working set).\n\n"
             "You can traverse the entire working set with this. Some interesting examples include: inner-totalistic rules ('Tot(+s)'), self-complementary totalistic rules ('Comp' & 'Tot'), isotropic von-Neumann rules ('All' & 'Von'), and a similar set ('All' & 'w').\n\n"
             "Even if the working set is very large, you may find this still useful sometimes.");
 
+        // !!TODO: or make page never empty (and not clearable)?
+        if (0 && page.empty()) {
+            page.push_back(aniso::seq_mixed::first(working_set, orderer));
+            fill_next(adapter.page_size - 1);
+        }
         const char* const disable_prev_next =
-            page.empty() ? "Click 'Locate', '<00..' or '11..>', or input a distance to get somewhere in the sequence."
+            page.empty() ? "Use 'Locate', '<00..' or '11..>', or input a distance to get somewhere in the sequence."
                          : nullptr;
         switch (sequence::seq("<00..", "Prev", "Next", "11..>", disable_prev_next)) {
             case 0:
                 page.clear();
-                page.push_back(aniso::seq_mixed::first(working_set, mask));
+                page.push_back(aniso::seq_mixed::first(working_set, orderer));
                 fill_next(adapter.page_size - 1);
                 break;
             case 1:
@@ -793,7 +846,7 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, 
                 break;
             case 3:
                 page.clear();
-                page.push_back(aniso::seq_mixed::last(working_set, mask));
+                page.push_back(aniso::seq_mixed::last(working_set, orderer));
                 fill_prev(adapter.page_size - 1);
                 break;
         }
@@ -802,8 +855,8 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, 
         if (page.empty()) {
             imgui_Str("Dist:N/A");
         } else {
-            const int min_dist = aniso::distance(working_set, mask, page.front());
-            const int max_dist = aniso::distance(working_set, mask, page.back());
+            const int min_dist = aniso::distance(working_set, orderer, page.front());
+            const int max_dist = aniso::distance(working_set, orderer, page.back());
             assert(min_dist <= max_dist);
             if (min_dist == max_dist) {
                 ImGui::Text("Dist:%d", min_dist);
@@ -816,8 +869,7 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, 
                 set_msg_cleared(!page.empty());
                 page.clear();
             }
-            imgui_StrTooltip("(?)",
-                             "The page will also be cleared automatically if the working set or masking rule changes.");
+            imgui_StrTooltip("(?)", "The page will also be cleared automatically if the working set or [R] changes.");
         });
 
         ImGui::SameLine();
@@ -838,13 +890,19 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set, 
     }
 }
 
-static void random_rule_window(bool& show_rand, const aniso::subsetT& working_set, const aniso::maskT& mask) {
+static void random_rule_window(bool& show_rand, const aniso::subsetT& working_set) {
     assert(show_rand);
     static ImVec2 size_constraint_min{};
     ImGui::SetNextWindowSizeConstraints(size_constraint_min, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
     if (auto window =
             imgui_Window("Random rules", &show_rand, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
+        static rule_with_rec target = working_set.get_mask();
+        static previewer::configT config{previewer::configT::_220_160};
+        if (!working_set.contains(target)) { // Working set changes.
+            target.set(working_set.get_mask());
+        }
+
         const int c_group = working_set.get_par().k();
         const int c_free = c_group; // TODO: temporarily preserved.
         // const bool has_lock = false; (The slider's format used to be `has_lock ? "(Free) %d" : "%d"`.)
@@ -857,21 +915,30 @@ static void random_rule_window(bool& show_rand, const aniso::subsetT& working_se
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         imgui_RadioButton("Exactly", &exact_mode, true);
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(item_width);
+        ImGui::SetNextItemWidth(floor(item_width * 0.9));
         if (imgui_StepSliderInt::fn("##Dist", &free_dist, 0, c_free) && c_free != 0) {
             rate = double(free_dist) / c_free;
             assert(round(rate * c_free) == free_dist);
         }
         ImGui::SameLine();
+        imgui_StrWithID("[R]");
+        if (!pass_rule::source(target)) {
+            show_in_tooltip(config, target);
+            rclick_popup::popup(ImGui::GetItemID(), [&] { target->selectable_to_take_snapshot("Recent"); });
+        }
+        if (const auto* deliv = get_deliv(pass_rule::dest_v2(ImGuiKey_4, '4'), working_set, target)) {
+            target.set(aniso::approximate(working_set, *deliv));
+            messenger::set_msg("Updated.");
+        }
+        ImGui::SameLine();
         imgui_StrTooltip(
-            "(...)",
+            "(...)", // !!TODO rewrite...
             "The sequence serves as the record of generated rules - when you are at the last page ('At' ~ 'Pages' or 'N/A'), '>>>' will generate pages of random rules (in the working set) with intended distance around/exactly to the masking rule.\n\n"
             "For example, if you are using the 'Zero' mask and distance = 'Around' 30, when at the last page, '>>>' will generate pages of rules with around 30 groups having '1'. Also, to get some random rules close to the current rule (suppose it belongs to the working set), you can set it to the custom mask and '>>>' in a low distance.");
 
         static std::vector<aniso::compressT> rules{};
         static page_adapter adapter{};
         static int page_no = 0;
-        static previewer::configT config{previewer::configT::_220_160};
 
         auto calc_page = [&]() -> int { return (rules.size() + adapter.page_size - 1) / adapter.page_size; };
         auto last_page = [&]() -> int { return rules.empty() ? 0 : calc_page() - 1; };
@@ -889,8 +956,8 @@ static void random_rule_window(bool& show_rand, const aniso::subsetT& working_se
             static std::mt19937 rand = rand_source::create();
             rand_source::perturb(rand); // Additional entropy.
             for (int i = 0; i < count; ++i) {
-                rules.push_back(exact_mode ? aniso::randomize_c(working_set, mask, rand, free_dist)
-                                           : aniso::randomize_p(working_set, mask, rand, rate));
+                rules.push_back(exact_mode ? aniso::randomize_c(working_set, target, rand, free_dist)
+                                           : aniso::randomize_p(working_set, target, rand, rate));
             }
             assert((rules.size() % adapter.page_size) == 0);
             page_no = (rules.size() / adapter.page_size) - 1; // == last_page().
@@ -944,7 +1011,7 @@ void edit_rule(frame_main_token) {
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
         imgui_Str("Working set");
-        if (const auto pass = pass_rule::dest_v2(ImGuiKey_W, 'W')) {
+        if (const auto pass = pass_rule::dest_v2(ImGuiKey_1, '1')) {
             if (collapse && pass.hov_for_tooltip() && ImGui::BeginTooltip()) {
                 select_working.select({.rule = pass.hov, .select = true, .tooltip = false});
                 ImGui::EndTooltip();
@@ -1003,7 +1070,8 @@ void edit_rule(frame_main_token) {
     static bool show_trav = false;
     static bool show_rand = false;
     static bool show_random_access = false;
-    static aniso::ruleT target{}; // Random-access // !!TODO: workaround; should redesign...
+    // !!TODO: whether to support dirty editing (the target doesn't have to belong to the set)?
+    static rule_with_rec target = working_set.get_mask(); // Random-access // !!TODO: workaround; should redesign...
     static previewer::configT config{previewer::configT::_220_160};
     {
         ImGui::Checkbox("Traverse", &show_trav);
@@ -1012,7 +1080,7 @@ void edit_rule(frame_main_token) {
         if (show_trav) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
             ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
-            traverse_window(show_trav, working_set, mask);
+            traverse_window(show_trav, working_set);
         }
     }
     ImGui::SameLine();
@@ -1022,7 +1090,7 @@ void edit_rule(frame_main_token) {
         if (show_rand) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
             ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
-            random_rule_window(show_rand, working_set, mask);
+            random_rule_window(show_rand, working_set);
         }
     }
     ImGui::SameLine();
@@ -1031,30 +1099,25 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip(
             "Enable random-access editing, i.e. flipping the values of the current rule by groups. If the current rule already belongs to the working set, this effectively presents all rules with dist = 1 to the current rule (in the set).\n\n"
             "(You can 'Collapse' the set table to leave more room for the preview windows.)");
-        const auto init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-        if (const auto* r = pass_rule::dest()) {
-            // !!TODO: whether to support dirty editing (the target doesn't have to belong to the set)?
-            target = aniso::approximate(working_set, *r);
-            show_random_access = true;
-        }
 
         if (show_random_access) {
             if (!working_set.contains(target)) {
-                target = mask;
+                target.set(working_set.get_mask());
+            }
+
+            ImGui::SameLine();
+            imgui_StrWithID("[R]");
+            if (!pass_rule::source(target)) {
+                show_in_tooltip(config, target);
+                rclick_popup::popup(ImGui::GetItemID(), [] { target->selectable_to_take_snapshot("Recent"); });
+            }
+            if (const auto* deliv = get_deliv(pass_rule::dest_v2(ImGuiKey_5, '5'), working_set, target)) {
+                target.set(aniso::approximate(working_set, *deliv));
+                messenger::set_msg("Updated.");
             }
 
             ImGui::SameLine();
             config.set("Settings");
-
-            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
-            ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
-            if (auto window = imgui_Window("!!TODO (not quite convenient)", nullptr,
-                                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
-                previewer::preview(0, config, target);
-                if (const auto* r = pass_rule::dest()) {
-                    target = aniso::approximate(working_set, *r);
-                }
-            }
         }
     }
 
@@ -1116,7 +1179,7 @@ void edit_rule(frame_main_token) {
         const char labels_normal[2][3]{{'-', chr_0, '\0'}, {'-', chr_1, '\0'}};
         const char labels_preview[2][9]{{'-', chr_0, ' ', '-', '>', ' ', chr_1, ':', '\0'},
                                         {'-', chr_1, ' ', '-', '>', ' ', chr_0, ':', '\0'}};
-        // const aniso::ruleT_masked masked = mask ^ target;
+        const aniso::ruleT_masked masked = mask ^ target;
 
         // Precise vertical alignment:
         // https://github.com/ocornut/imgui/issues/2064
@@ -1178,7 +1241,7 @@ void edit_rule(frame_main_token) {
                     if (show_random_access) {
                         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                         align_text(ImGui::GetItemRectSize().y);
-                        imgui_Str(labels_normal[mask[code] ^ target[code]]);
+                        imgui_Str(labels_normal[masked[code]]);
                     }
                 }
                 if (group_size > max_to_show) {
@@ -1213,7 +1276,7 @@ void edit_rule(frame_main_token) {
                     ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
                 }
                 if (code_button(head, button_zoom)) {
-                    target = get_adjacent_rule();
+                    target.set(get_adjacent_rule());
                     // set_apply_rule_target(target); !!TODO: whether to support this?
                 }
                 if (!enable_edit) {
@@ -1226,7 +1289,7 @@ void edit_rule(frame_main_token) {
 
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 align_text(ImGui::GetItemRectSize().y);
-                imgui_Str(!pure ? "-x" : labels_preview[mask[head] ^ target[head]]);
+                imgui_Str(!pure ? "-x" : labels_preview[masked[head]]);
                 // if (has_lock) { imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2)); }
 
                 const int preview_id = this_n;

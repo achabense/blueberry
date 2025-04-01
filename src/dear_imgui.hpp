@@ -204,6 +204,10 @@ inline void imgui_StrWithID(std::string_view str, const ImGuiID id) {
     assert(ImGui::GetItemID() == id);
 }
 
+inline void imgui_StrWithID(std::string_view str) { //
+    imgui_StrWithID(str, ImGui::GetID(str.data(), str.data() + str.size()));
+}
+
 inline void imgui_StrDisabled(std::string_view str) { //
     imgui_StrColored(str, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 }

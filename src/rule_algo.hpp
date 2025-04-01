@@ -6,14 +6,15 @@
 
 // TODO: add summary about this header, especially subsetT.
 namespace aniso {
-    // !!TODO: (v0.9.9) retire the concept of "masking rule" (maskT and operator^); use regular ruleT instead.
+    // !!TODO: retire the concept of "masking rule" (maskT and operator^); use regular ruleT instead.
 
     // A maskT is an arbitrary ruleT selected to do XOR mask for other rules.
     // The result reflects how the rule is different from the masking rule.
-    struct maskT : public ruleT {};
+    using maskT = ruleT;
+    // struct maskT : public ruleT {};
     using ruleT_masked = codeT::map_to<bool, 3>;
 
-    inline void operator^(const maskT&, const maskT&) = delete;
+    // inline void operator^(const maskT&, const maskT&) = delete;
 
     // TODO: masking -> comparing; ^ -> != (also for `masked_by_a/b`)
     inline ruleT_masked operator^(const maskT& mask, const ruleT& rule) {
@@ -481,7 +482,7 @@ namespace aniso {
     };
 
     // rule ^ mask_zero -> the masked values are identical to rule's.
-    inline const maskT mask_zero{{}};
+    inline const maskT mask_zero{};
     // rule ^ mask_identity -> the masked values can mean whether the cell will "flip" in each situation.
     inline const maskT mask_identity{make_rule([](codeT c) { return c.get(codeT::bpos_s); })};
 

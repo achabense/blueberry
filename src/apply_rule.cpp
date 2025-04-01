@@ -633,14 +633,11 @@ public:
                     current_rule->selectable_to_take_snapshot("Recent", "right panel");
                 });
             }
-            if (const auto pass = pass_rule::dest_v2(ImGuiKey_M, 'M')) {
-                if (pass.hov_for_tooltip() && *pass.hov == current_rule) {
-                    if (ImGui::BeginTooltip()) {
-                        imgui_Str("Identical.");
-                        ImGui::EndTooltip();
-                    }
+            if (const auto pass = pass_rule::dest_v2(ImGuiKey_2, '2')) {
+                if (*pass.any() == current_rule) {
+                    pass.tooltip_or_message("Identical.");
                 } else if (pass.deliv) {
-                    current_rule.set_next(*pass.deliv);
+                    current_rule.set_next(*pass.deliv); // TODO: avoid comparing in `set_next`.
                 }
             }
             guide_mode::item_tooltip("MAP-string for ... !!TODO");
@@ -1488,8 +1485,6 @@ public:
 };
 
 static runnerT runner;
-static void set_apply_rule_target(const aniso::ruleT& rule) { runner.set_next_rule(rule); }
-
 void apply_rule(frame_main_token) { runner.display(); }
 
 // TODO: let users decide which to be globally shared?
@@ -1667,8 +1662,9 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             if (ImGui::Selectable("Copy rule")) {
                 copy_rule::copy(rule);
             }
-            if (ImGui::Selectable("To right panel")) { // TODO: rephrase...
-                set_apply_rule_target(rule);
+            // !!TODO: either remove, or enhance to copying size & init state as well.
+            if (ImGui::Selectable("To right panel")) {
+                runner.set_next_rule(rule);
             }
 
             imgui_StrTooltip(

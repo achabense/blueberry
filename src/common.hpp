@@ -920,7 +920,6 @@ private:
 class pass_rule : no_create {
     inline static ImGuiID active = 0;
     inline static bool keep_active = false;
-    inline static bool consumed = false;
     inline static aniso::ruleT rule{};
 
     // TODO: improve style...
@@ -932,11 +931,9 @@ class pass_rule : no_create {
 
 public:
     static void begin_frame(frame_main_token) {
-        if (!active || !keep_active || consumed) {
+        if (!std::exchange(keep_active, false)) {
             active = 0;
         }
-        keep_active = false;
-        consumed = false;
     }
 
     static const aniso::ruleT* peek() { return active ? &rule : nullptr; }
@@ -963,41 +960,28 @@ public:
         return false;
     }
 
-    // !!TODO: replace with v2...
-    [[nodiscard]] static const aniso::ruleT* dest(/*const func_ref<void(const aniso::ruleT&)> fn*/) {
-        if (!active) {
-            return nullptr;
-        }
-
-        render_rect(false);
-        if (ImGui::BeginDragDropTarget()) {
-            const bool deliv = ImGui::AcceptDragDropPayload("#Rule", ImGuiDragDropFlags_AcceptNoPreviewTooltip |
-                                                                         ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
-            ImGui::EndDragDropTarget();
-            render_rect(true);
-
-            if (ImGui::BeginTooltip()) { // (Should be outside of target scope for normal bg transparency.)
-                // fn(rule);
-                imgui_Str("..."); // !!TODO: unfinished...
-                ImGui::EndTooltip();
-            }
-            if (deliv) {
-                consumed = true;
-            }
-            return deliv ? &rule : nullptr;
-        }
-        return nullptr;
-    }
-
     struct passT {
         const aniso::ruleT* hov;
         const aniso::ruleT* deliv;
 
+        const aniso::ruleT* any() const { return hov ? hov : deliv; }
         explicit operator bool() const { return hov || deliv; }
 
+        // (Not directly using `hov`, for stable visual.)
         bool hov_for_tooltip() const {
             return hov &&
                    ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+        }
+
+        void tooltip_or_message(const std::string_view str) const {
+            if (hov_for_tooltip() && ImGui::BeginTooltip()) {
+                ImGui::PushTextWrapPos(wrap_len());
+                imgui_Str(str);
+                ImGui::PopTextWrapPos();
+                ImGui::EndTooltip();
+            } else if (deliv) {
+                messenger::set_msg(std::string(str));
+            }
         }
     };
 
@@ -1011,7 +995,8 @@ public:
                 const ImVec2 pos = imgui_GetItemRect().GetBL() + ImVec2(-4, 5);
                 const ImVec2 padding = ImGui::GetStyle().FramePadding;
                 const ImVec2 size = imgui_CalcTextSize(str) + padding * 2;
-                const float alpha = 0.3f;
+                const float alpha = 1;
+                // TODO: ideally should render at the foreground of individual windows...
                 ImDrawList* const drawlist = ImGui::GetForegroundDrawList();
                 drawlist->AddRectFilled(pos, pos + size, ImGui::GetColorU32(ImGuiCol_PopupBg, alpha));
                 drawlist->AddText(pos + padding, ImGui::GetColorU32(ImGuiCol_Text, alpha), str);
@@ -1023,7 +1008,7 @@ public:
                 ImGui::EndDragDropTarget();
                 render_rect(true);
                 if (deliv) {
-                    consumed = true; // Does not !active immediately.
+                    active = false;
                 }
                 return {&rule, deliv ? &rule : nullptr};
             } else if (shortcut != ImGuiKey_None && GImGui->DragDropPayload.SourceId != ImGui::GetItemID() &&
@@ -1145,7 +1130,7 @@ public:
     // void clear() { m_data.clear(); }
 
     // (Used by `rclick_popup`.)
-    void selectable_to_take_snapshot(const char* label, const char* source_label) const {
+    void selectable_to_take_snapshot(const char* label, const char* source_label = nullptr) const {
         const bool empty = m_data.empty();
         ImGui::BeginDisabled(empty);
         if (ImGui::Selectable(std::format("{} ({})###{}", label, size(), label).c_str())) {
