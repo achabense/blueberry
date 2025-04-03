@@ -828,6 +828,7 @@ namespace aniso {
         }
         tileT& operator=(const tileT&) = delete; // -> `= tileT(other)`
 
+        // Not value-preserving.
         void resize(const vecT size) {
             if (m_size != size) {
                 tileT(size).swap(*this);
@@ -871,5 +872,38 @@ namespace aniso {
         }
         return std::nullopt;
     }
+
+    // Always non-empty.
+    // template <int capacity_ = 16>
+    class tile_buf {
+        static constexpr int capacity_ = 16;
+        vecT m_size;
+        cellT m_data[capacity_]; // data outside of m_size remain all-0.
+
+    public:
+        /*implicit*/ tile_buf(cellT c = {0}) : m_size{1, 1}, m_data{} { m_data[0] = c; }
+        explicit tile_buf(vecT size) : m_size{size}, m_data{} { //
+            assert(size.both_gt({0, 0}) && size.xy() <= capacity_);
+        }
+        tile_buf(const tile_buf&) = default;
+        tile_buf& operator=(const tile_buf&) = default;
+        friend bool operator==(const tile_buf&, const tile_buf&) = default;
+
+        static constexpr int capacity() { return capacity_; }
+        vecT size() const { return m_size; }
+        tile_ref data() { return {m_data, m_size}; }
+        tile_const_ref data() const { return {m_data, m_size}; }
+        bool is_0() const { return m_data[0] == cellT{0} && m_size == vecT{1, 1}; }
+
+        // Value-preserving.
+        void resize(vecT size) {
+            tile_buf resized{size};
+            const vecT common = min(m_size, size);
+            copy(resized.data().clip_corner(common), data().clip_corner(common));
+            *this = resized;
+        }
+    };
+
+    static_assert(std::is_trivially_copyable_v<tile_buf>);
 
 } // namespace aniso

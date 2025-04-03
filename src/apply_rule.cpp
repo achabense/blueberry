@@ -306,15 +306,13 @@ public:
 struct initT {
     int seed;
     percentT density;
-    percentT area; // TODO: support more strategies (separate x/y, and fixed size)?
-
-    // TODO: avoid dynamic allocation?
-    aniso::tileT background; // Periodic background.
+    percentT area;
+    aniso::tile_buf background; // Periodic background.
 
     bool operator==(const initT&) const = default;
 
     void initialize(aniso::tileT& tile) const {
-        assert(!tile.empty() && !background.empty());
+        assert(!tile.empty());
         aniso::fill(tile.data(), background.data());
 
         const aniso::vecT tile_size = tile.size();
@@ -322,21 +320,11 @@ struct initT {
         if (!range.empty()) {
             // (Not caring about how the area is aligned with the background.)
             std::mt19937 rand{(uint32_t)seed};
-            aniso::random_flip(tile.data().clip(range), rand, density.get());
-        }
-    }
-
-    // Background ~ 0.
-    static void initialize(aniso::tileT& tile, int seed, percentT density, percentT area) {
-        assert(!tile.empty());
-        aniso::fill(tile.data(), {0});
-
-        const aniso::vecT tile_size = tile.size();
-        const auto range = clamp_window(tile_size, tile_size / 2, from_imvec_floor(to_imvec(tile_size) * area.get()));
-        if (!range.empty()) {
-            // (Using `random_fill` as the background is 0.)
-            std::mt19937 rand{(uint32_t)seed};
-            aniso::random_fill(tile.data().clip(range), rand, density.get());
+            if (background.is_0()) {
+                aniso::random_fill(tile.data().clip(range), rand, density.get());
+            } else {
+                aniso::random_flip(tile.data().clip(range), rand, density.get());
+            }
         }
     }
 };
@@ -470,7 +458,7 @@ class runnerT {
     // TODO: ideally the space window should skip the initial state as well (if not paused).
     // (This change is not as easy to make as it seems, as the current impl is toooo fragile...)
     class torusT {
-        initT m_init{.seed = 0, .density = 0.5, .area = 0.5, .background = aniso::tileT{{.x = 1, .y = 1}}};
+        initT m_init{.seed = 0, .density = 0.5, .area = 0.5, .background = {}};
         aniso::tileT m_torus{};
         int m_gen = 0;
 
@@ -702,6 +690,7 @@ public:
             constexpr aniso::vecT demo_size{.x = 24, .y = 24};
             constexpr int demo_zoom = 3;
             constexpr ImVec2 cell_button_size{18, 18};
+            assert(max_period.xy() == init.background.capacity()); // TODO: -> static_assert when convenient...
 
             std::optional<aniso::vecT> resize{};
             const aniso::tile_ref data = init.background.data();
@@ -771,10 +760,7 @@ public:
             }
 
             if (resize && init.background.size() != *resize) {
-                aniso::tileT resized(*resize); // Already 0-filled.
-                const aniso::vecT common = aniso::min(resized.size(), init.background.size());
-                aniso::copy(resized.data().clip_corner(common), init.background.data().clip_corner(common));
-                init.background.swap(resized);
+                init.background.resize(*resize);
             }
 
             return force_restart;
@@ -1490,18 +1476,21 @@ static runnerT runner;
 void apply_rule(frame_main_token) { runner.display(); }
 
 // TODO: let users decide which to be globally shared?
-class global_config : no_create {
+class previewer_data : no_create {
     friend class previewer;
 
-    inline static int seed = 0;
-    inline static percentT density = 0.5;
-    inline static percentT area = 1.0;
+    inline static initT init = {.seed = 0, .density = 0.5, .area = 1.0, .background = {}};
+    static void reset_init() { init = {.seed = 0, .density = 0.5, .area = 1.0, .background = {}}; }
 
-    static void reset() {
-        seed = 0;
-        density = 0.5;
-        area = 1.0;
-    }
+    struct termT {
+        bool active = false;
+        bool skip_run = false;
+        initT init{.seed = 0, .density = 0.5, .area = 1.0, .background = {}};
+        aniso::ruleT rule = {};
+        aniso::tileT tile = {};
+    };
+
+    inline static std::unordered_map<uint64_t, termT> terms;
 };
 
 void previewer::configT::_set() {
@@ -1538,35 +1527,19 @@ void previewer::configT::_set() {
     menu_like_popup::button("Init state");
     menu_like_popup::popup([] {
         if (ImGui::Button("Reset")) {
-            global_config::reset();
+            previewer_data::reset_init();
         }
         ImGui::SameLine();
         imgui_StrTooltip("(?)", "These settings are shared by all preview windows across the program.");
-        imgui_StepSliderInt::fn("Seed", &global_config::seed, 0, 9);
-        global_config::density.step_slide("Density", 10, 100, 10);
-        global_config::area.step_slide("Area", 10, 100, 10);
+        imgui_StepSliderInt::fn("Seed", &previewer_data::init.seed, 0, 9);
+        previewer_data::init.density.step_slide("Density", 10, 100, 10);
+        previewer_data::init.area.step_slide("Area", 10, 100, 10);
         imgui_Str("Background ~ default (single black cell)");
     });
 
     ImGui::PopItemWidth();
     // ImGui::PopStyleVar();
 }
-
-class previewer_data : no_create {
-    friend class previewer;
-
-    struct termT {
-        bool active = false;
-        bool skip_run = false;
-        int seed = 0;
-        percentT density = 0.5;
-        percentT area = 0;
-        aniso::ruleT rule = {};
-        aniso::tileT tile = {};
-    };
-
-    inline static std::unordered_map<uint64_t, termT> terms;
-};
 
 void previewer::begin_frame(frame_main_token) {
     if (!previewer_data::terms.empty()) {
@@ -1605,16 +1578,12 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     assert_implies(passing, !enable_shortcuts);
 
     const bool restart = (enable_shortcuts && shortcuts::test_pressed(ImGuiKey_R)) || //
-                         term.tile.size() != tile_size || term.seed != global_config::seed ||
-                         term.density != global_config::density || term.area != global_config::area ||
-                         term.rule != rule;
+                         term.tile.size() != tile_size || term.init != previewer_data::init || term.rule != rule;
     if (restart) {
         term.tile.resize(tile_size);
-        term.seed = global_config::seed;
-        term.density = global_config::density;
-        term.area = global_config::area;
+        term.init = previewer_data::init;
         term.rule = rule;
-        initT::initialize(term.tile, global_config::seed, global_config::density, global_config::area);
+        term.init.initialize(term.tile);
         term.skip_run = true;
     }
 
