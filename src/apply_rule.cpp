@@ -442,6 +442,7 @@ class runnerT {
             extra_pause = false;
         }
 
+        bool tick() const { return extra_step != 0 || pace.interval.test(); }
         int calc_step(const aniso::ruleT& rule) const {
             if (extra_step) {
                 return extra_step;
@@ -549,12 +550,13 @@ class runnerT {
             return false;
         }
 
-        void run(const aniso::ruleT& rule, const int step) {
-            if (skip_next && step != 0) {
+        void run(const aniso::ruleT& rule, const ctrlT& ctrl) {
+            if (skip_next && ctrl.tick()) {
                 skip_next = false;
                 return;
             }
 
+            const int step = ctrl.calc_step(rule);
             for (int c = 0; c < step; ++c) {
                 m_torus.run_torus(rule);
                 ++m_gen;
@@ -1480,7 +1482,7 @@ public:
         }
 
         assert(!m_torus.resized_since_last_check());
-        m_torus.run(current_rule, m_ctrl.calc_step(current_rule));
+        m_torus.run(current_rule, m_ctrl);
     }
 };
 

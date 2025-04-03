@@ -696,7 +696,8 @@ struct page_adapter {
         }
     }
 
-    static constexpr const char* resizing_policy = "This window can be auto-resized by double-clicking its resize border.";
+    static constexpr const char* resizing_policy =
+        "This window can be auto-resized by double-clicking its resize border.";
 };
 
 // !!TODO: improve...
