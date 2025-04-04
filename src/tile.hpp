@@ -881,10 +881,12 @@ namespace aniso {
         cellT m_data[capacity_]; // data outside of m_size remain all-0.
 
     public:
-        /*implicit*/ tile_buf(cellT c = {0}) : m_size{1, 1}, m_data{} { m_data[0] = c; }
-        explicit tile_buf(vecT size) : m_size{size}, m_data{} { //
+        explicit tile_buf(const vecT size) : m_size{size}, m_data{} { //
             assert(size.both_gt({0, 0}) && size.xy() <= capacity_);
         }
+        /*implicit*/ constexpr tile_buf(const cellT c = {0}) : m_size{1, 1}, m_data{} { m_data[0] = c; }
+        /*implicit*/ tile_buf(const tile_const_ref tile) : tile_buf{tile.size} { copy(data(), tile); }
+
         tile_buf(const tile_buf&) = default;
         tile_buf& operator=(const tile_buf&) = default;
         friend bool operator==(const tile_buf&, const tile_buf&) = default;

@@ -290,7 +290,9 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
 class percentT {
     int m_val; // ∈ [0, 100].
 public:
-    percentT(double v) { m_val = round(std::clamp(v, 0.0, 1.0) * 100); }
+    // percentT(double v) { m_val = round(std::clamp(v, 0.0, 1.0) * 100); }
+    constexpr percentT(int p) { m_val = std::clamp(p, 0, 100); }
+    percentT(double) = delete;
 
     double get() const { return m_val / 100.0; }
 
@@ -328,6 +330,8 @@ struct initT {
         }
     }
 };
+
+static_assert(std::is_trivially_copyable_v<initT>);
 
 struct float_pair {
     float val;
@@ -458,15 +462,18 @@ class runnerT {
     // TODO: ideally the space window should skip the initial state as well (if not paused).
     // (This change is not as easy to make as it seems, as the current impl is toooo fragile...)
     class torusT {
-        initT m_init{.seed = 0, .density = 0.5, .area = 0.5, .background = {}};
-        aniso::tileT m_torus{};
+        static constexpr initT init_init{.seed = 0, .density = 50, .area = 50, .background = {}};
+        static constexpr aniso::vecT init_size{.x = 600, .y = 400};
+
+        initT m_init = init_init;
+        aniso::tileT m_torus = {};
         int m_gen = 0;
 
         bool skip_next = false;
         bool m_resized = true; // Init ~ resized.
 
     public:
-        torusT() { resize_and_restart({.x = 600, .y = 400}); }
+        torusT() { resize_and_restart(init_size); }
 
         void restart() {
             m_gen = 0;
@@ -1265,8 +1272,8 @@ public:
                 constexpr op_term op_paste{_paste, false, ImGuiKey_V, "V"};
 
                 static aniso::cellT background{0};
-                static percentT fill_den = 0.5; // Random-fill.
-                static bool add_rule = true;    // Copy / cut.
+                static percentT fill_den = 50; // Random-fill.
+                static bool add_rule = true;   // Copy / cut.
                 auto copy_sel = [&] {
                     if (m_sel) {
                         std::string rle_str = aniso::to_RLE_str(m_torus.read_only(m_sel->to_range()),
@@ -1475,17 +1482,16 @@ public:
 static runnerT runner;
 void apply_rule(frame_main_token) { runner.display(); }
 
-// TODO: let users decide which to be globally shared?
 class previewer_data : no_create {
     friend class previewer;
 
-    inline static initT init = {.seed = 0, .density = 0.5, .area = 1.0, .background = {}};
-    static void reset_init() { init = {.seed = 0, .density = 0.5, .area = 1.0, .background = {}}; }
+    static constexpr initT init_init{.seed = 0, .density = 50, .area = 100, .background = {}};
+    inline static initT global_init = init_init; // Globally shared.
 
     struct termT {
         bool active = false;
         bool skip_run = false;
-        initT init{.seed = 0, .density = 0.5, .area = 1.0, .background = {}};
+        initT init = init_init; // (Whichever is ok; just to allow for default construction.)
         aniso::ruleT rule = {};
         aniso::tileT tile = {};
     };
@@ -1526,15 +1532,22 @@ void previewer::configT::_set() {
     ImGui::Separator();
     menu_like_popup::button("Init state");
     menu_like_popup::popup([] {
+        initT& init = previewer_data::global_init;
         if (ImGui::Button("Reset")) {
-            previewer_data::reset_init();
+            init = previewer_data::init_init;
         }
         ImGui::SameLine();
+        imgui_Str("Background ~ ");
+        ImGui::SameLine(0, 0);
+        ImGui::Dummy(square_size());
+        imgui_ItemRectFilled(IM_COL32_BLACK);
+        imgui_ItemRect(IM_COL32_GREY(160, 255));
+        ImGui::SameLine();
         imgui_StrTooltip("(?)", "These settings are shared by all preview windows across the program.");
-        imgui_StepSliderInt::fn("Seed", &previewer_data::init.seed, 0, 9);
-        previewer_data::init.density.step_slide("Density", 10, 100, 10);
-        previewer_data::init.area.step_slide("Area", 10, 100, 10);
-        imgui_Str("Background ~ default (single black cell)");
+
+        imgui_StepSliderInt::fn("Seed", &init.seed, 0, 9);
+        init.density.step_slide("Density", 10, 100, 10);
+        init.area.step_slide("Area", 10, 100, 10);
     });
 
     ImGui::PopItemWidth();
@@ -1555,7 +1568,7 @@ void previewer::begin_frame(frame_main_token) {
 void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
-    static auto keys_avail_and_window_hovered = [] { //
+    static auto keys_avail_and_window_hovered = [] {
         // (Window-hovered should go before test-pressed to avoid messing with shortcut precedence.)
         // TODO: let this be tested by configT?
         return (shortcuts::keys_avail() || imgui_IsBgHeld()) && ImGui::IsWindowHovered();
@@ -1578,10 +1591,10 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     assert_implies(passing, !enable_shortcuts);
 
     const bool restart = (enable_shortcuts && shortcuts::test_pressed(ImGuiKey_R)) || //
-                         term.tile.size() != tile_size || term.init != previewer_data::init || term.rule != rule;
+                         term.tile.size() != tile_size || term.init != previewer_data::global_init || term.rule != rule;
     if (restart) {
         term.tile.resize(tile_size);
-        term.init = previewer_data::init;
+        term.init = previewer_data::global_init;
         term.rule = rule;
         term.init.initialize(term.tile);
         term.skip_run = true;
