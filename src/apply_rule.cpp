@@ -367,7 +367,7 @@ public:
 };
 
 // TODO: refactor; the code is horribly messy...
-class runnerT {
+class runnerT : no_copy {
     static constexpr aniso::vecT size_min{.x = 20, .y = 15};
     static constexpr aniso::vecT size_max{.x = 1600, .y = 1200};
     static constexpr ImVec2 min_canvas_size{size_min.x * zoomT::max(), size_min.y* zoomT::max()};
@@ -540,9 +540,9 @@ class runnerT {
         }
         bool resized_since_last_check() { return std::exchange(m_resized, false); }
 
-        bool set_init(const func_ref<bool(initT&)> fn) {
-            const initT old_init = m_init;
-            if (fn(m_init) || old_init != m_init) {
+        const initT& get_init() const { return m_init; }
+        bool set_init(const initT& init) {
+            if (compare_update(m_init, init)) {
                 resize_and_restart(m_torus.size()); // In case the background is resized.
                 return true;
             }
@@ -660,16 +660,16 @@ public:
             }
         }
 
-        const char* const canvas_name = "Canvas";
+        constexpr const char* canvas_name = "Canvas";
         const ImGuiID canvas_id = ImGui::GetID(canvas_name);
         // The shortcuts are available only when the canvas is hovered or held.
         // (`keys_avail` is needed for hover case, as the canvas can still be hovered when another text-input is active (won't actually happen now).)
         const bool canvas_hovered_or_held =
             ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
 
-        auto set_init_state = [&](initT& init) {
+        auto set_init_state_in_popup = [&]() {
             // TODO: support reset-all?
-            const bool force_restart =
+            const bool restart =
                 ImGui::Button("Restart") ||
                 (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_R) && shortcuts::highlight());
             ImGui::SameLine();
@@ -680,6 +680,8 @@ public:
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "The space will pause and restart if you 'Restart' or change init settings.\n\n"
                                     "The shortcuts for 'Restart' ('R') and 'Pause' ('Space') also work here.");
+
+            initT init = m_torus.get_init();
 
             ImGui::PushItemWidth(item_width);
             imgui_StepSliderInt::fn("Seed", &init.seed, 0, 29);
@@ -706,8 +708,6 @@ public:
             constexpr ImVec2 cell_button_size{18, 18};
             assert(max_period.xy() == init.background.capacity()); // TODO: -> static_assert when convenient...
 
-            std::optional<aniso::vecT> resize{};
-            const aniso::tile_ref data = init.background.data();
             ImGui::InvisibleButton("##Board", cell_button_size * to_imvec(max_period),
                                    ImGuiButtonFlags_MouseButtonLeft |
                                        ImGuiButtonFlags_MouseButtonRight); // So right-click can activate the button.
@@ -716,6 +716,8 @@ public:
                 const bool button_hovered = ImGui::IsItemHovered();
                 const ImVec2 mouse_pos = ImGui::GetMousePos();
                 ImDrawList* const drawlist = ImGui::GetWindowDrawList();
+                const aniso::tile_ref data = init.background.data();
+                std::optional<aniso::vecT> resize{};
                 for (int y = 0; y < max_period.y; ++y) {
                     for (int x = 0; x < max_period.x; ++x) {
                         const bool in_range = x < data.size.x && y < data.size.y;
@@ -741,26 +743,26 @@ public:
                         }
                     }
                 }
+                if (resize && init.background.size() != *resize) {
+                    init.background.resize(*resize);
+                }
             }
 
             {
                 aniso::tileT demo(demo_size);
-                aniso::fill(demo.data(), data);
+                aniso::fill(demo.data(), init.background.data());
+                static aniso::tileT curr;
+                static bool skip_next = false;
+                if (ImGui::IsWindowAppearing() || init.background != m_torus.get_init().background) {
+                    curr = aniso::tileT(demo);
+                    skip_next = true;
+                }
 
                 ImGui::SameLine(0, 0);
                 imgui_Str(" ~ ");
                 ImGui::SameLine(0, 0);
                 ImGui::Image(to_texture(demo.data(), scaleE::Nearest), to_imvec(demo.size() * demo_zoom));
                 imgui_ItemRect(IM_COL32_GREY(160, 255));
-
-                static aniso::tileT init, curr;
-                static bool skip_next = false;
-                if (ImGui::IsWindowAppearing() || init != demo) {
-                    init = aniso::tileT(demo);
-                    curr = aniso::tileT(demo);
-                    skip_next = true;
-                }
-
                 ImGui::SameLine(0, 0);
                 imgui_Str(" ~ ");
                 ImGui::SameLine(0, 0);
@@ -772,11 +774,15 @@ public:
                 }
             }
 
-            if (resize && init.background.size() != *resize) {
-                init.background.resize(*resize);
+            if (restart) {
+                m_torus.restart();
             }
-
-            return force_restart;
+            if (m_torus.set_init(init) || restart) {
+                m_ctrl.set_pause(true);
+                m_sel.reset();
+                m_paste.reset();
+                m_ctrl.pop_pause_for_m_paste();
+            };
         };
 
         auto input_size = [&] {
@@ -911,14 +917,7 @@ public:
         ImGui::SameLine(floor(1.5 * item_width));
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
-        menu_like_popup::popup([&] {
-            if (m_torus.set_init(set_init_state)) {
-                m_ctrl.set_pause(true);
-                m_sel.reset();
-                m_paste.reset();
-                m_ctrl.pop_pause_for_m_paste();
-            }
-        });
+        menu_like_popup::popup([&] { set_init_state_in_popup(); });
         ImGui::SameLine();
         if (ImGui::Button("Reset pos")) { // !!TODO: (v0.9.9) -> menu for resetting pos, size etc..
             locate_center = true;
