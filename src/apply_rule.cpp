@@ -345,7 +345,7 @@ class zoomT {
     static constexpr int index_max = std::size(terms) - 1; // ]
     static_assert(terms[index_1].val == 1);
 
-    int m_index /*=index_1*/;
+    int m_index; // = index_1;
 
     // Why is aggr init not allowed for private members, even inside class?
     constexpr zoomT(int i) : m_index{i} {}
@@ -525,17 +525,19 @@ class runnerT {
             return n_size;
         }
 
-        void resize(const aniso::vecT size, bool force_restart = false) {
-            const aniso::vecT n_size = calc_size(size);
-            if (m_torus.size() != n_size) {
-                m_torus.resize(n_size);
+        bool resize(const aniso::vecT size) {
+            if (m_torus.resize(calc_size(size))) {
                 m_resized = true;
                 restart();
-            } else if (force_restart) {
+                return true;
+            }
+            return false;
+        }
+        void resize_and_restart(const aniso::vecT size) {
+            if (!resize(size)) {
                 restart();
             }
         }
-        void resize_and_restart(const aniso::vecT size) { resize(size, true); }
         bool resized_since_last_check() { return std::exchange(m_resized, false); }
 
         bool set_init(const func_ref<bool(initT&)> fn) {
@@ -1593,12 +1595,10 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                                                                      : (hovered && (active || shortcuts::keys_avail()));
     assert_implies(passing, !enable_shortcuts);
 
-    const bool restart = (enable_shortcuts && shortcuts::test_pressed(ImGuiKey_R)) || //
-                         term.tile.size() != tile_size || term.init != previewer_data::global_init || term.rule != rule;
+    const bool restart = (enable_shortcuts && shortcuts::test_pressed(ImGuiKey_R)) + // No short-circuiting.
+                         term.tile.resize(tile_size) + compare_update(term.init, previewer_data::global_init) +
+                         compare_update(term.rule, rule);
     if (restart) {
-        term.tile.resize(tile_size);
-        term.init = previewer_data::global_init;
-        term.rule = rule;
         term.init.initialize(term.tile);
         term.skip_run = true;
     }

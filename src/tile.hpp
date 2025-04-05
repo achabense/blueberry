@@ -829,10 +829,12 @@ namespace aniso {
         tileT& operator=(const tileT&) = delete; // -> `= tileT(other)`
 
         // Not value-preserving.
-        void resize(const vecT size) {
+        bool resize(const vecT size) {
             if (m_size != size) {
                 tileT(size).swap(*this);
+                return true;
             }
+            return false;
         }
 
         vecT size() const { return m_size; }
@@ -898,7 +900,7 @@ namespace aniso {
         bool is_0() const { return m_data[0] == cellT{0} && m_size == vecT{1, 1}; }
 
         // Value-preserving.
-        void resize(vecT size) {
+        void resize(const vecT size) {
             tile_buf resized{size};
             const vecT common = min(m_size, size);
             copy(resized.data().clip_corner(common), data().clip_corner(common));
