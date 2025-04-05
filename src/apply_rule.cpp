@@ -1,4 +1,5 @@
 #include <numbers>
+#include <ranges>
 #include <unordered_map>
 
 #include "tile.hpp"
@@ -342,31 +343,27 @@ class zoomT {
     static constexpr float_pair terms[]{{0.5, "0.5"}, {1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}, {5, "5"}};
     static constexpr int index_1 = 1;
     static constexpr int index_max = std::size(terms) - 1; // ]
-    int m_index = index_1;
+    static_assert(terms[index_1].val == 1);
+
+    int m_index /*=index_1*/;
+
+    // Why is aggr init not allowed for private members, even inside class?
+    constexpr zoomT(int i) : m_index{i} {}
 
 public:
-    void set_1() {
-        static_assert(terms[index_1].val == 1);
-        m_index = index_1;
-    }
+    constexpr zoomT() : m_index{index_1} {}
+    bool operator==(const zoomT&) const = default;
+
     void slide(int di) { m_index = std::clamp(m_index + di, 0, index_max); }
-    void select(const func_ref<bool(bool, const float_pair&)> fn) {
-        int n_index = m_index;
-        for (int i = 0; const auto& term : terms) {
-            const int this_i = i++;
-            if (fn(m_index == this_i, term)) {
-                n_index = this_i;
-            }
-        }
-        m_index = n_index;
+
+    static constexpr zoomT min() { return zoomT{0}; }
+    static constexpr zoomT max() { return zoomT{index_max}; }
+    static auto list() { //
+        return std::views::iota(0, index_max + 1) | std::views::transform([](int i) { return zoomT{i}; });
     }
 
-    static constexpr float min() { return terms[0].val; }
-    static constexpr float max() { return terms[index_max].val; }
-    operator float() const {
-        assert(m_index >= 0 && m_index <= index_max);
-        return terms[m_index].val;
-    }
+    constexpr operator float() const { return terms[m_index].val; }
+    const char* str() const { return terms[m_index].str; }
 };
 
 // TODO: refactor; the code is horribly messy...
@@ -384,13 +381,18 @@ class runnerT {
         const aniso::ruleT& get() const { return rule; }
         const rec_for_rule* operator->() const { return rule.operator->(); }
 
-        void set_next(const aniso::ruleT& r) {
-            if (rule == r) {
-                messenger::set_msg("Identical.");
-            } else {
-                next = r;
-            }
+        void set_next_unchecked(const aniso::ruleT& r) {
+            assert(rule != r);
+            next = r;
         }
+        bool set_next(const aniso::ruleT& r) {
+            if (rule != r) {
+                next = r;
+                return true;
+            }
+            return false;
+        }
+
         bool begin_frame() {
             if (next) {
                 rule.set(*next);
@@ -601,15 +603,18 @@ class runnerT {
     std::optional<selectT> m_sel = std::nullopt;
 
 public:
-    void set_next_rule(const aniso::ruleT& rule) { current_rule.set_next(rule); }
+    void set_next_rule(const aniso::ruleT& rule) {
+        if (!current_rule.set_next(rule)) {
+            messenger::set_msg("Identical.");
+        }
+    }
 
     // TODO: (wontfix?) there cannot actually be multiple instances in the program.
     // For example, there are a lot of static variables in `display`, and the keyboard controls are not designed
     // for per-object use.
     void display() {
         m_ctrl.begin_frame();
-        const bool rule_changed = current_rule.begin_frame();
-        if (rule_changed) {
+        if (current_rule.begin_frame()) {
             m_torus.restart();
             m_ctrl.set_pause(false);
         }
@@ -634,14 +639,14 @@ public:
                 if (*pass.any() == current_rule) {
                     pass.tooltip_or_message("Identical.");
                 } else if (pass.deliv) {
-                    current_rule.set_next(*pass.deliv); // TODO: avoid comparing in `set_next`.
+                    current_rule.set_next_unchecked(*pass.deliv);
                 }
             }
             guide_mode::item_tooltip("MAP-string for ... !!TODO");
             ImGui::Separator();
         }
 
-        bool resize_fullscreen = false;
+        std::optional<zoomT> resize_fullscreen = std::nullopt;
         bool locate_center = false;
         bool find_suitable_zoom = false;
         bool highlight_canvas = false;
@@ -748,8 +753,7 @@ public:
 
                 static aniso::tileT init, curr;
                 static bool skip_next = false;
-                if (rule_changed // Defensive, won't actually happen now.
-                    || ImGui::IsWindowAppearing() || init != demo) {
+                if (ImGui::IsWindowAppearing() || init != demo) {
                     init = aniso::tileT(demo);
                     curr = aniso::tileT(demo);
                     skip_next = true;
@@ -802,14 +806,12 @@ public:
         auto select_zoom = [&] {
             ImGui::AlignTextToFramePadding();
             imgui_Str("Zoom ~");
-            m_coord.zoom.select([&](const bool is_cur, const float_pair& z) {
+            for (const zoomT& z : zoomT::list()) {
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                if (ImGui::RadioButton(z.str, is_cur)) {
-                    resize_fullscreen = true;
-                    return true;
+                if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
+                    resize_fullscreen = z;
                 }
-                return false;
-            });
+            }
             ImGui::SameLine();
             if (imgui_StrTooltip("(?)", "The buttons are for resizing the space to full-screen.\n\n"
                                         "(Scroll in the space window to zoom in/out without resizing.)")) {
@@ -976,11 +978,11 @@ public:
                 ImGui::PopStyleVar();
                 ImGui::SameLine();
                 const bool clear = double_click_button_small("Clear");
-                if (m_paste->rule && m_paste->rule != current_rule) {
+                if (m_paste->rule && *(m_paste->rule) != current_rule) {
                     // !!TODO: redesign... this can be a rule-source...
                     ImGui::SameLine();
                     if (double_click_button_small("Rule")) {
-                        current_rule.set_next(*(m_paste->rule));
+                        current_rule.set_next_unchecked(*(m_paste->rule));
                     }
                     ImGui::SameLine();
                     imgui_StrTooltip("(?)", "The pattern specified a different rule.");
@@ -1026,16 +1028,17 @@ public:
 
             if (resize_fullscreen) {
                 locate_center = true;
+                m_coord.zoom = *resize_fullscreen;
                 m_torus.resize(from_imvec_floor((canvas_size - ImVec2(20, 20)) / m_coord.zoom));
             } else if (find_suitable_zoom) {
-                // (wontfix) Poorly written, but works...
                 // Select the largest zoom that can hold the entire tile.
-                m_coord.zoom.slide(-100); // -> smallest.
-                m_coord.zoom.select([&](bool, const float_pair& z) {
-                    const aniso::vecT size =
-                        m_torus.calc_size(from_imvec_floor((canvas_size - ImVec2(20, 20)) / z.val));
-                    return size.both_gteq(m_torus.size());
-                });
+                m_coord.zoom = zoomT::min();
+                for (const zoomT& z : zoomT::list()) {
+                    const aniso::vecT size = m_torus.calc_size(from_imvec_floor((canvas_size - ImVec2(20, 20)) / z));
+                    if (size.both_gteq(m_torus.size())) {
+                        m_coord.zoom = z;
+                    }
+                }
             }
 
             // `m_torus` won't resize now.
