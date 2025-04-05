@@ -368,8 +368,8 @@ public:
 
 // TODO: refactor; the code is horribly messy...
 class runnerT : no_copy {
-    static constexpr aniso::vecT size_min{.x = 20, .y = 15};
-    static constexpr aniso::vecT size_max{.x = 1600, .y = 1200};
+    static constexpr aniso::vecT size_min{.x = 30, .y = 20};
+    static constexpr aniso::vecT size_max{.x = 1500, .y = 1000};
     static constexpr ImVec2 min_canvas_size{size_min.x * zoomT::max(), size_min.y* zoomT::max()};
 
     class staged_rule {
@@ -471,7 +471,7 @@ class runnerT : no_copy {
         aniso::tileT m_torus = {};
         int m_gen = 0;
 
-        bool skip_next = false;
+        bool skip_run = true;
         bool m_resized = true; // Init ~ resized.
 
     public:
@@ -480,29 +480,30 @@ class runnerT : no_copy {
         void restart() {
             m_gen = 0;
             m_init.initialize(m_torus);
-            skip_next = true;
+            skip_run = true;
         }
 
         aniso::tile_const_ref read_only() const { return m_torus.data(); }
         aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_torus.data().clip(range); }
 
         aniso::tile_ref write_only() {
-            skip_next = true;
+            skip_run = true;
             return m_torus.data();
         }
         aniso::tile_ref write_only(const aniso::rangeT& range) {
-            skip_next = true;
+            skip_run = true;
             return m_torus.data().clip(range);
         }
 
         void read_and_maybe_write(const func_ref<bool(aniso::tile_ref)> fn) {
             if (fn(m_torus.data())) {
-                skip_next = true;
+                skip_run = true;
             }
         }
 
         void rotate_00_to(int dx, int dy) {
             if (dx != 0 || dy != 0) {
+                // skip_run = true;
                 aniso::tileT temp(m_torus.size());
                 aniso::rotate_copy_00_to(temp.data(), m_torus.data(), {.x = dx, .y = dy});
                 m_torus.swap(temp);
@@ -548,10 +549,18 @@ class runnerT : no_copy {
             }
             return false;
         }
+        bool resize_and_set_init(const aniso::vecT& size, const initT& init) {
+            if (compare_update(m_init, init)) {
+                resize_and_restart(size);
+                return true;
+            } else {
+                return resize(size);
+            }
+        }
 
         void run(const aniso::ruleT& rule, const ctrlT& ctrl) {
-            if (skip_next && ctrl.tick()) {
-                skip_next = false;
+            if (skip_run && ctrl.tick()) {
+                skip_run = false;
                 return;
             }
 
@@ -604,9 +613,24 @@ class runnerT : no_copy {
     };
     std::optional<selectT> m_sel = std::nullopt;
 
+    bool locate_center = true;
+    bool find_suitable_zoom = true;
+
 public:
-    void set_next_rule(const aniso::ruleT& rule) {
+    void set_rule(const aniso::ruleT& rule) {
         if (!current_rule.set_next(rule)) {
+            messenger::set_msg("Identical.");
+        }
+    }
+
+    // TODO: may restart twice (wasteful but has no observable affect.)
+    void set_rule_and_state(const aniso::ruleT& rule, const aniso::vecT& size, const initT& init) {
+        locate_center = true;
+        find_suitable_zoom = true;
+
+        const bool rule_updated = current_rule.set_next(rule);
+        const bool state_updated = m_torus.resize_and_set_init(size, std::move(init));
+        if (!rule_updated && !state_updated) {
             messenger::set_msg("Identical.");
         }
     }
@@ -649,16 +673,7 @@ public:
         }
 
         std::optional<zoomT> resize_fullscreen = std::nullopt;
-        bool locate_center = false;
-        bool find_suitable_zoom = false;
         bool highlight_canvas = false;
-        {
-            static bool first = true;
-            if (std::exchange(first, false)) {
-                locate_center = true;
-                find_suitable_zoom = true;
-            }
-        }
 
         constexpr const char* canvas_name = "Canvas";
         const ImGuiID canvas_id = ImGui::GetID(canvas_name);
@@ -752,10 +767,10 @@ public:
                 aniso::tileT demo(demo_size);
                 aniso::fill(demo.data(), init.background.data());
                 static aniso::tileT curr;
-                static bool skip_next = false;
+                static bool skip_run = true;
                 if (ImGui::IsWindowAppearing() || init.background != m_torus.get_init().background) {
                     curr = aniso::tileT(demo);
-                    skip_next = true;
+                    skip_run = true;
                 }
 
                 ImGui::SameLine(0, 0);
@@ -769,7 +784,7 @@ public:
                 ImGui::Image(to_texture(curr.data(), scaleE::Nearest), to_imvec(curr.size() * demo_zoom));
                 imgui_ItemRect(IM_COL32_GREY(160, 255));
 
-                if (global_timer::test(200) && !std::exchange(skip_next, false)) {
+                if (global_timer::test(200) && !std::exchange(skip_run, false)) {
                     curr.run_torus(current_rule.get());
                 }
             }
@@ -778,6 +793,9 @@ public:
                 m_torus.restart();
             }
             if (m_torus.set_init(init) || restart) {
+                // locate_center = true;
+                // find_suitable_zoom = true;
+
                 m_ctrl.set_pause(true);
                 m_sel.reset();
                 m_paste.reset();
@@ -821,6 +839,7 @@ public:
                 }
             }
             ImGui::SameLine();
+            // !!TODO: rephrase...
             if (imgui_StrTooltip("(?)", "The buttons are for resizing the space to full-screen.\n\n"
                                         "(Scroll in the space window to zoom in/out without resizing.)")) {
                 highlight_canvas = true;
@@ -924,7 +943,7 @@ public:
             find_suitable_zoom = true;
         }
         guide_mode::item_tooltip(
-            "Move the space to the center, and select suitable zoom for it. (As if the space is newly resized.)");
+            "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
         ImGui::SameLine();
         ImGui::Text("Generation:%d", m_torus.gen());
 
@@ -1027,17 +1046,28 @@ public:
                 m_ctrl.pause_for_this_frame();
             }
 
+            const auto fullscreen_size = [&](const zoomT& z) {
+                // return m_torus.calc_size(from_imvec_floor((canvas_size - ImVec2(20, 20)) / z));
+                // (v So that 220*160 will choose zoom = 2...)
+                return m_torus.calc_size(
+                    from_imvec_floor((canvas_size - (z > 2 ? ImVec2(70, 70) : ImVec2(50, 50))) / z));
+                // return m_torus.calc_size(
+                //     from_imvec_floor((canvas_size - ImVec2(30, 30) * std::max((float)z, 1.0f)) / z));
+            };
+
             if (resize_fullscreen) {
                 locate_center = true;
+                find_suitable_zoom = false;
                 m_coord.zoom = *resize_fullscreen;
-                m_torus.resize(from_imvec_floor((canvas_size - ImVec2(20, 20)) / m_coord.zoom));
-            } else if (find_suitable_zoom) {
+                m_torus.resize(fullscreen_size(m_coord.zoom));
+            }
+            if (std::exchange(find_suitable_zoom, false)) {
                 // Select the largest zoom that can hold the entire tile.
                 m_coord.zoom = zoomT::min();
-                for (const zoomT& z : zoomT::list()) {
-                    const aniso::vecT size = m_torus.calc_size(from_imvec_floor((canvas_size - ImVec2(20, 20)) / z));
-                    if (size.both_gteq(m_torus.size())) {
+                for (const zoomT& z : std::views::reverse(zoomT::list())) {
+                    if (fullscreen_size(z).both_gteq(m_torus.size())) {
                         m_coord.zoom = z;
+                        break;
                     }
                 }
             }
@@ -1050,7 +1080,7 @@ public:
                 m_ctrl.pop_pause_for_m_paste();
             }
 
-            if (locate_center) {
+            if (std::exchange(locate_center, false)) {
                 m_coord.bind(to_imvec(tile_size) / 2, canvas_size / 2);
                 to_rotate = {0, 0};
             }
@@ -1527,7 +1557,7 @@ void previewer::configT::_set() {
     ImGui::SameLine();
     imgui_StrTooltip(
         "(?)",
-        "Unlike space window's 'Size ~' (which refers to space size), 'Width' and 'Height' here refer to image size (in pixels) and are unrelated to zoom setting.");
+        "Unlike space window's 'Size ~' (which refers to space size), 'Width' and 'Height' here refer to image size (in pixels) and are unrelated to 'Zoom ~'.");
 
     ImGui::Separator();
     imgui_StepSliderInt::fn("Step", &step, 1, 30);
@@ -1648,10 +1678,14 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             if (ImGui::Selectable("Copy rule")) {
                 copy_rule::copy(rule);
             }
-            // !!TODO: either remove, or enhance to copying size & init state as well.
-            if (ImGui::Selectable("To right panel")) {
-                runner.set_next_rule(rule);
+            if (ImGui::Selectable("Explore")) {
+                runner.set_rule(rule);
             }
+            guide_mode::item_tooltip("!!TODO...");
+            if (ImGui::Selectable("Explore (& state)")) {
+                runner.set_rule_and_state(rule, term.tile.size(), term.init);
+            }
+            guide_mode::item_tooltip("!!TODO...");
 
             imgui_StrTooltip(
                 "(...)",
