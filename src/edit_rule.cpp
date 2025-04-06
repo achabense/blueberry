@@ -658,6 +658,108 @@ public:
     }
 };
 
+// !!TODO: unfinished...
+// 0/1-rev, approx and buffers...
+static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
+    assert(show_misc);
+    static previewer::configT config{previewer::configT::_220_160};
+    const ImVec2 min_size = [] {
+        const auto& style = ImGui::GetStyle();
+        const int min_size_x = config.width() + style.ScrollbarSize;
+        const int min_size_y =
+            ImGui::GetFrameHeight() * 2 + style.ItemSpacing.y * 3 + ImGui::GetTextLineHeight() + config.height();
+        return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
+    }();
+
+    ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + config.width(), 500});
+    ImGui::SetNextWindowSize(min_size, ImGuiCond_FirstUseEver);
+    // !!TODO: better title...
+    if (auto window = imgui_Window("Misc utils", &show_misc, ImGuiWindowFlags_NoSavedSettings)) {
+        static std::optional<aniso::ruleT> rule_01_rev = aniso::trans_reverse(aniso::game_of_life());
+        static std::optional<aniso::ruleT> rule_approx;
+        static std::optional<aniso::ruleT> rule_temp[8];
+
+        auto manage = [](std::optional<aniso::ruleT>& rule) {
+            rclick_popup::popup(imgui_GetItemPosID(), [&] {
+                if (ImGui::Selectable("Clear")) {
+                    set_msg_cleared(rule.has_value());
+                    rule.reset();
+                }
+            });
+            return pass_rule::dest();
+        };
+        auto show_rule = [](int id, std::optional<aniso::ruleT>& rule) {
+            if (rule) {
+                previewer::preview(id, config, *rule);
+            } else {
+                previewer::dummy(config);
+            }
+        };
+
+        config.set("Settings");
+        if constexpr (debug_mode) {
+            ImGui::SameLine();
+            if (double_click_button_small("Clear all")) {
+                set_msg_cleared();
+                rule_01_rev.reset();
+                rule_approx.reset();
+                for (auto& rule : rule_temp) {
+                    rule.reset();
+                }
+            }
+        }
+
+        // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
+        if (auto child = imgui_ChildWindow("Page")) {
+            int id = 0;
+
+            ImGui::Separator();
+            imgui_Str("0/1 reversal");
+            if (const auto pass = manage(rule_01_rev)) {
+                if (aniso::_subsets::self_complementary.contains(*pass.any())) {
+                    pass.tooltip_or_message("The rule is self-complementary, so its reversal dual will be itself.");
+                }
+                if (pass.deliv) {
+                    rule_01_rev = aniso::trans_reverse(*pass.deliv);
+                }
+            }
+            ImGui::SameLine();
+            imgui_StrTooltip(
+                "(?)",
+                "Get the 0/1 reversal dual of the current rule.\n\n"
+                "(That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].)");
+            show_rule(id++, rule_01_rev);
+
+            ImGui::Separator();
+            imgui_Str("Approx");
+            if (const auto pass = manage(rule_approx)) {
+                if (working_set.contains(*pass.any())) {
+                    pass.tooltip_or_message("The rule already belongs to the working set.");
+                }
+                if (pass.deliv) {
+                    rule_approx = aniso::approximate(working_set, *pass.deliv);
+                }
+            }
+            ImGui::SameLine();
+            imgui_StrTooltip("(?)", "Get a rule in the working set by ... !!TODO");
+            show_rule(id++, rule_approx);
+
+            for (int i = 1; auto& rule : rule_temp) {
+                ImGui::Separator();
+                ImGui::Text("Temp %d", i++);
+                if (const auto pass = manage(rule); pass.deliv) {
+                    // !!TODO: whether to compare?
+                    messenger::set_msg("Updated.");
+                    rule = *pass.deliv;
+                }
+                show_rule(id++, rule);
+            }
+        }
+        ImGui::PopStyleColor();
+    };
+}
+
 struct page_adapter {
     int page_size = 6, perline = 3;
     ImVec2 min_req_size = {};
@@ -986,7 +1088,7 @@ static void random_rule_window(bool& show_rand, const aniso::subsetT& working_se
     }
 }
 
-// !!TODO: support random-access in a separate window?
+// TODO: support random-access in a separate window?
 // static void random_access_window(bool& show_rand_access, const aniso::subsetT& working_set, const aniso::maskT& mask) {}
 
 void edit_rule(frame_main_token) {
@@ -1062,6 +1164,17 @@ void edit_rule(frame_main_token) {
     static rule_with_rec target = working_set.get_mask(); // Random-access // !!TODO: workaround; should redesign...
     static previewer::configT config{previewer::configT::_220_160};
     {
+        static bool show_misc = false;
+        ImGui::Checkbox("Misc", &show_misc);
+        guide_mode::item_tooltip("!!TODO...");
+        if (show_misc) {
+            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+            ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
+            misc_window(show_misc, working_set);
+        }
+    }
+    ImGui::SameLine();
+    {
         ImGui::Checkbox("Traverse", &show_trav);
         guide_mode::item_tooltip("Iterate through all rules in the working set.\n\n"
                                  "(This is mainly useful for small sets.)");
@@ -1129,6 +1242,7 @@ void edit_rule(frame_main_token) {
 #endif
             imgui_Str(str);
         } else {
+            // !!TODO: recheck...
             ImGui::Text("Groups:%d !contained", c_group);
             ImGui::SameLine();
             imgui_StrTooltip("(?)",
@@ -1136,24 +1250,6 @@ void edit_rule(frame_main_token) {
                              "Check the '-x' groups for details - no matter which mask is selected, for any rule in "
                              "the working set, the masked values should be all the same in any group.\n\n"
                              "You can get rules in the working set from the 'Traverse' or 'Random' window.");
-#if 0
-            if constexpr (debug_mode) { // TODO: whether to remove this?
-                rclick_popup::popup(imgui_GetItemPosID(), [&] {
-                    if (ImGui::Selectable("Approx")) {
-                        sync.set(aniso::approximate(working_set.get_par(), mask, sync.rule));
-                    }
-                    imgui_ItemTooltip([&] {
-                        imgui_Str(
-                            "Get a rule in the working set by setting all '-x' groups to be the same as the masking rule.");
-                        ImGui::Separator();
-                        imgui_Str("Preview:");
-                        ImGui::SameLine();
-                        previewer::preview(-1, previewer::configT::_220_160,
-                                           aniso::approximate(working_set.get_par(), mask, sync.rule));
-                    });
-                });
-            }
-#endif
         }
     } else {
         ImGui::Text("Groups:%d", working_set.get_par().k());

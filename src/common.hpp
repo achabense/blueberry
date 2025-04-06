@@ -987,7 +987,7 @@ public:
 
     // !!TODO: how to document the shortcuts?
     [[nodiscard]] static passT dest(const ImGuiKey shortcut = ImGuiKey_None, const char label = '\0') {
-        if (active) {
+        if (active && ImGui::IsItemVisible()) {
             static item_timer timer{};
             render_rect(timer.test());
             if (label) { // !!TODO: improve...
@@ -1180,16 +1180,16 @@ private:
 
             static previewer::configT settings{previewer::configT::_220_160};
             constexpr const char* label_for_latest = "(Latest)";
-            const ImVec2 min_size = [] {
+            const ImVec2 min_size = [&] {
                 const auto& style = ImGui::GetStyle();
                 const int min_size_x = settings.width() + style.ItemSpacing.x + imgui_CalcTextSize(label_for_latest).x +
-                                       style.ScrollbarSize;
+                                       (snapshot.size() > 1 ? style.ScrollbarSize : 0);
                 const int min_size_y = ImGui::GetFrameHeight() * 2 + style.ItemSpacing.y * 2 + settings.height();
-                return ImVec2(min_size_x, min_size_y) + ImGui::GetStyle().WindowPadding * 2;
+                return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
             }();
 
             ImGui::SetNextWindowSize(min_size, updated ? ImGuiCond_Always : ImGuiCond_Appearing);
-            ImGui::SetNextWindowSizeConstraints(min_size, {1000, 600});
+            ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + settings.width(), 500});
             if (updated) {
                 ImGui::SetNextWindowCollapsed(false);
                 ImGui::SetNextWindowFocus();

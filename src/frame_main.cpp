@@ -41,30 +41,6 @@ public:
 };
 #endif
 
-// !!TODO: redesign...
-#if 0
-static void get_reversal_dual(const bool button_result, sync_point& sync) {
-    if (button_result) {
-        sync.set(rule_algo::trans_reverse(sync.rule));
-    }
-    imgui_ItemTooltip([&] {
-        ImGui::PushTextWrapPos(400);
-        imgui_Str(
-            "Get the 0/1 reversal dual of the current rule.\n\n"
-            "(That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].)");
-        ImGui::Separator();
-        imgui_Str("Preview:");
-        ImGui::SameLine();
-        const aniso::ruleT rev = rule_algo::trans_reverse(sync.rule);
-        previewer::preview(-1, previewer::configT::_220_160, rev);
-        if (rev == sync.rule) {
-            imgui_Str("(It's the same as the current rule, as the current rule is self-complementary.)");
-        }
-        ImGui::PopTextWrapPos();
-    });
-}
-#endif
-
 // !!TODO: unfinished...
 static void load_intro(frame_main_token) {
     ImGui::PushTextWrapPos(wrap_len());
