@@ -886,7 +886,7 @@ public:
 
     // (Note: type-erasure doesn't apply here.)
     // (`const ruleT&()` cannot adapt `ruleT()` calls, while `ruleT()` is unnecessarily costly for `const ruleT&()` calls.)
-    static void preview(uint32_t id, const configT& config, const auto& rule_or_get_rule) {
+    static void preview(const uint32_t id, const configT& config, const auto& rule_or_get_rule) {
         ImGui::PushID(id);
         ImGui::InvisibleButton("Preview", config.size_imvec());
         ImGui::PopID();
@@ -902,6 +902,14 @@ public:
                 // (Should be `static_assert(false)` when the DR gets widely adopted.)
                 assert(false);
             }
+        }
+    }
+
+    static void preview_or_dummy(const uint32_t id, const configT& config, const auto* rule) {
+        if (rule) {
+            preview(id, config, *rule);
+        } else {
+            dummy(config);
         }
     }
 

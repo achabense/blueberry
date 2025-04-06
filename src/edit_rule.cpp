@@ -689,11 +689,8 @@ static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
             return pass_rule::dest();
         };
         auto show_rule = [](int id, std::optional<aniso::ruleT>& rule) {
-            if (rule) {
-                previewer::preview(id, config, *rule);
-            } else {
-                previewer::dummy(config);
-            }
+            // https://stackoverflow.com/questions/73817020/why-is-there-no-built-in-way-to-get-a-pointer-from-an-stdoptional
+            previewer::preview_or_dummy(id, config, rule ? &*rule : nullptr);
         };
 
         config.set("Settings");
@@ -959,12 +956,8 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set) 
             }
         }
         adapter.display([&](const int j) {
-            if (j < page.size()) {
-                assert(j >= 0);
-                previewer::preview(j, config, page[j]);
-            } else {
-                previewer::dummy(config);
-            }
+            assert(j >= 0);
+            previewer::preview_or_dummy(j, config, j < page.size() ? &page[j] : nullptr);
             if (j == 0 && page.empty()) { // (Requiring empty() to be simple; not strictly necessary.)
                 guide_mode::item_tooltip("Drag a rule here to go to where the rule belongs in the sequence.");
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
@@ -1078,12 +1071,9 @@ static void random_rule_window(bool& show_rand, const aniso::subsetT& working_se
             set_last_page();
         }
         adapter.display([&](const int j) {
-            if (const int r = page_no * adapter.page_size + j; r < rules.size()) {
-                assert(r >= 0);
-                previewer::preview(j, config, rules[r]);
-            } else {
-                previewer::dummy(config);
-            }
+            const int r = page_no * adapter.page_size + j;
+            assert(r >= 0);
+            previewer::preview_or_dummy(j, config, r < rules.size() ? &rules[r] : nullptr);
         });
     }
 }
