@@ -977,6 +977,10 @@ void load_file(frame_main_token) {
         ImGui::SameLine();
         menu_like_popup::small_button(">");
         menu_like_popup::popup([] { text.select_line(); });
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Top")) { // !!TODO: whether to add tooltip?
+            text.reset_scroll();
+        }
 
         ImGui::Separator();
         text.display();
@@ -1029,6 +1033,10 @@ void load_clipboard(frame_main_token) {
     ImGui::SameLine();
     menu_like_popup::small_button(">");
     menu_like_popup::popup([] { text.select_line(); });
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Top")) {
+        text.reset_scroll();
+    }
 
     ImGui::Separator();
     text.display();
@@ -1084,6 +1092,10 @@ void load_doc(frame_main_token) {
         ImGui::SameLine();
         menu_like_popup::small_button(">");
         menu_like_popup::popup([] { text.select_line(); });
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Top")) {
+            text.reset_scroll();
+        }
 
         ImGui::Separator();
         text.display();
