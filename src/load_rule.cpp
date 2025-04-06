@@ -987,10 +987,9 @@ void load_file(frame_main_token) {
     }
 }
 
-// TODO: 'Read' -> create a temp window that will be destroyed when closed?
 void load_clipboard(frame_main_token) {
     static textT text;
-    // static std::string last_str; TODO: whether to prevent dup str?
+    static std::string last_str;
 
     // (The page will hold roughly at most 1.5*max_size/line.)
     const bool too_much_content = text.lines() > max_line || text.length() > max_size;
@@ -998,13 +997,15 @@ void load_clipboard(frame_main_token) {
     if (ImGui::SmallButton("Read") || shortcuts::item_shortcut<false>(ImGuiKey_W)) {
         if (too_much_content) { // By shortcut.
             messenger::set_msg("Too much content.");
-        } else {
-            const std::string_view str = read_clipboard();
+        } else if (const std::string_view str = read_clipboard(); !str.empty()) {
             if (str.size() > max_size / 2) {
                 messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
             } else if (const int l = count_line(str); l > max_line / 2) {
                 messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
-            } else if (!str.empty()) {
+            } else if (!compare_update(last_str, str)) {
+                messenger::set_msg("Identical (omitted).");
+            } else {
+                // TODO: ideally, should be able to append a non-copyable separator.
                 const int l = text.lines();
                 text.append(std::string(str));
                 text.to_line(l);
@@ -1020,6 +1021,8 @@ void load_clipboard(frame_main_token) {
     if (double_click_button_small("Clear")) {
         set_msg_cleared();
         text.clear();
+        last_str.clear();
+        // last_str.shrink_to_fit(); // TODO: whether to release memory?
     }
     // ImGui::SameLine();
     // imgui_Str("Clipboard");

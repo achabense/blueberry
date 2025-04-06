@@ -962,7 +962,8 @@ static void random_rule_window(bool& show_rand, const aniso::subsetT& working_se
         rclick_popup::popup(imgui_GetItemPosID(), [] {
             if (ImGui::Selectable("Clear")) {
                 set_msg_cleared(!rules.empty());
-                rules = std::vector<aniso::compressT>{};
+                rules.clear();
+                rules.shrink_to_fit();
                 page_no = 0;
             }
         });
