@@ -536,11 +536,11 @@ public:
 
 static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
     if (const auto* any = pass.any()) {
-        if (ImGui::GetIO().KeyCtrl || working_set.contains(*any)) {
+        if (working_set.contains(*any)) {
             return pass.deliv;
         }
-        // !!TODO: add a window to support both 0/1 rev & approx, and always require contains here?
-        pass.tooltip_or_message("The rule does not belong to the working set. Press 'Ctrl' to !!TODO...");
+        pass.tooltip_or_message("The rule does not belong to the working set.\n\n"
+                                "(To get a similar rule in the set, try using 'Approx' in the 'Misc' window.)");
     }
     return nullptr;
 }
@@ -642,7 +642,7 @@ public:
 
             if (m == Custom) {
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set, *mask_ptrs[m])) {
-                    mask_custom = aniso::approximate(working_set, *deliv);
+                    mask_custom = *deliv;
                     mask_tag = Custom;
                     messenger::set_msg("Updated.");
                 }
@@ -663,15 +663,16 @@ public:
 static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
     assert(show_misc);
     static previewer::configT config{previewer::configT::_220_160};
-    const ImVec2 min_size = [] {
+    const int group_spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
+    const ImVec2 min_size = [&] {
         const auto& style = ImGui::GetStyle();
-        const int min_size_x = config.width() + style.ScrollbarSize;
+        const int min_size_x = config.width() * 2 + group_spacing_x + style.ScrollbarSize;
         const int min_size_y =
-            ImGui::GetFrameHeight() * 2 + style.ItemSpacing.y * 3 + ImGui::GetTextLineHeight() + config.height();
+            ImGui::GetFrameHeight() + style.ItemSpacing.y * 3 + ImGui::GetTextLineHeight() * 2 + config.height();
         return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
     }();
 
-    ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + config.width(), 500});
+    ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x, 500});
     ImGui::SetNextWindowSize(min_size, ImGuiCond_FirstUseEver);
     // !!TODO: better title...
     if (auto window = imgui_Window("Misc utils", &show_misc, ImGuiWindowFlags_NoSavedSettings)) {
@@ -693,17 +694,22 @@ static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
             previewer::preview_or_dummy(id, config, rule ? &*rule : nullptr);
         };
 
-        config.set("Settings");
-        if constexpr (debug_mode) {
-            ImGui::SameLine();
-            if (double_click_button_small("Clear all")) {
-                set_msg_cleared();
-                rule_01_rev.reset();
-                rule_approx.reset();
-                for (auto& rule : rule_temp) {
-                    rule.reset();
-                }
+        // !!TODO: small or normal size?
+        config.set("Settings", true /*small*/);
+        ImGui::SameLine();
+        if (double_click_button_small("Clear" /*"Clear all"*/)) {
+            set_msg_cleared();
+            // messenger::set_msg("All cleared.");
+            rule_01_rev.reset();
+            rule_approx.reset();
+            for (auto& rule : rule_temp) {
+                rule.reset();
             }
+        }
+        // guide_mode::item_tooltip("Clear all rules in this window.");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Top")) {
+            ImGui::SetNextWindowScroll({0, 0});
         }
 
         // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
@@ -712,7 +718,8 @@ static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
             int id = 0;
 
             ImGui::Separator();
-            imgui_Str("0/1 reversal");
+            ImGui::BeginGroup();
+            imgui_Str("0/1 reversal"); // !!TODO: add record?
             if (const auto pass = manage(rule_01_rev)) {
                 if (aniso::_subsets::self_complementary.contains(*pass.any())) {
                     pass.tooltip_or_message("The rule is self-complementary, so its reversal dual will be itself.");
@@ -721,14 +728,16 @@ static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
                     rule_01_rev = aniso::trans_reverse(*pass.deliv);
                 }
             }
-            ImGui::SameLine();
-            imgui_StrTooltip(
-                "(?)",
-                "Get the 0/1 reversal dual of the current rule.\n\n"
+            // !!TODO: should these be regular tooltips or guide-mode tooltips?
+            guide_mode::item_tooltip(
+                "Drag a rule here to get the 0/1 reversal dual for it.\n\n"
                 "(That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].)");
             show_rule(id++, rule_01_rev);
+            ImGui::EndGroup();
 
-            ImGui::Separator();
+            ImGui::SameLine(0, group_spacing_x);
+
+            ImGui::BeginGroup();
             imgui_Str("Approx");
             if (const auto pass = manage(rule_approx)) {
                 if (working_set.contains(*pass.any())) {
@@ -738,19 +747,31 @@ static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
                     rule_approx = aniso::approximate(working_set, *pass.deliv);
                 }
             }
-            ImGui::SameLine();
-            imgui_StrTooltip("(?)", "Get a rule in the working set by ... !!TODO");
+            guide_mode::item_tooltip("Drag a rule here to get a similar rule in the working set.\n\n"
+                                     "(This has no effect if the rule already belongs to the set.)");
             show_rule(id++, rule_approx);
+            ImGui::EndGroup();
 
-            for (int i = 1; auto& rule : rule_temp) {
-                ImGui::Separator();
-                ImGui::Text("Temp %d", i++);
+            for (int i = 0; auto& rule : rule_temp) {
+                const int this_i = ++i;
+                if (this_i & 1) {
+                    ImGui::Separator();
+                } else {
+                    ImGui::SameLine(0, group_spacing_x);
+                }
+
+                ImGui::BeginGroup();
+                ImGui::Text("Temp %d", this_i);
                 if (const auto pass = manage(rule); pass.deliv) {
                     // !!TODO: whether to compare?
                     messenger::set_msg("Updated.");
                     rule = *pass.deliv;
                 }
+                if (this_i == 1) {
+                    guide_mode::item_tooltip("Drag a rule here for later use.");
+                }
                 show_rule(id++, rule);
+                ImGui::EndGroup();
             }
         }
         ImGui::PopStyleColor();
@@ -883,7 +904,7 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set) 
             rclick_popup::popup(ImGui::GetItemID(), [&] { orderer->selectable_to_take_snapshot("Recent"); });
         }
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_R, 'R'), working_set, orderer)) {
-            orderer.set(aniso::approximate(working_set, *deliv));
+            orderer.set(*deliv);
             page.clear();
             messenger::set_msg("Updated.");
         }
@@ -962,7 +983,7 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set) 
                 guide_mode::item_tooltip("Drag a rule here to go to where the rule belongs in the sequence.");
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
                     // page.clear();
-                    page.push_back(aniso::approximate(working_set, *deliv));
+                    page.push_back(*deliv);
                     fill_page(adapter.page_size);
                 }
             }
@@ -1005,7 +1026,7 @@ static void random_rule_window(bool& show_rand, const aniso::subsetT& working_se
             rclick_popup::popup(ImGui::GetItemID(), [&] { target->selectable_to_take_snapshot("Recent"); });
         }
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_S, 'S'), working_set, target)) {
-            target.set(aniso::approximate(working_set, *deliv));
+            target.set(*deliv);
             messenger::set_msg("Updated.");
         }
         ImGui::SameLine();
@@ -1203,7 +1224,7 @@ void edit_rule(frame_main_token) {
                 rclick_popup::popup(ImGui::GetItemID(), [] { target->selectable_to_take_snapshot("Recent"); });
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set, target)) {
-                target.set(aniso::approximate(working_set, *deliv));
+                target.set(*deliv);
                 messenger::set_msg("Updated.");
             }
 
@@ -1244,6 +1265,11 @@ void edit_rule(frame_main_token) {
     } else {
         ImGui::Text("Groups:%d", working_set.get_par().k());
     }
+    // !!TODO: whether to add here? whether to hide when it's not needed?
+    // ImGui::SameLine();
+    // if (ImGui::SmallButton("Top")) {
+    //     ImGui::SetNextWindowScroll({0, 0});
+    // }
 
     // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));

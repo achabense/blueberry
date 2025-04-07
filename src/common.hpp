@@ -866,8 +866,8 @@ public:
         int height() const { return height_; }
         ImVec2 size_imvec() const { return ImVec2(width_, height_); }
 
-        void set(const char* label) {
-            menu_like_popup::button(label);
+        void set(const char* label, bool small = false) {
+            menu_like_popup::button(label, small);
             menu_like_popup::popup([&] { _set(); });
         }
     };
@@ -1109,6 +1109,7 @@ public:
 };
 
 // !!TODO: unfinished...
+// TODO: support setting back from snapshot window?
 class rec_for_rule {
     int m_capacity;
     std::vector<aniso::compressT> m_data;
@@ -1192,7 +1193,8 @@ private:
                 const auto& style = ImGui::GetStyle();
                 const int min_size_x = settings.width() + style.ItemSpacing.x + imgui_CalcTextSize(label_for_latest).x +
                                        (snapshot.size() > 1 ? style.ScrollbarSize : 0);
-                const int min_size_y = ImGui::GetFrameHeight() * 2 + style.ItemSpacing.y * 2 + settings.height();
+                const int min_size_y =
+                    ImGui::GetFrameHeight() + ImGui::GetTextLineHeight() + style.ItemSpacing.y * 2 + settings.height();
                 return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
             }();
 
@@ -1210,14 +1212,19 @@ private:
             }
             imgui_Window::next_window_titlebar_tooltip = "!!TODO...";
             if (auto window = imgui_Window("Snapshot", &open, ImGuiWindowFlags_NoSavedSettings)) {
-                settings.set("Settings");
+                // !!TODO: small or normal size?
+                settings.set("Settings", true /*small*/);
                 if (source) {
                     ImGui::SameLine();
-                    if (ImGui::Button("Refresh")) {
+                    if (ImGui::SmallButton("Refresh")) {
                         assert(!source->empty()); // (As there is currently no clear method.)
                         snapshot = source->m_data;
                         updated = true;
                     }
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Top")) {
+                    ImGui::SetNextWindowScroll({0, 0});
                 }
                 ImGui::SameLine();
                 const int total = snapshot.size();
