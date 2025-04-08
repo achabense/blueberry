@@ -112,13 +112,13 @@ namespace aniso {
             tile_ref_ right(int x) const { return clip({{size.x - x, 0}, size}); }
 
             void for_each_line(const auto& fn) const {
-                T* data = this->data;
-                for (int y = 0; y < size.y; ++y, data += stride) {
-                    if constexpr (requires { fn((int)y, std::span{data, data + size.x}); }) {
-                        fn((int)y, std::span{data, data + size.x});
+                T* p = data;
+                for (int y = 0; y < size.y; ++y, p += stride) {
+                    if constexpr (requires { fn((int)y, std::span{p, p + size.x}); }) {
+                        fn((int)y, std::span{p, p + size.x});
                     } else {
-                        static_assert(requires { fn(std::span{data, data + size.x}); });
-                        fn(std::span{data, data + size.x});
+                        static_assert(requires { fn(std::span{p, p + size.x}); });
+                        fn(std::span{p, p + size.x});
                     }
                 }
             }
@@ -142,10 +142,10 @@ namespace aniso {
                     return;
                 }
 
-                T* this_data = data;
-                U* that_data = b.data;
-                for (int y = 0; y < size.y; ++y, this_data += stride, that_data += b.stride) {
-                    fn(this_data, that_data, size.x);
+                T* p_this = data;
+                U* p_that = b.data;
+                for (int y = 0; y < size.y; ++y, p_this += stride, p_that += b.stride) {
+                    fn(p_this, p_that, size.x);
                 }
             }
         };

@@ -30,7 +30,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-finput-charset=utf-8 -fexec-charset=utf-8>
     $<$<CXX_COMPILER_ID:GNU>:-finput-charset=utf-8 -fexec-charset=utf-8>
 
-    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof> # -Wconversion -Wshadow
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof -Wshadow> # -Wconversion
 
 #   $<$<CXX_COMPILER_ID:MSVC>:/WX>
 #   $<$<CXX_COMPILER_ID:Clang>:-Werror>
