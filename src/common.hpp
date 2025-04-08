@@ -37,9 +37,15 @@ class frame_main_token : no_copy {
     /*implicit*/ frame_main_token() = default;
 };
 
-void load_file(frame_main_token);
-void load_clipboard(frame_main_token);
-void load_doc(frame_main_token);
+// TODO: still not ideal, should redesign in the future...
+// For functions like these, currently:
+// Caller decides only window pos;
+// Window-fn decides other settings (size, collapsing etc);
+// Input `open` must be true.
+void load_file(bool& open, frame_main_token);
+void load_clipboard(bool& open, bool paste, frame_main_token);
+void load_doc(bool& open, frame_main_token);
+
 void edit_rule(frame_main_token);
 void apply_rule(frame_main_token);
 

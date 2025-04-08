@@ -660,8 +660,10 @@ public:
 
 // !!TODO: unfinished...
 // 0/1-rev, approx and buffers...
-static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
-    assert(show_misc);
+static void misc_window(bool& open, const aniso::subsetT& working_set) {
+    assert(open);
+    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+
     static previewer::configT config{previewer::configT::_220_160};
     const int group_spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
     const ImVec2 min_size = [&] {
@@ -675,7 +677,7 @@ static void misc_window(bool& show_misc, const aniso::subsetT& working_set) {
     ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x, 500});
     ImGui::SetNextWindowSize(min_size, ImGuiCond_FirstUseEver);
     // !!TODO: better title...
-    if (auto window = imgui_Window("Misc utils", &show_misc, ImGuiWindowFlags_NoSavedSettings)) {
+    if (auto window = imgui_Window("Misc utils", &open, ImGuiWindowFlags_NoSavedSettings)) {
         static std::optional<aniso::ruleT> rule_01_rev = aniso::trans_reverse(aniso::game_of_life());
         static std::optional<aniso::ruleT> rule_approx;
         static std::optional<aniso::ruleT> rule_temp[8];
@@ -834,13 +836,15 @@ static void show_in_tooltip(const previewer::configT& config, const aniso::ruleT
     });
 }
 
-static void traverse_window(bool& show_trav, const aniso::subsetT& working_set) {
-    assert(show_trav);
+static void traverse_window(bool& open, const aniso::subsetT& working_set) {
+    assert(open);
+    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     // TODO: better title...
     imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
-    if (auto window = imgui_Window("Traverse the working set", &show_trav,
+    if (auto window = imgui_Window("Traverse the working set", &open,
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static rule_with_rec orderer = working_set.get_mask();
         static std::deque<aniso::ruleT> page;
@@ -991,13 +995,15 @@ static void traverse_window(bool& show_trav, const aniso::subsetT& working_set) 
     }
 }
 
-static void random_rule_window(bool& show_rand, const aniso::subsetT& working_set) {
-    assert(show_rand);
+static void random_rule_window(bool& open, const aniso::subsetT& working_set) {
+    assert(open);
+    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
     if (auto window =
-            imgui_Window("Random rules", &show_rand, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
+            imgui_Window("Random rules", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static rule_with_rec target = working_set.get_mask();
         static previewer::configT config{previewer::configT::_220_160};
         if (!working_set.contains(target)) { // Working set changes.
@@ -1179,7 +1185,6 @@ void edit_rule(frame_main_token) {
         ImGui::Checkbox("Misc", &show_misc);
         guide_mode::item_tooltip("!!TODO...");
         if (show_misc) {
-            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
             ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
             misc_window(show_misc, working_set);
         }
@@ -1190,7 +1195,6 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Iterate through all rules in the working set.\n\n"
                                  "(This is mainly useful for small sets.)");
         if (show_trav) {
-            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
             ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
             traverse_window(show_trav, working_set);
         }
@@ -1200,7 +1204,6 @@ void edit_rule(frame_main_token) {
         ImGui::Checkbox("Random", &show_rand);
         guide_mode::item_tooltip("Get random rules in the working set.");
         if (show_rand) {
-            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
             ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
             random_rule_window(show_rand, working_set);
         }

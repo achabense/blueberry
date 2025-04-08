@@ -272,7 +272,7 @@ public:
 
     const bool visible;
     explicit imgui_Window(const char* name, bool* p_open = nullptr, ImGuiWindowFlags flags = {})
-        : visible(ImGui::Begin(name, p_open, flags)) {
+        : visible((assert_implies(p_open, *p_open), ImGui::Begin(name, p_open, flags))) {
         if (const char* tooltip = std::exchange(next_window_titlebar_tooltip, nullptr)) {
             imgui_StrTooltipForTitleBar("(?)", tooltip, name);
         }

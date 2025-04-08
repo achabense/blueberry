@@ -898,7 +898,7 @@ static int count_line(const std::string_view str) { //
 
 // TODO: support opening multiple files?
 // TODO: add a mode to avoid opening files without rules?
-void load_file(frame_main_token) {
+static void load_file_impl() {
     static file_nav nav(home_path_utf8());
 
     static textT text;
@@ -991,14 +991,14 @@ void load_file(frame_main_token) {
     }
 }
 
-void load_clipboard(frame_main_token) {
+static void load_clipboard_impl(const bool paste) {
     static textT text;
     static std::string last_str;
 
     // (The page will hold roughly at most 1.5*max_size/line.)
     const bool too_much_content = text.lines() > max_line || text.length() > max_size;
     ImGui::BeginDisabled(too_much_content);
-    if (ImGui::SmallButton("Read") || shortcuts::item_shortcut<false>(ImGuiKey_W)) {
+    if (ImGui::SmallButton("Read") || (paste && shortcuts::highlight())) {
         if (too_much_content) { // By shortcut.
             messenger::set_msg("Too much content.");
         } else if (const std::string_view str = read_clipboard(); !str.empty()) {
@@ -1045,7 +1045,7 @@ void load_clipboard(frame_main_token) {
 // Defined in "docs.cpp". [0]:title [1]:contents, null-terminated.
 extern const char* const docs[][2];
 
-void load_doc(frame_main_token) {
+static void load_doc_impl() {
     static textT text;
     static std::optional<int> doc_id = std::nullopt;
     static auto select = []() {
@@ -1103,5 +1103,37 @@ void load_doc(frame_main_token) {
             text.clear();
             doc_id.reset();
         }
+    }
+}
+
+static imgui_Window prepare_window(const char* title, bool& open, bool force_uncollapse = false) {
+    // assert(open);
+    ImGui::SetNextWindowCollapsed(false, force_uncollapse ? ImGuiCond_Always : ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
+    return imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings);
+}
+
+void load_file(bool& open, frame_main_token) {
+    assert(open);
+    if (auto window = prepare_window("Files", open)) {
+        load_file_impl();
+    }
+}
+
+void load_clipboard(bool& open, bool paste, frame_main_token) {
+    assert(open);
+    if (paste) {
+        ImGui::SetNextWindowFocus();
+    }
+    if (auto window = prepare_window("Clipboard", open, paste /*-> force-uncollapse*/)) {
+        load_clipboard_impl(paste);
+    }
+}
+
+void load_doc(bool& open, frame_main_token) {
+    assert(open);
+    if (auto window = prepare_window("Documents", open)) {
+        load_doc_impl();
     }
 }
