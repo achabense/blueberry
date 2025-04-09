@@ -247,7 +247,7 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
 // (Not general enough to add 'imgui' prefix...)
 inline bool test_esc_single_hit() {
     static int frame = 0; // Avoid closing multiple windows within one frame.
-    return imgui_IsWindowFocused() && !ImGui::GetIO().WantCaptureKeyboard &&
+    return !GImGui->IO.KeyCtrl && !GImGui->IO.WantCaptureKeyboard && imgui_IsWindowFocused() &&
            !ImGui::IsMouseDown(ImGuiMouseButton_Left) && imgui_IsWindowHoverable() &&
            ImGui::IsKeyPressed(ImGuiKey_Escape) && compare_update(frame, ImGui::GetFrameCount());
 }

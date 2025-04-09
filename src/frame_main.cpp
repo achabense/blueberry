@@ -54,23 +54,27 @@ static void intro_window(bool& open, frame_main_token) {
         ImGui::PushTextWrapPos(wrap_len());
 
         {
-            ImGui::Checkbox("Additional tooltips", &guide_mode::get_enable());
+            ImGui::Bullet();
+            // ImGui::SameLine(); // Not needed.
+            imgui_Str("Press 'H' to toggle on/off additional tooltips.");
             ImGui::SameLine();
-            imgui_StrTooltip("(?)", "Or press 'H' anywhere to toggle on/off.");
-        }
-        ImGui::Separator();
-        {
-            imgui_Str("Right-click underlined text or \"preview windows\" to open menu.");
+            imgui_StrTooltip("(?)", "Only one shortcut uses 'Ctrl' ~ 'Ctrl+V' for pasting text. "
+                                    "All the other shortcuts require 'Ctrl' not to be pressed.");
+            // !!TODO: not accurate; imgui's native shotcuts for input fields still require Ctrl...
+
+            ImGui::Bullet();
+            imgui_Str("Right-click underlined text to open menu.");
             rclick_popup::popup(imgui_GetItemPosID(), [] {
                 if (ImGui::Selectable("...")) {
-                    messenger::set_msg("Clicked.");
+                    messenger::set_msg("...");
                 }
             });
 
+            ImGui::Bullet();
             imgui_Str("Buttons like ");
             ImGui::SameLine(0, 0);
             if (double_click_button_small("this")) {
-                messenger::set_msg("Clicked.");
+                messenger::set_msg("this");
             }
             ImGui::SameLine(0, 0);
             imgui_Str(" require double-clicking.");
@@ -131,7 +135,6 @@ void frame_main() {
 #endif // SET_FRAME_RATE
 
     global_timer::begin_frame({});
-    guide_mode::begin_frame({});
     shortcuts::begin_frame({});
     sequence::begin_frame({});
     rclick_popup::begin_frame({});
@@ -140,6 +143,9 @@ void frame_main() {
 
     messenger::display_msg({});
     rec_for_rule::display_snapshot({});
+    if (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_H)) {
+        guide_mode::flip_enable({});
+    }
 
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                                    ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoSavedSettings;
@@ -172,7 +178,8 @@ void frame_main() {
         ImGui::Checkbox("Clipboard", &show_clipboard);
         guide_mode::item_tooltip("Load rules from the clipboard.");
         {
-            const bool paste = shortcuts::keys_avail_and_window_hoverable() && shortcuts::test_pressed(ImGuiKey_W);
+            const bool paste = shortcuts::ctrl() && shortcuts::keys_avail_and_window_hoverable() &&
+                               shortcuts::test_pressed(ImGuiKey_V);
             if (paste) {
                 show_clipboard = true;
             }

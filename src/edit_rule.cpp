@@ -827,7 +827,7 @@ static void show_in_tooltip(const previewer::configT& config, const aniso::ruleT
     imgui_ItemTooltip([&] {
         static bool show_rule = true;
         imgui_Str("Press 'Z' to toggle display.");
-        if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_Z)) {
+        if (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_Z)) {
             show_rule = !show_rule;
         }
         if (show_rule) {

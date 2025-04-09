@@ -112,14 +112,19 @@ inline const bool init_compact_mode = false;
 // Some features cannot easily be satisfied with `ImGui::Shortcut` and `ImGui::SetNextItemShortcut`.
 class shortcuts : no_create {
 public:
+    static bool ctrl() { return GImGui->IO.KeyCtrl; }
+    static bool no_ctrl() { return !GImGui->IO.KeyCtrl; }
+
     static bool global_flag(ImGuiKey key) { //
-        return !ImGui::GetIO().WantTextInput && ImGui::IsKeyDown(key);
+        return !GImGui->IO.WantTextInput && ImGui::IsKeyDown(key);
     }
 
-    static bool keys_avail() { //
-        return !ImGui::GetIO().WantCaptureKeyboard && !ImGui::IsAnyItemActive();
+    static bool keys_avail() {
+        // return !ImGui::GetIO().WantCaptureKeyboard && !ImGui::IsAnyItemActive();
+        return !GImGui->IO.WantCaptureKeyboard && !GImGui->ActiveId;
     }
 
+    static bool keys_avail_and_no_ctrl() { return keys_avail() && no_ctrl(); }
     static bool keys_avail_and_window_hoverable() { // Not blocked by popup.
         return keys_avail() && imgui_IsWindowHoverable();
     }
@@ -171,13 +176,7 @@ class guide_mode : no_create {
     inline static bool enable_tooltip = false;
 
 public:
-    static void begin_frame(frame_main_token) {
-        if (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_H)) {
-            enable_tooltip = !enable_tooltip;
-        }
-    }
-
-    static bool& get_enable() { return enable_tooltip; }
+    static void flip_enable(frame_main_token) { enable_tooltip = !enable_tooltip; }
 
     static bool item_tooltip(const std::string_view tooltip) {
         if (enable_tooltip) {
@@ -205,7 +204,7 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
 // TODO: whether to support this?
 // There is intended to be at most one call to this function in each window hierarchy.
 [[deprecated]] inline void set_scroll_by_up_down(float dy) {
-    if (may_scroll() && shortcuts::keys_avail() && imgui_IsWindowFocused()) {
+    if (shortcuts::no_ctrl() && may_scroll() && shortcuts::keys_avail() && imgui_IsWindowFocused()) {
         if (shortcuts::test_pressed(ImGuiKey_DownArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() + dy);
             shortcuts::highlight(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
@@ -1025,8 +1024,8 @@ public:
                     active = false;
                 }
                 return {&rule, deliv ? &rule : nullptr};
-            } else if (shortcut != ImGuiKey_None && GImGui->DragDropPayload.SourceId != ImGui::GetItemID() &&
-                       shortcuts::test_pressed(shortcut)) {
+            } else if (shortcut != ImGuiKey_None && shortcuts::no_ctrl() &&
+                       GImGui->DragDropPayload.SourceId != ImGui::GetItemID() && shortcuts::test_pressed(shortcut)) {
                 timer.bind();
                 render_rect(true);
                 return {nullptr, &rule};

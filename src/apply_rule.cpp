@@ -94,9 +94,7 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
 // `is_hexagonal_rule` is not strictly necessary, but it ensures that the projected view is
 // always meaningful.
 static bool want_hex_mode(const aniso::ruleT& rule) {
-    // return shortcuts::global_flag(ImGuiKey_6);
-
-    if (shortcuts::global_flag(ImGuiKey_6)) {
+    if (shortcuts::no_ctrl() && shortcuts::global_flag(ImGuiKey_6)) {
         if (rule_algo::is_hexagonal_rule(rule)) {
             return true;
         }
@@ -686,10 +684,11 @@ public:
             // TODO: support reset-all?
             const bool restart =
                 ImGui::Button("Restart") ||
-                (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_R) && shortcuts::highlight());
+                (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_R) && shortcuts::highlight());
             ImGui::SameLine();
             if (imgui_CheckboxV("Pause", m_ctrl.get_pause()) ||
-                (shortcuts::keys_avail() && shortcuts::test_pressed(ImGuiKey_Space) && shortcuts::highlight())) {
+                (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_Space) &&
+                 shortcuts::highlight())) {
                 m_ctrl.flip_pause();
             }
             ImGui::SameLine();
@@ -744,7 +743,7 @@ public:
                                                          : IM_COL32_GREY(60, 255));
                         drawlist->AddRect(cell_beg, cell_end, IM_COL32_GREY(160, 255));
                         if (button_hovered && ImRect(cell_beg, cell_end).Contains(mouse_pos) /*[)*/) {
-                            if (ImGui::GetIO().KeyCtrl) {
+                            if (shortcuts::ctrl()) {
                                 if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                                     resize = {.x = x + 1, .y = y + 1};
                                 }
@@ -863,7 +862,8 @@ public:
                 tooltip_hovered = true;
             }
 
-            const bool enable_shortcuts = canvas_hovered_or_held || (tooltip_hovered && shortcuts::keys_avail());
+            const bool enable_shortcuts =
+                shortcuts::no_ctrl() && (canvas_hovered_or_held || (tooltip_hovered && shortcuts::keys_avail()));
             auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
                 return enable_shortcuts && shortcuts::test_pressed(key, repeat) && shortcuts::highlight();
             };
@@ -1320,8 +1320,9 @@ public:
 
                 operationE op = _none;
                 operationE op_highlight = _none;
+                bool paste_by_shortcut = false;
 
-                if (canvas_hovered_or_held) {
+                if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
                     for (const op_term& t :
                          {op_random_fill, op_clear_inside, op_clear_outside, op_select_all, op_bounding_box,
                           op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
@@ -1330,6 +1331,9 @@ public:
                             const bool valid = !t.use_sel || m_sel.has_value();
                             if (valid) {
                                 op = t.op;
+                                if (op == _paste) {
+                                    paste_by_shortcut = true;
+                                }
                             } else {
                                 messenger::set_msg("There is no selected area.");
                             }
@@ -1480,9 +1484,9 @@ public:
                             if (p_size.empty()) {
                                 // TODO: whether to tell apart [no pattern] vs [wrong format e.g. not ending with '!']?
                                 // (At least, explain expected format in this case?)
-                                messenger::set_msg("Found no pattern.\n\n"
-                                                   "('V' is for pasting patterns. If you want to read rules from the "
-                                                   "clipboard, use the 'Clipboard' window instead.)");
+                                messenger::set_msg(!paste_by_shortcut ? "Found no pattern."
+                                                                      : "Found no pattern.\n\n"
+                                                                        "!!TODO... ('V' vs 'Ctrl+V')");
                                 return std::nullopt;
                             } else if (p_size.x > tile_size.x || p_size.y > tile_size.y) {
                                 messenger::set_msg("The space is not large enough for the pattern.\n"
@@ -1620,8 +1624,9 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
     const bool hovered = !passing && ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
-    const bool enable_shortcuts = shortcuts::global_flag(ImGuiKey_A) ? keys_avail_and_window_hovered()
-                                                                     : (hovered && (active || shortcuts::keys_avail()));
+    const bool enable_shortcuts =
+        shortcuts::no_ctrl() && (shortcuts::global_flag(ImGuiKey_A) ? keys_avail_and_window_hovered()
+                                                                    : (hovered && (active || shortcuts::keys_avail())));
     assert_implies(passing, !enable_shortcuts);
 
     const bool restart = (enable_shortcuts && shortcuts::test_pressed(ImGuiKey_R)) + // No short-circuiting.
