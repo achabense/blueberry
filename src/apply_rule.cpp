@@ -90,9 +90,9 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
 }
 
 // TODO: whether to hard-block when !is-hex-rule ?
-#if 1
 // `is_hexagonal_rule` is not strictly necessary, but it ensures that the projected view is
 // always meaningful.
+// (Otherwise, the dynamics of projected view cannot be produced by an actual range-1 hexagonal rule.)
 static bool want_hex_mode(const aniso::ruleT& rule) {
     if (shortcuts::no_ctrl() && shortcuts::global_flag(ImGuiKey_6)) {
         if (rule_algo::is_hexagonal_rule(rule)) {
@@ -102,19 +102,6 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
     }
     return false;
 }
-#else
-static bool want_hex_mode(const aniso::ruleT& rule) {
-    if (shortcuts::global_flag(ImGuiKey_6)) {
-        if (!rule_algo::is_hexagonal_rule(rule)) {
-            // (The dynamics can still be produced by a higher-ranged hexagonal rule, but that's beyond the scope of this program.)
-            messenger::set_msg(
-                "This rule does not belong to 'Hex' subset. As a result, the dynamics of the projected view cannot be produced by an actual range-1 hexagonal rule.");
-        }
-        return true;
-    }
-    return false;
-}
-#endif
 
 // TODO: error-prone. Should work in a way similar to `identify`.
 // Copy the subrange and run as a torus space, recording all invoked mappings.
@@ -1275,7 +1262,7 @@ public:
                     _none,
                     // _capture_closed,
                     // _capture_open,
-                    _random_fill,
+                    _random_flip,
                     _clear_inside,
                     _clear_outside,
                     _select_all,
@@ -1294,7 +1281,7 @@ public:
                     ImGuiKey key;
                     const char* key_label;
                 };
-                constexpr op_term op_random_fill{_random_fill, true, ImGuiKey_Equal, "+ (=)"};
+                constexpr op_term op_random_flip{_random_flip, true, ImGuiKey_Equal, "+ (=)"};
                 constexpr op_term op_clear_inside{_clear_inside, true, ImGuiKey_Backspace, "Backspace"};
                 constexpr op_term op_clear_outside{_clear_outside, true, ImGuiKey_0, "0 (zero)"};
                 constexpr op_term op_select_all{_select_all, false, ImGuiKey_A, "A"};
@@ -1306,8 +1293,8 @@ public:
                 constexpr op_term op_paste{_paste, false, ImGuiKey_V, "V"};
 
                 static aniso::cellT background{0};
-                static percentT fill_den = 50; // Random-fill.
-                static bool add_rule = true;   // Copy / cut.
+                static percentT flip_den = 50;  // Random-fill.
+                constexpr bool add_rule = true; // Copy / cut. TODO: whether to support specifying this?
                 auto copy_sel = [&] {
                     if (m_sel) {
                         std::string rle_str = aniso::to_RLE_str(m_torus.read_only(m_sel->to_range()),
@@ -1324,7 +1311,7 @@ public:
 
                 if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
                     for (const op_term& t :
-                         {op_random_fill, op_clear_inside, op_clear_outside, op_select_all, op_bounding_box,
+                         {op_random_flip, op_clear_inside, op_clear_outside, op_select_all, op_bounding_box,
                           op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
                         if (shortcuts::test_pressed(t.key, false)) {
                             op_highlight = t.op;
@@ -1335,7 +1322,7 @@ public:
                                     paste_by_shortcut = true;
                                 }
                             } else {
-                                messenger::set_msg("There is no selected area.");
+                                messenger::set_msg("No selected area.");
                             }
                             break;
                         }
@@ -1361,7 +1348,7 @@ public:
                             }
                             ImGui::EndDisabled();
                             if (!valid) {
-                                imgui_ItemTooltip("There is no selected area.");
+                                imgui_ItemTooltip("No selected area.");
                             }
                         };
 
@@ -1372,13 +1359,12 @@ public:
                         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                         imgui_RadioButton("1", &background, {1});
                         ImGui::SameLine();
-                        imgui_StrTooltip("(?)",
-                                         "'Clear inside/outside' and 'Cut' will clear the range with this value.");
+                        imgui_StrTooltip("(?)", "'Clear inside/outside' and 'Cut' will fill with this value.");
 
                         // Filling.
                         ImGui::Separator();
-                        fill_den.step_slide("Fill density");
-                        term("Random fill", op_random_fill);
+                        flip_den.step_slide("Density");
+                        term("Random flip", op_random_flip);
                         term("Clear inside", op_clear_inside);
                         term("Clear outside", op_clear_outside);
 
@@ -1392,11 +1378,11 @@ public:
 
                         // Copy/Cut/Identify.
                         ImGui::Separator();
-                        ImGui::Checkbox("Rule info", &add_rule);
-                        ImGui::SameLine();
-                        imgui_StrTooltip(
-                            "(?)", "Whether to include rule info ('rule = ...') in the header for the patterns.\n\n"
-                                   "(This applies to 'Copy' and 'Cut'. 'Identify' will always include rule info.)");
+                        // ImGui::Checkbox("Rule info", &add_rule);
+                        // ImGui::SameLine();
+                        // imgui_StrTooltip(
+                        //     "(?)", "Whether to include rule info ('rule = ...') in the header for the patterns.\n\n"
+                        //            "(This applies to 'Copy' and 'Cut'. 'Identify' will always include rule info.)");
                         term("Copy", op_copy);
                         term("Cut", op_cut);
                         term("Identify", op_identify);
@@ -1412,10 +1398,9 @@ public:
                 }
 
                 // TODO: disable some operations if `m_paste.has_value`?
-                if (op == _random_fill && m_sel) {
-                    // TODO: or `random_flip`?
+                if (op == _random_flip && m_sel) {
                     static std::mt19937 rand = rand_source::create();
-                    aniso::random_fill(m_torus.write_only(m_sel->to_range()), rand, fill_den.get());
+                    aniso::random_flip(m_torus.write_only(m_sel->to_range()), rand, flip_den.get());
                 } else if (op == _clear_inside && m_sel) {
                     aniso::fill(m_torus.write_only(m_sel->to_range()), background);
                 } else if (op == _clear_outside && m_sel) {
