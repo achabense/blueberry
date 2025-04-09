@@ -655,9 +655,7 @@ public:
                 // [right-down] -> left-click the program-window's title bar [both-down] ->
                 // release right mouse [left-down], then a menu will appear -> minimize and restore the program.
                 m_sel.reset();
-            } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) /* From anywhere */ ||
-                       shortcuts::test_pressed(ImGuiKey_C) /*Raw test; the interaction will be locked by `m_sel`*/) {
-                // !!TODO: whether to support _C shortcut here?
+            } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) /* From anywhere */) {
                 const auto [min, max] = m_sel->minmax();
                 std::string str;
                 for (int i = min; i <= max; ++i) {
@@ -994,6 +992,7 @@ static void load_file_impl() {
 static void load_clipboard_impl(const bool paste) {
     static textT text;
     static std::string last_str;
+    static bool dedup = true;
 
     // (The page will hold roughly at most 1.5*max_size/line.)
     const bool too_much_content = text.lines() > max_line || text.length() > max_size;
@@ -1006,8 +1005,8 @@ static void load_clipboard_impl(const bool paste) {
                 messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
             } else if (const int l = count_line(str); l > max_line / 2) {
                 messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
-            } else if (!compare_update(last_str, str)) {
-                messenger::set_msg("Identical (omitted).");
+            } else if (!compare_update(last_str, str) && dedup) {
+                messenger::set_msg("Identical.");
             } else {
                 // TODO: ideally, should be able to append a non-copyable separator.
                 const int l = text.lines();
@@ -1027,6 +1026,12 @@ static void load_clipboard_impl(const bool paste) {
         text.clear();
         last_str.clear();
         // last_str.shrink_to_fit(); // TODO: whether to release memory?
+    }
+    if constexpr (debug_mode) {
+        ImGui::SameLine();
+        ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
+        ImGui::Checkbox("Dedup", &dedup);
+        ImGui::PopStyleVar();
     }
     // ImGui::SameLine();
     // imgui_Str("Clipboard");
