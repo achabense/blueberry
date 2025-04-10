@@ -344,7 +344,7 @@ private:
     enum centerE { Selected, Including, Disabled, None }; // TODO: add "equals" relation?
 
     // (Follows `ImGui::Dummy` or `ImGui::InvisibleButton`.)
-    static void put_term(bool set_contains, centerE center, char title /* '\0' ~ no title */, bool button_mode) {
+    static void put_term(bool set_contains, centerE center, char title /* '\0' ~ no title */) {
         const ImU32 cent_col = center == Selected    ? IM_COL32(65, 150, 255, 255) // Roughly _ButtonHovered
                                : center == Including ? IM_COL32(25, 60, 100, 255)  // Roughly _Button
                                                      : IM_COL32_BLACK_TRANS;
@@ -365,18 +365,14 @@ private:
             imgui_ItemRectFilled(cent_col, ImVec2(4, 4));
         }
         imgui_ItemRect(ring_col);
-        if (button_mode && center != Disabled && ImGui::IsItemHovered() && imgui_IsItemOrNoneActive()) {
-            imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
-        }
     }
 
 public:
-    // Mainly about `select`.
-    // TODO: some descriptions rely too much on "current rule"...
+    // !!TODO: rewrite; currently ctrl mode is undocumented...
     static void about() {
         auto explain = [](bool set_contains, centerE center, const char* desc) {
             ImGui::Dummy(square_size());
-            put_term(set_contains, center, '\0', false);
+            put_term(set_contains, center, '\0');
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::AlignTextToFramePadding(); // `Dummy` does not align automatically.
             imgui_Str(": ");
@@ -425,52 +421,49 @@ public:
     struct select_mode {
         const aniso::ruleT* rule = nullptr;
         bool select = false;
-        /*[[deprecated]]*/ const aniso::subsetT* subset = nullptr; // `current` should include it.
         bool tooltip = false;
 
-        void verify() const {
-            assert(rule || select);
-            assert(!subset);
-            // assert_implies(subset, select);
-        }
+        void verify() const { assert(rule || select); }
     };
 
     void select(const select_mode mode) {
         mode.verify();
-        if (mode.subset && !current.includes(*mode.subset)) {
-            assert(false);
-            clear(); // -> MAP set.
-        }
-
         if (ImGui::BeginTable("Checklists", 2,
                               ImGuiTableFlags_BordersInner | ImGuiTableFlags_SizingFixedFit |
                                   ImGuiTableFlags_NoKeepColumnsVisible)) {
-            auto check = [&, id = 0](termT& term, const bool show_title = false) mutable {
+            auto check = [&, id = 0, ctrl = shortcuts::ctrl()](termT& term, const bool show_title = false) mutable {
                 const bool set_contains = mode.rule && term.set->contains(*mode.rule);
                 const char title = show_title ? term.title[0] : '\0';
                 if (!mode.select) {
                     ImGui::Dummy(square_size());
-                    put_term(set_contains, None, title, false);
+                    put_term(set_contains, None, title);
                     return;
                 }
 
-                const bool selectable = !term.disabled && (!mode.subset || term.set->includes(*mode.subset));
-                assert_implies(!selectable, !term.selected);
+                assert_implies(term.disabled, !term.selected);
+                const bool selectable = ctrl || !term.disabled;
 
                 ImGui::PushID(id++);
                 ImGui::BeginDisabled(!selectable);
-                if (ImGui::InvisibleButton("##Invisible", square_size()) && selectable) {
-                    term.selected = !term.selected;
-                    update_current();
+                if (ImGui::InvisibleButton("##Invisible", square_size())) {
+                    if (ctrl) {
+                        select_single(term.set);
+                    } else if (!term.disabled) {
+                        term.selected = !term.selected;
+                        update_current();
+                    }
                 }
                 ImGui::EndDisabled();
                 ImGui::PopID();
                 put_term(set_contains,
                          term.selected    ? Selected
                          : term.including ? Including
-                         : !selectable    ? Disabled
+                         : term.disabled  ? Disabled
                                           : None,
-                         title, true);
+                         title);
+                if (selectable && ImGui::IsItemHovered() && imgui_IsItemOrNoneActive()) {
+                    imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
+                }
                 if (mode.tooltip) {
                     imgui_ItemTooltip(term.description);
                 }
