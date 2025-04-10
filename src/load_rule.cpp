@@ -511,7 +511,8 @@ class textT : no_copy {
         str_ref str = {};   // -> `m_text`
         rule_ref rule = {}; // -> `m_rules`
         bool highlight = false;
-        bool eq_last = false;
+        bool eq_last = false; // TODO: remove this?
+        bool seg_start = false;
     };
 
     std::vector<line_ref> m_lines{};
@@ -576,16 +577,18 @@ public:
     // (A single "\n" will append two lines as {}{}; however, length() is still 1 for this case, and copying {}{} still results in a single "\n".)
     void append(std::string str, const std::string_view prefix = {}) {
         std::erase(str, '\r'); // So there won't exist "empty" lines with single invisible '\r'.
+        bool seg_start = true;
         for (const auto& l : std::views::split(str, '\n')) {
             std::string_view sv{l.data(), l.size()};
-            const bool highlight = !prefix.empty() && sv.starts_with(prefix);
-            if (highlight) {
+            const bool has_prefix = !prefix.empty() && sv.starts_with(prefix);
+            if (has_prefix) {
                 sv.remove_prefix(prefix.size());
             }
 
             line_ref& line = _append_line(sv);
-            line.highlight = highlight;
-            if (highlight) {
+            line.seg_start = std::exchange(seg_start, false);
+            if (has_prefix) {
+                line.highlight = true;
                 m_highlighted.push_back(m_lines.size() - 1);
             }
             if (const auto extr = aniso::extract_MAP_str(l); extr.has_rule()) {
@@ -778,7 +781,14 @@ private:
             // (Inefficient, but not worth bothering.)
             const int digit_width = m_lines.size() < 100 ? 2 : std::to_string(m_lines.size()).size();
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-            for (int l = 0; const auto& [str, rule, highlight, eq_last] : m_lines) {
+            for (int l = 0; const auto& line : m_lines) {
+                const auto& rule = line.rule;
+                if constexpr (debug_mode) {
+                    if (l != 0 && line.seg_start) {
+                        ImGui::SeparatorText("");
+                    }
+                }
+
                 const int this_l = l++;
                 ImGui::TextDisabled("%*d ", digit_width, this_l + 1);
                 if (locate_line == this_l) {
@@ -789,13 +799,13 @@ private:
                     ImGui::BeginGroup();
                 }
 
-                if (highlight) {
+                if (line.highlight) {
                     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 160, 255));
                 }
                 // (`ImGui::TextWrapped` has no problem rendering long single-lines now.)
                 // (Related: https://github.com/ocornut/imgui/issues/7496)
-                imgui_StrWrapped(str.get(m_text), item_width);
-                if (highlight) {
+                imgui_StrWrapped(line.str.get(m_text), item_width);
+                if (line.highlight) {
                     ImGui::PopStyleColor();
                 }
 
@@ -833,7 +843,7 @@ private:
                     if (m_preview.enabled) {
                         imgui_StrDisabled("-: ");
                         ImGui::SameLine();
-                        if (eq_last) {
+                        if (line.eq_last) {
                             imgui_StrDisabled("The same as the last rule.");
                         } else {
                             // Workaround to avoid affecting popup & tooltip.
@@ -1008,7 +1018,6 @@ static void load_clipboard_impl(const bool paste) {
             } else if (!compare_update(last_str, str) && dedup) {
                 messenger::set_msg("Identical.");
             } else {
-                // TODO: ideally, should be able to append a non-copyable separator.
                 const int l = text.lines();
                 text.append(std::string(str));
                 text.to_line(l);
