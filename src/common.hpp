@@ -159,17 +159,6 @@ public:
         ImGui::NavHighlightActivated(id ? id : ImGui::GetItemID());
         return true;
     }
-
-    // Should be called after the item.
-    template <bool require_not_disabled = true>
-    static bool item_shortcut(ImGuiKey key, bool repeat = false, std::optional<bool> cond = std::nullopt) {
-        if (key != ImGuiKey_None && (!require_not_disabled || !imgui_TestItemFlag(ImGuiItemFlags_Disabled))) {
-            if (cond.has_value() ? *cond : keys_avail_and_window_hoverable()) { // `value_or` won't short-circuit.
-                return test_pressed(key, repeat) && highlight();
-            }
-        }
-        return false;
-    }
 };
 
 class guide_mode : no_create {
@@ -561,7 +550,7 @@ public:
         const bool window_focused = imgui_IsWindowFocused();
         const bool pair_disabled = imgui_TestItemFlag(ImGuiItemFlags_Disabled);
         // The binding will be preserved if the window is blocked by its popups.
-        // (Note: popups from other windows will still disable the binding.)
+        // (Popups from other windows will still disable the binding.)
         const bool shortcut_avail =
             bound_id == id_prev && !pair_disabled &&
             ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows /*Including popup hierarchy*/);
@@ -572,7 +561,9 @@ public:
             bool ret = ImGui::Button(label);
             if (shortcut_avail) {
                 imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive));
-                if (!ret && window_focused && extra_cond() && shortcuts::item_shortcut(shortcut)) {
+                if (!ret && window_focused && extra_cond() && shortcuts::no_ctrl() &&
+                    shortcuts::keys_avail_and_window_hoverable() && shortcuts::test_pressed(shortcut) &&
+                    shortcuts::highlight()) {
                     ret = true;
                 }
             }
@@ -610,10 +601,6 @@ public:
 };
 
 class imgui_StepSliderInt : no_create {
-    inline static ImGuiKey shortcut_minus = ImGuiKey_None;
-    inline static ImGuiKey shortcut_plus = ImGuiKey_None;
-    inline static std::optional<bool> shortcut_cond = std::nullopt; // Shared by both.
-
     // (Avoiding direct use of `&std::to_string`; see https://stackoverflow.com/questions/55687044)
     static std::string to_str_default(int v) { return std::to_string(v); }
 
@@ -634,20 +621,17 @@ class imgui_StepSliderInt : no_create {
     }
 
 public:
-    static void reset_shortcuts() {
-        shortcut_minus = shortcut_plus = ImGuiKey_None;
-        shortcut_cond.reset();
-    }
+    struct shortcutT {
+        ImGuiKey minus;
+        ImGuiKey plus;
+    };
 
-    static void set_shortcuts(ImGuiKey m, ImGuiKey p, std::optional<bool> c = std::nullopt) {
-        shortcut_minus = m;
-        shortcut_plus = p;
-        shortcut_cond = c;
-    }
+    inline static shortcutT next_shortcuts{ImGuiKey_None, ImGuiKey_None};
 
     // (Referring to ImGui::InputScalar.)
     static bool fn(const char* label, int* v, int v_min, int v_max, int v_step = 1,
                    const func_ref<std::string(int)> to_str = to_str_default) {
+        const auto [minus, plus] = std::exchange(next_shortcuts, {ImGuiKey_None, ImGuiKey_None});
         if (GImGui->CurrentWindow->SkipItems) {
             return false;
         }
@@ -677,11 +661,13 @@ public:
         ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
         ImGui::SameLine(0, s);
         // (`InputScalar` makes .FramePadding.x = y for these buttons, not added here.)
-        if (ImGui::Button("-", ImVec2(r, r)) || shortcuts::item_shortcut(shortcut_minus, true, shortcut_cond)) {
+        if (ImGui::Button("-", ImVec2(r, r)) ||
+            (minus != ImGuiKey_None && shortcuts::test_pressed(minus, true) && shortcuts::highlight())) {
             --u;
         }
         ImGui::SameLine(0, s);
-        if (ImGui::Button("+", ImVec2(r, r)) || shortcuts::item_shortcut(shortcut_plus, true, shortcut_cond)) {
+        if (ImGui::Button("+", ImVec2(r, r)) ||
+            (plus != ImGuiKey_None && shortcuts::test_pressed(plus, true) && shortcuts::highlight())) {
             ++u;
         }
         ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat

@@ -1018,9 +1018,9 @@ static void load_clipboard_impl(const bool paste) {
             } else if (!compare_update(last_str, str) && dedup) {
                 messenger::set_msg("Identical.");
             } else {
-                const int l = text.lines();
+                const int to = text.lines();
                 text.append(std::string(str));
-                text.to_line(l);
+                text.to_line(to);
             }
         }
     }

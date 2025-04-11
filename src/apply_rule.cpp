@@ -903,10 +903,10 @@ public:
                 }
             };
 
-            // TODO: recheck this design... Ideally these sliders should use locally-defined `item_shortcut`.
-            imgui_StepSliderInt::set_shortcuts(ImGuiKey_1, ImGuiKey_2, enable_shortcuts);
+            if (enable_shortcuts) {
+                imgui_StepSliderInt::next_shortcuts = {ImGuiKey_1, ImGuiKey_2};
+            }
             imgui_StepSliderInt::fn("Step", &pace.step, 1, 100, 1, to_str);
-            imgui_StepSliderInt::reset_shortcuts();
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
@@ -915,9 +915,10 @@ public:
                 "Sometimes you may also find rules that are non-strobing (so the adjustment won't take place) but can develop non-trivial flashing areas. The effect can usually be avoided by manually setting a 2*n step.");
             // TODO: the last sec is terrible but I have no idea how to improve it...
 
-            imgui_StepSliderInt::set_shortcuts(ImGuiKey_3, ImGuiKey_4, enable_shortcuts);
+            if (enable_shortcuts) {
+                imgui_StepSliderInt::next_shortcuts = {ImGuiKey_3, ImGuiKey_4};
+            }
             pace.interval.step_slide("Interval", 0, 400);
-            imgui_StepSliderInt::reset_shortcuts();
         });
         ImGui::EndGroup();
         ImGui::SameLine(floor(1.5 * item_width));
