@@ -349,13 +349,11 @@ public:
                     if (selected && ImGui::IsWindowAppearing()) {
                         ImGui::SetScrollHereY();
                     }
-                    /*if constexpr (debug_mode)*/ { // (Undocumented.)
-                        rclick_popup::popup2([&] {
-                            if (ImGui::Selectable("Copy path")) {
-                                set_clipboard_and_notify(cpp17_u8string(m_current / file));
-                            }
-                        });
-                    }
+                    rclick_popup::popup2([&] { // (Undocumented.)
+                        if (ImGui::Selectable("Copy path")) {
+                            set_clipboard_and_notify(cpp17_u8string(m_current / file));
+                        }
+                    });
                 }
             }
             if (!any) {
@@ -451,13 +449,11 @@ public:
                         if (imgui_SelectableStyledButtonEx(id++, str)) {
                             sel = &dir;
                         }
-                        /*if constexpr (debug_mode)*/ { // (Undocumented.)
-                            rclick_popup::popup2([&] {
-                                if (ImGui::Selectable("Copy path")) {
-                                    set_clipboard_and_notify(cpp17_u8string(m_current / dir));
-                                }
-                            });
-                        }
+                        rclick_popup::popup2([&] { // (Undocumented.)
+                            if (ImGui::Selectable("Copy path")) {
+                                set_clipboard_and_notify(cpp17_u8string(m_current / dir));
+                            }
+                        });
                     }
                     if (sel) {
                         set_dir(m_current / (*sel));
@@ -783,10 +779,8 @@ private:
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
             for (int l = 0; const auto& line : m_lines) {
                 const auto& rule = line.rule;
-                if constexpr (debug_mode) {
-                    if (l != 0 && line.seg_start) {
-                        ImGui::SeparatorText("");
-                    }
+                if (l != 0 && line.seg_start) {
+                    ImGui::SeparatorText("");
                 }
 
                 const int this_l = l++;
