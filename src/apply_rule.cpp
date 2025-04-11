@@ -353,10 +353,6 @@ public:
 
 // TODO: refactor; the code is horribly messy...
 class runnerT : no_copy {
-    static constexpr aniso::vecT size_min{.x = 30, .y = 20};
-    static constexpr aniso::vecT size_max{.x = 1500, .y = 1000};
-    static constexpr ImVec2 min_canvas_size{size_min.x * zoomT::max(), size_min.y* zoomT::max()};
-
     class staged_rule {
         rule_with_rec rule = aniso::game_of_life();
         std::optional<aniso::ruleT> next = std::nullopt;
@@ -449,9 +445,13 @@ class runnerT : no_copy {
     // TODO: ideally the space window should skip the initial state as well (if not paused).
     // (This change is not as easy to make as it seems, as the current impl is toooo fragile...)
     class torusT {
+    public:
         static constexpr initT init_init{.seed = 0, .density = 50, .area = 50, .background = {}};
         static constexpr aniso::vecT init_size{.x = 600, .y = 400};
+        static constexpr aniso::vecT min_size{.x = 30, .y = 20};
+        static constexpr aniso::vecT max_size{.x = 1500, .y = 1000};
 
+    private:
         initT m_init = init_init;
         aniso::tileT m_torus = {};
         int m_gen = 0;
@@ -504,9 +504,9 @@ class runnerT : no_copy {
 
         aniso::vecT calc_size(const aniso::vecT size) const {
             const aniso::vecT n_size =
-                aniso::divmul_floor(aniso::clamp(size, size_min, size_max), m_init.background.size());
-            if (!n_size.both_gteq(size_min)) [[unlikely]] {
-                return aniso::divmul_ceil(size_min, m_init.background.size());
+                aniso::divmul_floor(aniso::clamp(size, min_size, max_size), m_init.background.size());
+            if (!n_size.both_gteq(min_size)) [[unlikely]] {
+                return aniso::divmul_ceil(min_size, m_init.background.size());
             }
             return n_size;
         }
@@ -668,7 +668,6 @@ public:
             ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
 
         auto set_init_state_in_popup = [&]() {
-            // TODO: support reset-all?
             const bool restart =
                 ImGui::Button("Restart") ||
                 (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_R) && shortcuts::highlight());
@@ -926,12 +925,28 @@ public:
         menu_like_popup::button("Init state");
         menu_like_popup::popup([&] { set_init_state_in_popup(); });
         ImGui::SameLine();
-        if (ImGui::Button("Reset pos")) { // !!TODO: (v0.9.9) -> menu for resetting pos, size etc..
-            locate_center = true;
-            find_suitable_zoom = true;
-        }
-        guide_mode::item_tooltip(
-            "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
+        menu_like_popup::button("Reset");
+        menu_like_popup::popup([&] {
+            // !!TODO: it's underspecified when to reset pos & clear area/pattern...
+            int id = 0;
+            if (imgui_SelectableStyledButtonEx(id++, "Pos")) {
+                locate_center = true;
+                find_suitable_zoom = true;
+            }
+            guide_mode::item_tooltip(
+                "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
+            static_assert(torusT::init_size == aniso::vecT{600, 400});
+            if (imgui_SelectableStyledButtonEx(id++, "Size (600*400)")) {
+                m_torus.resize(torusT::init_size);
+                // TODO: set message when no effect?
+            }
+            if (imgui_SelectableStyledButtonEx(id++, "Init state")) {
+                m_torus.set_init(torusT::init_init);
+            }
+            if (imgui_SelectableStyledButtonEx(id++, "Size & state")) {
+                m_torus.resize_and_set_init(torusT::init_size, torusT::init_init);
+            }
+        });
         ImGui::SameLine();
         ImGui::Text("Generation:%d", m_torus.gen());
 
@@ -1019,6 +1034,7 @@ public:
 
         {
             // (Values of GetContentRegionAvail() can be negative...)
+            constexpr ImVec2 min_canvas_size{torusT::min_size.x * zoomT::max(), torusT::min_size.y * zoomT::max()};
             ImGui::InvisibleButton(canvas_name, ImMax(min_canvas_size, ImGui::GetContentRegionAvail()),
                                    ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
             const ImVec2 canvas_min = ImGui::GetItemRectMin();
