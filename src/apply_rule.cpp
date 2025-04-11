@@ -657,6 +657,7 @@ public:
             ImGui::Separator();
         }
 
+        std::optional<zoomT> resize_fullscreen_tooltip = std::nullopt;
         std::optional<zoomT> resize_fullscreen = std::nullopt;
         bool highlight_canvas = false;
 
@@ -821,6 +822,9 @@ public:
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
                     resize_fullscreen = z;
+                }
+                if (imgui_IsItemHoveredForTooltip()) {
+                    resize_fullscreen_tooltip = z;
                 }
             }
             ImGui::SameLine();
@@ -1059,6 +1063,13 @@ public:
                 //     from_imvec_floor((canvas_size - ImVec2(30, 30) * std::max((float)z, 1.0f)) / z));
             };
 
+            if (resize_fullscreen_tooltip) {
+                if (ImGui::BeginTooltip()) {
+                    const auto size = fullscreen_size(*resize_fullscreen_tooltip);
+                    ImGui::Text("%d*%d", size.x, size.y);
+                    ImGui::EndTooltip();
+                }
+            }
             if (resize_fullscreen) {
                 locate_center = true;
                 find_suitable_zoom = false;
