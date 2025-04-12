@@ -519,13 +519,16 @@ class runnerT : no_copy {
             }
             return false;
         }
+        bool resized_since_last_check() { return std::exchange(m_resized, false); }
+
+    private:
         void resize_and_restart(const aniso::vecT size) {
             if (!resize(size)) {
                 restart();
             }
         }
-        bool resized_since_last_check() { return std::exchange(m_resized, false); }
 
+    public:
         const initT& get_init() const { return m_init; }
         bool set_init(const initT& init) {
             if (compare_update(m_init, init)) {
@@ -601,22 +604,39 @@ class runnerT : no_copy {
     bool locate_center = true;
     bool find_suitable_zoom = true;
 
+    // Any state change (size or init) -> reset area & pattern.
+    // Any attempt to resize (not including init-bg) -> reset pos.
+    void reset_pos() {
+        locate_center = true;
+        find_suitable_zoom = true;
+    }
+    void reset_m_paste() {
+        m_paste.reset();
+        m_ctrl.pop_pause_for_m_paste();
+    }
+    void reset_m_paste_and_m_sel() {
+        reset_m_paste();
+        m_sel.reset();
+    }
+    static void set_msg_identical() { messenger::set_msg("Identical."); }
+
 public:
     void set_rule(const aniso::ruleT& rule) {
         if (!current_rule.set_next(rule)) {
-            messenger::set_msg("Identical.");
+            set_msg_identical();
         }
     }
 
     // TODO: may restart twice (wasteful but has no observable affect.)
     void set_rule_and_state(const aniso::ruleT& rule, const aniso::vecT& size, const initT& init) {
-        locate_center = true;
-        find_suitable_zoom = true;
+        reset_pos();
 
         const bool rule_updated = current_rule.set_next(rule);
         const bool state_updated = m_torus.resize_and_set_init(size, std::move(init));
-        if (!rule_updated && !state_updated) {
-            messenger::set_msg("Identical.");
+        if (state_updated) {
+            reset_m_paste_and_m_sel();
+        } else if (!rule_updated) {
+            set_msg_identical();
         }
     }
 
@@ -779,13 +799,8 @@ public:
                 m_torus.restart();
             }
             if (m_torus.set_init(init) || restart) {
-                // locate_center = true;
-                // find_suitable_zoom = true;
-
                 m_ctrl.set_pause(true);
-                m_sel.reset();
-                m_paste.reset();
-                m_ctrl.pop_pause_for_m_paste();
+                reset_m_paste_and_m_sel();
             };
         };
 
@@ -806,12 +821,16 @@ public:
             const auto iy = input_y.input("##Height", std::format("Height:{}", size.y).c_str());
 
             if (ix || iy) {
-                locate_center = true;
-                find_suitable_zoom = true;
+                reset_pos();
 
                 // Both values will be flushed if either receives the enter key.
-                m_torus.resize({.x = ix.value_or(input_x.flush().value_or(size.x)),
-                                .y = iy.value_or(input_y.flush().value_or(size.y))});
+                if (m_torus.resize({.x = ix.value_or(input_x.flush().value_or(size.x)),
+                                    .y = iy.value_or(input_y.flush().value_or(size.y))})) {
+                    reset_m_paste_and_m_sel();
+                } else {
+                    // TODO: whether to show this?
+                    // set_msg_identical();
+                }
             }
         };
 
@@ -931,24 +950,36 @@ public:
         ImGui::SameLine();
         menu_like_popup::button("Reset");
         menu_like_popup::popup([&] {
-            // !!TODO: it's underspecified when to reset pos & clear area/pattern...
             int id = 0;
             if (imgui_SelectableStyledButtonEx(id++, "Pos")) {
-                locate_center = true;
-                find_suitable_zoom = true;
+                reset_pos();
             }
             guide_mode::item_tooltip(
                 "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
             static_assert(torusT::init_size == aniso::vecT{600, 400});
             if (imgui_SelectableStyledButtonEx(id++, "Size (600*400)")) {
-                m_torus.resize(torusT::init_size);
-                // TODO: set message when no effect?
+                reset_pos();
+                if (m_torus.resize(torusT::init_size)) {
+                    reset_m_paste_and_m_sel();
+                } else {
+                    // TODO: whether to show this?
+                    // set_msg_identical();
+                }
             }
             if (imgui_SelectableStyledButtonEx(id++, "Init state")) {
-                m_torus.set_init(torusT::init_init);
+                if (m_torus.set_init(torusT::init_init)) {
+                    reset_m_paste_and_m_sel();
+                } else {
+                    // set_msg_identical();
+                }
             }
             if (imgui_SelectableStyledButtonEx(id++, "Size & state")) {
-                m_torus.resize_and_set_init(torusT::init_size, torusT::init_init);
+                reset_pos();
+                if (m_torus.resize_and_set_init(torusT::init_size, torusT::init_init)) {
+                    reset_m_paste_and_m_sel();
+                } else {
+                    // set_msg_identical();
+                }
             }
         });
         ImGui::SameLine();
@@ -1030,8 +1061,7 @@ public:
                     "Use 'Or' mode to treat black cells as transparent background. ('And' ~ white background.)\n\n"
                     "(Only 'Copy' works for periodic background.)");
                 if (clear) {
-                    m_paste.reset();
-                    m_ctrl.pop_pause_for_m_paste();
+                    reset_m_paste();
                 }
             }
         }
@@ -1071,10 +1101,14 @@ public:
                 }
             }
             if (resize_fullscreen) {
-                locate_center = true;
-                find_suitable_zoom = false;
+                reset_pos();
                 m_coord.zoom = *resize_fullscreen;
-                m_torus.resize(fullscreen_size(m_coord.zoom));
+                if (m_torus.resize(fullscreen_size(m_coord.zoom))) {
+                    reset_m_paste_and_m_sel();
+                    find_suitable_zoom = false;
+                } else {
+                    // set_msg_identical();
+                }
             }
             if (std::exchange(find_suitable_zoom, false)) {
                 // Select the largest zoom that can hold the entire tile.
@@ -1090,9 +1124,8 @@ public:
             // `m_torus` won't resize now.
             const aniso::vecT tile_size = m_torus.size();
             if (m_torus.resized_since_last_check()) {
-                m_sel.reset();
-                m_paste.reset();
-                m_ctrl.pop_pause_for_m_paste();
+                assert(!m_paste && !m_sel);
+                reset_m_paste_and_m_sel(); // Defensive.
             }
 
             if (std::exchange(locate_center, false)) {
@@ -1241,8 +1274,7 @@ public:
                         texture = to_texture(tile, scale_mode);
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                             if (m_paste->paste_once) {
-                                m_paste.reset();
-                                m_ctrl.pop_pause_for_m_paste();
+                                reset_m_paste();
                             } else {
                                 messenger::set_msg("Pasted.");
                             }
@@ -1488,8 +1520,7 @@ public:
                     }
                     // TODO: whether to support toggling?
                     if (m_paste) {
-                        m_paste.reset();
-                        m_ctrl.pop_pause_for_m_paste();
+                        reset_m_paste();
                     } else if (std::string_view text = read_clipboard(); !text.empty()) {
                         std::optional<aniso::ruleT> rule = std::nullopt;
                         text = aniso::strip_RLE_header(text, &rule);
@@ -1523,9 +1554,9 @@ public:
             }
 
             assert(tile_size == m_torus.size());
+            assert(!m_torus.resized_since_last_check());
         }
 
-        assert(!m_torus.resized_since_last_check());
         m_torus.run(current_rule, m_ctrl);
     }
 };
