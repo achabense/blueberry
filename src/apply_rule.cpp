@@ -453,7 +453,7 @@ class runnerT : no_copy {
 
     private:
         initT m_init = init_init;
-        aniso::tileT m_torus = {};
+        aniso::tileT m_tile = {};
         int m_gen = 0;
 
         bool skip_run = true;
@@ -464,24 +464,24 @@ class runnerT : no_copy {
 
         void restart() {
             m_gen = 0;
-            m_init.initialize(m_torus);
+            m_init.initialize(m_tile);
             skip_run = true;
         }
 
-        aniso::tile_const_ref read_only() const { return m_torus.data(); }
-        aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_torus.data().clip(range); }
+        aniso::tile_const_ref read_only() const { return m_tile.data(); }
+        aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_tile.data().clip(range); }
 
         aniso::tile_ref write_only() {
             skip_run = true;
-            return m_torus.data();
+            return m_tile.data();
         }
         aniso::tile_ref write_only(const aniso::rangeT& range) {
             skip_run = true;
-            return m_torus.data().clip(range);
+            return m_tile.data().clip(range);
         }
 
         void read_and_maybe_write(const func_ref<bool(aniso::tile_ref)> fn) {
-            if (fn(m_torus.data())) {
+            if (fn(m_tile.data())) {
                 skip_run = true;
             }
         }
@@ -489,17 +489,16 @@ class runnerT : no_copy {
         void rotate_00_to(int dx, int dy) {
             if (dx != 0 || dy != 0) {
                 // skip_run = true;
-                aniso::tileT temp(m_torus.size());
-                aniso::rotate_copy_00_to(temp.data(), m_torus.data(), {.x = dx, .y = dy});
-                m_torus.swap(temp);
+                aniso::tileT temp(m_tile.size());
+                aniso::rotate_copy_00_to(temp.data(), m_tile.data(), {.x = dx, .y = dy});
+                m_tile.swap(temp);
             }
         }
 
-        // int area() const { return m_torus.size().xy(); }
         int gen() const { return m_gen; }
         aniso::vecT size() const {
-            assert(m_torus.size() == calc_size(m_torus.size()));
-            return m_torus.size();
+            assert(m_tile.size() == calc_size(m_tile.size()));
+            return m_tile.size();
         }
 
         aniso::vecT calc_size(const aniso::vecT size) const {
@@ -512,7 +511,7 @@ class runnerT : no_copy {
         }
 
         bool resize(const aniso::vecT size) {
-            if (m_torus.resize(calc_size(size))) {
+            if (m_tile.resize(calc_size(size))) {
                 m_resized = true;
                 restart();
                 return true;
@@ -532,7 +531,7 @@ class runnerT : no_copy {
         const initT& get_init() const { return m_init; }
         bool set_init(const initT& init) {
             if (compare_update(m_init, init)) {
-                resize_and_restart(m_torus.size()); // In case the background is resized.
+                resize_and_restart(m_tile.size()); // In case the background is resized.
                 return true;
             }
             return false;
@@ -554,7 +553,7 @@ class runnerT : no_copy {
 
             const int step = ctrl.calc_step(rule);
             for (int c = 0; c < step; ++c) {
-                m_torus.run_torus(rule);
+                m_tile.run_torus(rule);
                 ++m_gen;
             }
         }
@@ -632,8 +631,7 @@ public:
         reset_pos();
 
         const bool rule_updated = current_rule.set_next(rule);
-        const bool state_updated = m_torus.resize_and_set_init(size, std::move(init));
-        if (state_updated) {
+        if (m_torus.resize_and_set_init(size, init)) {
             reset_m_paste_and_m_sel();
         } else if (!rule_updated) {
             set_msg_identical();
