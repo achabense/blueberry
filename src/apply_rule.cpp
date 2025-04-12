@@ -352,7 +352,6 @@ public:
 };
 
 // TODO: refactor; the code is horribly messy...
-// !!TODO: recheck `skip_run` logic...
 class runnerT : no_copy {
     class staged_rule {
         rule_with_rec rule = aniso::game_of_life();
@@ -375,7 +374,7 @@ class runnerT : no_copy {
             return false;
         }
 
-        bool begin_frame() {
+        bool update() {
             if (next) {
                 rule.set(*next);
                 next.reset();
@@ -394,9 +393,10 @@ class runnerT : no_copy {
 
     class ctrlT {
         paceT pace{};
-        int extra_step = 0;
+        int extra_step = 0; // Workaround for +s/+1/+!.
         bool pause = false;
         bool extra_pause = false;
+        bool skip_run = false; // Affects only auto mode.
 
         // TODO: the interop between different parts is pretty awkward...
         // m_paste.create -> push_pause_for_m_paste.
@@ -413,16 +413,21 @@ class runnerT : no_copy {
             }
         }
 
-        void begin_frame() {
-            extra_step = 0;
-            extra_pause = false;
-        }
+        int calc_step(const aniso::ruleT& rule, const bool newly_restarted, const bool extra_skip) {
+            const bool ex_pause = std::exchange(extra_pause, false);
+            const int ex_step = std::exchange(extra_step, 0);
+            if (pause || ex_pause || extra_skip) {
+                skip_run = true;
+            }
 
-        bool tick() const { return extra_step != 0 || pace.interval.test(); }
-        int calc_step(const aniso::ruleT& rule) const {
-            if (extra_step) {
-                return extra_step;
-            } else if (!pause && !extra_pause && pace.interval.test()) {
+            if (!pause && !ex_pause && newly_restarted) {
+                // (Unless paused) skip displaying initial state for better visual.
+                skip_run = true;
+                return adjust_step(pace.step, strobing(rule));
+            } else if (ex_step) {
+                skip_run = true;
+                return ex_step;
+            } else if (!pause && !ex_pause && pace.interval.test() && !std::exchange(skip_run, false)) {
                 return adjust_step(pace.step, strobing(rule));
             } else {
                 return 0;
@@ -443,8 +448,6 @@ class runnerT : no_copy {
 
     ctrlT m_ctrl{};
 
-    // TODO: ideally the space window should skip the initial state as well (if not paused).
-    // (This change is not as easy to make as it seems, as the current impl is toooo fragile...)
     class torusT {
     public:
         static constexpr initT init_init{.seed = 0, .density = 50, .area = 50, .background = {}};
@@ -457,39 +460,52 @@ class runnerT : no_copy {
         aniso::tileT m_tile = {};
         int m_gen = 0;
 
-        bool skip_run = true;
-        bool m_resized = true; // Init ~ resized.
+        bool m_resized = true;
+        bool m_newly_restarted = true;
+        bool m_written = true;
 
     public:
         torusT() { resize_and_restart(init_size); }
 
         void restart() {
+            assert_implies(m_newly_restarted, m_gen == 0);
             m_gen = 0;
             m_init.initialize(m_tile);
-            skip_run = true;
+            m_newly_restarted = true;
+            m_written = true;
         }
+        // TODO: whether to try to avoid repeated init?
+        // void restart_opt() {
+        //     if (!m_newly_restarted) {
+        //         restart();
+        //     }
+        // }
 
         aniso::tile_const_ref read_only() const { return m_tile.data(); }
         aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_tile.data().clip(range); }
 
         aniso::tile_ref write_only() {
-            skip_run = true;
+            m_newly_restarted = false;
+            m_written = true;
             return m_tile.data();
         }
         aniso::tile_ref write_only(const aniso::rangeT& range) {
-            skip_run = true;
+            m_newly_restarted = false;
+            m_written = true;
             return m_tile.data().clip(range);
         }
 
         void read_and_maybe_write(const func_ref<bool(aniso::tile_ref)> fn) {
             if (fn(m_tile.data())) {
-                skip_run = true;
+                m_newly_restarted = false;
+                m_written = true;
             }
         }
 
         void rotate_00_to(int dx, int dy) {
             if (dx != 0 || dy != 0) {
-                // skip_run = true;
+                m_newly_restarted = false;
+                m_written = true;
                 aniso::tileT temp(m_tile.size());
                 aniso::rotate_copy_00_to(temp.data(), m_tile.data(), {.x = dx, .y = dy});
                 m_tile.swap(temp);
@@ -546,13 +562,9 @@ class runnerT : no_copy {
             }
         }
 
-        void run(const aniso::ruleT& rule, const ctrlT& ctrl) {
-            if (skip_run && ctrl.tick()) {
-                skip_run = false;
-                return;
-            }
-
-            const int step = ctrl.calc_step(rule);
+        void run(const aniso::ruleT& rule, ctrlT& ctrl) {
+            const int step =
+                ctrl.calc_step(rule, std::exchange(m_newly_restarted, false), std::exchange(m_written, false));
             for (int c = 0; c < step; ++c) {
                 m_tile.run_torus(rule);
                 ++m_gen;
@@ -627,7 +639,6 @@ public:
         }
     }
 
-    // TODO: may restart twice (wasteful but has no observable affect.)
     void set_rule_and_state(const aniso::ruleT& rule, const aniso::vecT& size, const initT& init) {
         reset_pos();
 
@@ -643,8 +654,7 @@ public:
     // For example, there are a lot of static variables in `display`, and the keyboard controls are not designed
     // for per-object use.
     void display() {
-        m_ctrl.begin_frame();
-        if (current_rule.begin_frame()) {
+        if (current_rule.update()) {
             m_torus.restart();
             m_ctrl.set_pause(false);
         }
@@ -1204,6 +1214,8 @@ public:
                 }
             }
 
+            m_torus.run(current_rule, m_ctrl);
+
             // Render.
             {
                 const ImVec2 screen_min = ImFloor(canvas_min + m_coord.to_canvas({0, 0}));
@@ -1555,8 +1567,6 @@ public:
             assert(tile_size == m_torus.size());
             assert(!m_torus.resized_since_last_check());
         }
-
-        m_torus.run(current_rule, m_ctrl);
     }
 };
 
