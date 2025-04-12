@@ -671,8 +671,9 @@ public:
         {
             // Precedence:
             // Line-selecting > iterating > (starting line-selection) > left-click setting
-            std::optional<int> iter_pos = display_header(m_rules.size(), m_pos);
+            std::optional<int> iter_pos = std::nullopt;
             if (!m_rules.empty()) {
+                iter_pos = display_seq(m_rules.size(), m_pos);
                 // ImGui::SameLine();
                 // ImGui::Checkbox("Preview", &m_preview.enabled); // TODO: whether to support hiding preview windows?
                 assert(m_preview.enabled);
@@ -680,6 +681,8 @@ public:
                     ImGui::SameLine();
                     m_preview.config.set("Settings");
                 }
+            } else {
+                imgui_Str("(No rules)");
             }
             ImGui::Separator();
 
@@ -730,27 +733,22 @@ public:
     }
 
 private:
-    static std::optional<int> display_header(const int total, const std::optional<int> m_pos) {
+    static std::optional<int> display_seq(const int total, const std::optional<int> m_pos) {
         std::optional<int> pos = std::nullopt;
-
-        if (total != 0) {
-            switch (sequence::seq("<|", "Prev", "Next", "|>")) {
-                case 0: pos = 0; break;
-                case 1: pos = std::max(0, m_pos.value_or(-1) - 1); break;
-                case 2: pos = std::min(total - 1, m_pos.value_or(-1) + 1); break;
-                case 3: pos = total - 1; break;
-            }
-
-            ImGui::SameLine();
-            if (m_pos.has_value()) {
-                ImGui::Text("Total:%d At:%d", total, *m_pos + 1);
-            } else {
-                ImGui::Text("Total:%d At:N/A", total);
-            }
-        } else {
-            imgui_Str("(No rules)");
+        assert(total > 0);
+        switch (sequence::seq("<|", "Prev", "Next", "|>")) {
+            case 0: pos = 0; break;
+            case 1: pos = std::max(0, m_pos ? *m_pos - 1 : 0); break;
+            case 2: pos = std::min(total - 1, m_pos ? *m_pos + 1 : 0); break;
+            case 3: pos = total - 1; break;
         }
 
+        ImGui::SameLine();
+        if (m_pos.has_value()) {
+            ImGui::Text("Total:%d At:%d", total, *m_pos + 1);
+        } else {
+            ImGui::Text("Total:%d At:N/A", total);
+        }
         return pos;
     }
 
