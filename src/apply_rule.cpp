@@ -352,6 +352,7 @@ public:
 };
 
 // TODO: refactor; the code is horribly messy...
+// !!TODO: recheck `skip_run` logic...
 class runnerT : no_copy {
     class staged_rule {
         rule_with_rec rule = aniso::game_of_life();
@@ -1570,7 +1571,7 @@ class previewer_data : no_create {
 
     struct termT {
         bool active = false;
-        bool skip_run = false;
+        bool skip_run = false;  // (Affects only auto mode.)
         initT init = init_init; // (Whichever is ok; just to allow for default construction.)
         aniso::ruleT rule = {};
         aniso::tileT tile = {};
@@ -1666,30 +1667,50 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
     const bool hovered = !passing && ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
-    const bool enable_shortcuts =
+    const bool shortcut_avail =
         shortcuts::no_ctrl() && (shortcuts::global_flag(ImGuiKey_A) ? keys_avail_and_window_hovered()
                                                                     : (hovered && (active || shortcuts::keys_avail())));
-    assert_implies(passing, !enable_shortcuts);
+    const bool hovered_and_shortcut_avail = hovered && shortcut_avail;
+    assert_implies(passing, !shortcut_avail);
 
-    const bool restart = (enable_shortcuts && shortcuts::test_pressed(ImGuiKey_R)) + // No short-circuiting.
+    const bool restart = (shortcut_avail && shortcuts::test_pressed(ImGuiKey_R)) + // No short-circuiting.
                          term.tile.resize(tile_size) + compare_update(term.init, previewer_data::global_init) +
                          compare_update(term.rule, rule);
     if (restart) {
         term.init.initialize(term.tile);
-        term.skip_run = true;
     }
 
-    // (`IsItemActive` does not work as preview-window is based on `Dummy`.)
-    const bool pause = passing || active;
-    const bool fast = enable_shortcuts &&
-                      shortcuts::global_flag(ImGuiKey_F); // Using unfiltered version for smoother inter with <</>>.
-    if (fast || (!pause && (restart || (config.interval.test() && !std::exchange(term.skip_run, false))))) {
-        const int p = adjust_step(fast ? std::max(config.step, step_fast) : config.step, strobing(rule));
-        for (int i = 0; i < p; ++i) {
+    const int step = [&] {
+        const bool pause = passing || active;
+        if (pause) {
+            term.skip_run = true;
+        }
+
+        if (!pause && restart) {
+            // (Unless paused, skip displaying initial state for better visual.)
+            term.skip_run = true;
+            return adjust_step(config.step, strobing(rule));
+        } else if (hovered_and_shortcut_avail && pause && shortcuts::test_pressed(ImGuiKey_S, true)) {
+            term.skip_run = true;
+            return adjust_step(config.step, strobing(rule));
+        } else if (hovered_and_shortcut_avail && shortcuts::test_pressed(ImGuiKey_D, true)) {
+            term.skip_run = true;
+            return 1;
+        } else if (shortcut_avail && shortcuts::global_flag(ImGuiKey_F)) {
+            // (Using unfiltered version for smoother inter with seq op (<</>>).)
+            term.skip_run = true;
+            return adjust_step(std::max(config.step, step_fast), strobing(rule));
+        } else if (!pause && config.interval.test() && !std::exchange(term.skip_run, false)) {
+            return adjust_step(config.step, strobing(rule));
+        } else {
+            return 0;
+        }
+    }();
+    if (step != 0) {
+        for (int i = 0; i < step; ++i) {
             term.tile.run_torus(rule);
         }
     }
-    // Unless paused, the initial state will not be shown. This is intentional for better visual effect.
 
     const scaleE scale_mode = config.zoom_ >= 1 ? scaleE::Nearest : scaleE::Linear;
     const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
@@ -1722,6 +1743,18 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     if (!passing) {
         const id_pair popup_id{ImGui::GetItemID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
         const auto hov = rclick_popup::popup_no_highlight(popup_id, [&] {
+            imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n"
+                                      "Hold to pause.\n\n"
+                                      "Similar to space window's 'Restart' and '+s/+1/+!':\n"
+                                      "'R' to restart. (+'A' to apply to the entire group.)\n"
+                                      "Hold (pause) + 'S' to run manually.\n"
+                                      "'D' to advance generation by 1.\n"
+                                      "'F' to speed up. (+'A' to apply to the entire group.)\n\n"
+                                      "If the rule belongs to 'Hex' subset:\n"
+                                      "'6' to see the projected view in a hexagonal space.\n"
+                                      "(This also applies to the space window.)");
+            ImGui::Separator();
+
             if (ImGui::Selectable("Copy rule")) {
                 copy_rule::copy(rule);
             }
@@ -1733,14 +1766,6 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                 runner.set_rule_and_state(rule, term.tile.size(), term.init);
             }
             guide_mode::item_tooltip("!!TODO...");
-
-            imgui_StrTooltip(
-                "(...)",
-                "Hold to pause.\n"
-                "'R' to restart. (+ 'A' to apply to the entire group.)\n"
-                "'F' to speed up. (+ 'A' to apply to the entire group.)\n\n"
-                "If the rule belongs to 'Hex' subset:\n"
-                "'6' to see the projected view in the real hexagonal space. (This also applies to the space window.)");
         });
         if (hov != rclick_popup::None) {
             border_col = rclick_popup::highlight_col(hov == rclick_popup::Popup);
