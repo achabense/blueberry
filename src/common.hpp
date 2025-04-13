@@ -1175,8 +1175,9 @@ private:
             if (snapshot.empty()) {
                 return;
             }
-            bool updated = std::exchange(newly_updated, false);
+            const bool updated = std::exchange(newly_updated, false);
             bool open = true;
+            bool to_top = updated;
 
             static previewer::configT settings{previewer::configT::_220_160};
             constexpr const char* label_for_latest = "(Latest)";
@@ -1203,25 +1204,24 @@ private:
             }
             imgui_Window::next_window_titlebar_tooltip = "!!TODO...";
             if (auto window = imgui_Window("Snapshot", &open, ImGuiWindowFlags_NoSavedSettings)) {
-                // !!TODO: small or normal size?
-                settings.set("Settings", true /*small*/);
                 if (source) {
-                    ImGui::SameLine();
                     if (ImGui::SmallButton("Refresh")) {
                         assert(!source->empty()); // (As there is currently no clear method.)
                         snapshot = source->m_data;
-                        updated = true;
+                        to_top = true;
                     }
+                    ImGui::SameLine();
+                }
+                if (ImGui::SmallButton("Top")) {
+                    to_top = true;
                 }
                 ImGui::SameLine();
-                if (ImGui::SmallButton("Top")) {
-                    ImGui::SetNextWindowScroll({0, 0});
-                }
+                settings.set("Settings", true /*small*/);
                 ImGui::SameLine();
                 const int total = snapshot.size();
                 ImGui::Text("Total:%d", total);
 
-                if (updated) {
+                if (to_top) {
                     ImGui::SetNextWindowScroll({0, 0});
                 }
                 // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`

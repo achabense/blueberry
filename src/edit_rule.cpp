@@ -689,9 +689,6 @@ static void misc_window(bool& open, const aniso::subsetT& working_set) {
             previewer::preview_or_dummy(id, config, rule ? &*rule : nullptr);
         };
 
-        // !!TODO: small or normal size?
-        config.set("Settings", true /*small*/);
-        ImGui::SameLine();
         if (double_click_button_small("Clear" /*"Clear all"*/)) {
             set_msg_cleared();
             // messenger::set_msg("All cleared.");
@@ -703,7 +700,11 @@ static void misc_window(bool& open, const aniso::subsetT& working_set) {
         }
         // guide_mode::item_tooltip("Clear all rules in this window.");
         ImGui::SameLine();
-        if (ImGui::SmallButton("Top")) {
+        const bool to_top = ImGui::SmallButton("Top");
+        ImGui::SameLine();
+        config.set("Settings", true /*small*/);
+
+        if (to_top) {
             ImGui::SetNextWindowScroll({0, 0});
         }
 
