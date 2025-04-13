@@ -142,7 +142,6 @@ void frame_main() {
     pass_rule::begin_frame({});
 
     messenger::display_msg({});
-    rec_for_rule::display_snapshot({});
     if (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_H)) {
         guide_mode::flip_enable({});
     }
@@ -196,11 +195,12 @@ void frame_main() {
                 copy_rule::copy(*pass.deliv);
             }
             rclick_popup::popup(imgui_GetItemPosID(), [] {
-                copy_rule::get_rec({}).selectable_to_take_snapshot("Recent", "recently copied");
+                copy_rule::get_rec({}).selectable_to_take_snapshot("Recent");
                 guide_mode::item_tooltip("Recently copied rules, including those copied via 'Copy rule'.");
             });
             guide_mode::item_tooltip(
                 "Drag a rule here to copy it (as MAP-string) to the clipboard; equivalent to 'Copy rule'.");
+            copy_rule::get_rec({}).display_snapshot();
         }
         ImGui::SameLine();
         ImGui::Checkbox("Documents", &show_doc);

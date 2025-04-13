@@ -1099,19 +1099,16 @@ public:
     }
 };
 
-// !!TODO: unfinished...
-// TODO: support setting back from snapshot window?
-class rec_for_rule {
+class rec_for_rule : no_copy {
+    using dataT = std::vector<aniso::compressT>;
     int m_capacity;
-    std::vector<aniso::compressT> m_data;
+    dataT m_data;
 
 public:
     explicit rec_for_rule(/*const int cap = 32*/) : m_capacity(32) {
         // assert(cap > 0 && cap < 100);
         m_data.reserve(m_capacity);
     }
-
-    ~rec_for_rule() { m_snapshot.detach(this); }
 
     bool empty() const { return m_data.empty(); }
     int size() const { return m_data.size(); }
@@ -1120,6 +1117,10 @@ public:
 
     // LRU; inefficient but no problem as `m_capacity` is small enough.
     void add(const aniso::compressT& rule) {
+        assert_implies(m_snapshot, !m_data.empty());
+        if (m_snapshot && m_data.front() != rule) {
+            m_snapshot->mark_outdated();
+        }
         if (!std::erase(m_data, rule) && m_data.size() == m_capacity) {
             m_data.pop_back();
         }
@@ -1129,12 +1130,32 @@ public:
     // !!TODO: whether to support clearing? (Never necessary as the buffer is small enough...)
     // void clear() { m_data.clear(); }
 
+    // The context must outlive `this`.
+    struct contextT {
+        std::function<aniso::compressT()> get;
+        std::function<void(const aniso::compressT&)> set;
+
+        void assert_both_or_none() const { assert((get && set) || (!get && !set)); }
+        explicit operator bool() const {
+            assert_both_or_none();
+            return bool(get); // Why no `has_value()`...
+        }
+
+        void swap(contextT& other) {
+            other.assert_both_or_none();
+            get.swap(other.get), set.swap(other.set);
+        }
+        void reset() {
+            get = nullptr, set = nullptr; // Why no `reset()`...
+        }
+    };
+
     // (Used by `rclick_popup`.)
-    void selectable_to_take_snapshot(const char* label, const char* source_label = nullptr) const {
+    void selectable_to_take_snapshot(const char* label, contextT context = {}) const {
         const bool empty = m_data.empty();
         ImGui::BeginDisabled(empty);
         if (ImGui::Selectable(std::format("{} ({})###{}", label, size(), label).c_str())) {
-            m_snapshot.attach(this, source_label);
+            m_snapshot.emplace(m_data, context);
         }
         ImGui::EndDisabled();
         if (empty) {
@@ -1142,49 +1163,41 @@ public:
         }
     }
 
-    static void display_snapshot(frame_main_token) { m_snapshot.display(); }
+    void display_snapshot() const {
+        if (m_snapshot && !m_snapshot->display(m_data)) {
+            m_snapshot.reset();
+        }
+    }
 
 private:
+    // TODO: ideally, this should not be defined in "common.h"...
     class snapshotT {
-        std::vector<aniso::compressT> snapshot{};
-        const rec_for_rule* source{};
-        bool newly_updated{};
-        // std::string label{};
-        // bool in_sync{};
+        dataT m_data{};
+        contextT m_context{};
+        bool m_newly_updated{};
+        bool m_outdated{};
 
     public:
-        // (gcc workaround)
-        snapshotT() : snapshot{}, source{}, newly_updated{} {}
-
-        void attach(const rec_for_rule* s, const char* /*source_label*/) {
-            assert(!s->empty());
-            snapshot = s->m_data;
-            source = s;
-            newly_updated = true;
-            // label = source_label;
+        snapshotT(const dataT& data, contextT& context) {
+            assert(!data.empty());
+            m_data = data;
+            m_context.swap(context);
+            m_newly_updated = true;
+            m_outdated = false;
         }
-        void detach(const rec_for_rule* s) {
-            if (source == s) {
-                source = nullptr;
-            }
-        }
+        void mark_outdated() { m_outdated = true; }
 
-        // TODO: ideally, this should not be defined in "common.h"...
-        // !!TODO: improve...
-        void display() {
-            if (snapshot.empty()) {
-                return;
-            }
-            const bool updated = std::exchange(newly_updated, false);
+        /*false -> close*/ bool display(const dataT& data /*, const char* title*/) {
+            const bool updated = std::exchange(m_newly_updated, false);
             bool open = true;
             bool to_top = updated;
 
             static previewer::configT settings{previewer::configT::_220_160};
-            constexpr const char* label_for_latest = "(Latest)";
             const ImVec2 min_size = [&] {
                 const auto& style = ImGui::GetStyle();
-                const int min_size_x = settings.width() + style.ItemSpacing.x + imgui_CalcTextSize(label_for_latest).x +
-                                       (snapshot.size() > 1 ? style.ScrollbarSize : 0);
+                const int min_size_x = settings.width() +
+                                       (m_context ? (style.ItemSpacing.x + ImGui::GetFrameHeight()) /*radio*/ : 0) +
+                                       (m_data.size() > 1 ? style.ScrollbarSize : 0);
                 const int min_size_y =
                     ImGui::GetFrameHeight() + ImGui::GetTextLineHeight() + style.ItemSpacing.y * 2 + settings.height();
                 return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
@@ -1202,23 +1215,29 @@ private:
                         ImGuiCond_Always);
                 }
             }
-            imgui_Window::next_window_titlebar_tooltip = "!!TODO...";
-            if (auto window = imgui_Window("Snapshot", &open, ImGuiWindowFlags_NoSavedSettings)) {
-                if (source) {
-                    if (ImGui::SmallButton("Refresh")) {
-                        assert(!source->empty()); // (As there is currently no clear method.)
-                        snapshot = source->m_data;
-                        to_top = true;
-                    }
-                    ImGui::SameLine();
+
+            // !!TODO: redesign title; ideally should not rely on `this`...
+            // ("###Label" is different than "Label"...)
+            // assert(ImGui::GetID("123###123") != ImGui::GetID("123"));
+            const std::string title =
+                std::string(m_outdated ? "Snapshot *" : "Snapshot") + "###Snapshot" + std::to_string(uintptr_t(this));
+
+            imgui_Window::next_window_titlebar_tooltip = "!!TODO (about '*')";
+            if (auto window = imgui_Window(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
+                if (ImGui::SmallButton("Update")) {
+                    assert(!data.empty()); // (As there is currently no clear method.)
+                    m_data = data;
+                    m_outdated = false;
+                    to_top = true;
                 }
+                ImGui::SameLine();
                 if (ImGui::SmallButton("Top")) {
                     to_top = true;
                 }
                 ImGui::SameLine();
                 settings.set("Settings", true /*small*/);
                 ImGui::SameLine();
-                const int total = snapshot.size();
+                const int total = m_data.size();
                 ImGui::Text("Total:%d", total);
 
                 if (to_top) {
@@ -1227,26 +1246,32 @@ private:
                 // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
                 ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
                 if (auto child = imgui_ChildWindow("Page")) {
+                    m_context.assert_both_or_none();
+                    const auto current = m_context.get ? std::optional{m_context.get()} : std::nullopt;
+                    static_assert(std::is_same_v<decltype(*current), const aniso::compressT&>);
+
                     for (int i = 0; i < total; ++i) {
                         ImGui::Separator();
-                        previewer::preview(i, settings, snapshot[i]);
-                        if (i == 0) {
+                        previewer::preview(i, settings, m_data[i]);
+                        if (m_context.set) {
                             ImGui::SameLine();
-                            imgui_Str(label_for_latest);
+                            ImGui::PushID(i);
+                            if (const bool equ = current == m_data[i]; //
+                                ImGui::RadioButton("##Sel", equ) && !equ) {
+                                m_context.set(m_data[i]);
+                                // m_outdated = true; // (Will be set back by `m_context.set`.)
+                            }
+                            ImGui::PopID();
                         }
                     }
                 }
                 ImGui::PopStyleColor();
             }
-            if (!open) {
-                snapshot.clear();
-                source = nullptr;
-                newly_updated = false;
-            }
+            return open;
         }
     };
 
-    inline static snapshotT m_snapshot;
+    mutable std::optional<snapshotT> m_snapshot = std::nullopt;
 };
 
 class rule_with_rec : no_copy {

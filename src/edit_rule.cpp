@@ -899,13 +899,17 @@ static void traverse_window(bool& open, const aniso::subsetT& working_set) {
         imgui_StrWithID("[R]");
         if (!pass_rule::source(orderer)) {
             show_in_tooltip(config, orderer);
-            rclick_popup::popup(ImGui::GetItemID(), [&] { orderer->selectable_to_take_snapshot("Recent"); });
+            rclick_popup::popup(ImGui::GetItemID(), [&] {
+                // !!TODO: add context...
+                orderer->selectable_to_take_snapshot("Recent");
+            });
         }
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_R, 'R'), working_set, orderer)) {
             orderer.set(*deliv);
             page.clear();
             messenger::set_msg("Updated.");
         }
+        orderer->display_snapshot();
         ImGui::SameLine();
         imgui_StrTooltip(
             "(...)", // !!TODO: rewrite (should explain [R] & relation with <00..)...
@@ -1023,12 +1027,16 @@ static void random_rule_window(bool& open, const aniso::subsetT& working_set) {
         imgui_StrWithID("[S]");
         if (!pass_rule::source(target)) {
             show_in_tooltip(config, target);
-            rclick_popup::popup(ImGui::GetItemID(), [&] { target->selectable_to_take_snapshot("Recent"); });
+            rclick_popup::popup(ImGui::GetItemID(), [&] {
+                // !!TODO: add context...
+                target->selectable_to_take_snapshot("Recent");
+            });
         }
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_S, 'S'), working_set, target)) {
             target.set(*deliv);
             messenger::set_msg("Updated.");
         }
+        target->display_snapshot();
         ImGui::SameLine();
         imgui_StrTooltip(
             "(...)", // !!TODO rewrite...
@@ -1218,12 +1226,23 @@ void edit_rule(frame_main_token) {
             imgui_StrWithID("[T]");
             if (!pass_rule::source(target)) {
                 show_in_tooltip(config, target);
-                rclick_popup::popup(ImGui::GetItemID(), [] { target->selectable_to_take_snapshot("Recent"); });
+                rclick_popup::popup(ImGui::GetItemID(), [] {
+                    auto getter = []() -> decltype(auto) { return target.get(); };
+                    auto setter = [](const aniso::ruleT& r) {
+                        // vs `working_set`:
+                        // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
+                        if (get_deliv({.hov = nullptr, .deliv = &r}, select_working.get() /*, target*/)) {
+                            target.set(r);
+                        }
+                    };
+                    target->selectable_to_take_snapshot("Recent", {.get = getter, .set = setter});
+                });
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set, target)) {
                 target.set(*deliv);
                 messenger::set_msg("Updated.");
             }
+            target->display_snapshot();
 
             ImGui::SameLine();
             config.set("Settings");
