@@ -1119,7 +1119,7 @@ public:
     void add(const aniso::compressT& rule) {
         assert_implies(m_snapshot, !m_data.empty());
         if (m_snapshot && m_data.front() != rule) {
-            m_snapshot->mark_outdated();
+            m_snapshot.mark_outdated();
         }
         if (!std::erase(m_data, rule) && m_data.size() == m_capacity) {
             m_data.pop_back();
@@ -1130,32 +1130,12 @@ public:
     // !!TODO: whether to support clearing? (Never necessary as the buffer is small enough...)
     // void clear() { m_data.clear(); }
 
-    // The context must outlive `this`.
-    struct contextT {
-        std::function<aniso::compressT()> get;
-        std::function<void(const aniso::compressT&)> set;
-
-        void assert_both_or_none() const { assert((get && set) || (!get && !set)); }
-        explicit operator bool() const {
-            assert_both_or_none();
-            return bool(get); // Why no `has_value()`...
-        }
-
-        void swap(contextT& other) {
-            other.assert_both_or_none();
-            get.swap(other.get), set.swap(other.set);
-        }
-        void reset() {
-            get = nullptr, set = nullptr; // Why no `reset()`...
-        }
-    };
-
     // (Used by `rclick_popup`.)
-    void selectable_to_take_snapshot(const char* label, contextT context = {}) const {
+    void selectable_to_take_snapshot(const char* label) const {
         const bool empty = m_data.empty();
         ImGui::BeginDisabled(empty);
         if (ImGui::Selectable(std::format("{} ({})###{}", label, size(), label).c_str())) {
-            m_snapshot.emplace(m_data, context);
+            m_snapshot.update(m_data);
         }
         ImGui::EndDisabled();
         if (empty) {
@@ -1163,48 +1143,55 @@ public:
         }
     }
 
-    void display_snapshot() const {
-        if (m_snapshot && !m_snapshot->display(m_data)) {
-            m_snapshot.reset();
+    struct contextT {
+        func_ref<aniso::compressT()> get;
+        func_ref<void(const aniso::compressT&)> set;
+    };
+    void display_snapshot(const std::optional<contextT>& context = std::nullopt) const {
+        if (m_snapshot && !m_snapshot.display(m_data, context)) {
+            m_snapshot.clear();
         }
     }
 
 private:
     // TODO: ideally, this should not be defined in "common.h"...
     class snapshotT {
+        previewer::configT m_settings{previewer::configT::_220_160};
+
         dataT m_data{};
-        contextT m_context{};
         bool m_newly_updated{};
         bool m_outdated{};
 
     public:
-        snapshotT(const dataT& data, contextT& context) {
+        explicit operator bool() const { return !m_data.empty(); }
+        void clear() { m_data.clear(); }
+
+        void update(const dataT& data) {
             assert(!data.empty());
             m_data = data;
-            m_context.swap(context);
             m_newly_updated = true;
             m_outdated = false;
         }
         void mark_outdated() { m_outdated = true; }
 
-        /*false -> close*/ bool display(const dataT& data /*, const char* title*/) {
+        /*false -> close*/ bool display(const dataT& data, const std::optional<contextT>& context) {
+            assert(!m_data.empty());
             const bool updated = std::exchange(m_newly_updated, false);
             bool open = true;
             bool to_top = updated;
 
-            static previewer::configT settings{previewer::configT::_220_160};
             const ImVec2 min_size = [&] {
                 const auto& style = ImGui::GetStyle();
-                const int min_size_x = settings.width() +
-                                       (m_context ? (style.ItemSpacing.x + ImGui::GetFrameHeight()) /*radio*/ : 0) +
+                const int min_size_x = m_settings.width() +
+                                       (context ? (style.ItemSpacing.x + ImGui::GetFrameHeight()) /*radio*/ : 0) +
                                        (m_data.size() > 1 ? style.ScrollbarSize : 0);
-                const int min_size_y =
-                    ImGui::GetFrameHeight() + ImGui::GetTextLineHeight() + style.ItemSpacing.y * 2 + settings.height();
+                const int min_size_y = ImGui::GetFrameHeight() + ImGui::GetTextLineHeight() + style.ItemSpacing.y * 2 +
+                                       m_settings.height();
                 return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
             }();
 
             ImGui::SetNextWindowSize(min_size, updated ? ImGuiCond_Always : ImGuiCond_Appearing);
-            ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + settings.width(), 500});
+            ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + m_settings.width(), 500});
             if (updated) {
                 ImGui::SetNextWindowCollapsed(false);
                 ImGui::SetNextWindowFocus();
@@ -1235,7 +1222,7 @@ private:
                     to_top = true;
                 }
                 ImGui::SameLine();
-                settings.set("Settings", true /*small*/);
+                m_settings.set("Settings", true /*small*/);
                 ImGui::SameLine();
                 const int total = m_data.size();
                 ImGui::Text("Total:%d", total);
@@ -1246,23 +1233,28 @@ private:
                 // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
                 ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
                 if (auto child = imgui_ChildWindow("Page")) {
-                    m_context.assert_both_or_none();
-                    const auto current = m_context.get ? std::optional{m_context.get()} : std::nullopt;
+                    const auto current = context ? std::optional{context->get()} : std::nullopt;
                     static_assert(std::is_same_v<decltype(*current), const aniso::compressT&>);
+                    std::optional<aniso::compressT> select = std::nullopt;
 
                     for (int i = 0; i < total; ++i) {
                         ImGui::Separator();
-                        previewer::preview(i, settings, m_data[i]);
-                        if (m_context.set) {
+                        previewer::preview(i, m_settings, m_data[i]);
+                        if (context) {
                             ImGui::SameLine();
                             ImGui::PushID(i);
-                            if (const bool equ = current == m_data[i]; //
-                                ImGui::RadioButton("##Sel", equ) && !equ) {
-                                m_context.set(m_data[i]);
-                                // m_outdated = true; // (Will be set back by `m_context.set`.)
+                            if (const bool eq = current == m_data[i]; //
+                                ImGui::RadioButton("##Sel", eq) && !eq) {
+                                select = m_data[i];
                             }
                             ImGui::PopID();
                         }
+                    }
+
+                    assert_implies(select, context);
+                    if (select) {
+                        context->set(*select);
+                        // m_outdated = true; // (Will be set back by the context.)
                     }
                 }
                 ImGui::PopStyleColor();
@@ -1271,7 +1263,7 @@ private:
         }
     };
 
-    mutable std::optional<snapshotT> m_snapshot = std::nullopt;
+    mutable snapshotT m_snapshot{};
 };
 
 class rule_with_rec : no_copy {

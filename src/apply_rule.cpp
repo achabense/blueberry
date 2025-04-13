@@ -673,9 +673,7 @@ public:
                         copy_rule::copy(current_rule);
                     }
 
-                    auto getter = [&]() -> decltype(auto) { return current_rule.get(); };
-                    auto setter = [&](const aniso::ruleT& r) { (void)current_rule.set_next(r); };
-                    current_rule->selectable_to_take_snapshot("Recent", {.get = getter, .set = setter});
+                    current_rule->selectable_to_take_snapshot("Recent");
                 });
             }
             if (const auto pass = pass_rule::dest(ImGuiKey_2, '2')) {
@@ -686,7 +684,11 @@ public:
                 }
             }
             guide_mode::item_tooltip("MAP-string for ... !!TODO");
-            current_rule->display_snapshot();
+            {
+                auto getter = [&]() -> decltype(auto) { return current_rule.get(); };
+                auto setter = [&](const aniso::ruleT& r) { (void)current_rule.set_next(r); };
+                current_rule->display_snapshot({{.get = getter, .set = setter}});
+            }
 
             ImGui::Separator();
         }

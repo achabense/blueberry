@@ -1226,23 +1226,25 @@ void edit_rule(frame_main_token) {
             imgui_StrWithID("[T]");
             if (!pass_rule::source(target)) {
                 show_in_tooltip(config, target);
-                rclick_popup::popup(ImGui::GetItemID(), [] {
-                    auto getter = []() -> decltype(auto) { return target.get(); };
-                    auto setter = [](const aniso::ruleT& r) {
-                        // vs `working_set`:
-                        // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
-                        if (get_deliv({.hov = nullptr, .deliv = &r}, select_working.get() /*, target*/)) {
-                            target.set(r);
-                        }
-                    };
-                    target->selectable_to_take_snapshot("Recent", {.get = getter, .set = setter});
+                rclick_popup::popup(ImGui::GetItemID(), [] { //
+                    target->selectable_to_take_snapshot("Recent");
                 });
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set, target)) {
                 target.set(*deliv);
                 messenger::set_msg("Updated.");
             }
-            target->display_snapshot();
+            {
+                auto getter = []() -> decltype(auto) { return target.get(); };
+                auto setter = [&](const aniso::ruleT& r) {
+                    // (The function is no longer stored; preserved for reference.)
+                    // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
+                    if (get_deliv({.hov = nullptr, .deliv = &r}, working_set /*, target*/)) {
+                        target.set(r);
+                    }
+                };
+                target->display_snapshot({{.get = getter, .set = setter}});
+            }
 
             ImGui::SameLine();
             config.set("Settings");
