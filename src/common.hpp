@@ -638,8 +638,9 @@ public:
 
         assert(v_min < v_max && v_step > 0 && ((v_max - v_min) % v_step) == 0);
         const int u_max = (v_max - v_min) / v_step; // > 0.
-        int u = std::clamp((*v - v_min) / v_step, 0, u_max);
+        const int u_init = std::clamp((*v - v_min) / v_step, 0, u_max);
         const auto to_v = [u_max, v_min, v_step](int u) { return std::clamp(u, 0, u_max) * v_step + v_min; };
+        int u = u_init;
 
         const float r = ImGui::GetFrameHeight();
         const float s = imgui_ItemInnerSpacingX();
@@ -665,10 +666,16 @@ public:
             (minus != ImGuiKey_None && shortcuts::test_pressed(minus, true) && shortcuts::highlight())) {
             --u;
         }
+        if constexpr (debug_mode) { // TODO: is this too noisy?
+            imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init - 1))); });
+        }
         ImGui::SameLine(0, s);
         if (ImGui::Button("+", ImVec2(r, r)) ||
             (plus != ImGuiKey_None && shortcuts::test_pressed(plus, true) && shortcuts::highlight())) {
             ++u;
+        }
+        if constexpr (debug_mode) {
+            imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init + 1))); });
         }
         ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
         const char* label_end = ImGui::FindRenderedTextEnd(label);
