@@ -1344,6 +1344,7 @@ public:
                     _clear_inside,
                     _clear_outside,
                     _select_all,
+                    _unselect,
                     _bounding_box,
                     _test_bg_period, // !!TODO: (v0.9.9?v0.9.8) enhance to background sampling
                     _copy,
@@ -1363,6 +1364,7 @@ public:
                 constexpr op_term op_clear_inside{_clear_inside, true, ImGuiKey_Backspace, "Backspace"};
                 constexpr op_term op_clear_outside{_clear_outside, true, ImGuiKey_0, "0 (zero)"};
                 constexpr op_term op_select_all{_select_all, false, ImGuiKey_A, "A"};
+                constexpr op_term op_unselect{_unselect, false, ImGuiKey_Z, "Z"};
                 constexpr op_term op_bounding_box{_bounding_box, true, ImGuiKey_B, "B"};
                 constexpr op_term op_test_bg_period{_test_bg_period, true, ImGuiKey_P, "P"};
                 constexpr op_term op_copy{_copy, true, ImGuiKey_C, "C"};
@@ -1389,8 +1391,8 @@ public:
 
                 if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
                     for (const op_term& t :
-                         {op_random_flip, op_clear_inside, op_clear_outside, op_select_all, op_bounding_box,
-                          op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
+                         {op_random_flip, op_clear_inside, op_clear_outside, op_select_all, op_unselect,
+                          op_bounding_box, op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
                         if (shortcuts::test_pressed(t.key, false)) {
                             op_highlight = t.op;
                             const bool valid = !t.use_sel || m_sel.has_value();
@@ -1448,6 +1450,7 @@ public:
 
                         ImGui::Separator();
                         term("Select all", op_select_all);
+                        term("Unselect", op_unselect);
                         term("Bound", op_bounding_box);
                         guide_mode::item_tooltip(
                             "Get the bounding box for the pattern. (The pattern should be enclosed in 2*2 periodic background.)");
@@ -1476,6 +1479,7 @@ public:
                 }
 
                 // TODO: disable some operations if `m_paste.has_value`?
+                // TODO: set pause for some operations?
                 if (op == _random_flip && m_sel) {
                     static std::mt19937 rand = rand_source::create();
                     aniso::random_flip(m_torus.write_only(m_sel->to_range()), rand, flip_den.get());
@@ -1484,11 +1488,15 @@ public:
                 } else if (op == _clear_outside && m_sel) {
                     aniso::fill_outside(m_torus.write_only(), m_sel->to_range(), background);
                 } else if (op == _select_all) {
-                    if (!m_sel || m_sel->width() != tile_size.x || m_sel->height() != tile_size.y) {
-                        m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
-                    } else {
-                        m_sel.reset();
-                    }
+                    // (Toggling version)
+                    // if (!m_sel || m_sel->width() != tile_size.x || m_sel->height() != tile_size.y) {
+                    //     m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
+                    // } else {
+                    //     m_sel.reset();
+                    // }
+                    m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
+                } else if (op == _unselect) {
+                    m_sel.reset();
                 } else if (op == _bounding_box && m_sel) {
                     // TODO: temporarily sharing the same logic with `identify`...
                     const aniso::rangeT sel_range = m_sel->to_range();
