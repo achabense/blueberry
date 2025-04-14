@@ -1770,6 +1770,8 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                                       "If the rule belongs to 'Hex' subset:\n"
                                       "'6' to see the projected view in a hexagonal space.\n"
                                       "(This also applies to the space window.)");
+            ImGui::SameLine();
+            imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
             ImGui::Separator();
 
             if (ImGui::Selectable("Copy rule")) {

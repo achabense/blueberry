@@ -919,6 +919,8 @@ public:
 
 private:
     static void _preview(uint64_t id, const configT& config, const aniso::ruleT& rule);
+
+    static void _show_belongs(const aniso::ruleT& rule);
 };
 
 // !!TODO: recheck logic...

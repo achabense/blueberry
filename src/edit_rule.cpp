@@ -344,12 +344,12 @@ private:
     enum centerE { Selected, Including, Disabled, None }; // TODO: add "equals" relation?
 
     // (Follows `ImGui::Dummy` or `ImGui::InvisibleButton`.)
-    static void put_term(bool set_contains, centerE center, char title /* '\0' ~ no title */) {
+    static void put_term(bool contains_rule, centerE center, char title /* '\0' ~ no title */) {
         const ImU32 cent_col = center == Selected    ? IM_COL32(65, 150, 255, 255) // Roughly _ButtonHovered
                                : center == Including ? IM_COL32(25, 60, 100, 255)  // Roughly _Button
                                                      : IM_COL32_BLACK_TRANS;
-        const ImU32 ring_col = set_contains ? IM_COL32(0, 255, 0, 255)  // Light green
-                                            : IM_COL32(0, 100, 0, 255); // Dull green
+        const ImU32 ring_col = contains_rule ? IM_COL32(0, 255, 0, 255)  // Light green
+                                             : IM_COL32(0, 100, 0, 255); // Dull green
         ImU32 title_col = IM_COL32_WHITE;
         if (center == Disabled) {
             title_col = IM_COL32_GREY(150, 255);
@@ -368,11 +368,11 @@ private:
     }
 
 public:
-    // !!TODO: rewrite; currently ctrl mode is undocumented...
+    // TODO: improve...
     static void about() {
-        auto explain = [](bool set_contains, centerE center, const char* desc) {
-            ImGui::Dummy(square_size());
-            put_term(set_contains, center, '\0');
+        auto explain = [sqr_size = square_size()](bool contains_rule, centerE center, std::string_view desc) {
+            ImGui::Dummy(sqr_size);
+            put_term(contains_rule, center, '\0');
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::AlignTextToFramePadding(); // `Dummy` does not align automatically.
             imgui_Str(": ");
@@ -381,23 +381,21 @@ public:
         };
 
         imgui_Str(
-            "The buttons stand for subsets of MAP rules. You can select them freely - the program "
-            "will calculate the intersection of selected sets (with the entire MAP set), and help you explore rules in it.\n\n"
-            "This intersection is called the \"working set\". For example, if a rule is said to belong to the "
-            "working set, it should also belong to every selected set. If nothing is selected, the working set will be the entire MAP set.");
-        ImGui::Separator();
-        imgui_Str("For each set:\n\n"
-                  "The border color represents whether the current rule belongs to the set:");
-        explain(true, None, "The rule belongs to this set.");
-        explain(false, None, "The rule does not belong to this set.");
-        // ImGui::Separator();
-        imgui_Str("\nThe center color represents selection details (unrelated to the border):");
+            "The buttons stand for subsets of MAP rules.\n\n"
+            "The \"working set\" is the intersection of selected sets. For example, if a rule is said to belong to the "
+            "working set, it also belongs to every selected set. If no sets are selected, the working set will be the entire MAP set.\n\n"
+            "The program has access to all rules in the working set.\n\n"
+            "For each set, if clicked with 'Ctrl', only that set will be selected; if clicked without 'Ctrl', the set will be toggled to be selected or unselected:");
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");
-        explain(false, Including,
-                "Not selected, but the working set already belongs to this set, so it will behave "
-                "as if this is selected too.");
-        explain(false, Disabled, "Not selectable. (If selected, the resulting working set will be empty.)");
+        explain(
+            false, Including,
+            "Not selected, but the working set already belongs to this set, and will behave as if this is selected too.");
+        explain(
+            false, Disabled,
+            "Not selected, and cannot intersect with the working set (otherwise the result will be empty); won't affect 'Ctrl' mode.");
+        // explain(true, None, "The rule belongs to this set.");
+        // explain(false, None, "The rule does not belong to this set.");
     }
 
     const aniso::subsetT& get() const {
@@ -432,11 +430,11 @@ public:
                               ImGuiTableFlags_BordersInner | ImGuiTableFlags_SizingFixedFit |
                                   ImGuiTableFlags_NoKeepColumnsVisible)) {
             auto check = [&, id = 0, ctrl = shortcuts::ctrl()](termT& term, const bool show_title = false) mutable {
-                const bool set_contains = mode.rule && term.set->contains(*mode.rule);
+                const bool contains_rule = mode.rule && term.set->contains(*mode.rule);
                 const char title = show_title ? term.title[0] : '\0';
                 if (!mode.select) {
                     ImGui::Dummy(square_size());
-                    put_term(set_contains, None, title);
+                    put_term(contains_rule, None, title);
                     return;
                 }
 
@@ -455,7 +453,7 @@ public:
                 }
                 ImGui::EndDisabled();
                 ImGui::PopID();
-                put_term(set_contains,
+                put_term(contains_rule,
                          term.selected    ? Selected
                          : term.including ? Including
                          : term.disabled  ? Disabled
@@ -526,6 +524,13 @@ public:
         }
     }
 };
+
+void previewer::_show_belongs(const aniso::ruleT& rule) {
+    static subset_selector dummy{};
+    imgui_Str("(Send the rule to 'Working set' to select containing sets.)");
+    ImGui::Separator();
+    dummy.select({.rule = &rule, .select = false, .tooltip = false});
+}
 
 static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
     if (const auto* any = pass.any()) {
@@ -1126,17 +1131,19 @@ void edit_rule(frame_main_token) {
                 ImGui::EndTooltip();
             }
             if (pass.deliv) {
-                if (pass.hov || !collapse) {
-                    select_working.match(*pass.deliv);
-                    if (collapse) {
-                        // messenger::set_msg("...");
-                    }
-                } else {
-                    // messenger::set_msg("... !!TODO");
-                }
+                select_working.match(*pass.deliv);
+                // TODO: whether to check for `collapse`?
+                // if (pass.hov || !collapse) {
+                //     select_working.match(*pass.deliv);
+                //     if (collapse) {
+                //         // messenger::set_msg("...");
+                //     }
+                // } else {
+                //     // messenger::set_msg("...");
+                // }
             }
         }
-        guide_mode::item_tooltip("Drag a rule here to select every set that contains the rule.");
+        guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
 
         ImGui::SameLine();
         ImGui::Checkbox("Collapse", &collapse);
