@@ -1285,9 +1285,8 @@ public:
                     m_torus.read_and_maybe_write([&](const aniso::tile_ref tile) {
                         const aniso::tile_ref paste_area = tile.clip({paste_beg, paste_end});
                         aniso::tileT temp(paste_area);
-                        // An ideal way to copy patterns with arbitrary periodic background will be:
-                        // Detect backgrounds of the pattern and the target area (?not practical?).
-                        // 'copy_diff' only if the backgrounds are the same and aligns properly.
+                        // !!TODO: (v0.9.9?v0.9.8) support specifying align req?
+                        // TODO: (how to) support arbitrary transparent bg?
                         aniso::blit(paste_area, m_paste->tile.data(), m_paste->mode);
                         texture = to_texture(tile, scale_mode);
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
@@ -1360,6 +1359,8 @@ public:
                     ImGuiKey key;
                     const char* key_label;
                 };
+                static_assert(std::is_trivially_copyable_v<op_term>);
+
                 constexpr op_term op_random_flip{_random_flip, true, ImGuiKey_Equal, "+ (=)"};
                 constexpr op_term op_clear_inside{_clear_inside, true, ImGuiKey_Backspace, "Backspace"};
                 constexpr op_term op_clear_outside{_clear_outside, true, ImGuiKey_0, "0 (zero)"};
@@ -1372,6 +1373,7 @@ public:
                 constexpr op_term op_identify{_identify, true, ImGuiKey_I, "I (i)"};
                 constexpr op_term op_paste{_paste, false, ImGuiKey_V, "V"};
 
+                // !!TODO: (v0.9.9?v0.9.8) support filling with periodic bg...
                 static aniso::cellT background{0};
                 static percentT flip_den = 50;  // Random-fill.
                 constexpr bool add_rule = true; // Copy / cut. TODO: whether to support specifying this?
@@ -1381,13 +1383,13 @@ public:
                                                                 add_rule ? &current_rule.get() : nullptr);
                         ImGui::SetClipboardText(rle_str.c_str());
 
-                        messenger::set_msg(std::move(rle_str));
+                        messenger::set_msg(std::move(rle_str)); // !!TODO: sometimes noisy...
                     }
                 };
 
                 operationE op = _none;
                 operationE op_highlight = _none;
-                bool paste_by_shortcut = false;
+                // bool paste_by_shortcut = false;
 
                 if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
                     for (const op_term& t :
@@ -1398,9 +1400,9 @@ public:
                             const bool valid = !t.use_sel || m_sel.has_value();
                             if (valid) {
                                 op = t.op;
-                                if (op == _paste) {
-                                    paste_by_shortcut = true;
-                                }
+                                // if (op == _paste) {
+                                //     paste_by_shortcut = true;
+                                // }
                             } else {
                                 messenger::set_msg("No selected area.");
                             }
@@ -1432,6 +1434,9 @@ public:
                             }
                         };
 
+                        // !!TODO: reorder & show possible "2*2 bg" in a tooltip...
+                        // ("e.g., pure white, pure black, striped, or checkerboard background")
+
                         ImGui::AlignTextToFramePadding();
                         imgui_Str("Background ~");
                         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
@@ -1439,42 +1444,48 @@ public:
                         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                         imgui_RadioButton("1", &background, {1});
                         ImGui::SameLine();
-                        imgui_StrTooltip("(?)", "'Clear inside/outside' and 'Cut' will fill with this value.");
+                        imgui_StrTooltip("(?)", "'Clear inside/outside' will fill with this value.");
 
-                        // Filling.
                         ImGui::Separator();
+
                         flip_den.step_slide("Density");
                         term("Random flip", op_random_flip);
                         term("Clear inside", op_clear_inside);
                         term("Clear outside", op_clear_outside);
 
                         ImGui::Separator();
+
                         term("Select all", op_select_all);
                         term("Unselect", op_unselect);
                         term("Bound", op_bounding_box);
                         guide_mode::item_tooltip(
-                            "Get the bounding box for the pattern. (The pattern should be enclosed in 2*2 periodic background.)");
+                            "The area should be enclosed in 2*2 periodic background.\n\n"
+                            "Get the bounding box for the pattern; the resulting bounding box will include a layer of background.");
                         term("Test background", op_test_bg_period);
                         guide_mode::item_tooltip("Test the size and period of periodic background.");
 
-                        // Copy/Cut/Identify.
                         ImGui::Separator();
+
                         // ImGui::Checkbox("Rule info", &add_rule);
                         // ImGui::SameLine();
                         // imgui_StrTooltip(
                         //     "(?)", "Whether to include rule info ('rule = ...') in the header for the patterns.\n\n"
                         //            "(This applies to 'Copy' and 'Cut'. 'Identify' will always include rule info.)");
                         term("Copy", op_copy);
+                        guide_mode::item_tooltip("Copy selected area (as RLE-string) to the clipboard.");
                         term("Cut", op_cut);
+                        guide_mode::item_tooltip("The area should be enclosed in 2*2 periodic background.\n\n"
+                                                 "Copy selected area and clear area with the background.");
                         term("Identify", op_identify);
                         guide_mode::item_tooltip(
-                            "Identify a single oscillator or spaceship in 2*2 periodic background "
-                            "(e.g., pure white, pure black, striped, or checkerboard background), and "
-                            "copy its smallest phase to the clipboard.");
+                            "The area should be enclosed in 2*2 periodic background.\n\n"
+                            "Identify a single oscillator or spaceship in the area, and copy its smallest phase to the clipboard.");
 
-                        // Paste.
                         ImGui::Separator();
+
                         term("Paste", op_paste);
+                        guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.\n\n"
+                                                 "(To load list of rules, use 'Clipboard' window instead ('Ctrl+V').)");
                     }
                 }
 
@@ -1488,7 +1499,9 @@ public:
                 } else if (op == _clear_outside && m_sel) {
                     aniso::fill_outside(m_torus.write_only(), m_sel->to_range(), background);
                 } else if (op == _select_all) {
-                    // (Toggling version)
+                    // !!TODO: whether to support toggling?
+                    // ('A' may be hit by accident as preview windows have 'A'+R/F mode; toggling is convenient for undoing...)
+
                     // if (!m_sel || m_sel->width() != tile_size.x || m_sel->height() != tile_size.y) {
                     //     m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
                     // } else {
@@ -1538,36 +1551,39 @@ public:
                 } else if (op == _copy && m_sel) {
                     copy_sel();
                 } else if (op == _cut && m_sel) {
-                    copy_sel();
-                    aniso::fill(m_torus.write_only(m_sel->to_range()), background);
+                    const aniso::rangeT sel_range = m_sel->to_range();
+                    const aniso::vecT p_size{2, 2};
+                    if (aniso::has_enclosing_period(m_torus.read_only(sel_range), p_size)) {
+                        copy_sel();
+                        aniso::self_repeat(m_torus.write_only(sel_range), p_size);
+                    } else {
+                        messenger::set_msg("The area is not enclosed in 2*2 periodic background.");
+                    }
                 } else if (op == _paste) {
                     if (m_sel) {
                         m_sel->active = false;
                     }
-                    // TODO: whether to support toggling?
+                    // !!TODO: whether to support toggling?
                     if (m_paste) {
                         reset_m_paste();
                     } else if (std::string_view text = read_clipboard(); !text.empty()) {
                         std::optional<aniso::ruleT> rule = std::nullopt;
                         text = aniso::strip_RLE_header(text, &rule);
-                        aniso::from_RLE_str(text, [&](const aniso::prepareT p_size) -> std::optional<aniso::tile_ref> {
-                            if (p_size.empty()) {
-                                // TODO: whether to tell apart [no pattern] vs [wrong format e.g. not ending with '!']?
-                                // (At least, explain expected format in this case?)
-                                messenger::set_msg(!paste_by_shortcut ? "Found no pattern."
-                                                                      : "Found no pattern.\n\n"
-                                                                        "!!TODO... ('V' vs 'Ctrl+V')");
+                        aniso::from_RLE_str(text, [&](const aniso::prepareT size) -> std::optional<aniso::tile_ref> {
+                            if (size.empty()) {
+                                // (void)paste_by_shortcut; // (Used to show diff vs 'Ctrl+V'.)
+                                messenger::set_msg("Found no pattern (RLE-string).");
                                 return std::nullopt;
-                            } else if (p_size.x > tile_size.x || p_size.y > tile_size.y) {
+                            } else if (size.x > tile_size.x || size.y > tile_size.y) {
                                 messenger::set_msg("The space is not large enough for the pattern.\n"
                                                    "Space size: x = {}, y = {}\n"
                                                    "Pattern size: x = {}, y = {}",
-                                                   tile_size.x, tile_size.y, p_size.x, p_size.y);
+                                                   tile_size.x, tile_size.y, size.x, size.y);
                                 return std::nullopt;
                             } else {
                                 m_ctrl.push_pause_for_m_paste();
                                 m_paste = {.rule = rule,
-                                           .tile = aniso::tileT(aniso::vecT{.x = (int)p_size.x, .y = (int)p_size.y}),
+                                           .tile = aniso::tileT(aniso::vecT{.x = (int)size.x, .y = (int)size.y}),
                                            .beg = {0, 0},
                                            .mode = aniso::blitE::Copy};
                                 return m_paste->tile.data();
