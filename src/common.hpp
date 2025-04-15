@@ -1126,17 +1126,16 @@ public:
 
     // LRU; inefficient but no problem as `m_capacity` is small enough.
     void add(const aniso::compressT& rule) {
-        assert_implies(m_snapshot, !m_data.empty());
-        if (m_snapshot && m_data.front() != rule) {
-            m_snapshot.mark_outdated();
-        }
         if (!std::erase(m_data, rule) && m_data.size() == m_capacity) {
             m_data.pop_back();
         }
         m_data.insert(m_data.begin(), rule);
+        if (m_snapshot) {
+            m_snapshot.test_outdated(m_data);
+        }
     }
 
-    // !!TODO: whether to support clearing? (Never necessary as the buffer is small enough...)
+    // TODO: whether to support clearing? (Never necessary as the buffer is small enough...)
     // void clear() { m_data.clear(); }
 
     // (Used by `rclick_popup`.)
@@ -1181,7 +1180,7 @@ private:
             m_newly_updated = true;
             m_outdated = false;
         }
-        void mark_outdated() { m_outdated = true; }
+        void test_outdated(const dataT& data) { m_outdated = data != m_data; }
 
         /*false -> close*/ bool display(const dataT& data, const std::optional<contextT>& context) {
             assert(!m_data.empty());
@@ -1216,9 +1215,10 @@ private:
             // ("###Label" is different than "Label"...)
             // assert(ImGui::GetID("123###123") != ImGui::GetID("123"));
             const std::string title =
-                std::string(m_outdated ? "Snapshot *" : "Snapshot") + "###Snapshot" + std::to_string(uintptr_t(this));
+                std::string(m_outdated ? "Record *" : "Record") + "###Snapshot" + std::to_string(uintptr_t(this));
 
-            imgui_Window::next_window_titlebar_tooltip = "!!TODO (about '*')";
+            imgui_Window::next_window_titlebar_tooltip =
+                "This is a snapshot of the actual record. When it's outdated, the window title will be marked with '*', and you can update with 'Update'.";
             if (auto window = imgui_Window(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
                 if (ImGui::SmallButton("Update")) {
                     assert(!data.empty()); // (As there is currently no clear method.)
