@@ -1335,60 +1335,203 @@ public:
 
             // Range operations.
             {
-                enum class operationE {
-                    _none,
-                    // _capture_closed,
-                    // _capture_open,
-                    _random_flip,
-                    _clear_inside,
-                    _clear_outside,
-                    _select_all,
-                    _unselect,
-                    _bounding_box,
-                    _test_bg_period, // !!TODO: (v0.9.9?v0.9.8) enhance to background sampling
-                    _copy,
-                    _cut,
-                    _identify,
-                    _paste
-                };
-                using enum operationE;
+                // TODO: disable some operations if `m_paste.has_value`?
+                // TODO: set pause for some operations?
 
                 struct op_term {
-                    operationE op;
-                    bool use_sel;
                     ImGuiKey key;
                     const char* key_label;
+                    bool req_sel;
+                    void (*op)(runnerT& self);
+
+                    bool check_sel(const runnerT& self) const { return !req_sel || self.m_sel; }
+                    void apply(runnerT& self) const {
+                        if (check_sel(self)) {
+                            op(self);
+                        }
+                    }
                 };
                 static_assert(std::is_trivially_copyable_v<op_term>);
 
-                constexpr op_term op_random_flip{_random_flip, true, ImGuiKey_Equal, "+ (=)"};
-                constexpr op_term op_clear_inside{_clear_inside, true, ImGuiKey_Backspace, "Backspace"};
-                constexpr op_term op_clear_outside{_clear_outside, true, ImGuiKey_0, "0 (zero)"};
-                constexpr op_term op_select_all{_select_all, false, ImGuiKey_A, "A"};
-                constexpr op_term op_unselect{_unselect, false, ImGuiKey_Z, "Z"};
-                constexpr op_term op_bounding_box{_bounding_box, true, ImGuiKey_B, "B"};
-                constexpr op_term op_test_bg_period{_test_bg_period, true, ImGuiKey_P, "P"};
-                constexpr op_term op_copy{_copy, true, ImGuiKey_C, "C"};
-                constexpr op_term op_cut{_cut, true, ImGuiKey_X, "X"};
-                constexpr op_term op_identify{_identify, true, ImGuiKey_I, "I (i)"};
-                constexpr op_term op_paste{_paste, false, ImGuiKey_V, "V"};
+                static percentT flip_den = 50;
+                constexpr op_term op_random_flip{
+                    ImGuiKey_Equal, "+ (=)", true,
+                    [](runnerT& self) {
+                        assert(self.m_sel);
+                        static std::mt19937 rand = rand_source::create();
+                        aniso::random_flip(self.m_torus.write_only(self.m_sel->to_range()), rand, flip_den.get());
+                    } // (Without a comment here, the clang-format result will be extremely ugly...)
+                };
 
                 // !!TODO: (v0.9.9?v0.9.8) support filling with periodic bg...
                 static aniso::cellT background{0};
-                static percentT flip_den = 50;  // Random-fill.
-                constexpr bool add_rule = true; // Copy / cut. TODO: whether to support specifying this?
-                auto copy_sel = [&] {
-                    if (m_sel) {
-                        std::string rle_str = aniso::to_RLE_str(m_torus.read_only(m_sel->to_range()),
-                                                                add_rule ? &current_rule.get() : nullptr);
+                constexpr op_term op_clear_inside{
+                    ImGuiKey_Backspace, "Backspace", true,
+                    [](runnerT& self) {
+                        assert(self.m_sel);
+                        aniso::fill(self.m_torus.write_only(self.m_sel->to_range()), background);
+                    } //
+                };
+                constexpr op_term op_clear_outside{
+                    ImGuiKey_0, "0 (zero)", true,
+                    [](runnerT& self) {
+                        assert(self.m_sel);
+                        aniso::fill_outside(self.m_torus.write_only(), self.m_sel->to_range(), background);
+                    } //
+                };
+
+                constexpr op_term op_select_all{
+                    ImGuiKey_A, "A", false,
+                    [](runnerT& self) {
+                        const aniso::vecT tile_size = self.m_torus.size();
+                        // !!TODO: whether to support toggling?
+                        // ('A' may be hit by accident as preview windows have 'A'+R/F mode; toggling is convenient for undoing...)
+
+                        // if (!m_sel || m_sel->width() != tile_size.x || m_sel->height() != tile_size.y) {
+                        //     m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
+                        // } else {
+                        //     m_sel.reset();
+                        // }
+                        self.m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
+                    } //
+                };
+                constexpr op_term op_unselect{
+                    ImGuiKey_Z, "Z", false,
+                    [](runnerT& self) { //
+                        self.m_sel.reset();
+                    } //
+                };
+
+                constexpr op_term op_bounding_box{
+                    ImGuiKey_B, "B", true,
+                    [](runnerT& self) {
+                        assert(self.m_sel);
+                        // TODO: temporarily sharing the same logic with `identify`...
+                        const aniso::rangeT sel_range = self.m_sel->to_range();
+                        const aniso::tile_const_ref sel_area = self.m_torus.read_only(sel_range);
+                        const aniso::vecT p_size{2, 2};
+                        if (aniso::has_enclosing_period(sel_area, p_size)) {
+                            aniso::rangeT bound = aniso::bounding_box(sel_area, sel_area.clip_corner(p_size));
+                            if (!bound.empty()) {
+                                bound.begin -= p_size;
+                                bound.end += p_size;
+                                // (Pad another layer of bg pattern if possible; this behaves well but skipped to keep same as `identify`.)
+                                if (false && bound.begin.both_gteq(p_size) &&
+                                    bound.end.both_lteq(sel_area.size - p_size)) {
+                                    bound.begin -= p_size;
+                                    bound.end += p_size;
+                                }
+                                self.m_sel = {.active = false,
+                                              .beg = sel_range.begin + bound.begin,
+                                              .end = sel_range.begin + bound.end.minus(1, 1)};
+                            } else {
+                                // m_sel.reset();
+                                messenger::set_msg("The area contains nothing.");
+                            }
+                        } else {
+                            messenger::set_msg("The area is not enclosed in 2*2 periodic background.");
+                        }
+                    } //
+                };
+
+                // !!TODO: (v0.9.9?v0.9.8) enhance to background sampling...
+                constexpr op_term op_test_bg_period{
+                    ImGuiKey_P, "P", true,
+                    [](runnerT& self) {
+                        assert(self.m_sel);
+                        const aniso::tile_const_ref sel_area = self.m_torus.read_only(self.m_sel->to_range());
+                        if (const auto p_size = aniso::spatial_period_full_area(sel_area, {30, 30})) {
+                            if (const auto period =
+                                    aniso::torus_period(self.current_rule, sel_area.clip_corner(*p_size), 60)) {
+                                messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size->x, p_size->y, *period);
+                            } else {
+                                messenger::set_msg("Spatial period: x = {}, y = {} (not temporally periodic)",
+                                                   p_size->x, p_size->y);
+                            }
+                        } else {
+                            // (The too-large case is considered impossible to occur naturally.)
+                            messenger::set_msg("The selected area is too small, or not spatially periodic.");
+                        }
+                    } //
+                };
+
+                // TODO: whether to support specifying this?
+                static constexpr bool add_rule = true;
+                constexpr op_term op_copy{
+                    ImGuiKey_C, "C", true,
+                    [](runnerT& self) {
+                        assert(self.m_sel);
+                        std::string rle_str = aniso::to_RLE_str(self.m_torus.read_only(self.m_sel->to_range()),
+                                                                add_rule ? &self.current_rule.get() : nullptr);
                         ImGui::SetClipboardText(rle_str.c_str());
 
                         messenger::set_msg(std::move(rle_str)); // !!TODO: sometimes noisy...
-                    }
+                    } //
+                };
+                constexpr op_term op_cut{
+                    ImGuiKey_X, "X", true,
+                    [](runnerT& self) {
+                        assert(self.m_sel);
+                        const aniso::rangeT sel_range = self.m_sel->to_range();
+                        const aniso::vecT p_size{2, 2};
+                        if (aniso::has_enclosing_period(self.m_torus.read_only(sel_range), p_size)) {
+                            // ? Why `op_copy.apply` doesn't work (should add `static`) in gcc and clang, but this can?
+                            op_copy.op(self);
+                            aniso::self_repeat(self.m_torus.write_only(sel_range), p_size);
+                        } else {
+                            messenger::set_msg("The area is not enclosed in 2*2 periodic background.");
+                        }
+                    } //
+                };
+                constexpr op_term op_identify{
+                    ImGuiKey_I, "I (i)", true,
+                    [](runnerT& self) {
+                        assert(self.m_sel);
+                        identify(self.m_torus.read_only(self.m_sel->to_range()), self.current_rule);
+                    } //
                 };
 
-                operationE op = _none;
-                operationE op_highlight = _none;
+                constexpr op_term op_paste{
+                    ImGuiKey_V, "V", false,
+                    [](runnerT& self) {
+                        if (self.m_sel) {
+                            self.m_sel->active = false;
+                        }
+                        // !!TODO: whether to support toggling?
+                        if (self.m_paste) {
+                            self.reset_m_paste();
+                        } else if (std::string_view text = read_clipboard(); !text.empty()) {
+                            std::optional<aniso::ruleT> rule = std::nullopt;
+                            text = aniso::strip_RLE_header(text, &rule);
+                            aniso::from_RLE_str(
+                                text, [&](const aniso::prepareT size) -> std::optional<aniso::tile_ref> {
+                                    if (size.empty()) {
+                                        // (void)paste_by_shortcut; // (Used to show diff vs 'Ctrl+V'.)
+                                        messenger::set_msg("Found no pattern (RLE-string).");
+                                        return std::nullopt;
+                                    } else if (const aniso::vecT tile_size = self.m_torus.size(); //
+                                               size.x > tile_size.x || size.y > tile_size.y) {
+                                        messenger::set_msg("The space is not large enough for the pattern.\n"
+                                                           "Space size: x = {}, y = {}\n"
+                                                           "Pattern size: x = {}, y = {}",
+                                                           tile_size.x, tile_size.y, size.x, size.y);
+                                        return std::nullopt;
+                                    } else {
+                                        self.m_ctrl.push_pause_for_m_paste();
+                                        self.m_paste = {
+                                            .rule = rule,
+                                            .tile = aniso::tileT(aniso::vecT{.x = (int)size.x, .y = (int)size.y}),
+                                            .beg = {0, 0},
+                                            .mode = aniso::blitE::Copy};
+                                        return self.m_paste->tile.data();
+                                    }
+                                });
+                        }
+                    } //
+                };
+
+                std::optional<op_term> op = std::nullopt;
+                ImGuiKey op_highlight = ImGuiKey_None;
                 // bool paste_by_shortcut = false;
 
                 if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
@@ -1396,10 +1539,9 @@ public:
                          {op_random_flip, op_clear_inside, op_clear_outside, op_select_all, op_unselect,
                           op_bounding_box, op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
                         if (shortcuts::test_pressed(t.key, false)) {
-                            op_highlight = t.op;
-                            const bool valid = !t.use_sel || m_sel.has_value();
-                            if (valid) {
-                                op = t.op;
+                            op_highlight = t.key;
+                            if (t.check_sel(*this)) {
+                                op = t;
                                 // if (op == _paste) {
                                 //     paste_by_shortcut = true;
                                 // }
@@ -1419,13 +1561,13 @@ public:
                             imgui_Window("Space operations", &show_op_window,
                                          ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                         auto term = [&](const char* label, const op_term& t) {
-                            const bool valid = !t.use_sel || m_sel.has_value();
+                            const bool valid = t.check_sel(*this);
                             // Was `ImGui::MenuItem(label, shortcut, nullptr, valid)`.
                             ImGui::BeginDisabled(!valid);
                             if (imgui_SelectableStyledButton(label, false, t.key_label)) {
                                 assert(valid);
-                                op = t.op;
-                            } else if (op_highlight == t.op) {
+                                op = t;
+                            } else if (op_highlight == t.key) {
                                 shortcuts::highlight();
                             }
                             ImGui::EndDisabled();
@@ -1489,109 +1631,8 @@ public:
                     }
                 }
 
-                // TODO: disable some operations if `m_paste.has_value`?
-                // TODO: set pause for some operations?
-                if (op == _random_flip && m_sel) {
-                    static std::mt19937 rand = rand_source::create();
-                    aniso::random_flip(m_torus.write_only(m_sel->to_range()), rand, flip_den.get());
-                } else if (op == _clear_inside && m_sel) {
-                    aniso::fill(m_torus.write_only(m_sel->to_range()), background);
-                } else if (op == _clear_outside && m_sel) {
-                    aniso::fill_outside(m_torus.write_only(), m_sel->to_range(), background);
-                } else if (op == _select_all) {
-                    // !!TODO: whether to support toggling?
-                    // ('A' may be hit by accident as preview windows have 'A'+R/F mode; toggling is convenient for undoing...)
-
-                    // if (!m_sel || m_sel->width() != tile_size.x || m_sel->height() != tile_size.y) {
-                    //     m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
-                    // } else {
-                    //     m_sel.reset();
-                    // }
-                    m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
-                } else if (op == _unselect) {
-                    m_sel.reset();
-                } else if (op == _bounding_box && m_sel) {
-                    // TODO: temporarily sharing the same logic with `identify`...
-                    const aniso::rangeT sel_range = m_sel->to_range();
-                    const aniso::tile_const_ref sel_area = m_torus.read_only(sel_range);
-                    const aniso::vecT p_size{2, 2};
-                    if (aniso::has_enclosing_period(sel_area, p_size)) {
-                        aniso::rangeT bound = aniso::bounding_box(sel_area, sel_area.clip_corner(p_size));
-                        if (!bound.empty()) {
-                            bound.begin -= p_size;
-                            bound.end += p_size;
-                            // (Pad another layer of bg pattern if possible; this behaves well but skipped to keep same as `identify`.)
-                            if (false && bound.begin.both_gteq(p_size) && bound.end.both_lteq(sel_area.size - p_size)) {
-                                bound.begin -= p_size;
-                                bound.end += p_size;
-                            }
-                            m_sel = {.active = false,
-                                     .beg = sel_range.begin + bound.begin,
-                                     .end = sel_range.begin + bound.end.minus(1, 1)};
-                        } else {
-                            // m_sel.reset();
-                            messenger::set_msg("The area contains nothing.");
-                        }
-                    } else {
-                        messenger::set_msg("The area is not enclosed in 2*2 periodic background.");
-                    }
-                } else if (op == _test_bg_period && m_sel) {
-                    const aniso::tile_const_ref sel_area = m_torus.read_only(m_sel->to_range());
-                    if (const auto p_size = aniso::spatial_period_full_area(sel_area, {30, 30})) {
-                        if (const auto period = aniso::torus_period(current_rule, sel_area.clip_corner(*p_size), 60)) {
-                            messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size->x, p_size->y, *period);
-                        } else {
-                            messenger::set_msg("Spatial period: x = {}, y = {} (not temporally periodic)", p_size->x,
-                                               p_size->y);
-                        }
-                    } else {
-                        // (The too-large case is considered impossible to occur naturally.)
-                        messenger::set_msg("The selected area is too small, or not spatially periodic.");
-                    }
-                } else if (op == _copy && m_sel) {
-                    copy_sel();
-                } else if (op == _cut && m_sel) {
-                    const aniso::rangeT sel_range = m_sel->to_range();
-                    const aniso::vecT p_size{2, 2};
-                    if (aniso::has_enclosing_period(m_torus.read_only(sel_range), p_size)) {
-                        copy_sel();
-                        aniso::self_repeat(m_torus.write_only(sel_range), p_size);
-                    } else {
-                        messenger::set_msg("The area is not enclosed in 2*2 periodic background.");
-                    }
-                } else if (op == _paste) {
-                    if (m_sel) {
-                        m_sel->active = false;
-                    }
-                    // !!TODO: whether to support toggling?
-                    if (m_paste) {
-                        reset_m_paste();
-                    } else if (std::string_view text = read_clipboard(); !text.empty()) {
-                        std::optional<aniso::ruleT> rule = std::nullopt;
-                        text = aniso::strip_RLE_header(text, &rule);
-                        aniso::from_RLE_str(text, [&](const aniso::prepareT size) -> std::optional<aniso::tile_ref> {
-                            if (size.empty()) {
-                                // (void)paste_by_shortcut; // (Used to show diff vs 'Ctrl+V'.)
-                                messenger::set_msg("Found no pattern (RLE-string).");
-                                return std::nullopt;
-                            } else if (size.x > tile_size.x || size.y > tile_size.y) {
-                                messenger::set_msg("The space is not large enough for the pattern.\n"
-                                                   "Space size: x = {}, y = {}\n"
-                                                   "Pattern size: x = {}, y = {}",
-                                                   tile_size.x, tile_size.y, size.x, size.y);
-                                return std::nullopt;
-                            } else {
-                                m_ctrl.push_pause_for_m_paste();
-                                m_paste = {.rule = rule,
-                                           .tile = aniso::tileT(aniso::vecT{.x = (int)size.x, .y = (int)size.y}),
-                                           .beg = {0, 0},
-                                           .mode = aniso::blitE::Copy};
-                                return m_paste->tile.data();
-                            }
-                        });
-                    }
-                } else if (op == _identify) {
-                    identify(m_torus.read_only(m_sel->to_range()), current_rule);
+                if (op) {
+                    op->apply(*this);
                 }
             }
 
