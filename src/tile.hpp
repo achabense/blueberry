@@ -65,6 +65,11 @@ namespace aniso {
         });
     }
 
+    inline void copy_common(const tile_ref dest, const tile_const_ref source) {
+        const vecT common = min(dest.size, source.size);
+        copy(dest.clip_corner(common), source.clip_corner(common));
+    }
+
     // (`repeat.at(0, 0)` is bound to `source.at(0, 0)`.)
     inline void copy_diff(const tile_ref dest, const tile_const_ref source,
                           const tile_const_ref repeat /*background*/) {
@@ -94,6 +99,21 @@ namespace aniso {
                 }
             }
         });
+    }
+
+    inline void self_repeat(const tile_ref tile, const vecT period) {
+        assert(period.both_gteq({1, 1}));
+        if (period.x < tile.size.x) {
+            for (int y = 0; y < std::min(tile.size.y, period.y); ++y) {
+                cellT* const ln = tile.line(y);
+                for (int i = period.x; i < tile.size.x; ++i) {
+                    ln[i] = ln[i - period.x];
+                }
+            }
+        }
+        for (int y = period.y; y < tile.size.y; ++y) {
+            std::copy_n(tile.line(y - period.y), tile.size.x, tile.line(y));
+        }
     }
 
     enum class blitE { Copy, Or, And, Xor };
@@ -129,20 +149,10 @@ namespace aniso {
         }
     }
 
-    // The result will be completely dependent on the state of `rand` and `density`.
-    // (`bernoulli_distribution` cannot guarantee this.)
-    inline void random_fill(const tile_ref tile, std::mt19937& rand, double density) {
-        const uint32_t c = std::mt19937::max() * std::clamp(density, 0.0, 1.0);
-        tile.for_all_data([&](std::span<cellT> line) { //
-            std::ranges::generate(line, [&] { return cellT(rand() < c ? 1 : 0); });
-        });
-    }
-
-    inline void random_flip(const tile_ref tile, std::mt19937& rand, double density) {
-        const uint32_t c = std::mt19937::max() * std::clamp(density, 0.0, 1.0);
+    inline void flip(const tile_ref tile) {
         tile.for_all_data([&](std::span<cellT> line) {
             for (cellT& cell : line) {
-                cell = cell ^ (rand() < c);
+                cell = !cell;
             }
         });
     }
@@ -158,32 +168,39 @@ namespace aniso {
         assert(non_overlapping(tile, repeat));
         if (repeat.size == vecT{1, 1}) {
             fill(tile, *repeat.data);
-            return;
+        } else {
+            copy_common(tile, repeat);
+            self_repeat(tile, repeat.size);
         }
+    }
 
-#if 0
-        _misc::wrapped_int dy(0, repeat.size.y);
-        tile.for_each_line([&](const int y, std::span<cellT> line) {
-            const cellT* const rep = repeat.line(dy++);
-            _misc::wrapped_int dx(0, repeat.size.x);
-            for (cellT& cell : line) {
-                cell = rep[dx++];
-            }
-        });
-#else
-        // (Faster even in release mode.)
-        const vecT common = min(tile.size, repeat.size);
-        copy(tile.clip_corner(common), repeat.clip_corner(common));
-        for (int y = 0; y < repeat.size.y; ++y) {
-            cellT* const ln = tile.line(y);
-            for (int i = repeat.size.x; i < tile.size.x; ++i) {
-                ln[i] = ln[i - repeat.size.x];
-            }
+    // The result will be completely dependent on the state of `rand` and `density`.
+    // (`bernoulli_distribution` cannot guarantee this.)
+    inline void random_fill(const tile_ref tile, std::mt19937& rand, double density) {
+        constexpr uint32_t max = std::mt19937::max();
+        const uint32_t c = max * std::clamp(density, 0.0, 1.0);
+        if (c == 0 || c == max) {
+            fill(tile, cellT(c == 0 ? 0 : 1));
+        } else {
+            tile.for_all_data([&](std::span<cellT> line) { //
+                std::ranges::generate(line, [&] { return cellT(rand() < c ? 1 : 0); });
+            });
         }
-        for (int y = repeat.size.y; y < tile.size.y; ++y) {
-            std::copy_n(tile.line(y - repeat.size.y), tile.size.x, tile.line(y));
+    }
+
+    inline void random_flip(const tile_ref tile, std::mt19937& rand, double density) {
+        constexpr uint32_t max = std::mt19937::max();
+        const uint32_t c = max * std::clamp(density, 0.0, 1.0);
+        if (c == 0) { // Noop
+        } else if (c == max) {
+            flip(tile);
+        } else {
+            tile.for_all_data([&](std::span<cellT> line) {
+                for (cellT& cell : line) {
+                    cell = cell ^ (rand() < c);
+                }
+            });
         }
-#endif
     }
 
     inline void fill_outside(const tile_ref tile, const rangeT& range, const cellT v) {
@@ -308,38 +325,23 @@ namespace aniso {
                _misc::has_period_y(tile.right(period.x), period.y);
     }
 
-    // (Doesn't behave well in practice; see `test_periodic_functions_2`.)
-    /*[[deprecated]]*/ inline std::optional<vecT> spatial_period_enclosing(const tile_const_ref tile,
-                                                                           const vecT max_period) {
-        for (int y = 1; y <= std::min(tile.size.y / 2, max_period.y); ++y) {
-            for (int x = 1; x <= std::min(tile.size.x / 2, max_period.x); ++x) {
-                if (has_enclosing_period(tile, {.x = x, .y = y})) {
-                    return vecT{.x = x, .y = y};
-                }
-            }
-        }
-        return std::nullopt;
-    }
-
     inline std::optional<vecT> spatial_period_full_area(const tile_const_ref tile, const vecT max_period) {
-        std::optional<int> period_x = std::nullopt, period_y = std::nullopt;
-        for (int x = 1; x <= std::min(tile.size.x / 2, max_period.x); ++x) {
+        const vecT limit = min(tile.size / 2, max_period);
+        int period_x = 0;
+        for (int x = 1; x <= limit.x; ++x) {
             if (_misc::has_period_x(tile, x)) {
                 period_x = x;
                 break;
             }
         }
-        for (int y = 1; y <= std::min(tile.size.y / 2, max_period.y); ++y) {
-            if (_misc::has_period_y(tile, y)) {
-                period_y = y;
-                break;
+        if (period_x) {
+            for (int y = 1; y <= limit.y; ++y) {
+                if (_misc::has_period_y(tile, y)) {
+                    return vecT{.x = period_x, .y = y};
+                }
             }
         }
-        if (period_x && period_y) {
-            return vecT{.x = *period_x, .y = *period_y};
-        } else {
-            return std::nullopt;
-        }
+        return std::nullopt;
     }
 
 #ifdef ENABLE_TESTS
@@ -367,22 +369,20 @@ namespace aniso {
             const cellT period[4]{{0}, {0}, {0}, {1}}; // 0 0
             fill(tile, {period, {2, 2}});              // 0 1
             assert((spatial_period_full_area(tile, tile.size) == vecT{2, 2}));
+            // Note that for this case the expected period (2,2) != smallest-enclosing-period (1,1)...
             assert(has_enclosing_period(tile, {2, 2}) && has_enclosing_period(tile, {1, 1}));
-            // `spatial_period_enclosing` (smallest-enclosing-period) doesn't select expected period for this case...
-            assert((spatial_period_enclosing(tile, tile.size) == vecT{1, 1}));
-            // assert((spatial_period_enclosing(tile, tile.size) == vecT{2, 2}));
         };
     } // namespace _tests
 #endif // ENABLE_TESTS
 
     // Rotate (0, 0) to (wrap(to.x), wrap(to.y)).
-    inline void rotate_copy_00_to(const tile_ref dest, const tile_const_ref source, vecT to) {
+    inline void rotate_copy_00_to(const tile_ref dest, const tile_const_ref source, const vecT to_) {
         assert(non_overlapping(dest, source));
         assert(dest.size == source.size);
         const vecT size = dest.size;
 
         const auto wrap = [](int v, int r) { return ((v % r) + r) % r; };
-        to = {.x = wrap(to.x, size.x), .y = wrap(to.y, size.y)};
+        const vecT to = {.x = wrap(to_.x, size.x), .y = wrap(to_.y, size.y)};
         assert(to.both_gteq({0, 0}) && to.both_lt(size));
 
         if (to.x == 0 && to.y == 0) {
@@ -902,8 +902,7 @@ namespace aniso {
         // Value-preserving.
         void resize(const vecT size) {
             tile_buf resized{size};
-            const vecT common = min(m_size, size);
-            copy(resized.data().clip_corner(common), data().clip_corner(common));
+            copy_common(resized.data(), data());
             *this = resized;
         }
     };
