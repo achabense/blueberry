@@ -158,7 +158,7 @@ void frame_main() {
         static bool show_clipboard = false;
         static bool show_doc = false;
 
-        const int wide_spacing = ImGui::CalcTextSize(" ").x * 3;
+        const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         ImGui::Checkbox("Intro", &show_intro);
         if (show_intro) {
             imgui_CenterNextWindow(ImGuiCond_FirstUseEver);

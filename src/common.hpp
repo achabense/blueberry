@@ -462,7 +462,7 @@ inline bool imgui_SelectableStyledButton(const char* label, const bool selected 
     } else {
         // The label should fit in {ImGui::CalcItemWidth(), ImGui::GetFrameHeight()}. Not checked.
         const float w_before_shortcut = ImGui::CalcItemWidth() + imgui_ItemInnerSpacingX();
-        const ImVec2 shortcut_size = ImGui::CalcTextSize(menu_shortcut);
+        const ImVec2 shortcut_size = imgui_CalcTextSize(menu_shortcut);
         assert(shortcut_size.y == ImGui::GetFontSize()); // Single-line.
         const ImVec2 button_size = {std::max(ImGui::GetContentRegionAvail().x, w_before_shortcut + shortcut_size.x),
                                     ImGui::GetFrameHeight()};

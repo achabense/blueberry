@@ -477,7 +477,7 @@ public:
                         ImGui::SameLine();
                     }
                     ImGui::BeginGroup();
-                    const float title_w = ImGui::CalcTextSize(t.title).x;
+                    const float title_w = imgui_CalcTextSize(t.title).x;
                     const float button_w = ImGui::GetFrameHeight();
                     if (title_w < button_w) {
                         imgui_AddCursorPosX((button_w - title_w) / 2);
@@ -561,18 +561,18 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
 static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT& working_set) {
     if (rst->has_snapshot()) {
         bool updated = false;
-        rst->display_snapshot_if_present({
-            {.get = [&]() -> decltype(auto) { return rst.get(); },
-             .set =
-                 [&](const aniso::ruleT& r) {
-                     // (The function is no longer stored; preserved for reference.)
-                     // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
-                     if (get_deliv({.hov = nullptr, .deliv = &r}, working_set)) {
-                         rst.set(r);
-                         updated = true;
-                     }
-                 }} //
-        });
+        rst->display_snapshot_if_present({{
+            // (The function is no longer stored; preserved for reference.)
+            // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
+            .get = [&]() -> decltype(auto) { return rst.get(); },
+            .set =
+                [&](const aniso::ruleT& r) {
+                    if (get_deliv({.hov = nullptr, .deliv = &r}, working_set)) {
+                        rst.set(r);
+                        updated = true;
+                    }
+                } //
+        }});
         return updated;
     }
     return false;
@@ -946,7 +946,8 @@ static void traverse_window(bool& open, const aniso::subsetT& working_set) {
             "(...)", // !!TODO: rewrite (should explain [R] & relation with <00..)...
             "The sequence represents a list of all rules in the working set, in the following order: firstly [R], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (which is the number of groups in the working set).\n\n"
             "You can traverse the entire working set with this. Some interesting examples include: inner-totalistic rules ('Tot(+s)'), self-complementary totalistic rules ('Comp' & 'Tot'), isotropic von-Neumann rules ('All' & 'Von'), and a similar set ('All' & 'w').\n\n"
-            "Even if the working set is very large, you may find this still useful sometimes.");
+            "Even if the working set is very large, you may find this still useful sometimes.\n\n"
+            "(The page will be cleared automatically if the working set or [R] changes.)");
 
         const char* const disable_prev_next =
             page.empty()
@@ -991,8 +992,6 @@ static void traverse_window(bool& open, const aniso::subsetT& working_set) {
             }
         }
         rclick_popup::popup(imgui_GetItemPosID(), [] {
-            imgui_StrTooltip("(?)", "The page will be cleared automatically if the working set or [R] changes.");
-            ImGui::SameLine();
             if (ImGui::Selectable("Clear")) {
                 set_msg_cleared(!page.empty());
                 page.clear();
@@ -1340,7 +1339,7 @@ void edit_rule(frame_main_token) {
         const int group_size_x = [&]() -> int {
             if (show_random_access) {
                 int size = button_padding.x * 2 + 3 * button_zoom; // button-size
-                size += imgui_ItemInnerSpacingX() + ImGui::CalcTextSize(labels_preview[0]).x;
+                size += imgui_ItemInnerSpacingX() + imgui_CalcTextSize(labels_preview[0]).x;
                 return std::max(size, config.width());
             } else {
                 return image_padding.x * 2 + 3 * button_zoom;

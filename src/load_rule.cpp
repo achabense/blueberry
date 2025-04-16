@@ -72,10 +72,10 @@ static pathT cpp17_u8path(const std::string_view path) noexcept {
         }
         assert(!segs.empty());
 
-        // ~ `&sep + 1` is valid, see:
+        // (Btw, `imgui_CalcTextSize({&sep, 1})` is valid.)
         // https://stackoverflow.com/questions/14505851/is-the-one-past-the-end-pointer-of-a-non-array-type-a-valid-concept-in-c
         const char sep = pathT::preferred_separator;
-        const float sep_w = imgui_CalcTextSize({&sep, 1}).x;
+        const float sep_w = imgui_CalcCharWidth(sep);
 
         std::vector<std::string> vec;
         vec.push_back(cpp17_u8string(segs.back()));

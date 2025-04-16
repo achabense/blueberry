@@ -1023,7 +1023,7 @@ public:
         ImGui::SameLine();
         static bool show_op_window = false;
         ImGui::Checkbox("Space ops", &show_op_window);
-        const int wide_spacing = ImGui::CalcTextSize(" ").x * 2;
+        const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         ImGui::SameLine(0, wide_spacing);
         if (m_paste) {
             const aniso::vecT size = m_paste->size();

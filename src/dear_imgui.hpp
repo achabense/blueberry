@@ -172,7 +172,9 @@ inline void imgui_StrWrapped(std::string_view str, float min_len) {
 
 inline void imgui_StrColored(std::string_view str, const ImVec4& col) {
     ImGui::PushStyleColor(ImGuiCol_Text, col);
+    // const ImVec4 old_col = std::exchange(GImGui->Style.Colors[ImGuiCol_Text], col);
     imgui_Str(str);
+    // GImGui->Style.Colors[ImGuiCol_Text] = old_col;
     ImGui::PopStyleColor();
 }
 
@@ -338,6 +340,10 @@ inline bool imgui_MouseScrolling() { return ImGui::GetIO().MouseWheel != 0; }
 inline bool imgui_MouseScrollingDown() { return ImGui::GetIO().MouseWheel < 0; }
 
 inline bool imgui_MouseScrollingUp() { return ImGui::GetIO().MouseWheel > 0; }
+
+inline float imgui_CalcCharWidth(unsigned char ch) { //
+    return ceil(ImGui::GetFont()->GetCharAdvance(ch));
+}
 
 inline ImVec2 imgui_CalcTextSize(std::string_view text) { //
     return ImGui::CalcTextSize(text.data(), text.data() + text.size(), false);
