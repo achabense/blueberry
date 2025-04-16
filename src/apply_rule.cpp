@@ -684,10 +684,10 @@ public:
                 }
             }
             guide_mode::item_tooltip("MAP-string for ... !!TODO");
-            {
-                auto getter = [&]() -> decltype(auto) { return current_rule.get(); };
-                auto setter = [&](const aniso::ruleT& r) { (void)current_rule.set_next(r); };
-                current_rule->display_snapshot({{.get = getter, .set = setter}});
+            if (current_rule->has_snapshot()) {
+                current_rule->display_snapshot_if_present(
+                    {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
+                      .set = [&](const aniso::ruleT& r) { (void)current_rule.set_next(r); }}});
             }
 
             ImGui::Separator();

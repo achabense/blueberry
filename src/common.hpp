@@ -59,7 +59,7 @@ public:
 
 class rule_algo : no_create {
 public:
-    static aniso::ruleT trans_reverse(const aniso::ruleT&);
+    // static aniso::ruleT trans_reverse(const aniso::ruleT&);
     static bool is_hexagonal_rule(const aniso::ruleT&);
 };
 
@@ -726,7 +726,7 @@ class messenger : no_create {
         }
 
         // Won't interfere with normal tooltips or popups.
-        void display() {
+        void display_if_present() {
             if (m_str.empty()) {
                 return;
             } else if (m_min) {
@@ -778,7 +778,7 @@ public:
         m_msg.set(std::format(fmt, args...));
     }
 
-    static void display_msg(frame_main_token) { m_msg.display(); }
+    static void display_msg_if_present(frame_main_token) { m_msg.display_if_present(); }
 };
 
 class global_timer : no_create {
@@ -1151,11 +1151,13 @@ public:
         }
     }
 
+    bool has_snapshot() const { return (bool)m_snapshot; } // Not necessary (perf only).
+
     struct contextT {
         func_ref<aniso::compressT()> get;
         func_ref<void(const aniso::compressT&)> set;
     };
-    void display_snapshot(const std::optional<contextT>& context = std::nullopt) const {
+    void display_snapshot_if_present(const std::optional<contextT>& context = std::nullopt) const {
         if (m_snapshot && !m_snapshot.display(m_data, context)) {
             m_snapshot.clear();
         }

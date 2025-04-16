@@ -110,9 +110,9 @@ namespace aniso {
 
 // `aniso::trans_reverse` cannot be directly declared and called in other TUs, as "the definition of
 // an inline function must be reachable in the translation unit where it is accessed".
-aniso::ruleT rule_algo::trans_reverse(const aniso::ruleT& rule) { //
-    return aniso::trans_reverse(rule);
-}
+// aniso::ruleT rule_algo::trans_reverse(const aniso::ruleT& rule) { //
+//     return aniso::trans_reverse(rule);
+// }
 
 bool rule_algo::is_hexagonal_rule(const aniso::ruleT& rule) { //
     return aniso::_subsets::ignore_hex.contains(rule);
@@ -308,6 +308,9 @@ public:
 
     subset_selector(const subset_selector&) = delete;
 
+#if 1
+    subset_selector& operator=(const subset_selector&) = delete;
+#else
     // (Could be defaulted if `termT::title/set` etc are declared non-const.)
     subset_selector& operator=(const subset_selector& that) {
         current = that.current;
@@ -339,6 +342,7 @@ public:
         });
         return val;
     }
+#endif
 
 private:
     enum centerE { Selected, Including, Disabled, None }; // TODO: add "equals" relation?
@@ -552,6 +556,26 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
         pass.tooltip_or_message("Identical.");
     }
     return nullptr;
+}
+
+static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT& working_set) {
+    if (rst->has_snapshot()) {
+        bool updated = false;
+        rst->display_snapshot_if_present({
+            {.get = [&]() -> decltype(auto) { return rst.get(); },
+             .set =
+                 [&](const aniso::ruleT& r) {
+                     // (The function is no longer stored; preserved for reference.)
+                     // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
+                     if (get_deliv({.hov = nullptr, .deliv = &r}, working_set)) {
+                         rst.set(r);
+                         updated = true;
+                     }
+                 }} //
+        });
+        return updated;
+    }
+    return false;
 }
 
 // !!TODO: no longer used by rule-generating funcs.
@@ -904,8 +928,7 @@ static void traverse_window(bool& open, const aniso::subsetT& working_set) {
         imgui_StrWithID("[R]");
         if (!pass_rule::source(orderer)) {
             show_in_tooltip(config, orderer);
-            rclick_popup::popup(ImGui::GetItemID(), [&] {
-                // !!TODO: add context...
+            rclick_popup::popup(ImGui::GetItemID(), [&] { //
                 orderer->selectable_to_take_snapshot("Recent");
             });
         }
@@ -914,7 +937,10 @@ static void traverse_window(bool& open, const aniso::subsetT& working_set) {
             page.clear();
             messenger::set_msg("Updated.");
         }
-        orderer->display_snapshot();
+        if (display_snapshot_if_present(orderer, working_set)) {
+            page.clear();
+        }
+
         ImGui::SameLine();
         imgui_StrTooltip(
             "(...)", // !!TODO: rewrite (should explain [R] & relation with <00..)...
@@ -1032,8 +1058,7 @@ static void random_rule_window(bool& open, const aniso::subsetT& working_set) {
         imgui_StrWithID("[S]");
         if (!pass_rule::source(target)) {
             show_in_tooltip(config, target);
-            rclick_popup::popup(ImGui::GetItemID(), [&] {
-                // !!TODO: add context...
+            rclick_popup::popup(ImGui::GetItemID(), [&] { //
                 target->selectable_to_take_snapshot("Recent");
             });
         }
@@ -1041,7 +1066,8 @@ static void random_rule_window(bool& open, const aniso::subsetT& working_set) {
             target.set(*deliv);
             messenger::set_msg("Updated.");
         }
-        target->display_snapshot();
+        display_snapshot_if_present(target, working_set);
+
         ImGui::SameLine();
         imgui_StrTooltip(
             "(...)", // !!TODO rewrite...
@@ -1118,7 +1144,6 @@ static void random_rule_window(bool& open, const aniso::subsetT& working_set) {
 void edit_rule(frame_main_token) {
     // Select subsets.
     static subset_selector select_working{&aniso::_subsets::native_isotropic};
-    // const auto rep_before = select_working.rep();
     {
         static bool collapse = false;
         ImGui::AlignTextToFramePadding();
@@ -1224,7 +1249,13 @@ void edit_rule(frame_main_token) {
             "Enable random-access editing, i.e. flipping the values of [T] by groups. This effectively presents all rules with dist = 1 to [T] in the working set.\n"
             "(You can 'Collapse' the set table to leave more room for the preview windows.)");
 
-        if (show_random_access) {
+        if (!show_random_access) {
+            if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set /*, target*/)) {
+                target.set(*deliv);
+                show_random_access = true;
+                // (v will be skipped for this frame; that's ok.)
+            }
+        } else {
             if (!working_set.contains(target)) {
                 target.set(working_set.get_mask());
             }
@@ -1241,17 +1272,7 @@ void edit_rule(frame_main_token) {
                 target.set(*deliv);
                 messenger::set_msg("Updated.");
             }
-            {
-                auto getter = []() -> decltype(auto) { return target.get(); };
-                auto setter = [&](const aniso::ruleT& r) {
-                    // (The function is no longer stored; preserved for reference.)
-                    // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
-                    if (get_deliv({.hov = nullptr, .deliv = &r}, working_set /*, target*/)) {
-                        target.set(r);
-                    }
-                };
-                target->display_snapshot({{.get = getter, .set = setter}});
-            }
+            display_snapshot_if_present(target, working_set);
 
             ImGui::SameLine();
             config.set("Settings");

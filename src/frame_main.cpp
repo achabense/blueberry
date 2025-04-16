@@ -141,7 +141,7 @@ void frame_main() {
     previewer::begin_frame({});
     pass_rule::begin_frame({});
 
-    messenger::display_msg({});
+    messenger::display_msg_if_present({});
     if (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_H)) {
         guide_mode::flip_enable({});
     }
@@ -200,7 +200,7 @@ void frame_main() {
             });
             guide_mode::item_tooltip(
                 "Drag a rule here to copy it (as MAP-string) to the clipboard; equivalent to 'Copy rule'.");
-            copy_rule::get_rec({}).display_snapshot();
+            copy_rule::get_rec({}).display_snapshot_if_present();
         }
         ImGui::SameLine();
         ImGui::Checkbox("Documents", &show_doc);
