@@ -42,8 +42,9 @@ public:
 #endif
 
 // !!TODO: unfinished...
-static void intro_window(bool& open, frame_main_token) {
-    assert(open);
+static open_state intro_window(frame_main_token) {
+    bool open = true;
+    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
 
     imgui_Window::next_window_titlebar_tooltip = "Additional window controls:\n\n"
@@ -119,6 +120,7 @@ static void intro_window(bool& open, frame_main_token) {
 
         ImGui::PopTextWrapPos();
     }
+    return {open};
 }
 
 void frame_main() {
@@ -153,43 +155,41 @@ void frame_main() {
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
     if (auto window = imgui_Window("Main", nullptr, flags)) {
-        static bool show_intro = init_show_intro;
-        static bool show_file = false;
-        static bool show_clipboard = false;
-        static bool show_doc = false;
-
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
-        ImGui::Checkbox("Intro", &show_intro);
-        if (show_intro) {
-            imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
-            intro_window(show_intro, {});
+        {
+            static bool show_intro = init_show_intro;
+            ImGui::Checkbox("Intro", &show_intro);
+            if (show_intro) {
+                intro_window({}).reset_if_closed(show_intro);
+            }
         }
-
         ImGui::SameLine(0, wide_spacing);
-        ImGui::Checkbox("Files", &show_file);
-        guide_mode::item_tooltip("Load rules from files.");
-        if (show_file) {
-            ImGui::SetNextWindowPos(ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4),
-                                    ImGuiCond_FirstUseEver);
-            load_file(show_file, {});
+        {
+            static bool show_file = false;
+            ImGui::Checkbox("Files", &show_file);
+            guide_mode::item_tooltip("Load rules from files.");
+            if (show_file) {
+                const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
+                load_file(init_pos, {}).reset_if_closed(show_file);
+            }
         }
         ImGui::SameLine();
-        ImGui::Checkbox("Clipboard", &show_clipboard);
-        guide_mode::item_tooltip("Load rules from the clipboard.");
         {
+            static bool show_clipboard = false;
+            ImGui::Checkbox("Clipboard", &show_clipboard);
+            guide_mode::item_tooltip("Load rules from the clipboard.");
             const bool paste = shortcuts::ctrl() && shortcuts::keys_avail_and_window_hoverable() &&
                                shortcuts::test_pressed(ImGuiKey_V);
             if (paste) {
                 show_clipboard = true;
             }
             if (show_clipboard) {
-                ImGui::SetNextWindowPos(ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4),
-                                        ImGuiCond_FirstUseEver);
-                load_clipboard(show_clipboard, paste, {});
+                const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
+                load_clipboard(init_pos, paste, {}).reset_if_closed(show_clipboard);
             }
         }
+        ImGui::SameLine();
         {
-            ImGui::SameLine();
             imgui_Str("..");
             if (const auto pass = pass_rule::dest(ImGuiKey_C, 'C'); pass.deliv) {
                 copy_rule::copy(*pass.deliv);
@@ -203,12 +203,14 @@ void frame_main() {
             copy_rule::get_rec({}).display_snapshot_if_present();
         }
         ImGui::SameLine();
-        ImGui::Checkbox("Documents", &show_doc);
-        guide_mode::item_tooltip("Concepts, example rules, etc.");
-        if (show_doc) {
-            ImGui::SetNextWindowPos(ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4),
-                                    ImGuiCond_FirstUseEver);
-            load_doc(show_doc, {});
+        {
+            static bool show_doc = false;
+            ImGui::Checkbox("Documents", &show_doc);
+            guide_mode::item_tooltip("Concepts, example rules, etc.");
+            if (show_doc) {
+                const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
+                load_doc(init_pos, {}).reset_if_closed(show_doc);
+            }
         }
 
         ImGui::SameLine(0, wide_spacing);

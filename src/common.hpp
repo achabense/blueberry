@@ -29,6 +29,16 @@ inline void assert_utf8_encoding() {
 // To make things easy the program does not try to deal with these strings.
 #endif
 
+struct [[nodiscard]] open_state {
+    const bool open;
+    bool closed() const { return !open; }
+    void reset_if_closed(bool& flag) const {
+        if (!open) {
+            flag = false;
+        }
+    }
+};
+
 // Managed by `main`.
 void frame_main();
 
@@ -37,14 +47,9 @@ class frame_main_token : no_copy {
     /*implicit*/ frame_main_token() = default;
 };
 
-// TODO: still not ideal, should redesign in the future...
-// For functions like these, currently:
-// Caller decides only window pos;
-// Window-fn decides other settings (size, collapsing etc);
-// Input `open` must be true.
-void load_file(bool& open, frame_main_token);
-void load_clipboard(bool& open, bool paste, frame_main_token);
-void load_doc(bool& open, frame_main_token);
+open_state load_file(ImVec2 init_pos, frame_main_token);
+open_state load_clipboard(ImVec2, bool paste, frame_main_token);
+open_state load_doc(ImVec2, frame_main_token);
 
 void edit_rule(frame_main_token);
 void apply_rule(frame_main_token);
@@ -1158,7 +1163,7 @@ public:
         func_ref<void(const aniso::compressT&)> set;
     };
     void display_snapshot_if_present(const std::optional<contextT>& context = std::nullopt) const {
-        if (m_snapshot && !m_snapshot.display(m_data, context)) {
+        if (m_snapshot && m_snapshot.display(m_data, context).closed()) {
             m_snapshot.clear();
         }
     }
@@ -1184,7 +1189,7 @@ private:
         }
         void test_outdated(const dataT& data) { m_outdated = data != m_data; }
 
-        /*false -> close*/ bool display(const dataT& data, const std::optional<contextT>& context) {
+        open_state display(const dataT& data, const std::optional<contextT>& context) {
             assert(!m_data.empty());
             const bool updated = std::exchange(m_newly_updated, false);
             bool open = true;
@@ -1270,7 +1275,7 @@ private:
                 }
                 ImGui::PopStyleColor();
             }
-            return open;
+            return {open};
         }
     };
 

@@ -682,8 +682,9 @@ public:
 
 // !!TODO: unfinished...
 // 0/1-rev, approx and buffers...
-static void misc_window(bool& open, const aniso::subsetT& working_set) {
-    assert(open);
+static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
+    bool open = true;
+    ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
 
     static previewer::configT config{previewer::configT::_220_160};
@@ -801,6 +802,7 @@ static void misc_window(bool& open, const aniso::subsetT& working_set) {
         }
         ImGui::PopStyleColor();
     };
+    return {open};
 }
 
 struct page_adapter {
@@ -859,8 +861,9 @@ static void show_in_tooltip(const previewer::configT& config, const aniso::ruleT
     });
 }
 
-static void traverse_window(bool& open, const aniso::subsetT& working_set) {
-    assert(open);
+static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
+    bool open = true;
+    ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
 
     static page_adapter adapter{};
@@ -1021,10 +1024,12 @@ static void traverse_window(bool& open, const aniso::subsetT& working_set) {
             }
         });
     }
+    return {open};
 }
 
-static void random_rule_window(bool& open, const aniso::subsetT& working_set) {
-    assert(open);
+static open_state random_rule_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
+    bool open = true;
+    ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
 
     static page_adapter adapter{};
@@ -1135,6 +1140,7 @@ static void random_rule_window(bool& open, const aniso::subsetT& working_set) {
             previewer::preview_or_dummy(j, config, r < rules.size() ? &rules[r] : nullptr);
         });
     }
+    return {open};
 }
 
 // TODO: support random-access in a separate window?
@@ -1207,8 +1213,6 @@ void edit_rule(frame_main_token) {
 
     ImGui::Separator();
 
-    static bool show_trav = false;
-    static bool show_rand = false;
     static bool show_random_access = false;
     // !!TODO: whether to support dirty editing (the target doesn't have to belong to the set)?
     static rule_with_rec target = working_set.get_mask(); // Random-access // !!TODO: workaround; should redesign...
@@ -1218,27 +1222,29 @@ void edit_rule(frame_main_token) {
         ImGui::Checkbox("Misc", &show_misc);
         guide_mode::item_tooltip("!!TODO...");
         if (show_misc) {
-            ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
-            misc_window(show_misc, working_set);
+            const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
+            misc_window(init_pos, working_set).reset_if_closed(show_misc);
         }
     }
     ImGui::SameLine();
     {
+        static bool show_trav = false;
         ImGui::Checkbox("Traverse", &show_trav);
         guide_mode::item_tooltip("Iterate through all rules in the working set.\n\n"
                                  "(This is mainly useful for small sets.)");
         if (show_trav) {
-            ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
-            traverse_window(show_trav, working_set);
+            const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
+            traverse_window(init_pos, working_set).reset_if_closed(show_trav);
         }
     }
     ImGui::SameLine();
     {
+        static bool show_rand = false;
         ImGui::Checkbox("Random", &show_rand);
         guide_mode::item_tooltip("Get random rules in the working set.");
         if (show_rand) {
-            ImGui::SetNextWindowPos(ImGui::GetItemRectMax() + ImVec2(30, -100), ImGuiCond_FirstUseEver);
-            random_rule_window(show_rand, working_set);
+            const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
+            random_rule_window(init_pos, working_set).reset_if_closed(show_rand);
         }
     }
     ImGui::SameLine();

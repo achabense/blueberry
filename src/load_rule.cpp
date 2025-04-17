@@ -1112,34 +1112,39 @@ static void load_doc_impl() {
     }
 }
 
-static imgui_Window prepare_window(const char* title, bool& open, bool force_uncollapse = false) {
+static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& init_pos,
+                                   bool force_uncollapse = false) {
     // assert(open);
     ImGui::SetNextWindowCollapsed(false, force_uncollapse ? ImGuiCond_Always : ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
     return imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings);
 }
 
-void load_file(bool& open, frame_main_token) {
-    assert(open);
-    if (auto window = prepare_window("Files", open)) {
+open_state load_file(const ImVec2 init_pos, frame_main_token) {
+    bool open = true;
+    if (auto window = prepare_window("Files", open, init_pos)) {
         load_file_impl();
     }
+    return {open};
 }
 
-void load_clipboard(bool& open, bool paste, frame_main_token) {
-    assert(open);
+open_state load_clipboard(const ImVec2 init_pos, bool paste, frame_main_token) {
+    bool open = true;
     if (paste) {
         ImGui::SetNextWindowFocus();
     }
-    if (auto window = prepare_window("Clipboard", open, paste /*-> force-uncollapse*/)) {
+    if (auto window = prepare_window("Clipboard", open, init_pos, paste /*-> force-uncollapse*/)) {
         load_clipboard_impl(paste);
     }
+    return {open};
 }
 
-void load_doc(bool& open, frame_main_token) {
-    assert(open);
-    if (auto window = prepare_window("Documents", open)) {
+open_state load_doc(const ImVec2 init_pos, frame_main_token) {
+    bool open = true;
+    if (auto window = prepare_window("Documents", open, init_pos)) {
         load_doc_impl();
     }
+    return {open};
 }
