@@ -385,19 +385,18 @@ public:
         };
 
         imgui_Str(
-            "The buttons stand for subsets of MAP rules.\n\n"
-            "The \"working set\" is the intersection of selected sets. For example, if a rule is said to belong to the "
-            "working set, it also belongs to every selected set. If no sets are selected, the working set will be the entire MAP set.\n\n"
-            "The program has access to all rules in the working set.\n\n"
-            "For each set, if clicked with 'Ctrl', only that set will be selected; if clicked without 'Ctrl', the set will be toggled to be selected or unselected:");
+            "The buttons in the table stand for subsets of MAP rules.\n\n"
+            "The \"working set\" is the intersection of selected sets. (For example, if a rule is said to belong to the working set, it also belongs to every selected set.) It will never be empty - if no sets are selected, the working set will be the entire MAP set. The program has access to all rules in the working set.\n\n"
+            "For each set, if clicked with 'Ctrl', only that set will be selected (so the working set will be identical to it); if clicked without 'Ctrl', the set will be toggled to be selected or unselected:");
+
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");
         explain(
             false, Including,
-            "Not selected, but the working set already belongs to this set, and will behave as if this is selected too.");
-        explain(
-            false, Disabled,
-            "Not selected, and cannot intersect with the working set (otherwise the result will be empty); won't affect 'Ctrl' mode.");
+            "Not selected, but the working set already belongs to this set (so it will behave as if this is selected too).");
+        explain(false, Disabled,
+                "Not selectable (without 'Ctrl'), as its intersection with the working set will be empty.");
+
         // explain(true, None, "The rule belongs to this set.");
         // explain(false, None, "The rule does not belong to this set.");
     }
@@ -938,7 +937,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_R, 'R'), working_set, orderer)) {
             orderer.set(*deliv);
             page.clear();
-            messenger::set_msg("Updated.");
+            messenger::set_msg("[R] updated.");
         }
         if (display_snapshot_if_present(orderer, working_set)) {
             page.clear();
@@ -1068,7 +1067,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         }
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_S, 'S'), working_set, target)) {
             target.set(*deliv);
-            messenger::set_msg("Updated.");
+            messenger::set_msg("[S] updated.");
         }
         display_snapshot_if_present(target, working_set);
 
@@ -1162,15 +1161,9 @@ void edit_rule(frame_main_token) {
             }
             if (pass.deliv) {
                 select_working.match(*pass.deliv);
-                // TODO: whether to check for `collapse`?
-                // if (pass.hov || !collapse) {
-                //     select_working.match(*pass.deliv);
-                //     if (collapse) {
-                //         // messenger::set_msg("...");
-                //     }
-                // } else {
-                //     // messenger::set_msg("...");
-                // }
+                if (collapse) {
+                    messenger::set_msg("Set updated.");
+                }
             }
         }
         guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
@@ -1178,24 +1171,18 @@ void edit_rule(frame_main_token) {
         ImGui::SameLine();
         ImGui::Checkbox("Collapse", &collapse);
 
-        auto select = []() {
-            // (Was clear-sets.)
-            if (ImGui::Button("Reset##Sets")) {
-                select_working.select_single(&aniso::_subsets::native_isotropic);
-            }
-            // guide_mode::item_tooltip("Unselect all sets. The resulting working set will be the entire MAP set.");
-
+        if (!collapse) {
+            // (Superseded by ctrl mode.)
+            // ImGui::SameLine();
+            // if (ImGui::Button("Reset##Sets")) {
+            //     select_working.select_single(&aniso::_subsets::native_isotropic);
+            // }
             ImGui::Separator();
             select_working.select({.rule = pass_rule::peek(), .select = true, .tooltip = true});
-        };
-
-        if (!collapse) {
-            ImGui::SameLine();
-            select();
         } else {
             ImGui::SameLine();
             menu_like_popup::button("Select");
-            menu_like_popup::popup(select);
+            menu_like_popup::popup([] { select_working.select({.select = true, .tooltip = true}); });
         }
     }
     const aniso::subsetT& working_set = select_working.get();
@@ -1275,7 +1262,7 @@ void edit_rule(frame_main_token) {
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set, target)) {
                 target.set(*deliv);
-                messenger::set_msg("Updated.");
+                messenger::set_msg("[T] updated.");
             }
             display_snapshot_if_present(target, working_set);
 
