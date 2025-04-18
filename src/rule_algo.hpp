@@ -82,10 +82,16 @@ namespace aniso {
 
     using groupT = std::span<const codeT>;
 
-    inline void flip_values(const groupT& group, ruleT& r) {
+    inline void flip_values_r(const groupT& group, ruleT& r) {
         for (const codeT c : group) {
             r[c] = !r[c];
         }
+    }
+
+    [[nodiscard]] inline ruleT flip_values_v(const groupT& group, const ruleT& r) {
+        ruleT rule = r;
+        flip_values_r(group, rule);
+        return rule;
     }
 
     inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b) {
@@ -95,7 +101,8 @@ namespace aniso {
         });
     }
 
-    inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b, const lockT& l) {
+    [[deprecated]] inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b,
+                                                     const lockT& l) {
         for (int v = -1; const codeT c : group) {
             if (l[c]) {
                 if (v == -1) {
@@ -115,7 +122,7 @@ namespace aniso {
         // Map codeT to an integer ∈ [0, m_k) (which represents the group the code belongs to).
         codeT::map_to<int16_t> m_map{};
 
-        // (Not a codeT::map_to<codeT>)
+        // (Permutation of all codeT.)
         // codeT of the same group are stored consecutively to provide span.
         std::array<codeT, 512> m_data{};
 
@@ -132,24 +139,23 @@ namespace aniso {
 
         groupT group_for(codeT code) const { return m_groups[m_map[code]].get(m_data); }
 
+        // (It doesn't matter which represents the group, as long as stable, e.g. `eq.headof()` is also ok.)
+        // <-> `group_for(code)[0]`:
+        codeT head_for(codeT code) const { return m_data[m_groups[m_map[code]].pos]; }
+
         int k() const { return m_k; }
         auto groups() const { //
             return std::views::transform(m_groups, [&](const group_pos& pos) { return pos.get(m_data); });
         }
-
-        std::vector<groupT> group_vec() const {
-            std::vector<groupT> vec(m_k);
-            for (int j = 0; j < m_k; ++j) {
-                vec[j] = m_groups[j].get(m_data);
-            }
-            return vec;
+        auto heads() const { //
+            return std::views::transform(m_groups, [&](const group_pos& pos) { return m_data[pos.pos]; });
         }
 
         /*implicit*/ partitionT(const equivT& eq) : m_eq(eq) {
             m_k = 0;
             m_map.fill(-1);
             for_each_code([&](codeT code) {
-                const codeT head = eq.headof(code);
+                const codeT head = m_eq.headof(code);
                 if (m_map[head] == -1) {
                     m_map[head] = m_k++;
                 }
@@ -176,250 +182,152 @@ namespace aniso {
             });
         }
 
-        bool test(const ruleT& a, const ruleT& b) const {
-            return std::ranges::all_of(
-                m_groups, [&](const group_pos& pos) { return all_same_or_different(pos.get(m_data), a, b); });
-        }
-        bool test(const ruleT& a, const ruleT& b, const lockT& lock) const {
-            return std::ranges::all_of(
-                m_groups, [&](const group_pos& pos) { return all_same_or_different(pos.get(m_data), a, b, lock); });
-        }
-
         bool is_refinement_of(const partitionT& other) const { return other.m_eq.has_eq(m_eq); }
+        // <-> `a.is_refinement_of(b) && b.is_refinement_of(a)`:
+        friend bool operator==(const partitionT& a, const partitionT& b) { return a.m_map == b.m_map; }
 
         friend partitionT operator|(const partitionT& a, const partitionT& b) { //
             return partitionT(a.m_eq | b.m_eq);
         }
     };
 
-    // A `subsetT` (s = {} or (m, p)) defines a subset of all MAP rules, where:
-    // A rule (r) belongs to a non-empty subset iff it's all-same or all-different than (m) for each group in (p).
-    // (As a result, any rule in the subset can equally serve as the mask. There is no difference which rule is used.)
-    // It can be proven that the intersection of `subsetT` is also `subsetT` (see below).
-    class subsetT {
-        struct nonemptyT {
-            maskT mask;
-            partitionT par;
+    // A rule belongs to `subsetT` s = (r, p) iff it's all-same or all-different than (r) for each group in (p).
+    // (As a result, any rule in the set can equally serve as (r); there is no difference which rule is used.)
+    // It can be proven that the intersection of `subsetT` (if not empty) is also `subsetT` (see below).
+    struct subsetT {
+        ruleT rule;
+        partitionT p;
 
-            bool contains(const ruleT& rule) const { return par.test(mask, rule); }
-            bool includes(const nonemptyT& other) const {
-                return contains(other.mask) && par.is_refinement_of(other.par);
+        const partitionT* operator->() const { return &p; }
+        bool contains(const ruleT& r) const {
+            return std::ranges::all_of(p.groups(),
+                                       [&](const groupT& group) { return all_same_or_different(group, rule, r); });
+        }
+        bool includes(const subsetT& other) const { return contains(other.rule) && p.is_refinement_of(other.p); }
+
+        // <-> `a.includes(b) && b.includes(a)`:
+        friend bool operator==(const subsetT& a, const subsetT& b) { return a.contains(b.rule) && a.p == b.p; }
+
+        static subsetT universal() { return {.rule{}, .p{equivT{}}}; }
+    };
+
+    // Look for a rule that belongs to both a and b.
+    // The result belongs to both a and b iff such a rule really exists.
+    inline ruleT common_rule_unchecked(const subsetT& a, const subsetT& b) {
+        ruleT common{};
+        codeT::map_to<bool> assigned{};
+
+        // Assign values according to equivalence relations, without checking for conflicts.
+        codeT::map_to<bool> a_side_checked{}, b_side_checked{}; // To reduce time-complexity.
+        auto try_assign = [&](const codeT code, const cellT v, auto& self) -> void {
+            assert(!assigned[code]);
+            assigned[code] = true;
+            common[code] = v;
+            if (!std::exchange(a_side_checked[a->head_for(code)], true)) {
+                const bool same_as_a_side = a.rule[code] == v;
+                for (const codeT c : a->group_for(code)) {
+                    if (!assigned[c]) {
+                        self(c, same_as_a_side ? a.rule[c] : !a.rule[c], self);
+                    }
+                }
+            }
+            if (!std::exchange(b_side_checked[b->head_for(code)], true)) {
+                const bool same_as_b_side = b.rule[code] == v;
+                for (const codeT c : b->group_for(code)) {
+                    if (!assigned[c]) {
+                        self(c, same_as_b_side ? b.rule[c] : !b.rule[c], self);
+                    }
+                }
             }
         };
 
-        std::optional<nonemptyT> m_set;
-
-    public:
-        explicit subsetT(const maskT& mask, const equivT& eq) { m_set.emplace(mask, eq); }
-        explicit subsetT(const maskT& mask, const partitionT& par) { m_set.emplace(mask, par); }
-
-        explicit subsetT() : m_set{std::nullopt} {}
-        // The entire MAP set:
-        static subsetT universal() { return subsetT{maskT{}, equivT{}}; }
-
-        bool empty() const { return !m_set.has_value(); }
-        bool contains(const ruleT& rule) const { return m_set && m_set->contains(rule); }
-        bool includes(const subsetT& other) const { return other.empty() || (m_set && m_set->includes(*other.m_set)); }
-        bool equals(const subsetT& other) const { return includes(other) && other.includes(*this); }
-
-        friend bool operator==(const subsetT& a, const subsetT& b) { //
-            return (a.empty() && b.empty()) || (a.includes(b) && b.includes(a));
-        }
-
-        const maskT& get_mask() const {
-            assert(!empty());
-            return m_set->mask;
-        }
-        const partitionT& get_par() const {
-            assert(!empty());
-            return m_set->par;
-        }
-
-        // Look for a rule that belongs to both a and b.
-        static std::optional<maskT> common_rule(const subsetT& a_, const subsetT& b_) {
-            if (a_.empty() || b_.empty()) {
-                return std::nullopt;
+        assert_val(const partitionT par_both = a.p | b.p);
+        for_each_code([&](codeT code) {
+            if (!assigned[code]) {
+                // Suppose there really exists r (that belongs to both a and b), then by flipping all its values in any group of (a.p | b.p), the result must still belong to both a and b, as any group of (a.p | b.p) corresponds to one or multiple (entire) groups of (a.p) or (b.p).
+                // So there doesn't exist a case where only one value is possible in the intersection - when no cases in a group are assigned, for any specific case there is no restriction for the value (either {0} or {1} will be ok; always using {0} here), and by deciding the value, the values for other cases in the group (of (a.p | b.p)) are decided transitively.
+                assert(std::ranges::none_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
+                try_assign(code, {0}, try_assign);
+                assert(std::ranges::all_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
             }
+        });
 
-            const nonemptyT &a = *a_.m_set, &b = *b_.m_set;
-
-            if (a.contains(b.mask)) {
-                return b.mask;
-            } else if (b.contains(a.mask)) {
-                return a.mask;
-            }
-
-            maskT common{};
-            codeT::map_to<bool> assigned{};
-
-            // Assign values according to equivalence relations, without checking for consistency
-            // in the groups.
-            codeT::map_to<bool> a_checked{}, b_checked{}; // To reduce time-complexity.
-            auto try_assign = [&](const codeT code, const cellT v, auto& self) -> void {
-                if (!std::exchange(assigned[code], true)) {
-                    common[code] = v;
-                    if (!std::exchange(a_checked[a.par.group_for(code)[0]], true)) {
-                        const bool masked_by_a = a.mask[code] ^ v;
-                        for (const codeT c : a.par.group_for(code)) {
-                            self(c, a.mask[c] ^ masked_by_a, self);
-                        }
-                    }
-                    if (!std::exchange(b_checked[b.par.group_for(code)[0]], true)) {
-                        const bool masked_by_b = b.mask[code] ^ v;
-                        for (const codeT c : b.par.group_for(code)) {
-                            self(c, b.mask[c] ^ masked_by_b, self);
-                        }
-                    }
-                }
-            };
-
-            assert_val(const partitionT par_both = a.par | b.par);
-            for_each_code([&](codeT code) {
-                if (!assigned[code]) {
-                    assert(std::ranges::none_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
-                    try_assign(code, {0}, try_assign);
-                    assert(std::ranges::all_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
-                }
-            });
-
-            assert(for_each_code_all_of([&](codeT code) { return assigned[code]; }));
-            if (!a.contains(common) || !b.contains(common)) {
-                return std::nullopt;
-            }
-            return common;
-        }
-    };
-
-    // The intersection (&) of any two subsetT (a) and (b) is still another subsetT:
-    // If there is no common rule, then (a & b) results in an empty set.
-    // Otherwise, suppose there is a rule (r) known to belong to (a & b):
-    // Let (p) = (a.par | b.par), and (s) = subsetT(r, p), then:
-    // 1. (s) is included by (a & b), as:
-    // Any rule in (s) can be gotten by flipping some groups in (p) from (r), and as (a.par) and (b.par)
-    // are refinements of (p), the rule can also be viewed as flipping some groups in (a.par) or (b.par),
-    // so the rule also belongs to (a) and (b).
-    // 2. There cannot be a rule that belongs to (a & b) but not (s) (so (a & b) is included by (s)), as:
-    // The values of a rule in any group from (p) are inter-dependent. If the value for any codeT (c) is fixed,
-    // then the values for the group (c) belongs in (p) are also fixed accordingly.
-    // As a result, the rule must be able to be flipped by whole groups from (r), so belongs to (s)
-    inline subsetT operator&(const subsetT& a, const subsetT& b) {
-        if (auto common = subsetT::common_rule(a, b)) {
-            assert(!a.empty() && !b.empty());
-            return subsetT{*common, a.get_par() | b.get_par()};
-        }
-
-        return subsetT{};
+        assert(for_each_code_all_of([&](codeT code) { return assigned[code]; }));
+        return common;
     }
 
-    inline bool has_common(const subsetT& a, const subsetT& b) { //
-        return subsetT::common_rule(a, b).has_value();
+    // The intersection of any two subsetT a and b (a & b) (if not empty) must be just another subsetT:
+    // Suppose `common_rule_unchecked` find a common rule (r), so (a & b) is not empty, then there is c = (r, a.p | b.p) = (a & b):
+    // 1. Any rule in c can be gotten by flipping all values from (r) for some groups in (a.p | b.p). As every group in (a.p | b.p) corresponds to one or multiple (entire) groups in (a.p) amd (b.p), the rule also belongs to both (a) and (b) (so (a & b)). So c belongs to (a & b).
+    // 2. For any rule in (a & b), for any case, its value is either same or different than (r). Due to equivalence relation, if a rule belongs to both (a) and (b), the sameness applies transitively to the entire group in (a.p | b.p). As a result, the rule can be flipped from (r) by groups of (a.p | b.p). So (a & b) belongs to c.
+
+    inline bool has_common(const subsetT& a, const subsetT& b) {
+        if (a.contains(b.rule) || b.contains(a.rule)) {
+            return true;
+        }
+        const ruleT common = common_rule_unchecked(a, b);
+        return a.contains(common) && b.contains(common);
+    }
+
+    // If `has_common(a, b)`, return their intersection; otherwise, the result is (safe but) meaningless.
+    inline subsetT operator&(const subsetT& a, const subsetT& b) {
+        const ruleT common = a.contains(b.rule)   ? b.rule //
+                             : b.contains(a.rule) ? a.rule
+                                                  : common_rule_unchecked(a, b);
+        assert(a.contains(common) && b.contains(common));
+        return subsetT{.rule = common, .p = a.p | b.p};
     }
 
     inline int distance(const subsetT& subset, const ruleT& a, const ruleT& b) {
         assert(subset.contains(a) && subset.contains(b));
-        int d = 0;
-        for (const groupT& group : subset.get_par().groups()) {
-            if (a[group[0]] != b[group[0]]) {
-                ++d;
-            }
+        int dist = 0;
+        for (const codeT code : subset->heads()) {
+            dist += a[code] != b[code];
         }
-        return d;
+        return dist;
     }
 
-#if 0
-    struct scanT {
-        int c_0 = 0; // Same.
-        int c_1 = 0; // Different.
-
-        // ~ all_same_or_different
-        bool pure() const { return c_0 == 0 || c_1 == 0; }
-
-        scanT() = default;
-        scanT(const groupT& group, const maskT& mask, const ruleT& rule) {
-            for (const codeT code : group) {
-                mask[code] == rule[code] ? ++c_0 : ++c_1;
-            }
-        }
-    };
-
-    // Return a rule in the subset that is closest to `rule` (as measured by the MAP set).
-    // (If the rule already belongs to `subset`, the result will be exactly `rule`.)
-    inline ruleT approximate(const subsetT& subset, const ruleT& rule) {
-        const maskT& mask = subset.get_mask();
-        const partitionT& par = subset.get_par();
-
-        ruleT res{};
-        for (const groupT& group : par.groups()) {
-            const scanT scan(group, mask, rule);
-            // v -> 0 (same as mask): resulting dist = c_1.
-            // v -> 1 (different): resulting dist = c_0.
-            // So if c_0 > c_1, selecting 0 can make the distance smaller (c_1).
-            const bool v = scan.c_0 > scan.c_1 ? 0 : 1;
-            for (const codeT code : group) {
-                res[code] = mask[code] ^ v;
-            }
-        }
-
-        assert_implies(subset.contains(rule), res == rule);
-        return res;
-    }
-#endif
-
-    // The old impl cannot guarantee uniqueness (both values are ok when c_0=c_1, so the result is just impl-defined) or similarity (cannot be trivially implied by distance).
-
-    // If rule belongs to {par, mask}, the result will be the rule itself.
-    inline ruleT approximate(const partitionT& par, const maskT& mask, const ruleT& rule) {
-        ruleT res{};
-        for (const groupT& group : par.groups()) {
-            if (all_same_or_different(group, mask, rule)) {
+    inline void approximate_r(const subsetT& subset, ruleT& rule) {
+        for (const groupT& group : subset->groups()) {
+            if (!all_same_or_different(group, subset.rule, rule)) {
                 for (const codeT code : group) {
-                    res[code] = rule[code];
-                }
-            } else {
-                for (const codeT code : group) {
-                    res[code] = mask[code];
+                    rule[code] = subset.rule[code];
                 }
             }
         }
-        return res;
     }
 
-    inline ruleT approximate(const subsetT& subset, const ruleT& rule) {
-        assert(!subset.empty());
-        return approximate(subset.get_par(), subset.get_mask(), rule);
+    [[nodiscard]] inline ruleT approximate_v(const subsetT& subset, const ruleT& rule) {
+        ruleT r = rule;
+        approximate_r(subset, r);
+        return r;
     }
 
-    // Firstly get approximate(subset, rule), then transform the rule to another one.
-    // The groups are listed as a sequence of values (relative to `mask`) and re-assigned by `fn`.
-    inline ruleT transform(const subsetT& subset, const maskT& mask, const ruleT& rule,
+    inline ruleT transform(const subsetT& subset, const ruleT& rel, const ruleT* pos,
                            const func_ref<void(bool*, bool*)> fn) {
-        assert(subset.contains(mask));
-
-        const partitionT& par = subset.get_par();
-        ruleT_masked r = mask ^ approximate(par, mask, rule);
-
-        // `seq` is not a codeT::map_to<bool>.
-        assert(par.k() <= 512);
-        std::array<bool, 512> seq{};
-        for (int j = 0; const groupT& group : par.groups()) {
-            seq[j++] = r[group[0]];
-        }
-
-        fn(seq.data(), seq.data() + par.k());
-        for (int j = 0; const groupT& group : par.groups()) {
-            const bool seqj = seq[j++];
-            for (const codeT code : group) {
-                r[code] = seqj;
+        assert(subset.contains(rel));
+        assert_implies(pos, subset.contains(*pos));
+        assert(subset->k() <= 512);
+        std::array<bool, 512> diff{}; // vector-bool.
+        if (pos) {
+            for (int j = 0; const codeT code : subset->heads()) {
+                diff[j++] = rel[code] != (*pos)[code];
             }
         }
+        fn(diff.data(), diff.data() + subset->k());
 
-        const ruleT res = mask ^ r;
-        assert(subset.contains(res));
-        return res;
+        ruleT rule = rel;
+        for (int j = 0; const groupT& group : subset->groups()) {
+            if (diff[j++]) {
+                flip_values_r(group, rule);
+            }
+        }
+        assert(subset.contains(rule));
+        return rule;
     }
 
-    inline ruleT randomize_c(const subsetT& subset, const maskT& mask, std::mt19937& rand, int count) {
-        return transform(subset, mask, {}, [&rand, count](bool* begin, bool* end) {
+    inline ruleT randomize_c(const subsetT& subset, const ruleT& rel, std::mt19937& rand, int count) {
+        return transform(subset, rel, nullptr, [&rand, count](bool* begin, bool* end) {
             const int c = std::clamp(count, 0, int(end - begin));
             std::fill_n(begin, c, bool(1));
             std::fill(begin + c, end, bool(0));
@@ -427,35 +335,33 @@ namespace aniso {
         });
     }
 
-    inline ruleT randomize_p(const subsetT& subset, const maskT& mask, std::mt19937& rand, double p) {
-        return transform(subset, mask, {}, [&rand, p](bool* begin, bool* end) {
+    inline ruleT randomize_p(const subsetT& subset, const ruleT& rel, std::mt19937& rand, double p) {
+        return transform(subset, rel, nullptr, [&rand, p](bool* begin, bool* end) {
             std::bernoulli_distribution dist(std::clamp(p, 0.0, 1.0));
             std::generate(begin, end, [&] { return dist(rand); });
         });
     }
 
-    struct seq_mixed {
-        static ruleT first(const subsetT& subset, const maskT& mask) {
-            return transform(subset, mask, {}, [](bool* begin, bool* end) { std::fill(begin, end, bool(0)); });
+    struct seq_mixed : no_create {
+        static ruleT first(const subsetT& subset, const ruleT& rel) {
+            return transform(subset, rel, nullptr, [](bool* begin, bool* end) { std::fill(begin, end, bool(0)); });
         }
 
-        static ruleT last(const subsetT& subset, const maskT& mask) {
-            return transform(subset, mask, {}, [](bool* begin, bool* end) { std::fill(begin, end, bool(1)); });
+        static ruleT last(const subsetT& subset, const ruleT& rel) {
+            return transform(subset, rel, nullptr, [](bool* begin, bool* end) { std::fill(begin, end, bool(1)); });
         }
 
-        // The result will be the first rule with distance = n to the mask in the sequence.
-        static ruleT seek_n(const subsetT& subset, const maskT& mask, int n) {
-            return transform(subset, mask, {}, [n](bool* begin, bool* end) {
+        // The result will be the first rule with distance = n to `rel` in the sequence.
+        static ruleT seek_n(const subsetT& subset, const ruleT& rel, int n) {
+            return transform(subset, rel, nullptr, [n](bool* begin, bool* end) {
                 const int c = std::clamp(n, 0, int(end - begin));
                 std::fill_n(begin, c, bool(1));
                 std::fill(begin + c, end, bool(0));
             });
         }
 
-        static ruleT next(const subsetT& subset, const maskT& mask, const ruleT& rule) {
-            assert(subset.contains(rule));
-
-            return transform(subset, mask, rule, [](bool* begin, bool* end) {
+        static ruleT next(const subsetT& subset, const ruleT& rel, const ruleT& pos) {
+            return transform(subset, rel, &pos, [](bool* begin, bool* end) {
                 if (!std::next_permutation(begin, end, std::greater<>{})) {
                     // 1100... -> 1110..., or stop at 000... (first())
                     bool* first_0 = std::find(begin, end, bool(0));
@@ -466,10 +372,8 @@ namespace aniso {
             });
         }
 
-        static ruleT prev(const subsetT& subset, const maskT& mask, const ruleT& rule) {
-            assert(subset.contains(rule));
-
-            return transform(subset, mask, rule, [](bool* begin, bool* end) {
+        static ruleT prev(const subsetT& subset, const ruleT& rel, const ruleT& pos) {
+            return transform(subset, rel, &pos, [](bool* begin, bool* end) {
                 if (!std::prev_permutation(begin, end, std::greater<>{})) {
                     // ...0111 -> ...0011, or stop at 111... (last())
                     bool* first_1 = std::find(begin, end, bool(1));
@@ -732,7 +636,6 @@ namespace aniso {
             // It's just that, in this situation the maskT has a strong bias, so that it's too easy to generate
             // rules in a certain direction...
             using enum codeT::bposE;
-            assert(!sc.empty());
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_q); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_w); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_e); })));
