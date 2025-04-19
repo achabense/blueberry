@@ -752,7 +752,7 @@ namespace aniso {
         inline const testT test_apply_1 = [] {
             const ruleT rule = make_rule([](codeT) { return cellT(testT::rand() & 1); });
 
-            for_each_code([&](codeT code) {
+            for (const codeT code : each_code) {
                 const auto make_ref = [](cellT& c) { return tile_ref{&c, {1, 1}}; };
                 auto [q, w, e, a, s, d, z, x, c] = decode(code);
 
@@ -763,7 +763,7 @@ namespace aniso {
 
                 apply_rule(rule, make_ref(dest), make_ref(s), border);
                 assert(dest == rule[code]);
-            });
+            }
         };
 
         inline const testT test_apply_2 = [] {

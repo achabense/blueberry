@@ -140,14 +140,14 @@ public:
 
         // Using heap allocation to avoid "Function uses XXX bytes of stack" warning.
         std::unique_ptr<Uint32[][3][3]> pixels(new Uint32[512][3][3]);
-        aniso::for_each_code([&](aniso::codeT code) {
+        for (const auto code : aniso::each_code) {
             const auto fill = aniso::decode(code).to_3x3();
             for (int y = 0; y < 3; ++y) {
                 for (int x = 0; x < 3; ++x) {
                     pixels[code][y][x] = color_for(fill[y][x]);
                 }
             }
-        });
+        }
 
         SDL_UpdateTexture(texture, nullptr, pixels.get(), width * sizeof(Uint32));
     }

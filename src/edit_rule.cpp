@@ -1580,7 +1580,7 @@ void edit_rule(frame_main_token) {
                     //  O   O_b  I                  001       001
                     // [Any] O   O  will result in [0]00 and [1]00 being set.
                     //  I_b  I  I_b                 111       111
-                    aniso::for_each_code([&](aniso::codeT code) {
+                    for (const auto code : aniso::each_code) {
                         auto imbue = [](aniso::cellT& c, stateE state) {
                             if (state == O || state == O_background) {
                                 c = {0};
@@ -1602,7 +1602,7 @@ void edit_rule(frame_main_token) {
                         imbue(situ.c, board[y + 1][x + 1]);
 
                         partial.set(aniso::encode(situ), aniso::cellT(board[y][x] == O ? 0 : 1));
-                    });
+                    }
                 }
             }
         }

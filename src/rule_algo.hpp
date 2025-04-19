@@ -9,7 +9,9 @@ namespace aniso {
 
     inline diffT operator^(const ruleT& a, const ruleT& b) {
         diffT diff;
-        for_each_code([&](codeT code) { diff[code] = a[code] != b[code]; });
+        for (const codeT code : each_code) {
+            diff[code] = a[code] != b[code];
+        }
         return diff;
     }
 
@@ -29,7 +31,9 @@ namespace aniso {
 
     public:
         equivT() {
-            for_each_code([&](codeT code) { parof[code] = code; });
+            for (const codeT code : each_code) {
+                parof[code] = code;
+            }
         }
 
         bool has_eq(codeT a, codeT b) const { return headof(a) == headof(b); }
@@ -41,7 +45,9 @@ namespace aniso {
 
         void add_eq(codeT a, codeT b) { parof[headof(a)] = headof(b); }
         void add_eq(const equivT& other) {
-            for_each_code([&](codeT code) { add_eq(code, other.parof[code]); });
+            for (const codeT code : each_code) {
+                add_eq(code, other.parof[code]);
+            }
         }
         friend equivT operator|(const equivT& a, const equivT& b) {
             equivT c = a;
@@ -126,17 +132,19 @@ namespace aniso {
         /*implicit*/ partitionT(const equivT& eq) : m_eq(eq) {
             m_k = 0;
             m_map.fill(-1);
-            for_each_code([&](codeT code) {
+            for (const codeT code : each_code) {
                 const codeT head = m_eq.headof(code);
                 if (m_map[head] == -1) {
                     m_map[head] = m_k++;
                 }
                 m_map[code] = m_map[head];
-            });
+            }
             // m_k is now the number of groups in the partition.
 
             std::vector<int16_t> count(m_k, 0);
-            for_each_code([&](codeT code) { ++count[m_map[code]]; });
+            for (const codeT code : each_code) {
+                ++count[m_map[code]];
+            }
 
             std::vector<int16_t> pos(m_k, 0);
             for (int j = 1; j < m_k; ++j) {
@@ -148,10 +156,10 @@ namespace aniso {
                 m_groups[j] = {pos[j], count[j]};
             }
 
-            for_each_code([&](codeT code) {
+            for (const codeT code : each_code) {
                 int j = m_map[code];
                 m_data[pos[j]++] = code;
-            });
+            }
         }
 
         bool is_refinement_of(const partitionT& other) const { return other.m_eq.has_eq(m_eq); }
@@ -214,7 +222,7 @@ namespace aniso {
         };
 
         assert_val(const partitionT par_both = a.p | b.p);
-        for_each_code([&](codeT code) {
+        for (const codeT code : each_code) {
             if (!assigned[code]) {
                 // Suppose there really exists r (that belongs to both a and b), then by flipping all its values in any group of (a.p | b.p), the result must still belong to both a and b, as any group of (a.p | b.p) corresponds to one or multiple (entire) groups of (a.p) or (b.p).
                 // So there doesn't exist a case where only one value is possible in the intersection - when no cases in a group are assigned, for any specific case there is no restriction for the value (either {0} or {1} will be ok; always using {0} here), and by deciding the value, the values for other cases in the group (of (a.p | b.p)) are decided transitively.
@@ -222,7 +230,7 @@ namespace aniso {
                 try_assign(code, {0}, try_assign);
                 assert(std::ranges::all_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
             }
-        });
+        }
 
         assert(for_each_code_all_of([&](codeT code) { return assigned[code]; }));
         return common;
@@ -432,7 +440,9 @@ namespace aniso {
 
     // A pair of mapperT defines an equivalence relation.
     inline void add_eq(equivT& eq, const mapperT& a, const mapperT& b) {
-        for_each_code([&](codeT code) { eq.add_eq(a(code), b(code)); });
+        for (const codeT code : each_code) {
+            eq.add_eq(a(code), b(code));
+        }
     }
 
     // mp_identity(any code) -> the same code
@@ -576,7 +586,7 @@ namespace aniso {
 #ifdef ENABLE_TESTS
     namespace _tests {
         inline const testT test_mappers = [] {
-            for_each_code([](codeT code) {
+            for (const codeT code : each_code) {
                 assert(mp_identity(code) == code);
 
                 for (const mapperT* m : {&mp_refl_asd, &mp_refl_wsx, &mp_refl_qsc, &mp_refl_esz, &mp_C2}) {
@@ -598,7 +608,7 @@ namespace aniso {
                 assert(mp_hex_C6(mp_hex_C6(hex)) == mp_hex_C3(hex)); // As both are defined clockwise.
                 // Otherwise will need to test:
                 // assert(mp_hex_C6(mp_hex_C6(hex)) == mp_hex_C3(mp_hex_C3(hex)));
-            });
+            }
         };
 
         inline const testT test_subset_intersection = [] {
@@ -626,12 +636,12 @@ namespace aniso {
     // 0/1-reversal dual.
     inline ruleT trans_reverse(const ruleT& rule) {
         ruleT rev{};
-        for_each_code([&](codeT code) {
+        for (const codeT code : each_code) {
             const codeT code_rev = mp_reverse(code);
             const cellT s = code.get(codeT::bpos_s);
             rev[code_rev] = (rule[code] == s) ? !s : !(!s); // So that ->
             assert((rev[code_rev] == !s) == (rule[code] == s));
-        });
+        }
         return rev;
     }
 
@@ -647,13 +657,17 @@ namespace aniso {
     // (Currently not supported in gui, as these can map `hex` rules to `hex2` set.)
     [[deprecated]] inline ruleT trans_left_right(const ruleT& rule) {
         ruleT lr{};
-        for_each_code([&](codeT code) { lr[mp_refl_wsx(code) /* | */] = rule[code]; });
+        for (const codeT code : each_code) {
+            lr[mp_refl_wsx(code) /* | */] = rule[code];
+        }
         return lr;
     }
 
     [[deprecated]] inline ruleT trans_rotate_90(const ruleT& rule) {
         ruleT ro{};
-        for_each_code([&](codeT code) { ro[mp_C4(code)] = rule[code]; });
+        for (const codeT code : each_code) {
+            ro[mp_C4(code)] = rule[code];
+        }
         return ro;
     }
 

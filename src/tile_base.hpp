@@ -154,6 +154,9 @@ namespace aniso {
     using tile_ref = _misc::tile_ref_<cellT>;
     using tile_const_ref = _misc::tile_ref_<const cellT>;
 
+    static_assert(std::is_trivially_copyable_v<tile_ref>);
+    static_assert(std::is_trivially_copyable_v<tile_const_ref>);
+
     inline bool equal(const cellT* a, const cellT* b, int len) { return std::equal(a, a + len, b); }
 
     inline bool equal(const tile_const_ref a, const tile_const_ref b) {

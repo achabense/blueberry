@@ -153,11 +153,26 @@ namespace aniso {
                 code.get(bpos_z), code.get(bpos_x), code.get(bpos_c)};
     }
 
-    inline void for_each_code(const auto& fn) {
-        for (int v = 0; v < 512; ++v) {
-            fn(codeT(v));
-        }
-    }
+    namespace _misc {
+        // https://en.cppreference.com/w/cpp/language/range-for
+        struct each_code_ : no_copy {
+            struct endT {};
+            struct posT {
+                int v{0};
+                ALWAYS_INLINE bool operator==(endT) const { return v == 512; }
+                ALWAYS_INLINE void operator++() { ++v; }
+                ALWAYS_INLINE codeT operator*() const { return codeT(v); }
+            };
+
+            ALWAYS_INLINE static posT begin() { return {}; }
+            ALWAYS_INLINE static endT end() { return {}; }
+        };
+    } // namespace _misc
+
+    inline constexpr _misc::each_code_ each_code{};
+
+    // (`std::views` codegen is extremely disappointing in debug mode (will make a lot of iterator fn calls).)
+    // inline constexpr auto each_code = std::views::transform(std::views::iota(0, 512), [](int i) { return codeT(i); });
 
     inline bool for_each_code_all_of(const auto& pred) {
         for (int v = 0; v < 512; ++v) {
@@ -171,7 +186,9 @@ namespace aniso {
 #ifdef ENABLE_TESTS
     namespace _tests {
         inline const testT test_codeT = [] {
-            for_each_code([](codeT code) { assert(encode(decode(code)) == code); });
+            for (const codeT code : each_code) {
+                assert(encode(decode(code)) == code);
+            }
             assert(for_each_code_all_of([](codeT code) { return encode(decode(code)) == code; }));
         };
     } // namespace _tests
@@ -182,6 +199,7 @@ namespace aniso {
 
     // While there doesn't have to be `!std::is_same_v<cellT, bool>`, there must be:
     static_assert(!std::is_same_v<ruleT, codeT::map_to<bool>>);
+    static_assert(std::is_trivially_copyable_v<ruleT>);
 
     // The program saves `ruleT` as normal "MAP strings" (which is based on `q*256+w*128+...` encoding scheme),
     // so the output can be accepted by other programs like Golly.
@@ -195,13 +213,15 @@ namespace aniso {
 
     inline ruleT make_rule(const rule_like auto& fn) {
         ruleT rule{};
-        for_each_code([&](codeT code) { rule[code] = fn(code); });
+        for (const codeT code : each_code) {
+            rule[code] = fn(code);
+        }
         return rule;
     }
 
     // "Convay's Game of Life" (B3/S23)
     inline ruleT game_of_life() {
-        return make_rule([](codeT code) -> cellT {
+        return make_rule([](const codeT code) -> cellT {
             const auto [q, w, e, a, s, d, z, x, c] = decode(code);
             switch (q + w + e + a + d + z + x + c) {
                 case 2: return s;   // 2:S ~ 0->0, 1->1 ~ equal to "s".
@@ -272,7 +292,9 @@ namespace aniso {
 
         inline void to_MAP(std::string& str, const auto& source /* ruleT or lockT */) {
             std::array<bool, 512> MAP_data{};
-            for_each_code([&](codeT code) { MAP_data[transcode_MAP(code)] = source[code]; });
+            for (const codeT code : each_code) {
+                MAP_data[transcode_MAP(code)] = source[code];
+            }
 
             const auto get = [&MAP_data](int i) { return i < 512 ? MAP_data[i] : 0; };
             for (int i = 0; i < 512; i += 6) {
@@ -303,10 +325,10 @@ namespace aniso {
                 put(i + 0, (b6 >> 5) & 1);
             }
 
-            for_each_code([&](codeT code) {
+            for (const codeT code : each_code) {
                 using D = std::remove_cvref_t<decltype(dest[code])>;
                 dest[code] = D(MAP_data[transcode_MAP(code)]);
-            });
+            }
         }
     } // namespace _misc
 
@@ -441,10 +463,10 @@ namespace aniso {
             {
                 ruleT rule{};
                 lockT lock{};
-                for_each_code([&](codeT code) {
+                for (const codeT code : each_code) {
                     rule[code] = cellT(testT::rand() & 1);
                     lock[code] = testT::rand() & 1;
-                });
+                }
                 const std::string rule_only = "(prefix)" + to_MAP_str(rule) + "(suffix)";
                 const std::string with_lock = "(prefix)" + to_MAP_str(rule, &lock) + "(suffix)";
 
@@ -470,10 +492,14 @@ namespace aniso {
 
     public:
         compressT(const ruleT& rule) : m_data{} {
-            for_each_code([&](codeT c) { m_data[c.val >> 3] |= rule[c] << (c.val & 0b111); });
+            for (const codeT c : each_code) {
+                m_data[c.val >> 3] |= rule[c] << (c.val & 0b111);
+            }
         }
         ruleT decompress() const {
-            return make_rule([&](codeT c) { return cellT(1 & (m_data[c.val >> 3] >> (c.val & 0b111))); });
+            return make_rule([&](const codeT c) { //
+                return cellT(1 & (m_data[c.val >> 3] >> (c.val & 0b111)));
+            });
         }
         operator ruleT() const { return decompress(); }
 
@@ -486,6 +512,8 @@ namespace aniso {
             }
         };
     };
+
+    static_assert(std::is_trivially_copyable_v<compressT>);
 
 #ifdef ENABLE_TESTS
     namespace _tests {
