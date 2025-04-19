@@ -4,43 +4,14 @@
 
 #include "rule.hpp"
 
-// TODO: add summary about this header, especially subsetT.
 namespace aniso {
-    // !!TODO: retire the concept of "masking rule" (maskT and operator^); use regular ruleT instead.
+    using diffT = codeT::map_to<bool, 3>;
 
-    // A maskT is an arbitrary ruleT selected to do XOR mask for other rules.
-    // The result reflects how the rule is different from the masking rule.
-    using maskT = ruleT;
-    // struct maskT : public ruleT {};
-    using ruleT_masked = codeT::map_to<bool, 3>;
-
-    // inline void operator^(const maskT&, const maskT&) = delete;
-
-    // TODO: masking -> comparing; ^ -> != (also for `masked_by_a/b`)
-    inline ruleT_masked operator^(const maskT& mask, const ruleT& rule) {
-        ruleT_masked r{};
-        for_each_code([&](codeT code) { r[code] = mask[code] ^ rule[code]; });
-        return r;
+    inline diffT operator^(const ruleT& a, const ruleT& b) {
+        diffT diff;
+        for_each_code([&](codeT code) { diff[code] = a[code] != b[code]; });
+        return diff;
     }
-
-    inline ruleT operator^(const maskT& mask, const ruleT_masked& r) {
-        ruleT rule{};
-        for_each_code([&](codeT code) { rule[code] = mask[code] ^ r[code]; });
-        return rule;
-    }
-
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_maskT = [] {
-            const ruleT a = make_rule([](auto) { return cellT(testT::rand() & 1); });
-            const ruleT b = make_rule([](auto) { return cellT(testT::rand() & 1); });
-            const maskT a_as_mask{a}, b_as_mask{b};
-
-            assert(a == (b_as_mask ^ (b_as_mask ^ a)));
-            assert(b == (a_as_mask ^ (a_as_mask ^ b)));
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
 
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
     class equivT {
@@ -61,11 +32,6 @@ namespace aniso {
             for_each_code([&](codeT code) { parof[code] = code; });
         }
 
-        void add_eq(codeT a, codeT b) { parof[headof(a)] = headof(b); }
-        void add_eq(const equivT& other) {
-            for_each_code([&](codeT code) { add_eq(code, other.parof[code]); });
-        }
-
         bool has_eq(codeT a, codeT b) const { return headof(a) == headof(b); }
         bool has_eq(const equivT& other) const {
             return for_each_code_all_of([&](codeT code) { //
@@ -73,12 +39,18 @@ namespace aniso {
             });
         }
 
+        void add_eq(codeT a, codeT b) { parof[headof(a)] = headof(b); }
+        void add_eq(const equivT& other) {
+            for_each_code([&](codeT code) { add_eq(code, other.parof[code]); });
+        }
         friend equivT operator|(const equivT& a, const equivT& b) {
             equivT c = a;
             c.add_eq(b);
             return c;
         }
     };
+
+    static_assert(std::is_trivially_copyable_v<equivT>);
 
     using groupT = std::span<const codeT>;
 
@@ -385,16 +357,16 @@ namespace aniso {
         }
     };
 
-    // rule ^ mask_zero -> the masked values are identical to rule's.
-    inline const maskT mask_zero{};
-    // rule ^ mask_identity -> the masked values can mean whether the cell will "flip" in each situation.
-    inline const maskT mask_identity{make_rule([](codeT c) { return c.get(codeT::bpos_s); })};
+    // Any-rule ^ rule_all_zero -> diff shows the rule's actual values.
+    inline const ruleT rule_all_zero{};
+    // Any-rule ^ rule_identity -> diff shows whether the cell will "flip" in each case.
+    inline const ruleT rule_identity{make_rule([](codeT c) { return c.get(codeT::bpos_s); })};
 
     // A mapperT maps each codeT to another codeT.
     // Especially, mapperT{"qweasdzxc"} maps any codeT to the same value.
     class mapperT {
         struct takeT {
-            enum tagE { O, I, Get, NGet };
+            enum tagE : int8_t { O, I, Get, NGet };
             tagE tag;
             codeT::bposE bpos;
             cellT operator()(codeT code) const {
@@ -407,9 +379,12 @@ namespace aniso {
             }
         };
 
-        takeT q, w, e;
-        takeT a, s, d;
-        takeT z, x, c;
+        takeT q{}, w{}, e{};
+        takeT a{}, s{}, d{};
+        takeT z{}, x{}, c{};
+
+        // https://stackoverflow.com/questions/67320438/how-to-fail-a-consteval-function
+        static void wrong_format() {}
 
     public:
         codeT operator()(codeT code) const {
@@ -419,40 +394,41 @@ namespace aniso {
         }
 
         consteval mapperT(const char* str) {
-            // [01], or [qweasdzxc], or ![qweasdzxc].
-            auto parse = [&]() -> takeT {
-                takeT::tagE tag = takeT::Get;
-                switch (*str) {
-                    case '0': ++str; return {takeT::O, {}};
-                    case '1': ++str; return {takeT::I, {}};
-                    case '!':
+            for (takeT* take : {&q, &w, &e, &a, &s, &d, &z, &x, &c}) {
+                // [01], or [qweasdzxc], or ![qweasdzxc].
+                if (*str == '0') {
+                    ++str;
+                    *take = {takeT::O, {}};
+                } else if (*str == '1') {
+                    ++str;
+                    *take = {takeT::I, {}};
+                } else {
+                    takeT::tagE tag = takeT::Get;
+                    if (*str == '!') {
                         ++str;
                         tag = takeT::NGet;
-                        break;
+                    }
+                    switch (*str++) {
+                        case 'q': *take = {tag, codeT::bpos_q}; break;
+                        case 'w': *take = {tag, codeT::bpos_w}; break;
+                        case 'e': *take = {tag, codeT::bpos_e}; break;
+                        case 'a': *take = {tag, codeT::bpos_a}; break;
+                        case 's': *take = {tag, codeT::bpos_s}; break;
+                        case 'd': *take = {tag, codeT::bpos_d}; break;
+                        case 'z': *take = {tag, codeT::bpos_z}; break;
+                        case 'x': *take = {tag, codeT::bpos_x}; break;
+                        case 'c': *take = {tag, codeT::bpos_c}; break;
+                        default: wrong_format();
+                    }
                 }
-                switch (*str++) {
-                    case 'q': return {tag, codeT::bpos_q};
-                    case 'w': return {tag, codeT::bpos_w};
-                    case 'e': return {tag, codeT::bpos_e};
-                    case 'a': return {tag, codeT::bpos_a};
-                    case 's': return {tag, codeT::bpos_s};
-                    case 'd': return {tag, codeT::bpos_d};
-                    case 'z': return {tag, codeT::bpos_z};
-                    case 'x': return {tag, codeT::bpos_x};
-                    case 'c': return {tag, codeT::bpos_c};
-                    default: throw 0;
-                }
-            };
-            // ~ about `throw 0`:
-            // https://stackoverflow.com/questions/67320438/how-to-fail-a-consteval-function
-            q = parse(), w = parse(), e = parse();
-            a = parse(), s = parse(), d = parse();
-            z = parse(), x = parse(), c = parse();
+            }
             if (*str != '\0') {
-                throw 0;
+                wrong_format();
             }
         }
     };
+
+    static_assert(std::is_trivially_copyable_v<mapperT>);
 
     // A pair of mapperT defines an equivalence relation.
     inline void add_eq(equivT& eq, const mapperT& a, const mapperT& b) {
@@ -463,11 +439,11 @@ namespace aniso {
     inline constexpr mapperT mp_identity("qweasdzxc");
 
     // The following mappers are defined relative to mp_identity.
-    // That is, the effects actually means the effects of mapperT_pair{mp_identity, mp_*}.
+    // That is, the effects actually refer to the effects of mapperT_pair{mp_identity, mp_*}.
 
     // Independence.
-    // For example, mp_ignore_q * mask_zero -> the rules where the values are "independent of q".
-    // Notice that `mp_ignore_s * mask_zero` is different from `mp_ignore_s * mask_identity`.
+    // For example, mp_ignore_q * rule_all_zero -> rules whose values are "independent of q".
+    // Note that `mp_ignore_s * rule_all_zero` is different from `mp_ignore_s * rule_identity`.
     inline constexpr mapperT mp_ignore_q("0weasdzxc");
     inline constexpr mapperT mp_ignore_w("q0easdzxc");
     inline constexpr mapperT mp_ignore_e("qw0asdzxc");
@@ -479,8 +455,7 @@ namespace aniso {
     inline constexpr mapperT mp_ignore_c("qweasdzx0");
 
     // Native symmetry.
-    // For example, rules in `mp_refl_wsx * mask_zero` are able to preserve "leftside-right"
-    // symmetry in all cases.
+    // For example, rules in `mp_refl_asd * rule_all_zero` can preserve "upside-down" symmetry in all cases.
     inline constexpr mapperT mp_refl_asd("zxc"
                                          "asd"
                                          "qwe"); // '-'
@@ -502,7 +477,7 @@ namespace aniso {
 
     // Native totalistic.
     // The `C8` mapper came from misconception of rotational symmetry (not more special than common C4 rules),
-    // but is useful to help define totalistic rules.
+    // but can serve to define totalistic rules.
     inline constexpr mapperT mp_C8("aqw"
                                    "zse"
                                    "xcd"); // "45" (clockwise)
@@ -513,7 +488,7 @@ namespace aniso {
                                           "awd"
                                           "zxc"); // swap(w,s); *C8 -> totalistic, including s
 
-    // * mask_identity -> the self-complementary rules.
+    // * rule_identity -> self-complementary rules.
     // (Where every pair of [code] and [mp_reverse(code)] have the same "flip-ness")
     inline constexpr mapperT mp_reverse("!q!w!e"
                                         "!a!s!d"
@@ -565,7 +540,6 @@ namespace aniso {
                                               "awd"
                                               "0xc"); // swap(w,s); *C6 -> totalistic, including s
 
-#if 0
     // It's also valid to emulate hexagonal neighborhood by ignoring "q" and "c".
     // However, the program is not going to support this, as it makes the program more complicated
     // without bringing essentially different discoveries.
@@ -573,14 +547,13 @@ namespace aniso {
     // - w e     w e
     // a s d -> a s d
     // z x -     z x
-    inline constexpr mapperT mp_hex2_ignore("0we"
-                                            "asd"
-                                            "zx0"); // ignore_(q,c)
-#endif
+    [[deprecated]] inline constexpr mapperT mp_hex2_ignore("0we"
+                                                           "asd"
+                                                           "zx0"); // ignore_(q,c)
 
     // Von-Neumann emulation.
     // The neighborhood works naturally with native symmetry.
-    // For example, `mp_von_C4` is implicitly defined as mp_C4 * mp_von_ignore.
+    // For example, `mp_von_C4` can be defined as mp_C4 * mp_von_ignore.
     inline constexpr mapperT mp_von_ignore("0w0"
                                            "asd"
                                            "0x0"); // ignore_(q,e,z,c)
@@ -592,12 +565,12 @@ namespace aniso {
                                               "awd"
                                               "0x0"); // swap(w,s); *C4 -> totalistic, including s
 
-    inline subsetT make_subset(std::initializer_list<mapperT> mappers, const maskT& mask = mask_zero) {
+    inline subsetT make_subset(std::initializer_list<mapperT> mappers, const ruleT& rule = rule_all_zero) {
         equivT eq{};
         for (const mapperT& m : mappers) {
             add_eq(eq, m, mp_identity);
         }
-        return subsetT{mask, eq};
+        return subsetT{.rule = rule, .p = eq};
     }
 
 #ifdef ENABLE_TESTS
@@ -629,8 +602,9 @@ namespace aniso {
         };
 
         inline const testT test_subset_intersection = [] {
-            subsetT sc = make_subset({mp_ignore_s}, mask_zero) & make_subset({mp_reverse}, mask_identity);
+            subsetT sc = make_subset({mp_ignore_s}, rule_all_zero) & make_subset({mp_reverse}, rule_identity);
 
+            // (`maskT` used to refer to the discoverd rule.)
             // 2024/1/20 2AM
             // There is NO problem in the algorithm.
             // It's just that, in this situation the maskT has a strong bias, so that it's too easy to generate
@@ -640,7 +614,7 @@ namespace aniso {
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_w); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_e); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_a); })));
-            assert(!sc.contains(mask_identity));
+            assert(!sc.contains(rule_identity));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_d); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_z); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_x); })));
@@ -670,22 +644,18 @@ namespace aniso {
     } // namespace _tests
 #endif // ENABLE_TESTS
 
-#if 0
-    // The results are easy to go out of control...
-    // For example, rules in `hex` space will be mapped to `hex2` space, so all the symmetry checks become
-    // unavailable...
-    inline ruleT trans_left_right(const ruleT& rule) {
+    // (Currently not supported in gui, as these can map `hex` rules to `hex2` set.)
+    [[deprecated]] inline ruleT trans_left_right(const ruleT& rule) {
         ruleT lr{};
         for_each_code([&](codeT code) { lr[mp_refl_wsx(code) /* | */] = rule[code]; });
         return lr;
     }
 
-    inline ruleT trans_rotate(const ruleT& rule) {
+    [[deprecated]] inline ruleT trans_rotate_90(const ruleT& rule) {
         ruleT ro{};
         for_each_code([&](codeT code) { ro[mp_C4(code)] = rule[code]; });
         return ro;
     }
-#endif
 
     // !!TODO: (v0.9.9) re-support value constraints in the gui.
     // -> Support intersection with subsetT (should be selectable in the set table).

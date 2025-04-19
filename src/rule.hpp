@@ -125,7 +125,7 @@ namespace aniso {
         };
 
         // clang-format off
-        enum bposE : int {
+        enum bposE : int8_t {
             bpos_q = 8, bpos_w = 7, bpos_e = 6,
             bpos_a = 5, bpos_s = 4, bpos_d = 3,
             bpos_z = 2, bpos_x = 1, bpos_c = 0

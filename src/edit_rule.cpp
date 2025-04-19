@@ -11,8 +11,8 @@ namespace aniso {
         static const subsetT ignore_w = make_subset({mp_ignore_w});
         static const subsetT ignore_e = make_subset({mp_ignore_e});
         static const subsetT ignore_a = make_subset({mp_ignore_a});
-        static const subsetT ignore_s_z = make_subset({mp_ignore_s}, mask_zero);
-        static const subsetT ignore_s_i = make_subset({mp_ignore_s}, mask_identity);
+        static const subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero);
+        static const subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity);
         static const subsetT ignore_d = make_subset({mp_ignore_d});
         static const subsetT ignore_z = make_subset({mp_ignore_z});
         static const subsetT ignore_x = make_subset({mp_ignore_x});
@@ -22,12 +22,12 @@ namespace aniso {
         static const subsetT ignore_von = make_subset({mp_von_ignore});
 
         // rule[{0}] == rule[{511}].
-        static const subsetT single_stable_state{mask_zero, []() -> equivT {
+        static const subsetT single_stable_state{.rule = rule_all_zero, .p = [] {
                                                      equivT eq{};
                                                      eq.add_eq({0}, {511});
                                                      return eq;
                                                  }()};
-        static const subsetT self_complementary = make_subset({mp_reverse}, mask_identity);
+        static const subsetT self_complementary = make_subset({mp_reverse}, rule_identity);
 
         static const subsetT native_isotropic = make_subset({mp_refl_wsx, mp_refl_qsc});
         static const subsetT native_refl_wsx = make_subset({mp_refl_wsx});
@@ -572,6 +572,7 @@ static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT
     return false;
 }
 
+// !!TODO: redesign...
 // !!TODO: no longer used by rule-generating funcs.
 // (-> general comparison, i.e. no need to belong to the working set...)
 class mask_selector {
@@ -611,7 +612,7 @@ class mask_selector {
          "Masked value: same ~ 'o', different ~ 'i'.",
          'o', 'i'}};
 
-    aniso::maskT mask_custom{aniso::game_of_life()};
+    aniso::ruleT mask_custom = aniso::game_of_life();
     maskE mask_tag = Zero;
 
 public:
@@ -627,8 +628,8 @@ public:
     }
 
     // `working_set` must not be a temporary.
-    const aniso::maskT& select(const aniso::subsetT& working_set) {
-        const aniso::maskT* const mask_ptrs[]{&aniso::mask_zero, &aniso::mask_identity, &working_set.rule,
+    const aniso::ruleT& select(const aniso::subsetT& working_set) {
+        const aniso::ruleT* const mask_ptrs[]{&aniso::rule_all_zero, &aniso::rule_identity, &working_set.rule,
                                               &mask_custom};
 
         if (!working_set.contains(*mask_ptrs[mask_tag])) {
@@ -1138,7 +1139,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 }
 
 // TODO: support random-access in a separate window?
-// static void random_access_window(bool& show_rand_access, const aniso::subsetT& working_set, const aniso::maskT& mask) {}
+// static open_state random_access_window(const ImVec2& init_pos, const aniso::subsetT& working_set);
 
 void edit_rule(frame_main_token) {
     // Select subsets.
@@ -1189,7 +1190,7 @@ void edit_rule(frame_main_token) {
     ImGui::AlignTextToFramePadding();
     imgui_StrTooltip("(...)", mask_selector::about);
     ImGui::SameLine();
-    const aniso::maskT& mask = select_mask.select(working_set);
+    const aniso::ruleT& mask = select_mask.select(working_set);
     const auto [chr_0, chr_1] = select_mask.masked_char();
 
     ImGui::Separator();
@@ -1313,7 +1314,7 @@ void edit_rule(frame_main_token) {
         const char labels_normal[2][3]{{'-', chr_0, '\0'}, {'-', chr_1, '\0'}};
         const char labels_preview[2][9]{{'-', chr_0, ' ', '-', '>', ' ', chr_1, ':', '\0'},
                                         {'-', chr_1, ' ', '-', '>', ' ', chr_0, ':', '\0'}};
-        const aniso::ruleT_masked masked = mask ^ target;
+        const aniso::diffT diff = mask ^ target;
 
         // Precise vertical alignment:
         // https://github.com/ocornut/imgui/issues/2064
@@ -1376,7 +1377,7 @@ void edit_rule(frame_main_token) {
                     if (show_random_access) {
                         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                         align_text(ImGui::GetItemRectSize().y);
-                        imgui_Str(labels_normal[masked[code]]);
+                        imgui_Str(labels_normal[diff[code]]);
                     }
                 }
                 if (group_size > max_to_show) {
@@ -1421,7 +1422,7 @@ void edit_rule(frame_main_token) {
 
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 align_text(ImGui::GetItemRectSize().y);
-                imgui_Str(!pure ? "-x" : labels_preview[masked[head]]);
+                imgui_Str(!pure ? "-x" : labels_preview[diff[head]]);
                 // if (has_lock) { imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2)); }
 
                 const int preview_id = this_n;
