@@ -130,7 +130,7 @@ class subset_selector : no_copy {
     struct termT {
         const char* const title;
         const aniso::subsetT* const set;
-        const char* const description;
+        const char* const desc;
 
         bool selected = false;
         bool including = false; // set.includes(m_current).
@@ -309,16 +309,17 @@ public:
             m_terms.emplace_back("C6", &hex_C6, "C6 symmetry. This is a strict subset of C2/C3.");
         }
         assert(std::ranges::all_of(m_terms, [](const termT& t) { //
-            return t.title && t.set && t.description && !t.selected && !t.including && !t.disabled;
+            return t.title && t.set && t.desc && !t.selected && !t.including && !t.disabled;
         }));
 
         select_single(init_sel);
     }
 
     uint64_t rep() const {
+        assert(m_terms.size() <= 64);
+
         uint64_t val = 0;
         for (int i = 0; const termT& t : m_terms) {
-            assert(i < 64);
             val |= uint64_t(t.selected || t.including) << i;
             ++i;
         }
@@ -446,7 +447,7 @@ public:
                     imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
                 }
                 if (mode.tooltip) {
-                    imgui_ItemTooltip(term.description);
+                    imgui_ItemTooltip(term.desc);
                 }
             };
 
@@ -509,9 +510,10 @@ public:
     }
 };
 
+// !!TODO: show whether belongs to the working set && dist to the observer?
 void previewer::_show_belongs(const aniso::ruleT& rule) {
     static subset_selector dummy{};
-    imgui_Str("(Send the rule to 'Working set' to select containing sets.)");
+    imgui_Str("(Send the rule to 'Working set' to select containing sets.)"); // TODO: noisy...
     ImGui::Separator();
     dummy.select({.rule = &rule, .select = false, .tooltip = false});
 }
@@ -558,106 +560,134 @@ static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT
     return false;
 }
 
-// !!TODO: redesign...
-// !!TODO: no longer used by rule-generating funcs.
-// (-> general comparison, i.e. no need to belong to the working set...)
-class mask_selector {
-    enum maskE { Zero, Identity, Fallback, Custom };
+// !!TODO: currently called the "observer"; still not quite ideal name...
+class rule_selector : no_copy {
+    enum tagE { Zero, Identity, Known, Custom };
+    tagE m_tag = Zero;
 
     struct termT {
         const char* label;
         const char* desc;
-        char chr_0, chr_1;
+        std::array<char, 2> diff_chars;
     };
-    static constexpr termT mask_terms[]{
+    static constexpr termT terms[]{
+        //!!TODO: rewrite...
         {"Zero",
-         "The rule that maps the cell to 0 in all cases.\n\n"
-         "For any rule in any case, being the same as this rule means the rule maps the cell to 0, and being different from this rule means the rule maps the cell to 1. Also, the distance to this rule is equal to the number of groups that map cells to 1.\n\n"
-         "Masked value:\n"
-         "Same ~ '0': the cell will become 0 in this case.\n"
-         "Different ~ '1': the cell will become 1.",
-         '0', '1'},
+         "The all-zero rule, i.e. the rule that maps the cell to 0 in all cases.\n\n"
+         // "For any rule in any case, being the same as this rule means the rule maps the cell to 0, and being different from this rule means the rule maps the cell to 1. Also, the distance to this rule is equal to the number of groups that map cells to 1.\n\n"
+         "For any rule in any case, compared to this rule:\n"
+         "Same ~ '0': the cell will become 0.\n"
+         "Diff ~ '1': the cell will become 1.",
+         {'0', '1'}},
 
         {"Identity",
-         "The rule that does not change the cell's value in all cases.\n\n"
-         "Masked value:\n"
+         "The rule that preserves cell's value in all cases.\n\n"
+         "For any rule in any case, compared to this rule:\n"
          "Same ~ '.': the cell will stay unchanged (0->0 or 1->1).\n"
-         "Different ~ 'f': the cell will \"flip\" (0->1 or 1->0).\n",
-         '.', 'f'},
+         "Diff ~ 'f': the cell will \"flip\" (0->1 or 1->0).",
+         {'.', 'f'}},
 
-        {"Fallback",
-         "A rule known to belong to the working set. Depending on what sets are selected, it may "
-         "be the same as zero-rule, or identity-rule, or another rule in the working set if neither works.\n\n"
-         "This is provided in case there are no other rules known to belong to the working set. It will not "
-         "change unless the working set is updated.\n\n"
-         "Masked value: same ~ 'o', different ~ 'i'.",
-         'o', 'i'},
+        {"Known",
+         "A rule known to belong to the working set. Depending on what sets are selected, it may be the same as 'Zero' or 'Identity', or another rule in the working set if neither works. It will not change unless the working set is updated.\n\n"
+         "Same ~ 'o', diff ~ 'i'.",
+         {'o', 'i'}},
 
         {"Custom",
-         "This is initially the Game of Life rule, and can be updated to the current rule by clicking '<< Cur' (and will not change before next '<< Cur').\n\n"
-         "Masked value: same ~ 'o', different ~ 'i'.",
-         'o', 'i'}};
+         "This is initially the Game of Life rule, and can be replaced by dragging a rule here.\n\n"
+         "Same ~ 'o', diff ~ 'i'.",
+         {'o', 'i'}} //
+    };
 
-    aniso::ruleT mask_custom = aniso::game_of_life();
-    maskE mask_tag = Zero;
+    aniso::ruleT rule_known_to_set = {};
+    aniso::ruleT rule_custom = aniso::game_of_life();
 
-public:
-    static void about() {
-        // TODO: retire the notion of "masking" on user side?
-        imgui_Str(
-            "The working set divides all cases into different groups. For any two rules in the set, their values must be either all-same or all-different in each group.\n\n"
-            "As a result, the \"distance\" between two rules (in the set) can be defined as the number of groups where they have different values, and any rule in the set can act as an observer (currently called the \"mask\") to measure relative distance and do XOR masking (comparing same or different) for other rules.\n\n"
-            "The 'Zero' and 'Identity' rules are special in the sense that, the values masked by them have natural interpretations (actual mapped value and flip-ness). 'Fallback' is provided to guarantee there is at least one rule known to belong to the working set. Any other rule in the working set can serve as a mask via 'Custom' and '<< Cur'.\n\n"
-            "Both 'Traverse' and 'Random' generate rules based on the distance to the masking rule.\n\n"
-            "The group table lists every group of the working set. The values of the current rule are viewed through the mask and shown as masked values. By clicking a group, you will flip all values of the current rule (in that group); the result is unrelated to the masking rule.");
-        // !!TODO: rewrite...
+    const aniso::ruleT& get_rule(tagE tag) const {
+        return tag == Zero       ? aniso::rule_all_zero //
+               : tag == Identity ? aniso::rule_identity
+               : tag == Known    ? rule_known_to_set
+                                 : rule_custom;
     }
 
-    // `working_set` must not be a temporary.
-    const aniso::ruleT& select(const aniso::subsetT& working_set) {
-        const aniso::ruleT* const mask_ptrs[]{&aniso::rule_all_zero, &aniso::rule_identity, &working_set.rule,
-                                              &mask_custom};
+    // TODO: (where to) support resolving?
+    [[deprecated]] tagE resolve_tag(const tagE tag) const {
+        if (tag == Zero || tag == Identity) {
+            return tag;
+        }
+        const aniso::ruleT& rule = get_rule(tag);
+        if (rule == aniso::rule_all_zero) {
+            return Zero;
+        } else if (rule == aniso::rule_identity) {
+            return Identity;
+        } else if (tag == Known || rule == rule_known_to_set) {
+            return Known;
+        } else {
+            return Custom;
+        }
+    }
 
-        if (!working_set.contains(*mask_ptrs[mask_tag])) {
-            assert(mask_tag != Fallback);
-            mask_tag = Fallback;
+public:
+    // !!TODO: unfinished...
+    static void about() {
+        imgui_Str(
+            "The working set divides all cases into different groups. For any two rules in the set, their values must be either all-same or all-different in each group.\n\n"
+            "As a result, the \"distance\" between any two rules (in the set) can be defined as the number of groups where they have different values, and any rule in the set can serve as an \"observer\" to measure relative distance and compare (same or different) for other rules.\n\n"
+            "'Zero' and 'Identity' are special as the values compared to them have natural interpretations (actual value and flip-ness). 'Known' always belongs to the working set (and may change ...). Any other rule in the working set can serve as observer via 'Custom'.\n\n"
+            "The group table lists every group of the working set. ....");
+    }
+
+    const aniso::ruleT& get() const { return get_rule(m_tag); }
+    std::array<char, 2> diff_chars() const { return terms[m_tag].diff_chars; }
+    static std::array<char, 2> value_chars() { return terms[Zero].diff_chars; }
+
+    void select(const aniso::subsetT& working_set) {
+        rule_known_to_set = working_set.rule;
+        if (m_tag != Known && !working_set.contains(get_rule(m_tag))) { // Working set changes.
+            // m_tag = resolve_tag(Known);
+            m_tag = Known;
         }
 
         ImGui::AlignTextToFramePadding();
-        imgui_Str("Mask ~");
-        for (const maskE m : {Zero, Identity, Fallback, Custom}) {
-            const bool m_avail = working_set.contains(*mask_ptrs[m]);
-
+        imgui_Str("Observer ~");
+        for (const tagE tag : {Zero, Identity, Known, Custom}) {
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-            ImGui::BeginDisabled(!m_avail);
-            imgui_RadioButton(mask_terms[m].label, &mask_tag, m); // !!TODO: these can be sources...
-            ImGui::EndDisabled();
 
-            imgui_ItemTooltip([&] {
-                if (!m_avail) {
-                    imgui_Str("This rule does not belong to the working set.");
-                    ImGui::Separator();
+            const aniso::ruleT& rule = get_rule(tag);
+            const bool belongs = working_set.contains(rule);
+            if (!belongs) { // In disabled-style, but won't affect dragging.
+                const float disabled_alpha = ImGui::GetStyle().DisabledAlpha;
+                const ImU32 disabled_col = ImGui::GetColorU32(ImGuiCol_FrameBg, disabled_alpha);
+                for (const auto col : {ImGuiCol_FrameBg, ImGuiCol_FrameBgActive, ImGuiCol_FrameBgHovered}) {
+                    ImGui::PushStyleColor(col, disabled_col);
                 }
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetColorU32(ImGuiCol_Text, disabled_alpha));
+            }
+            if (ImGui::RadioButton(terms[tag].label, m_tag == tag) && belongs) {
+                m_tag = tag;
+            }
+            if (!belongs) {
+                ImGui::PopStyleColor(4);
+            }
 
-                imgui_Str(mask_terms[m].desc);
-                previewer::preview(-1, previewer::configT::_220_160, *mask_ptrs[m]);
-            });
-
-            if (m == Custom) {
-                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set, *mask_ptrs[m])) {
-                    mask_custom = *deliv;
-                    mask_tag = Custom;
+            if (!pass_rule::source(rule)) {
+                imgui_ItemTooltip([&] {
+                    if (!belongs) {
+                        imgui_Str("This rule does not belong to the working set.");
+                        ImGui::Separator();
+                    }
+                    imgui_Str(terms[tag].desc);
+                    previewer::preview(-1, previewer::configT::_220_160, rule);
+                });
+            }
+            if (tag == Custom) {
+                if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_3, '3'), working_set /*, rule_custom*/)) {
+                    rule_custom = *deliv;
+                    m_tag = tag;
                     messenger::set_msg("Updated.");
                 }
             }
         }
 
-        assert(working_set.contains(*mask_ptrs[mask_tag]));
-        return *mask_ptrs[mask_tag];
-    }
-
-    std::pair<char, char> masked_char() const { //
-        return {mask_terms[mask_tag].chr_0, mask_terms[mask_tag].chr_1};
+        assert(working_set.contains(get()));
     }
 };
 
@@ -857,8 +887,9 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         static std::deque<aniso::ruleT> page;
         static previewer::configT config{previewer::configT::_220_160};
         {
+            // TODO: unnecessarily expensive (can be replaced by selector.rep()).
             static aniso::subsetT cmp_set = working_set;
-            if (compare_update(cmp_set, working_set)) { // TODO: unnecessarily expensive...
+            if (compare_update(cmp_set, working_set)) {
                 page.clear();
             }
             if (!working_set.contains(orderer)) {
@@ -927,7 +958,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
 
         ImGui::SameLine();
         imgui_StrTooltip(
-            "(...)", // !!TODO: rewrite (should explain [R] & relation with <00..)...
+            "(...)", // !!TODO: rewrite (should explain [R] & relation with <00.. & dist)...
             "The sequence represents a list of all rules in the working set, in the following order: firstly [R], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (which is the number of groups in the working set).\n\n"
             "You can traverse the entire working set with this. Some interesting examples include: inner-totalistic rules ('Tot(+s)'), self-complementary totalistic rules ('Comp' & 'Tot'), isotropic von-Neumann rules ('All' & 'Von'), and a similar set ('All' & 'w').\n\n"
             "Even if the working set is very large, you may find this still useful sometimes.\n\n"
@@ -1128,7 +1159,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 // static open_state random_access_window(const ImVec2& init_pos, const aniso::subsetT& working_set);
 
 void edit_rule(frame_main_token) {
-    // Select subsets.
+    // Select working set.
     static subset_selector select_working{&aniso::_subsets::native_isotropic};
     {
         static bool collapse = false;
@@ -1171,13 +1202,15 @@ void edit_rule(frame_main_token) {
 
     ImGui::Separator();
 
-    // Select mask.
-    static mask_selector select_mask;
-    ImGui::AlignTextToFramePadding();
-    imgui_StrTooltip("(...)", mask_selector::about);
-    ImGui::SameLine();
-    const aniso::ruleT& mask = select_mask.select(working_set);
-    const auto [chr_0, chr_1] = select_mask.masked_char();
+    // Select observing rule.
+    static rule_selector select_rule;
+    {
+        ImGui::AlignTextToFramePadding();
+        imgui_StrTooltip("(...)", rule_selector::about);
+        ImGui::SameLine();
+        select_rule.select(working_set);
+    }
+    const aniso::ruleT& observer = select_rule.get();
 
     ImGui::Separator();
 
@@ -1255,37 +1288,16 @@ void edit_rule(frame_main_token) {
     // !!TODO: there should finally be one single if-show_random_access scope...
     // const bool working_contains = show_random_access /*workaround*/ && working_set.contains(target);
     assert_implies(show_random_access, working_set.contains(target));
-    constexpr bool working_contains = true;
 
+    ImGui::Text("Groups:%d", working_set->k());
     if (show_random_access) {
-        const int c_group = working_set->k();
-
-        if (working_contains) {
-            const int dist = aniso::distance(working_set, mask, target);
-            std::string str = std::format("Groups:{} ({}:{} {}:{})", c_group, chr_1, dist, chr_0, c_group - dist);
-
-            // v (Preserved for reference.)
-#if 0
-            if (c_free != c_group) {
-                const int c_free_1 = c_1 - c_locked_1, c_free_0 = c_0 - c_locked_0;
-                str += std::format(" Free:{} ({}:{} {}:{}) Locked:{} ({}:{} {}:{})", c_free, chr_1, c_free_1, chr_0,
-                                   c_free_0, c_locked_1 + c_locked_0, chr_1, c_locked_1, chr_0, c_locked_0);
-            }
-#endif
-            imgui_Str(str);
-        } else {
-            // !!TODO: recheck...
-            ImGui::Text("Groups:%d !contained", c_group);
-            ImGui::SameLine();
-            imgui_StrTooltip("(?)",
-                             "The current rule does not belong to the working set.\n\n"
-                             "Check the '-x' groups for details - no matter which mask is selected, for any rule in "
-                             "the working set, the masked values should be all the same in any group.\n\n"
-                             "You can get rules in the working set from the 'Traverse' or 'Random' window.");
-        }
-    } else {
-        ImGui::Text("Groups:%d", working_set->k());
+        ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
+        ImGui::Text("Dist:%d", aniso::distance(working_set, observer, target));
+        ImGui::SameLine();
+        imgui_StrTooltip("(?)", "Distance between [T] and the observer, i.e. the number of diff groups.");
+        // !!TODO: improve...
     }
+
     // !!TODO: whether to add here? whether to hide when it's not needed?
     // ImGui::SameLine();
     // if (ImGui::SmallButton("Top")) {
@@ -1297,10 +1309,13 @@ void edit_rule(frame_main_token) {
     if (auto child = imgui_ChildWindow("Groups")) {
         // set_scroll_by_up_down(preview_mode ? floor(config.height() * 0.5) : ImGui::GetFrameHeight());
 
-        const char labels_normal[2][3]{{'-', chr_0, '\0'}, {'-', chr_1, '\0'}};
-        const char labels_preview[2][9]{{'-', chr_0, ' ', '-', '>', ' ', chr_1, ':', '\0'},
-                                        {'-', chr_1, ' ', '-', '>', ' ', chr_0, ':', '\0'}};
-        const aniso::diffT diff = mask ^ target;
+        const aniso::diffT diff = observer ^ target;
+        const auto [d_0, d_1] = select_rule.diff_chars();
+        const auto [v_0, v_1] = select_rule.value_chars();
+        const std::string labels_diff[2]{{'-', d_0}, {'-', d_1}};
+        const std::string labels_diff_from_to[2]{{'-', d_0, ' ', '-', '>', ' ', d_1, ':'},
+                                                 {'-', d_1, ' ', '-', '>', ' ', d_0, ':'}};
+        const std::string labels_val[2]{{'-', v_0}, {'-', v_1}};
 
         // Precise vertical alignment:
         // https://github.com/ocornut/imgui/issues/2064
@@ -1315,10 +1330,11 @@ void edit_rule(frame_main_token) {
         const int group_size_x = [&]() -> int {
             if (show_random_access) {
                 int size = button_padding.x * 2 + 3 * button_zoom; // button-size
-                size += imgui_ItemInnerSpacingX() + imgui_CalcTextSize(labels_preview[0]).x;
+                size += imgui_ItemInnerSpacingX() + imgui_CalcTextSize(labels_diff_from_to[0]).x;
                 return std::max(size, config.width());
             } else {
-                return image_padding.x * 2 + 3 * button_zoom;
+                return image_padding.x * 2 + 3 * button_zoom + imgui_ItemInnerSpacingX() +
+                       imgui_CalcTextSize(labels_val[0]).x;
             }
         }();
         const int perline = fit_count(ImGui::GetContentRegionAvail().x, group_size_x, spacing_x);
@@ -1326,7 +1342,7 @@ void edit_rule(frame_main_token) {
         // std::vector<aniso::groupT> working_set_groups = working_set->group_vec();
         // if (!working_contains) {
         //     std::ranges::stable_partition(working_set_groups, [&](const aniso::groupT& group) {
-        //         return !aniso::all_same_or_different(group, mask, target);
+        //         return !aniso::all_same_or_different(group, observer, target);
         //     });
         // }
         for (int n = 0; const aniso::groupT& group : working_set->groups()) {
@@ -1339,31 +1355,27 @@ void edit_rule(frame_main_token) {
 
             const aniso::codeT head = group[0];
             const auto group_details = [&] {
-                if (show_random_access) {
-                    // if (working_contains) {
-                    //     imgui_Str("Click to flip the values in this group.");
-                    // } else {
-                    //     imgui_Str(
-                    //         "The current rule does not belong to the working set; press 'Ctrl' to enable flipping anyway.");
-                    // }
-                    imgui_Str("Click to flip the values in this group.");
-                    ImGui::Separator();
-                }
+                // !!TODO: (where to) document the meaning of values...
+                imgui_Str(show_random_access ? "... Click to flip the values in this group." //
+                                             : "...");
+                ImGui::Separator();
 
                 ImGui::PushTextWrapPos(-1); // No wrapping.
                 const int group_size = group.size();
                 ImGui::Text("Members: %d", group_size);
-                const int perline = show_random_access ? 8 : 10;
+                const int perline = 8;
                 const int max_to_show = perline * 6;
                 for (int n = 0; const aniso::codeT code : group.first(std::min(group_size, max_to_show))) {
                     if (n++ % perline != 0) {
-                        ImGui::SameLine(0, show_random_access ? -1 /*default*/ : spacing_x);
+                        ImGui::SameLine();
                     }
                     code_image(code, button_zoom, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
+                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                    align_text(ImGui::GetItemRectSize().y);
                     if (show_random_access) {
-                        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                        align_text(ImGui::GetItemRectSize().y);
-                        imgui_Str(labels_normal[diff[code]]);
+                        imgui_Str(labels_diff[diff[code]]);
+                    } else {
+                        imgui_Str(labels_val[observer[code]]); // !!TODO: improve...
                     }
                 }
                 if (group_size > max_to_show) {
@@ -1373,7 +1385,7 @@ void edit_rule(frame_main_token) {
             };
 
             if (show_random_access) {
-                // const bool pure = working_contains /*perf*/ || aniso::all_same_or_different(group, mask, target);
+                // const bool pure = working_contains /*perf*/ || aniso::all_same_or_different(group, observer, target);
                 constexpr bool pure = true;
                 const auto get_adjacent_rule = [&] { return aniso::flip_values_v(group, target); };
 
@@ -1408,16 +1420,18 @@ void edit_rule(frame_main_token) {
 
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 align_text(ImGui::GetItemRectSize().y);
-                imgui_Str(!pure ? "-x" : labels_preview[diff[head]]);
+                imgui_Str(!pure ? "-x" : labels_diff_from_to[diff[head]]);
                 // if (has_lock) { imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2)); }
 
                 const int preview_id = this_n;
                 previewer::preview(preview_id, config, get_adjacent_rule /*()*/);
                 ImGui::EndGroup();
             } else {
-                // !!TODO: how to visualize possible values without relying on a specific rule?
                 code_image(head, button_zoom, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
                 imgui_ItemTooltip(group_details);
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                align_text(ImGui::GetItemRectSize().y);
+                imgui_Str(labels_val[observer[head]]);
             }
         }
     }
