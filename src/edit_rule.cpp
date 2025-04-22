@@ -570,7 +570,7 @@ class rule_selector : no_copy {
         const char* desc;
         std::array<char, 2> diff_chars;
     };
-    static constexpr termT terms[]{
+    static constexpr std::array<termT, 4> terms{{
         //!!TODO: rewrite...
         {"Zero",
          "The all-zero rule, i.e. the rule that maps the cell to 0 in all cases.\n\n"
@@ -596,7 +596,7 @@ class rule_selector : no_copy {
          "This is initially the Game of Life rule, and can be replaced by dragging a rule here.\n\n"
          "Same ~ 'o', diff ~ 'i'.",
          {'o', 'i'}} //
-    };
+    }};
 
     aniso::ruleT rule_known_to_set = {};
     aniso::ruleT rule_custom = aniso::game_of_life();
@@ -1392,9 +1392,9 @@ void edit_rule(frame_main_token) {
                 ImGui::BeginGroup();
                 // _ButtonHovered: ImVec4(0.26f, 0.59f, 0.98f, 1.00f)
                 // [0]:Button, [1]:Hover, [2]:Active
-                static const ImVec4 button_col_normal[3]{
+                static constexpr ImVec4 button_col_normal[3]{
                     {0.26f, 0.59f, 0.98f, 0.70f}, {0.26f, 0.59f, 0.98f, 0.85f}, {0.26f, 0.59f, 0.98f, 1.00f}};
-                static const ImVec4 button_col_impure[3]{
+                static constexpr ImVec4 button_col_impure[3]{
                     {0.26f, 0.59f, 0.98f, 0.30f}, {0.26f, 0.59f, 0.98f, 0.40f}, {0.26f, 0.59f, 0.98f, 0.50f}};
                 const ImVec4* const button_color = pure ? button_col_normal : button_col_impure;
                 ImGui::PushStyleColor(ImGuiCol_Button, button_color[0]);

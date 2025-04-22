@@ -796,18 +796,18 @@ class global_timer : no_create {
         clockT::time_point last;   // = {};
         bool active_at_this_frame; // = false; (Will cause trouble when building with gcc or clang...)
     };
-    inline static termT terms[1 + (max_time / time_unit)]{};
+    inline static std::array<termT, 1 + (max_time / time_unit)> terms{};
 
 public:
     static void begin_frame(frame_main_token) {
         const clockT::time_point now = clockT::now();
-        for (int i = 0; i < std::size(terms); ++i) {
-            const int dur = i * time_unit;
-            if (terms[i].last + std::chrono::milliseconds(dur) <= now) {
-                terms[i].last = now;
-                terms[i].active_at_this_frame = true;
+        for (int i = 0; termT & term : terms) {
+            const int dur = time_unit * i++;
+            if (term.last + std::chrono::milliseconds(dur) <= now) {
+                term.last = now;
+                term.active_at_this_frame = true;
             } else {
-                terms[i].active_at_this_frame = false;
+                term.active_at_this_frame = false;
             }
         }
     }
