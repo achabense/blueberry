@@ -880,7 +880,7 @@ namespace aniso {
     class tile_buf {
         static constexpr int capacity_ = 16;
         vecT m_size;
-        std::array<cellT, capacity_> m_data; // data outside of m_size remain all-0.
+        cellT m_data[capacity_]; // data outside of m_size remain all-0.
 
     public:
         explicit tile_buf(const vecT size) : m_size{size}, m_data{} { //
@@ -895,8 +895,8 @@ namespace aniso {
 
         static constexpr int capacity() { return capacity_; }
         vecT size() const { return m_size; }
-        tile_ref data() { return {std::data(m_data), m_size}; }
-        tile_const_ref data() const { return {std::data(m_data), m_size}; }
+        tile_ref data() { return {m_data, m_size}; }
+        tile_const_ref data() const { return {m_data, m_size}; }
         bool is_0() const { return m_data[0] == cellT{0} && m_size == vecT{1, 1}; }
 
         // Value-preserving.

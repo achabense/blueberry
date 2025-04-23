@@ -570,7 +570,7 @@ class rule_selector : no_copy {
         const char* desc;
         std::array<char, 2> diff_chars;
     };
-    static constexpr std::array<termT, 4> terms{{
+    static constexpr termT terms[4]{
         //!!TODO: rewrite...
         {"Zero",
          "The all-zero rule, i.e. the rule that maps the cell to 0 in all cases.\n\n"
@@ -596,7 +596,7 @@ class rule_selector : no_copy {
          "This is initially the Game of Life rule, and can be replaced by dragging a rule here.\n\n"
          "Same ~ 'o', diff ~ 'i'.",
          {'o', 'i'}} //
-    }};
+    };
 
     aniso::ruleT rule_known_to_set = {};
     aniso::ruleT rule_custom = aniso::game_of_life();

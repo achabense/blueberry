@@ -796,7 +796,7 @@ class global_timer : no_create {
         clockT::time_point last;   // = {};
         bool active_at_this_frame; // = false; (Will cause trouble when building with gcc or clang...)
     };
-    inline static std::array<termT, 1 + (max_time / time_unit)> terms{};
+    inline static termT terms[1 + (max_time / time_unit)]{};
 
 public:
     static void begin_frame(frame_main_token) {
