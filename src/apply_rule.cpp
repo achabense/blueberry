@@ -844,7 +844,6 @@ public:
                                     .y = iy.value_or(input_y.flush().value_or(size.y))})) {
                     reset_m_paste_and_m_sel();
                 } else {
-                    // TODO: whether to show this?
                     // set_msg_identical();
                 }
             }
@@ -978,15 +977,14 @@ public:
                 if (m_torus.resize(torusT::init_size)) {
                     reset_m_paste_and_m_sel();
                 } else {
-                    // TODO: whether to show this?
-                    // set_msg_identical();
+                    set_msg_identical();
                 }
             }
             if (imgui_SelectableStyledButtonEx(id++, "Init state")) {
                 if (m_torus.set_init(torusT::init_init)) {
                     reset_m_paste_and_m_sel();
                 } else {
-                    // set_msg_identical();
+                    set_msg_identical();
                 }
             }
             if (imgui_SelectableStyledButtonEx(id++, "Size & state")) {
@@ -994,7 +992,7 @@ public:
                 if (m_torus.resize_and_set_init(torusT::init_size, torusT::init_init)) {
                     reset_m_paste_and_m_sel();
                 } else {
-                    // set_msg_identical();
+                    set_msg_identical();
                 }
             }
         });

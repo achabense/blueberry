@@ -302,7 +302,7 @@ public:
                 messenger::set_msg("Cannot refresh the current folder.");
                 // TODO: whether to clear m_current?
             } else {
-                messenger::set_msg("Done.");
+                messenger::set_msg("Updated.");
             }
         }
     }
@@ -946,7 +946,7 @@ static void load_file_impl() {
         ImGui::SameLine();
         if (ImGui::SmallButton("Reload")) {
             if (try_load(*path)) {
-                messenger::set_msg("Done.");
+                messenger::set_msg("Updated.");
             }
             // Won't reset scroll.
         }
