@@ -610,6 +610,7 @@ class runnerT : no_copy {
 
         int width() const { return std::abs(beg.x - end.x) + 1; }
         int height() const { return std::abs(beg.y - end.y) + 1; }
+        aniso::vecT size() const { return {.x = width(), .y = height()}; }
     };
     std::optional<selectT> m_sel = std::nullopt;
 
@@ -1151,7 +1152,7 @@ public:
                 m_sel->active = false;
                 // Allow a single right-click to unselect the area.
                 // (`bounding_box` has no size check like this. This is intentional.)
-                if (m_sel->width() * m_sel->height() <= 2) {
+                if (m_sel->size().xy() <= 2) {
                     m_sel.reset();
                 }
             }
@@ -1388,24 +1389,14 @@ private:
             ImGuiKey_A, "A", false,
             [](runnerT& self) {
                 const aniso::vecT tile_size = self.m_torus.size();
-                // !!TODO: whether to support toggling?
-                // ('A' may be hit by accident as preview windows have 'A'+R/F mode; toggling is convenient for undoing...)
-
-                // if (!m_sel || m_sel->width() != tile_size.x || m_sel->height() != tile_size.y) {
-                //     m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
-                // } else {
-                //     m_sel.reset();
-                // }
-                self.m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
+                auto& m_sel = self.m_sel;
+                if (!m_sel || m_sel->size() != tile_size) {
+                    m_sel = {.active = false, .beg = {0, 0}, .end = tile_size.minus(1, 1)};
+                } else {
+                    m_sel.reset();
+                }
             } //
         };
-        constexpr op_term op_unselect{
-            ImGuiKey_Z, "Z", false,
-            [](runnerT& self) { //
-                self.m_sel.reset();
-            } //
-        };
-
         constexpr op_term op_bounding_box{
             ImGuiKey_B, "B", true,
             [](runnerT& self) {
@@ -1535,8 +1526,8 @@ private:
         // bool paste_by_shortcut = false;
 
         if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
-            for (const op_term& t : {op_random_flip, op_clear_inside, op_clear_outside, op_select_all, op_unselect,
-                                     op_bounding_box, op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
+            for (const op_term& t : {op_random_flip, op_clear_inside, op_clear_outside, op_select_all, op_bounding_box,
+                                     op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
                 if (shortcuts::test_pressed(t.key, false)) {
                     op_highlight = t.key;
                     if (t.check_sel(*this)) {
@@ -1596,7 +1587,6 @@ private:
                 ImGui::Separator();
 
                 term("Select all", op_select_all);
-                term("Unselect", op_unselect);
                 term("Bound", op_bounding_box);
                 guide_mode::item_tooltip(
                     "The area should be enclosed in 2*2 periodic background.\n\n"
