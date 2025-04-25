@@ -513,8 +513,6 @@ public:
 // !!TODO: show whether belongs to the working set && dist to the observer?
 void previewer::_show_belongs(const aniso::ruleT& rule) {
     static subset_selector dummy{};
-    imgui_Str("(Send the rule to 'Working set' to select containing sets.)"); // TODO: noisy...
-    ImGui::Separator();
     dummy.select({.rule = &rule, .select = false, .tooltip = false});
 }
 

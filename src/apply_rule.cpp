@@ -673,6 +673,8 @@ public:
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(current_rule);
                     }
+                    guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard; "
+                                             "equivalent to sending the rule to '..' after 'Clipboard'.");
 
                     current_rule->selectable_to_take_snapshot("Recent");
                 });
@@ -684,7 +686,8 @@ public:
                     current_rule.set_next_unchecked(*pass.deliv);
                 }
             }
-            guide_mode::item_tooltip("MAP-string for ... !!TODO");
+            guide_mode::item_tooltip("MAP-string for the rule shown in the space window.\n\n"
+                                     "Drag to send the rule elsewhere; drag a rule here to replace.");
             if (current_rule->has_snapshot()) {
                 current_rule->display_snapshot_if_present(
                     {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
@@ -827,7 +830,6 @@ public:
             const float inner_spacing = imgui_ItemInnerSpacingX();
             const aniso::vecT size = m_torus.size();
 
-            // TODO: whether / how to add hint ('enter' to resize)?
             ImGui::AlignTextToFramePadding();
             imgui_Str("Size ~");
             ImGui::SameLine(0, inner_spacing);
@@ -836,6 +838,10 @@ public:
             ImGui::SameLine(0, inner_spacing);
             ImGui::SetNextItemWidth(ceil((item_width - inner_spacing) / 2));
             const auto iy = input_y.input("##Height", std::format("Height:{}", size.y).c_str());
+            // Bruh...
+            // ImGui::SameLine();
+            // imgui_StrTooltip(
+            //     "(?)", "Press 'Enter' to resize; if only one side is specified, the other will use the current size.");
 
             if (ix || iy) {
                 reset_pos();
@@ -1688,13 +1694,13 @@ void previewer::configT::_set() {
         ImGui::Dummy(square_size());
         imgui_ItemRectFilled(IM_COL32_BLACK);
         imgui_ItemRect(IM_COL32_GREY(160, 255));
-        ImGui::SameLine();
-        imgui_StrTooltip("(?)", "These settings are shared by all preview windows across the program.");
 
         imgui_StepSliderInt::fn("Seed", &init.seed, 0, 9);
         init.density.step_slide("Density", 10, 100, 10);
         init.area.step_slide("Area", 10, 100, 10);
     });
+    ImGui::SameLine();
+    imgui_StrTooltip("(?)", "Shared by all groups.");
 
     ImGui::PopItemWidth();
     // ImGui::PopStyleVar();
@@ -1825,14 +1831,18 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             if (ImGui::Selectable("Copy rule")) {
                 copy_rule::copy(rule);
             }
+            guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard; "
+                                     "equivalent to sending the rule to '..' after 'Clipboard'.");
             if (ImGui::Selectable("Explore")) {
                 runner.set_rule(rule);
             }
-            guide_mode::item_tooltip("!!TODO...");
+            guide_mode::item_tooltip("Explore in the space window; "
+                                     "equivalent to sending the rule to 'MAP...' in the right panel.");
             if (ImGui::Selectable("Explore (& state)")) {
                 runner.set_rule_and_state(rule, term.tile.size(), term.init);
             }
-            guide_mode::item_tooltip("!!TODO...");
+            guide_mode::item_tooltip(
+                "Explore in the space window, using the same space size and init state (to reproduce the same patterns).");
         });
         if (hov != rclick_popup::None) {
             border_col = rclick_popup::highlight_col(hov == rclick_popup::Popup);

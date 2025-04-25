@@ -671,17 +671,13 @@ public:
             (minus != ImGuiKey_None && shortcuts::test_pressed(minus, true) && shortcuts::highlight())) {
             --u;
         }
-        if constexpr (debug_mode) { // TODO: is this too noisy?
-            imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init - 1))); });
-        }
+        // imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init - 1))); }); // (too noisy)
         ImGui::SameLine(0, s);
         if (ImGui::Button("+", ImVec2(r, r)) ||
             (plus != ImGuiKey_None && shortcuts::test_pressed(plus, true) && shortcuts::highlight())) {
             ++u;
         }
-        if constexpr (debug_mode) {
-            imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init + 1))); });
-        }
+        // imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init + 1))); });
         ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
         const char* label_end = ImGui::FindRenderedTextEnd(label);
         if (label != label_end) {
