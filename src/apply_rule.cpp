@@ -135,44 +135,36 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
 // The area should be fully surrounded by 2*2 periodic border, and contain a full phase of the object (one or
 // several oscillators, or a single spaceship).
 // TODO: revamp & extend period support to up to 4*4 (notice the error messages are currently hard-coded).
-static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
+static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule, const aniso::vecT period_size,
                      const bool require_matching_background = true) {
-    static constexpr aniso::vecT period_size{2, 2};
-    struct periodT {
-        std::array<aniso::cellT, period_size.x * period_size.y> m_data{};
+    assert((period_size == aniso::vecT{2, 2})); // !!TODO: temp...
+    using periodT = aniso::tile_buf;
 
-        bool operator==(const periodT&) const = default;
-
-        static aniso::vecT size() { return period_size; }
-        aniso::tile_ref data() { return {m_data.data(), period_size}; }
-        aniso::tile_const_ref data() const { return {m_data.data(), period_size}; }
-
-        bool is_periodic(const aniso::ruleT& rule) const {
-            const int max_period = 1 << (period_size.x * period_size.y);
-            return aniso::torus_period(rule, data(), max_period).has_value();
-        }
-        bool rotate_equal(const periodT& b) const {
-            for (int dy = 0; dy < period_size.y; ++dy) {
-                for (int dx = 0; dx < period_size.x; ++dx) {
-                    periodT ro{};
-                    aniso::rotate_copy_00_to(ro.data(), data(), {.x = dx, .y = dy});
-                    if (ro == b) {
-                        return true;
-                    }
+    const auto is_periodic = [period_size](const periodT& period, const aniso::ruleT& rule) {
+        assert(period.size() == period_size);
+        const int max_period = 1 << period_size.xy();
+        return aniso::torus_period(rule, period.data(), max_period).has_value();
+    };
+    const auto rotate_equal = [period_size](const periodT& period, const periodT& b) {
+        assert(period.size() == period_size);
+        for (int dy = 0; dy < period_size.y; ++dy) {
+            for (int dx = 0; dx < period_size.x; ++dx) {
+                periodT ro{period_size};
+                aniso::rotate_copy_00_to(ro.data(), period.data(), {.x = dx, .y = dy});
+                if (ro == b) {
+                    return true;
                 }
             }
-            return false;
         }
+        return false;
     };
-
-    static const auto take_corner = [](const aniso::tile_const_ref tile) {
+    const auto take_corner = [period_size](const aniso::tile_const_ref tile) {
         assert(tile.size.both_gteq(period_size));
-        periodT p{};
-        aniso::copy(p.data(), tile.clip_corner(period_size));
-        return p;
+        return periodT(tile.clip_corner(period_size));
     };
-    static const auto locate_pattern = [](const aniso::tile_const_ref tile,
-                                          const bool for_input = false) -> std::optional<aniso::rangeT> {
+    const auto locate_pattern = [period_size,
+                                 take_corner](const aniso::tile_const_ref tile,
+                                              const bool for_input = false) -> std::optional<aniso::rangeT> {
         assert(tile.size.both_gt(period_size * 2));
         const aniso::rangeT range = aniso::bounding_box(tile, take_corner(tile).data());
         if (range.empty()) {
@@ -180,6 +172,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
             return {};
         } else if (!(range.begin.both_gteq(period_size) && range.end.both_lteq(tile.size - period_size))) {
             if (for_input) {
+                // !!TODO: temp
                 messenger::set_msg("The area is not enclosed in 2*2 periodic background.");
             } else {
                 assert(false); // Guaranteed by `regionT::run`.
@@ -196,32 +189,35 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
         aniso::tileT tile;
         aniso::rangeT range; // Range of pattern (including the background border), relative to the tile.
         aniso::vecT off;     // Pattern's begin pos, relative to the initial pattern.
-        bool run(const aniso::ruleT& rule) {
-            const aniso::tile_const_ref pattern = tile.data().clip(range);
-            const aniso::tile_const_ref background = pattern.clip_corner(period_size);
-            const aniso::vecT padding = {1, 1};
-            // (Ceiled for torus run. This can be avoided if `border_ref` is calculated manually, but that
-            // will be a lot of code.)
-            aniso::tileT next(aniso::divmul_ceil(range.size() + padding * 2, period_size));
+    };
+    const auto run = [period_size, &locate_pattern](regionT& region, const aniso::ruleT& rule) -> bool {
+        auto& [tile, range, off] = region;
 
-            periodT aligned{}; // Aligned to next.data().at(0, 0).
-            aniso::rotate_copy_00_to(aligned.data(), background, padding);
-            const aniso::rangeT relocate{.begin = padding, .end = padding + pattern.size};
-            aniso::fill_outside(next.data(), relocate, aligned.data());
-            aniso::copy(next.data().clip(relocate), pattern);
-            next.run_torus(rule);
+        const aniso::tile_const_ref pattern = tile.data().clip(range);
+        const aniso::tile_const_ref background = pattern.clip_corner(period_size);
+        const aniso::vecT padding = {1, 1};
+        // (Ceiled for torus run. This can be avoided if `border_ref` is calculated manually, but that
+        // will be a lot of code.)
+        aniso::tileT next(aniso::divmul_ceil(range.size() + padding * 2, period_size));
 
-            tile.swap(next);
-            if (const auto next_range = locate_pattern(tile.data())) {
-                off = off - padding + next_range->begin;
-                range = *next_range;
-                return true;
-            }
-            return false;
+        periodT aligned{period_size}; // Aligned to next.data().at(0, 0).
+        aniso::rotate_copy_00_to(aligned.data(), background, padding);
+        const aniso::rangeT relocate{.begin = padding, .end = padding + pattern.size};
+        aniso::fill_outside(next.data(), relocate, aligned.data());
+        aniso::copy(next.data().clip(relocate), pattern);
+        next.run_torus(rule);
+
+        tile.swap(next);
+        if (const auto next_range = locate_pattern(tile.data())) {
+            off = off - padding + next_range->begin;
+            range = *next_range;
+            return true;
         }
+        return false;
     };
 
     if (!tile.size.both_gt(period_size * 2)) {
+        // !!TODO: temp
         messenger::set_msg("The area is too small. (Should be larger than 4*4.)");
         return;
     }
@@ -230,7 +226,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
     const std::optional<aniso::rangeT> init_range = locate_pattern(tile, true);
     if (!init_range) {
         return;
-    } else if (!init_background.is_periodic(rule)) {
+    } else if (!is_periodic(init_background, rule)) {
         messenger::set_msg("The background is not temporally periodic.");
         return;
     }
@@ -241,12 +237,12 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
 
     const int limit = 4000; // Max period to deal with.
     for (int g = 1; g <= limit; ++g) {
-        if (!region.run(rule)) {
+        if (!run(region, rule)) {
             return;
         }
 
         const aniso::tile_const_ref pattern = region.tile.data().clip(region.range);
-        if ((!require_matching_background || init_background.rotate_equal(take_corner(pattern))) &&
+        if ((!require_matching_background || rotate_equal(init_background, take_corner(pattern))) &&
             pattern.size.xy() < smallest.size().xy()) {
             smallest = aniso::tileT(pattern);
         }
@@ -450,7 +446,7 @@ class runnerT : no_copy {
 
     class torusT {
     public:
-        static constexpr initT init_init{.seed = 0, .density = 50, .area = 50, .background = {}};
+        static constexpr initT init_init{.seed = 0, .density = 50, .area = 50, .background = aniso::cellT{0}};
         static constexpr aniso::vecT init_size{.x = 600, .y = 400};
         static constexpr aniso::vecT min_size{.x = 30, .y = 20};
         static constexpr aniso::vecT max_size{.x = 1500, .y = 1000};
@@ -1486,7 +1482,8 @@ private:
             ImGuiKey_I, "I (i)", true,
             [](runnerT& self) {
                 assert(self.m_sel);
-                identify(self.m_torus.read_only(self.m_sel->to_range()), self.current_rule);
+                const aniso::vecT p_size{2, 2};
+                identify(self.m_torus.read_only(self.m_sel->to_range()), self.current_rule, p_size);
             } //
         };
 
@@ -1637,7 +1634,7 @@ void apply_rule(frame_main_token) { runner.display(); }
 class previewer_data : no_create {
     friend class previewer;
 
-    static constexpr initT init_init{.seed = 0, .density = 50, .area = 100, .background = {}};
+    static constexpr initT init_init{.seed = 0, .density = 50, .area = 100, .background = aniso::cellT{0}};
     inline static initT global_init = init_init; // Globally shared.
 
     struct termT {

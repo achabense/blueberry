@@ -886,7 +886,7 @@ namespace aniso {
         explicit tile_buf(const vecT size) : m_size{size}, m_data{} { //
             assert(size.both_gt({0, 0}) && size.xy() <= capacity_);
         }
-        /*implicit*/ constexpr tile_buf(const cellT c = {0}) : m_size{1, 1}, m_data{} { m_data[0] = c; }
+        /*implicit*/ constexpr tile_buf(const cellT c) : m_size{1, 1}, m_data{} { m_data[0] = c; }
         /*implicit*/ tile_buf(const tile_const_ref tile) : tile_buf{tile.size} { copy(data(), tile); }
 
         tile_buf(const tile_buf&) = default;
