@@ -1020,13 +1020,6 @@ public:
         ImGui::Checkbox("Space ops", &show_op_window);
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         ImGui::SameLine(0, wide_spacing);
-        if (m_paste) {
-            const aniso::vecT size = m_paste->size();
-            ImGui::Text("Pattern:%d*%d", size.x, size.y);
-        } else {
-            imgui_Str("Pattern:N/A");
-        }
-        ImGui::SameLine(0, wide_spacing);
         if (m_sel) {
             ImGui::Text("Area:%d*%d", m_sel->width(), m_sel->height());
         } else {
@@ -1034,19 +1027,14 @@ public:
         }
 
         if (m_paste) {
+            bool open = true;
             ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos(), ImGuiCond_Appearing);
-            if (auto window = imgui_Window("Pasted", nullptr,
-                                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDecoration |
+            imgui_Window::next_window_titlebar_tooltip = "Close the window, or press 'V' again to discard the pattern.";
+            const std::string title = std::format("Pattern:{}*{}###Pattern", m_paste->size().x, m_paste->size().y);
+            if (auto window = imgui_Window(title.c_str(), &open,
+                                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse |
                                                ImGuiWindowFlags_AlwaysAutoResize)) {
-                imgui_StrTooltip("Double-click to decide where to paste.",
-                                 "Use 'Clear' (or press 'V' again) to cancel pasting.\n\n"
-                                 "Turn off 'Auto clear' to paste multiple times.");
-
-                ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
-                ImGui::Checkbox("Auto clear", &m_paste->paste_once);
-                ImGui::PopStyleVar();
-                ImGui::SameLine();
-                const bool clear = double_click_button_small("Clear");
+                imgui_Str("Double-click to paste.");
                 if (m_paste->rule && *(m_paste->rule) != current_rule) {
                     // !!TODO: redesign... this can be a rule-source...
                     ImGui::SameLine();
@@ -1057,23 +1045,35 @@ public:
                     imgui_StrTooltip("(?)", "The pattern specified a different rule.");
                 }
 
-                ImGui::AlignTextToFramePadding();
-                imgui_Str("Paste mode ~");
+                // ImGui::Separator();
+
+                imgui_RadioButton("Once", &m_paste->paste_once, true);
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                imgui_RadioButton("Multi", &m_paste->paste_once, false);
+
+                ImGui::SameLine(0, 0), imgui_Str(" | "), ImGui::SameLine(0, 0);
+
                 imgui_RadioButton("Copy##Mode", &m_paste->mode, aniso::blitE::Copy);
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 imgui_RadioButton("Or##Mode", &m_paste->mode, aniso::blitE::Or);
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 imgui_RadioButton("And##Mode", &m_paste->mode, aniso::blitE::And);
                 ImGui::SameLine();
-                imgui_StrTooltip(
-                    "(?)",
-                    "Use 'Copy' mode to copy the pattern directly.\n\n"
-                    "Use 'Or' mode to treat black cells as transparent background. ('And' ~ white background.)\n\n"
-                    "(Only 'Copy' works for periodic background.)");
-                if (clear) {
-                    reset_m_paste();
+                imgui_StrTooltip("(?)", "Once:  Paste once (clear automatically after pasting).\n"
+                                        "Multi: Paste multiple times.\n\n"
+                                        "Copy:  Paste values directly.\n"
+                                        "Or/And: Treat black/white cells as transparent background.\n\n"
+                                        "Right-click to switch between Copy/Or/And.");
+                if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                    switch (m_paste->mode) {
+                        case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
+                        case aniso::blitE::Or: m_paste->mode = aniso::blitE::And; break;
+                        case aniso::blitE::And: m_paste->mode = aniso::blitE::Copy; break;
+                    }
                 }
+            }
+            if (!open) {
+                reset_m_paste();
             }
         }
 
@@ -1288,7 +1288,8 @@ public:
                             if (m_paste->paste_once) {
                                 reset_m_paste();
                             } else {
-                                messenger::set_msg("Pasted.");
+                                // !!TODO: message looks awkward; what's the suitable feedback?
+                                // messenger::set_msg("Pasted.");
                             }
                             return true;
                         } else { // Restore.
@@ -1482,7 +1483,6 @@ private:
                 if (self.m_sel) {
                     self.m_sel->active = false;
                 }
-                // !!TODO: whether to support toggling?
                 if (self.m_paste) {
                     self.reset_m_paste();
                 } else if (std::string_view text = read_clipboard(); !text.empty()) {

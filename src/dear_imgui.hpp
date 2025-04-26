@@ -234,8 +234,11 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
     const auto [min, max] = window->TitleBarRect();
     ImGui::PushClipRect(min, max, false);
     {
+        const bool has_collapse_button = !(window->Flags & ImGuiWindowFlags_NoCollapse);
         const ImVec2 old_pos = ImGui::GetCursorScreenPos();
-        ImGui::SetCursorPos({ImGui::CalcTextSize(window_name, nullptr, true).x + ImGui::GetFrameHeight() * 2, 0});
+        ImGui::SetCursorPos({ImGui::CalcTextSize(window_name, nullptr, true).x +
+                                 ImGui::GetFrameHeight() * (has_collapse_button ? 2 : 1),
+                             0});
         ImGui::AlignTextToFramePadding();
         imgui_StrColored(
             str, ImLerp(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.5));
