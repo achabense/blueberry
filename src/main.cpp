@@ -115,7 +115,7 @@ ImTextureID backend_fn::to_texture(const aniso::_misc::tile_ref_<const aniso::ce
         });
     } else {
         const aniso::_misc::tile_ref_<Uint32> texture_data{(Uint32*)pixels, tile.size, pitch / pixel_size};
-        tile.for_all_data_vs(texture_data, [](const aniso::cellT* s, Uint32* p, int len) {
+        aniso::for_all_data(tile, texture_data, [](const aniso::cellT* s, Uint32* p, int len) {
             for (int i = 0; i < len; ++i) {
                 p[i] = color_for(s[i]);
             }

@@ -123,34 +123,54 @@ namespace aniso {
                 }
             }
 
-            void for_all_data(const auto& fn) const {
-                static_assert(requires { fn(std::span{data, data + size.x * size.y}); });
+            template <class F>
+                requires requires(const F& fn) { fn(std::span{data, data + size.xy()}); }
+            void for_all_data(const F& fn) const {
                 if (size.x == stride) {
                     fn(std::span{data, data + size.xy()});
                 } else {
                     this->for_each_line(fn);
                 }
             }
+        };
 
-            template <class U>
-            void for_all_data_vs(const tile_ref_<U>& b, const auto& fn) const {
-                static_assert(requires { fn(data, b.data, 1); });
-                assert(size == b.size);
+        template <class A, class B, class F>
+            requires requires(A* a, B* b, const F& fn) { fn(a, b, 1); }
+        inline void for_all_data(const tile_ref_<A> a, const tile_ref_<B> b, const F& fn) {
+            assert(a.size == b.size);
+            const vecT size = a.size;
 
-                if (size.x == stride && b.size.x == b.stride) {
-                    fn(data, b.data, size.xy());
-                    return;
-                }
-
-                T* p_this = data;
-                U* p_that = b.data;
-                for (int y = 0; y < size.y; ++y, p_this += stride, p_that += b.stride) {
-                    fn(p_this, p_that, size.x);
+            if (size.x == a.stride && size.x == b.stride) {
+                fn(a.data, b.data, size.xy());
+            } else {
+                A* a_data = a.data;
+                B* b_data = b.data;
+                for (int y = 0; y < size.y; ++y, a_data += a.stride, b_data += b.stride) {
+                    fn(a_data, b_data, size.x);
                 }
             }
-        };
+        }
+
+        template <class A, class B, class C, class F>
+            requires requires(A* a, B* b, C* c, const F& fn) { fn(a, b, c, 1); }
+        inline void for_all_data(const tile_ref_<A> a, const tile_ref_<B> b, const tile_ref_<C> c, const F& fn) {
+            assert(a.size == b.size && a.size == c.size);
+            const vecT size = a.size;
+
+            if (size.x == a.stride && size.x == b.stride && size.x == c.stride) {
+                fn(a.data, b.data, c.data, size.xy());
+            } else {
+                A* a_data = a.data;
+                B* b_data = b.data;
+                C* c_data = c.data;
+                for (int y = 0; y < size.y; ++y, a_data += a.stride, b_data += b.stride, c_data += c.stride) {
+                    fn(a_data, b_data, c_data, size.x);
+                }
+            }
+        }
     } // namespace _misc
 
+    using _misc::for_all_data;
     using tile_ref = _misc::tile_ref_<cellT>;
     using tile_const_ref = _misc::tile_ref_<const cellT>;
 
@@ -163,13 +183,14 @@ namespace aniso {
         if (a.size != b.size) {
             return false;
         }
-        if (a.size.x == a.stride && b.size.x == b.stride) {
-            return equal(a.data, b.data, a.size.xy());
+        const vecT size = a.size;
+        if (size.x == a.stride && size.x == b.stride) {
+            return equal(a.data, b.data, size.xy());
         }
 
         const cellT *a_data = a.data, *b_data = b.data;
-        for (int y = 0; y < a.size.y; ++y, a_data += a.stride, b_data += b.stride) {
-            if (!equal(a_data, b_data, a.size.x)) {
+        for (int y = 0; y < size.y; ++y, a_data += a.stride, b_data += b.stride) {
+            if (!equal(a_data, b_data, size.x)) {
                 return false;
             }
         }

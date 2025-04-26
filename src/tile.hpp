@@ -50,7 +50,7 @@ namespace aniso {
     // (Both are not periodic.)
     inline int count_diff(const tile_const_ref a, const tile_const_ref b) {
         int c = 0;
-        a.for_all_data_vs(b, [&c](const cellT* a, const cellT* b, int len) {
+        for_all_data(a, b, [&c](const cellT* a, const cellT* b, int len) {
             for (int i = 0; i < len; ++i) {
                 c += a[i] != b[i];
             }
@@ -60,7 +60,7 @@ namespace aniso {
 
     inline void copy(const tile_ref dest, const tile_const_ref source) {
         assert(non_overlapping(dest, source));
-        dest.for_all_data_vs(source, [](cellT* d, const cellT* s, int len) { //
+        for_all_data(dest, source, [](cellT* d, const cellT* s, int len) { //
             std::copy_n(s, len, d);
         });
     }
@@ -77,7 +77,7 @@ namespace aniso {
         assert(dest.size == source.size);
         if (repeat.size == vecT{1, 1}) {
             // Different from `blit` here.
-            dest.for_all_data_vs(source, [background = *repeat.data](cellT* d, const cellT* s, int len) {
+            for_all_data(dest, source, [background = *repeat.data](cellT* d, const cellT* s, int len) {
                 for (int i = 0; i < len; ++i) {
                     if (s[i] != background) {
                         d[i] = s[i];
@@ -123,7 +123,7 @@ namespace aniso {
         if constexpr (mode == blitE::Copy) {
             copy(dest, source);
         } else {
-            dest.for_all_data_vs(source, [](cellT* d, const cellT* s, int len) {
+            for_all_data(dest, source, [](cellT* d, const cellT* s, int len) {
                 for (int i = 0; i < len; ++i) {
                     if constexpr (mode == blitE::Or) {
                         d[i] = d[i] | s[i];
