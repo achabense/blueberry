@@ -889,6 +889,10 @@ namespace aniso {
         /*implicit*/ constexpr tile_buf(const cellT c) : m_size{1, 1}, m_data{} { m_data[0] = c; }
         /*implicit*/ tile_buf(const tile_const_ref tile) : tile_buf{tile.size} { copy(data(), tile); }
 
+        // (`tile_ref -> tile_const_ref -> tile_buf` cannot work.)
+        // https://stackoverflow.com/questions/17463324/nested-implicit-conversion-in-c
+        /*implicit*/ tile_buf(const tile_ref tile) : tile_buf{tile.size} { copy(data(), tile); }
+
         tile_buf(const tile_buf&) = default;
         tile_buf& operator=(const tile_buf&) = default;
         friend bool operator==(const tile_buf&, const tile_buf&) = default;
@@ -905,8 +909,49 @@ namespace aniso {
             copy_common(resized.data(), data());
             *this = resized;
         }
+
+        uint32_t to_u32() const {
+            uint32_t v = 0;
+            for (int i = 0, len = m_size.xy(); i < len; ++i) {
+                v |= m_data[i] << i;
+            }
+            return v | (m_size.x << 16) | (m_size.y << 24);
+        }
     };
 
     static_assert(std::is_trivially_copyable_v<tile_buf>);
+
+    class tilesetT {
+        std::vector<uint32_t> m_keys;
+
+    public:
+        bool empty() const { return m_keys.empty(); }
+        int size() const { return m_keys.size(); }
+
+        bool contains(const tile_buf& tile) const {
+            const uint32_t key = tile.to_u32();
+            return std::ranges::find(m_keys, key) != m_keys.end();
+        }
+
+        void insert(const tile_buf& tile) {
+            const uint32_t key = tile.to_u32();
+            if (std::ranges::find(m_keys, key) == m_keys.end()) {
+                m_keys.push_back(key);
+            }
+        }
+
+        void insert_rotation_group(const tile_buf& tile) {
+            const vecT size = tile.size();
+            cellT data[tile_buf::capacity() * 4]{};
+            tile_ref doubled(data, size * 2);
+            fill(doubled, tile.data());
+            for (int y = 0; y < size.y; ++y) {
+                for (int x = 0; x < size.x; ++x) {
+                    const vecT pos{.x = x, .y = y};
+                    insert(doubled.clip({pos, pos + size}));
+                }
+            }
+        }
+    };
 
 } // namespace aniso
