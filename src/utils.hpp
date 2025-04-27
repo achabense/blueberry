@@ -1,8 +1,8 @@
 #pragma once
 
-#include <bit>
+// #include <bit>
 #include <concepts>
-#include <functional>
+// #include <functional>
 #include <type_traits>
 #include <utility>
 
@@ -36,13 +36,21 @@ inline bool compare_update(T& t, const U& u) {
 // Function-ref for const-invocable types; suitable for replacing one-off usage of std::function or invocable auto (to be more IDE friendly).
 // References:
 // https://stackoverflow.com/questions/36645660/why-cant-i-cast-a-function-pointer-to-void
+// https://stackoverflow.com/questions/6640254/how-to-store-various-types-of-function-pointers-together
 // https://stackoverflow.com/questions/62644070/differences-between-stdis-convertible-and-stdconvertible-to-in-practice
 // https://stackoverflow.com/questions/28033251/can-you-extract-types-from-template-parameter-function-signature
-// (Forget C++26 `std::function_ref`.)
+// (`std::function_ref` doesn't exist in real world.)
 // (There used to be many `const std::invocable<...> auto&` in the project. Actually the constraints were incorrect as they applied to T instead of const T, so they required only non-const-invocable.)
 
-// (Using bit-cast as gcc rejects static-cast.)
-inline constexpr bool may_store_fp_as_voidp = requires(void (*fp)()) { std::bit_cast<void*>(fp); };
+// (Used to rely on std::bit_cast.)
+// inline constexpr bool may_store_fp_as_voidp = requires(void (*fp)()) { std::bit_cast<void*>(fp); };
+
+union void_ptr {
+    const void* op;
+    void (*fp)();
+
+    using fp_type = decltype(fp);
+};
 
 template <class From, class To>
 concept implicitly_convertible_to = std::is_convertible_v<From, To>;
@@ -53,37 +61,42 @@ concept implicitly_returnable_as =
     implicitly_convertible_to<From, To> && !(!std::is_reference_v<From> && std::is_reference_v<To>);
 
 template <class S>
-class func_ref_impl;
+class func_ref;
 
 // TODO: does `return static_cast<T>(prvalue)` introduce additional copy? (Does guaranteed copy elision apply to this?)
 // (The current impl is not performing explicit conversion due to this; can R be &&-ref?)
 template <class R, class... Args>
-    requires(may_store_fp_as_voidp)
-class func_ref_impl<R(Args...)> {
-    const void* context;
-    R (*thunk)(const void*, Args&&...);
+class func_ref<R(Args...)> {
+    void_ptr context;
+    R (*thunk)(void_ptr, Args&&...);
 
 public:
-    func_ref_impl(const func_ref_impl&) = default;
-    func_ref_impl& operator=(const func_ref_impl&) = delete;
+    func_ref(const func_ref&) = default;
+    func_ref& operator=(const func_ref&) = delete;
 
     template <class F>
         requires requires(const F& fn, Args&&... args) {
             { fn(static_cast<Args&&>(args)...) } -> implicitly_returnable_as<R>;
             // { fn(static_cast<Args&&>(args)...) } -> std::same_as<R>;
         }
-    func_ref_impl(const F& fn) {
-        context = std::bit_cast<const void*>(&fn /*no bother with std::addressof(fn); I hate it*/);
-        thunk = [](const void* ctx, Args&&... args) -> R { //
-            return (*std::bit_cast<const F*>(ctx))(static_cast<Args&&>(args)...);
-        };
+    func_ref(const F& fn) {
+        if constexpr (std::is_function_v<F>) {
+            static_assert(std::is_same_v<const F&, F&> && std::is_same_v<const F*, F*>);
+            context.fp = reinterpret_cast<void_ptr::fp_type>(&fn);
+            thunk = [](void_ptr context, Args&&... args) -> R { //
+                return (*reinterpret_cast<const F*>(context.fp))(static_cast<Args&&>(args)...);
+            };
+        } else {
+            // (No bother with std::addressof(fn); I hate it.)
+            context.op = &fn;
+            thunk = [](void_ptr context, Args&&... args) -> R { //
+                return (*static_cast<const F*>(context.op))(static_cast<Args&&>(args)...);
+            };
+        }
     }
 
     R operator()(Args... args) const { //
-        static_assert(std::is_trivially_copyable_v<func_ref_impl>);
+        static_assert(std::is_trivially_copyable_v<func_ref>);
         return thunk(context, static_cast<Args&&>(args)...);
     }
 };
-
-template <class S>
-using func_ref = std::conditional_t<may_store_fp_as_voidp, func_ref_impl<S>, std::function<S>>;

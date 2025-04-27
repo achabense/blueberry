@@ -1069,6 +1069,7 @@ public:
                         case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
                         case aniso::blitE::Or: m_paste->mode = aniso::blitE::And; break;
                         case aniso::blitE::And: m_paste->mode = aniso::blitE::Copy; break;
+                        default: assert(false); // -Wswitch
                     }
                 }
             }
@@ -1828,7 +1829,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                 runner.set_rule_and_state(rule, term.tile.size(), term.init);
             }
             guide_mode::item_tooltip(
-                "Explore in the space window, using the same space size and init state (to reproduce the same patterns).");
+                "Explore in the space window, using the same space size and init state (so you can operate on the same patterns).");
         });
         if (hov != rclick_popup::None) {
             border_col = rclick_popup::highlight_col(hov == rclick_popup::Popup);
