@@ -896,46 +896,58 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             }
         }
 
-        auto fill_next = [&](int size) {
-            assert(!page.empty());
-            for (int i = 0; i < size; ++i) {
-                const aniso::ruleT rule = aniso::seq_mixed::next(working_set, orderer, page.back());
-                if (rule == page.back()) {
-                    break;
+        enum roleE { First, Last };
+        auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/) {
+            auto fill_next = [&]() {
+                assert(!page.empty());
+                while (page.size() < adapter.page_size) {
+                    const aniso::ruleT rule = aniso::seq_mixed::next(working_set, orderer, page.back());
+                    if (rule == page.back()) {
+                        return false; // Reaches the end of the sequence.
+                    }
+                    page.push_back(rule);
                 }
-                page.push_back(rule);
-            }
-        };
-        auto fill_prev = [&](int size) {
-            assert(!page.empty());
-            for (int i = 0; i < size; ++i) {
-                const aniso::ruleT rule = aniso::seq_mixed::prev(working_set, orderer, page.front());
-                if (rule == page.front()) {
-                    break;
+                return true;
+            };
+            auto fill_prev = [&]() {
+                assert(!page.empty());
+                while (page.size() < adapter.page_size) {
+                    const aniso::ruleT rule = aniso::seq_mixed::prev(working_set, orderer, page.front());
+                    if (rule == page.front()) {
+                        return false;
+                    }
+                    page.push_front(rule);
                 }
-                page.push_front(rule);
-            }
-        };
-        auto fill_page = [&](int size) {
-            assert(!page.empty());
-            if (page.size() < size) {
-                fill_next(size - page.size());
-                // (This may happen when the page reaches the end of the sequence.)
-                if (page.size() < size) {
-                    fill_prev(size - page.size());
+                return true;
+            };
+
+            page.clear();
+            page.push_back(rule);
+            if (role == First) {
+                if (!fill_next()) {
+                    fill_prev();
+                }
+            } else {
+                if (!fill_prev()) {
+                    fill_next();
                 }
             }
         };
 
         static input_int input_dist{};
         ImGui::AlignTextToFramePadding();
+        imgui_StrTooltip(
+            "(...)", // !!TODO: rewrite (should explain [R] & relation with <00.. & dist)...
+            "The sequence represents a list of all rules in the working set, in the following order: firstly [R], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (which is the number of groups in the working set).\n\n"
+            "You can traverse the entire working set with this. Some interesting examples include: inner-totalistic rules ('Tot(+s)'), self-complementary totalistic rules ('Comp' & 'Tot'), isotropic von-Neumann rules ('All' & 'Von'), and a similar set ('All' & 'w').\n\n"
+            "Even if the working set is very large, you may find this still useful sometimes.\n\n"
+            "(The page will be cleared automatically if the working set or [R] changes.)");
+        ImGui::SameLine();
         imgui_Str("Go to dist ~ ");
         ImGui::SameLine(0, 0);
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
         if (const auto dist = input_dist.input("##Seek", std::format("Max:{}", working_set->k()).c_str())) {
-            page.clear();
-            page.push_back(aniso::seq_mixed::seek_n(working_set, orderer, *dist));
-            fill_page(adapter.page_size);
+            reset_page(First, aniso::seq_mixed::seek_n(working_set, orderer, *dist));
         }
         ImGui::SameLine();
         imgui_StrWithID("[R]");
@@ -954,41 +966,23 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             page.clear();
         }
 
-        ImGui::SameLine();
-        imgui_StrTooltip(
-            "(...)", // !!TODO: rewrite (should explain [R] & relation with <00.. & dist)...
-            "The sequence represents a list of all rules in the working set, in the following order: firstly [R], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (which is the number of groups in the working set).\n\n"
-            "You can traverse the entire working set with this. Some interesting examples include: inner-totalistic rules ('Tot(+s)'), self-complementary totalistic rules ('Comp' & 'Tot'), isotropic von-Neumann rules ('All' & 'Von'), and a similar set ('All' & 'w').\n\n"
-            "Even if the working set is very large, you may find this still useful sometimes.\n\n"
-            "(The page will be cleared automatically if the working set or [R] changes.)");
-
-        const char* const disable_prev_next =
-            page.empty()
-                ? "Use '<00..' or '11..>', input a distance, or drag a rule to the page to get somewhere in the sequence."
-                : nullptr;
-        switch (sequence::seq("<00..", "Prev", "Next", "11..>", disable_prev_next)) {
-            case 0:
-                page.clear();
-                page.push_back(aniso::seq_mixed::first(working_set, orderer));
-                fill_next(adapter.page_size - 1);
-                break;
+        switch (sequence::seq("<|", "Prev", "Next", "|>")) {
+            case 0: reset_page(First, aniso::seq_mixed::first(working_set, orderer)); break;
             case 1:
-                fill_prev(adapter.page_size);
-                while (page.size() > adapter.page_size) {
-                    page.pop_back();
+                if (page.empty()) {
+                    reset_page(First, aniso::seq_mixed::first(working_set, orderer));
+                } else {
+                    reset_page(Last, aniso::seq_mixed::prev(working_set, orderer, page.front()));
                 }
                 break;
             case 2:
-                fill_next(adapter.page_size);
-                while (page.size() > adapter.page_size) {
-                    page.pop_front();
+                if (page.empty()) {
+                    reset_page(First, aniso::seq_mixed::first(working_set, orderer));
+                } else {
+                    reset_page(First, aniso::seq_mixed::next(working_set, orderer, page.back()));
                 }
                 break;
-            case 3:
-                page.clear();
-                page.push_back(aniso::seq_mixed::last(working_set, orderer));
-                fill_prev(adapter.page_size - 1);
-                break;
+            case 3: reset_page(Last, aniso::seq_mixed::last(working_set, orderer)); break;
         }
 
         ImGui::SameLine();
@@ -1014,22 +1008,18 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         ImGui::SameLine();
         config.set("Settings");
 
-        if (adapter.try_resize(config.size_imvec())) {
-            if (page.size() > adapter.page_size) {
-                page.resize(adapter.page_size);
-            } else if (!page.empty() && page.size() < adapter.page_size) {
-                fill_page(adapter.page_size);
-            }
+        if (adapter.try_resize(config.size_imvec()) && !page.empty()) {
+            reset_page(First, page.front());
         }
         adapter.display([&](const int j) {
             assert(j >= 0);
             previewer::preview_or_dummy(j, config, j < page.size() ? &page[j] : nullptr);
-            if (j == 0 && page.empty()) { // (Requiring empty() to be simple; not strictly necessary.)
-                guide_mode::item_tooltip("Drag a rule here to go to where the rule belongs in the sequence.");
+            if (j == 0) {
+                if (page.empty()) {
+                    guide_mode::item_tooltip("Drag a rule here to go to where the rule belongs in the sequence.");
+                }
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-                    // page.clear();
-                    page.push_back(*deliv);
-                    fill_page(adapter.page_size);
+                    reset_page(First, *deliv);
                 }
             }
         });
@@ -1053,12 +1043,18 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             target.set(working_set.rule);
         }
 
-        const int c_group = working_set->k();
-        const int c_free = c_group; // TODO: temporarily preserved.
+        static bool exact_mode = false;
         static double rate = 0.29;
+        const int c_group = working_set->k();
+        const int c_free = c_group;           // TODO: temporarily preserved.
         int free_dist = round(rate * c_free); // Intended distance.
 
-        static bool exact_mode = false;
+        ImGui::AlignTextToFramePadding();
+        imgui_StrTooltip(
+            "(...)", // !!TODO rewrite...
+            "The sequence serves as the record of generated rules - when you are at the last page ('At' ~ 'Pages' or 'N/A'), '>>>' will generate pages of random rules (in the working set) with intended distance around/exactly to [S].\n\n"
+            "For example, if [S] is the all-zero rule, and distance = 'Around' 30, when at the last page, '>>>' will generate pages of rules with around 30 groups having '1'. Also, to get some random rules close to a certain rule (in the working set), you can update [S] and '>>>' in a low distance.");
+        ImGui::SameLine();
         imgui_RadioButton("Around", &exact_mode, false);
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         imgui_RadioButton("Exactly", &exact_mode, true);
@@ -1081,12 +1077,6 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             messenger::set_msg("[S] updated.");
         }
         display_snapshot_if_present(target, working_set);
-
-        ImGui::SameLine();
-        imgui_StrTooltip(
-            "(...)", // !!TODO rewrite...
-            "The sequence serves as the record of generated rules - when you are at the last page ('At' ~ 'Pages' or 'N/A'), '>>>' will generate pages of random rules (in the working set) with intended distance around/exactly to [S].\n\n"
-            "For example, if [S] is the all-zero rule, and distance = 'Around' 30, when at the last page, '>>>' will generate pages of rules with around 30 groups having '1'. Also, to get some random rules close to a certain rule (in the working set), you can update [S] and '>>>' in a low distance.");
 
         static std::vector<aniso::compressT> rules{};
         static int page_no = 0;
