@@ -95,7 +95,7 @@ public:
         }
     }
 
-    R operator()(Args... args) const { //
+    R operator()(Args... args) const {
         static_assert(std::is_trivially_copyable_v<func_ref>);
         return thunk(context, static_cast<Args&&>(args)...);
     }

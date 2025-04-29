@@ -522,83 +522,48 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
     return ret;
 }
 
+// (No longer need to be a class.)
 class sequence : no_create {
-    // Workaround to avoid previewed rule being changed by shortcut.
-    static bool extra_cond() { return may_scroll(); }
-
-    inline static ImGuiID bound_id = 0;
-    inline static ImGuiID bound_id_next = 0;
-
 public:
-    static void begin_frame(frame_main_token) { bound_id = std::exchange(bound_id_next, 0); }
-
-    // (`disable_prev_next` is a workaround for a sequence in `edit_rule`.)
+    // There can be at most one seq in each window hierarchy.
     // 0:first, 1:prev, 2:next, 3:last
-    static int seq(const char* label_first, const char* label_prev, const char* label_next, const char* label_last,
-                   const char* const disable_prev_next = nullptr) {
+    static int seq(const char* label_first, const char* label_prev, const char* label_next, const char* label_last) {
         enum tagE : int { None = -1, First, Prev, Next, Last };
         tagE tag = None;
+
+        const bool not_disabled = !imgui_TestItemFlag(ImGuiItemFlags_Disabled);
+        const bool shortcut_avail = not_disabled && imgui_IsWindowFocused(); // Not including popup hierarchy.
+        const bool shortcut_visible =
+            not_disabled && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows); // Including popup.
+        assert_implies(shortcut_avail, shortcut_visible);
+        auto item_shortcut = [shortcut_avail](ImGuiKey key) {
+            // (Used to require `may_scroll` to avoid previewed rule being changed by shortcut.)
+            // (Perhaps no longer needed; kept as it does no harm.)
+            return shortcut_avail && may_scroll() && shortcuts::no_ctrl() &&
+                   shortcuts::keys_avail_and_window_hoverable() && shortcuts::test_pressed(key) &&
+                   shortcuts::highlight();
+        };
 
         if (ImGui::Button(label_first)) {
             tag = First;
         }
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-
-        if (disable_prev_next) {
-            ImGui::BeginDisabled();
-            ImGui::BeginGroup();
-        }
-
-        const ImGuiID id_prev = ImGui::GetID(label_prev);
-        assert(id_prev != 0);
-
-        const bool window_focused = imgui_IsWindowFocused();
-        const bool pair_disabled = imgui_TestItemFlag(ImGuiItemFlags_Disabled);
-        // The binding will be preserved if the window is blocked by its popups.
-        // (Popups from other windows will still disable the binding.)
-        const bool shortcut_avail =
-            bound_id == id_prev && !pair_disabled &&
-            ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows /*Including popup hierarchy*/);
-        if (shortcut_avail) { // Otherwise, `bound_id` will become 0 at next frame.
-            bound_id_next = bound_id;
-        }
-        auto button_with_shortcut = [shortcut_avail, window_focused](const char* label, ImGuiKey shortcut) {
-            bool ret = ImGui::Button(label);
-            if (shortcut_avail) {
-                imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive));
-                if (!ret && window_focused && extra_cond() && shortcuts::no_ctrl() &&
-                    shortcuts::keys_avail_and_window_hoverable() && shortcuts::test_pressed(shortcut) &&
-                    shortcuts::highlight()) {
-                    ret = true;
-                }
-            }
-            return ret;
-        };
-
-        if (button_with_shortcut(label_prev, ImGuiKey_LeftArrow)) {
+        if (ImGui::Button(label_prev) || item_shortcut(ImGuiKey_LeftArrow)) {
             tag = Prev;
         }
+        if (shortcut_visible) {
+            imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive /*, shortcut_avail ? 1.0f : 0.7f*/));
+        }
         ImGui::SameLine(0, 0), imgui_Str("/"), ImGui::SameLine(0, 0);
-        if (button_with_shortcut(label_next, ImGuiKey_RightArrow)) {
+        if (ImGui::Button(label_next) || item_shortcut(ImGuiKey_RightArrow)) {
             tag = Next;
         }
-        if (disable_prev_next) {
-            ImGui::EndGroup();
-            ImGui::EndDisabled();
-            if (!imgui_TestItemFlag(ImGuiItemFlags_Disabled)) {
-                imgui_ItemTooltip(disable_prev_next);
-            }
+        if (shortcut_visible) {
+            imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive /*, shortcut_avail ? 1.0f : 0.7f*/));
         }
-
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         if (ImGui::Button(label_last)) {
             tag = Last;
-        }
-
-        if ((tag != None) ||
-            (bound_id == 0 && window_focused && !pair_disabled && shortcuts::keys_avail() && extra_cond() &&
-             (shortcuts::test_pressed(ImGuiKey_LeftArrow) || shortcuts::test_pressed(ImGuiKey_RightArrow)))) {
-            bound_id_next = id_prev;
         }
 
         return tag;
