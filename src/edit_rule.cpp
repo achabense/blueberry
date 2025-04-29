@@ -367,9 +367,8 @@ public:
         };
 
         imgui_Str(
-            "The buttons in the table stand for subsets of MAP rules.\n\n"
-            "The \"working set\" is the intersection of selected sets. (For example, if a rule is said to belong to the working set, it also belongs to every selected set.) It will never be empty - if no sets are selected, the working set will be the entire MAP set. The program has access to all rules in the working set.\n\n"
-            "For each set, if clicked with 'Ctrl', only that set will be selected (so the working set will be identical to it); if clicked without 'Ctrl', the set will be toggled to be selected or unselected:");
+            "The \"working set\" refers to the intersection of selected sets. (So if a rule belongs to the working set, it also belongs to every selected set.) It will never be empty - if no sets are selected, the working set will be the entire MAP set. The program has access to all rules in the working set.\n\n"
+            "For each set, if clicked with 'Ctrl', only that set will be selected (and the working set will be identical to it); if clicked without 'Ctrl', the set will be toggled selected or unselected:");
 
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");

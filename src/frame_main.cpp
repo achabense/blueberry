@@ -41,15 +41,13 @@ public:
 };
 #endif
 
-// !!TODO: unfinished...
+// !!TODO: improve...
 static open_state intro_window(frame_main_token) {
     bool open = true;
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
 
-    imgui_Window::next_window_titlebar_tooltip = "Additional window controls:\n\n"
-                                                 "Double-click title bar to collapse/uncollapse.\n"
-                                                 "Double-press 'Esc' to close focused window (or popup).";
+    // imgui_Window::next_window_titlebar_tooltip = "Double-click title bar to collapse/uncollapse.";
     if (auto window =
             imgui_Window("Introduction", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::PushTextWrapPos(wrap_len());
@@ -57,14 +55,18 @@ static open_state intro_window(frame_main_token) {
         {
             ImGui::Bullet();
             // ImGui::SameLine(); // Not needed.
-            imgui_Str("Press 'H' to toggle on/off additional tooltips.");
-            ImGui::SameLine();
-            imgui_StrTooltip("(?)", "Only one shortcut uses 'Ctrl' ~ 'Ctrl+V' for pasting text. "
-                                    "All the other shortcuts require 'Ctrl' not to be pressed.");
-            // !!TODO: not accurate; imgui's native shotcuts for input fields still require Ctrl...
+            imgui_Str("Double-press 'Esc' to close the focused window (or popup).");
 
             ImGui::Bullet();
-            imgui_Str("Right-click underlined text to open menu.");
+            imgui_Str("Press 'H' to toggle on/off additional tooltips.");
+            ImGui::SameLine();
+            imgui_StrTooltip(
+                "(?)", // (The shortcuts in input fields also require ctrl...)
+                "Only 'Ctrl+V' uses 'Ctrl'; all the other shortcuts require 'Ctrl' not to be pressed.\n\n"
+                "(There are two kinds of pasting in the program - 'Ctrl+V' to load text and extract rules, and 'V' to paste patterns.)");
+
+            ImGui::Bullet();
+            imgui_Str("Right-click underlined text (like this) to open menu.");
             rclick_popup::popup(imgui_GetItemPosID(), [] {
                 if (ImGui::Selectable("...")) {
                     messenger::set_msg("...");
@@ -94,9 +96,14 @@ static open_state intro_window(frame_main_token) {
             const int total = rules.size();
             assert(total == 4);
 
-            imgui_Str("!!TODO...");
-            // imgui_Str(
-            //     "All rules aside from the \"current rule\" (the rule shown in the right panel) are shown in \"preview windows\":");
+            ImGui::Bullet();
+            imgui_Str("Right-click \"preview window\" (like below) to open menu.");
+
+            ImGui::Bullet();
+            imgui_Str("Press '</>' to control 'Prev/Next' in the focused window.");
+
+            ImGui::Bullet();
+            ImGui::BeginGroup();
             switch (sequence::seq("<|", "Prev", "Next", "|>")) {
                 case 0: at = 0; break;
                 case 1: at = std::max(0, at - 1); break;
@@ -104,18 +111,17 @@ static open_state intro_window(frame_main_token) {
                 case 3: at = total - 1; break;
             }
             ImGui::SameLine();
-            imgui_StrTooltip(
-                "(?)",
-                "When one of seq buttons is clicked, or when the window is focused and you press left/right arrow key, the left/right keys will begin to serve as the shortcuts for the sequence.");
-            ImGui::SameLine();
             ImGui::Text("Total:%d At:%d", total, at + 1);
             ImGui::SameLine();
             config.set("Settings");
+            ImGui::SameLine();
+            imgui_StrTooltip(
+                "(?)",
+                "The program relies on clipboard for output (e.g. to save rules and patterns), so make sure you can copy the following rule to the clipboard.\n\n"
+                "!!TODO about record...");
+
             previewer::preview(at, config, rules[at]);
-        }
-        ImGui::Separator();
-        {
-            imgui_Str("The program relies on the clipboard for output (e.g. to save rules and patterns). ...");
+            ImGui::EndGroup();
         }
 
         ImGui::PopTextWrapPos();
@@ -194,7 +200,7 @@ void frame_main() {
                 copy_rule::copy(*pass.deliv);
             }
             rclick_popup::popup(imgui_GetItemPosID(), [] {
-                copy_rule::get_rec({}).selectable_to_take_snapshot("Recent");
+                copy_rule::get_rec({}).selectable_to_take_snapshot("Copied rules");
                 guide_mode::item_tooltip("Recently copied rules, including those copied via 'Copy rule'.");
             });
             guide_mode::item_tooltip(
