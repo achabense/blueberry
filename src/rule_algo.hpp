@@ -561,17 +561,21 @@ namespace aniso {
                                                            "asd"
                                                            "zx0"); // ignore_(q,c)
 
-    // Von-Neumann emulation.
-    // The neighborhood works naturally with native symmetry.
-    // For example, `mp_von_C4` can be defined as mp_C4 * mp_von_ignore.
-    inline constexpr mapperT mp_von_ignore("0w0"
-                                           "asd"
-                                           "0x0"); // ignore_(q,e,z,c)
+    inline constexpr mapperT mp_ignore_qezc("0w0"
+                                            "asd"
+                                            "0x0");
+    inline constexpr mapperT mp_ignore_wadx("q0e"
+                                            "0s0"
+                                            "z0c");
 
-    inline constexpr mapperT mp_von_tot_exc_s("0d0"
+    // von Neumann emulation.
+    // The neighborhood works naturally with native symmetry.
+    inline constexpr mapperT mp_jvn_ignore = mp_ignore_qezc;
+
+    inline constexpr mapperT mp_jvn_tot_exc_s("0d0"
                                               "asw"
                                               "0x0"); // swap(w,d); *C4 -> totalistic, excluding s
-    inline constexpr mapperT mp_von_tot_inc_s("0s0"
+    inline constexpr mapperT mp_jvn_tot_inc_s("0s0"
                                               "awd"
                                               "0x0"); // swap(w,s); *C4 -> totalistic, including s
 

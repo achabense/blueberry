@@ -19,7 +19,8 @@ namespace aniso {
         static const subsetT ignore_c = make_subset({mp_ignore_c});
 
         static const subsetT ignore_hex = make_subset({mp_hex_ignore});
-        static const subsetT ignore_von = make_subset({mp_von_ignore});
+        static const subsetT ignore_jvn = make_subset({mp_jvn_ignore});
+        static const subsetT ignore_wadx = make_subset({mp_ignore_wadx});
 
         // rule[{0}] == rule[{511}].
         static const subsetT single_stable_state{.rule = rule_all_zero, .p = [] {
@@ -54,8 +55,8 @@ namespace aniso {
         static const subsetT hex_tot_exc_s = make_subset({mp_hex_C6, mp_hex_tot_exc_s});
         static const subsetT hex_tot_inc_s = make_subset({mp_hex_C6, mp_hex_tot_inc_s});
 
-        static const subsetT von_tot_exc_s = make_subset({mp_von_ignore, mp_C4, mp_von_tot_exc_s});
-        static const subsetT von_tot_inc_s = make_subset({mp_von_ignore, mp_C4, mp_von_tot_inc_s});
+        static const subsetT jvn_tot_exc_s = make_subset({mp_jvn_ignore, mp_C4, mp_jvn_tot_exc_s});
+        static const subsetT jvn_tot_inc_s = make_subset({mp_jvn_ignore, mp_C4, mp_jvn_tot_inc_s});
     } // namespace _subsets
 
 #ifdef ENABLE_TESTS
@@ -64,10 +65,14 @@ namespace aniso {
             using namespace _subsets;
             assert(ignore_e.includes(ignore_hex));
             assert(ignore_z.includes(ignore_hex));
-            assert(ignore_q.includes(ignore_von));
-            assert(ignore_e.includes(ignore_von));
-            assert(ignore_z.includes(ignore_von));
-            assert(ignore_c.includes(ignore_von));
+            assert(ignore_q.includes(ignore_jvn));
+            assert(ignore_e.includes(ignore_jvn));
+            assert(ignore_z.includes(ignore_jvn));
+            assert(ignore_c.includes(ignore_jvn));
+            assert(ignore_w.includes(ignore_wadx));
+            assert(ignore_a.includes(ignore_wadx));
+            assert(ignore_d.includes(ignore_wadx));
+            assert(ignore_x.includes(ignore_wadx));
 
             assert(native_C2.includes(native_C4));
             for (const subsetT* set :
@@ -89,14 +94,15 @@ namespace aniso {
 
             assert(native_isotropic->k() == 102);
             assert(hex_isotropic->k() == 26);
-            assert((native_isotropic & ignore_von)->k() == 12); // von_isotropic
+            assert((native_isotropic & ignore_jvn)->k() == 12);
+            assert((native_isotropic & ignore_wadx)->k() == 12);
 
             assert(native_tot_exc_s->k() == 9 * 2); // 0...8
             assert(native_tot_inc_s->k() == 10);    // 0...9
             assert(hex_tot_exc_s->k() == 7 * 2);    // 0...6
             assert(hex_tot_inc_s->k() == 8);        // 0...7
-            assert(von_tot_exc_s->k() == 5 * 2);    // 0...4
-            assert(von_tot_inc_s->k() == 6);        // 0...5
+            assert(jvn_tot_exc_s->k() == 5 * 2);    // 0...4
+            assert(jvn_tot_inc_s->k() == 6);        // 0...5
 
             const ruleT gol = game_of_life();
             assert(native_isotropic.contains(gol));
@@ -198,29 +204,27 @@ public:
             terms_scope scope(m_terms, terms_ignore);
             m_terms.emplace_back(
                 "q", &ignore_q,
-                "Rules whose values are independent of 'q'. That is, for any two cases where only 'q' differs, "
-                "the rule will map the center cell to the same value.\n\n"
+                "Rules whose values are independent of 'q'. That is, for any two cases where only 'q' differs, the rule will map center cell to the same value.\n\n"
                 "    |0 w e|       |1 w e|\n"
                 "rule|a s d| = rule|a s d|\n"
                 "    |z x c|       |z x c|\n\n"
-                "Therefore, these rules will behave as if the neighborhood does not include 'q'. The same applies to "
-                "'w/e/a/d/z/x/c'.\n\n"
-                "('q/w/e/a/s/d/z/x/c' are named after the keys in 'qwerty' keyboard.)");
-            m_terms.emplace_back("w", &ignore_w, "See 'q' for details.");
-            m_terms.emplace_back("e", &ignore_e, "See 'q' for details.");
-            m_terms.emplace_back("a", &ignore_a, "See 'q' for details.");
+                "Therefore, these rules will behave as if the neighborhood does not include 'q'. The same applies to 'w/e/a/d/z/x/c', except for 's'.\n\n"
+                "('q/w/e/a/s/d/z/x/c' are named after keys in the 'qwerty' keyboard.)");
+            m_terms.emplace_back("w", &ignore_w, "Independent of 'w'. (See 'q' for details.)");
+            m_terms.emplace_back("e", &ignore_e, "Independent of 'e'. (See 'q' for details.)");
+            m_terms.emplace_back("a", &ignore_a, "Independent of 'a'. (See 'q' for details.)");
             m_terms.emplace_back(
                 "s", &ignore_s_z,
-                "For any two cases where only 's' (the center cell itself) differs, the rule will map the center cell to the same value.\n\n"
+                "For any two cases where only 's' (the center cell itself) differs, the rule will map center cell to the same value.\n\n"
                 "    |q w e|       |q w e|\n"
                 "rule|a 0 d| = rule|a 1 d|\n"
                 "    |z x c|       |z x c|\n\n"
                 "So when the surrounding cells are the same, there must be: either s:0->1, s:1->1 or s:0->0, s:1->0.\n\n"
-                "(This is provided for completeness; it's not obvious what's special about this set - though it's defined in the same way as other independence sets, it's not suitable to treat this as \"independent of 's'\".)");
-            m_terms.emplace_back("d", &ignore_d, "See 'q' for details.");
-            m_terms.emplace_back("z", &ignore_z, "See 'q' for details.");
-            m_terms.emplace_back("x", &ignore_x, "See 'q' for details.");
-            m_terms.emplace_back("c", &ignore_c, "See 'q' for details.");
+                "(It's not obvious what's special about this set; though this is defined in the same way as other independence sets, it's not suitable to treat this as \"independent of 's'\".)");
+            m_terms.emplace_back("d", &ignore_d, "Independent of 'd'. (See 'q' for details.)");
+            m_terms.emplace_back("z", &ignore_z, "Independent of 'z'. (See 'q' for details.)");
+            m_terms.emplace_back("x", &ignore_x, "Independent of 'x'. (See 'q' for details.)");
+            m_terms.emplace_back("c", &ignore_c, "Independent of 'c'. (See 'q' for details.)");
         }
         {
             terms_scope scope(m_terms, terms_misc);
@@ -234,79 +238,85 @@ public:
                     "So when the surrounding cells are the same, there must be: either s:0->0, s:1->1 (no flip in either case) or s:0->1, s:1->0 (flip in both cases).\n\n"
                     "(This is provided for completeness; it's not obvious what's special about this set.)");
             }
-            // TODO: refine descriptions.
             m_terms.emplace_back(
                 "Hex", &ignore_hex,
-                "Rules that emulate hexagonal neighborhood, by making the values independent of 'e' and 'z'. "
-                "See the last line for illustration.\n\n"
-                "For windows displaying hexagonal rules, you can hover on them and press '6' to see "
-                "the projected view in the corresponding hexagonal space.");
+                "Rules whose values are independent of 'e' and 'z'. As a result, they can emulate hexagonal neighborhood - for any rule in this set, there exists an actual rule in the hexagonal tiling with the same behavior.\n\n"
+                "To be exact, for any pattern, if evolved under such a rule, the dynamics will correspond to a projected version evolved under an actual rule in the hexagonal space. See the last line for illustration.\n\n"
+                "(For windows displaying such rules, you can hover and press '6' to see the projected view.)");
             m_terms.emplace_back(
-                "Von", &ignore_von,
-                "Rules in the von-Neumann neighborhood. (In other words, their values are independent of 'q', 'e', 'z' and 'c'.)\n\n"
-                "(For symmetric von-Neumann rules you can directly combine this with native-symmetry sets.)");
+                "Jvn", &ignore_jvn,
+                "Rules whose values are independent of 'q', 'e', 'z' and 'c'. As a result, they can emulate von Neumann neighborhood directly.\n\n"
+                "(This can work naturally with native-symmetry sets.)");
+            m_terms.emplace_back("Wadx", &ignore_wadx,
+                                 "Rules whose values are independent of 'w', 'a', 'd' and 'x'.\n\n"
+                                 "(This can work naturally with native-symmetry sets.)");
             m_terms.emplace_back(
-                "Comp", &self_complementary,
-                "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].");
-            m_terms.emplace_back("Mono", &single_stable_state,
-                                 "Rules that map '000...' and '111...' to the same value.\n\n"
+                "Compl", &self_complementary,
+                "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].\n\n"
+                "To achieve this, for any case and its complement, the rule will map center cell to values so that the resulting \"flip-ness\" are the same.\n\n"
+                "     |q w e|             |!q!w!e|\n"
+                "(rule|a s d| = s) = (rule|!a!s!d| = !s)\n"
+                "     |z x c|             |!z!x!c|\n\n"
+                "(You can get the 0/1 reversal dual for any rule in the 'Misc' window.)");
+            m_terms.emplace_back("Uniq", &single_stable_state,
+                                 "Rules that map all-0 and all-1 cases to the same value.\n\n"
                                  "    |0 0 0|       |1 1 1|\n"
                                  "rule|0 0 0| = rule|1 1 1|\n"
                                  "    |0 0 0|       |1 1 1|");
         }
         {
             terms_scope scope(m_terms, terms_native);
-            m_terms.emplace_back("All", &native_isotropic,
+            m_terms.emplace_back("Iso", &native_isotropic,
                                  "Isotropic MAP rules, i.e. rules that preserve all symmetries.\n\n"
                                  "(This is equal to the intersection of the following sets in this line.)");
-            m_terms.emplace_back("|", &native_refl_wsx,
-                                 "Rules that preserve reflection symmetry, taking '|' as the axis.");
-            m_terms.emplace_back("-", &native_refl_asd, "Ditto, the reflection axis is '-'.");
-            m_terms.emplace_back("\\", &native_refl_qsc, "Ditto, the reflection axis is '\\'.");
-            m_terms.emplace_back("/", &native_refl_esz, "Ditto, the reflection axis is '/'.");
-            m_terms.emplace_back("C2", &native_C2, "Rules that preserve C2 symmetry (2-fold rotational symmetry).");
-            m_terms.emplace_back("C4", &native_C4,
-                                 "C4 symmetry (4-fold rotational symmetry). This is a strict subset of C2.");
+            m_terms.emplace_back(
+                "|", &native_refl_wsx,
+                "Rules that preserve reflection symmetry, taking '|' as the axis.\n\n"
+                "For any pattern and its leftside-right mirror image, if evolved under such a rule they will remain in mirror.\n\n"
+                "For any leftside-right symmetric pattern, if evolved under such a rule it will remain leftside-right symmetric.");
+            m_terms.emplace_back("-", &native_refl_asd, "Similar to '|'; the axis is '-'.");
+            m_terms.emplace_back("\\", &native_refl_qsc, "Similar to '|'; the axis is '\\'.");
+            m_terms.emplace_back("/", &native_refl_esz, "Similar to '|'; the axis is '/'.");
+            m_terms.emplace_back("C2", &native_C2, "Rules that preserve 2-fold rotational symmetry.");
+            m_terms.emplace_back("C4", &native_C4, "4-fold rotational symmetry. This is a strict subset of 'C2'.");
         }
         {
             terms_scope scope(m_terms, terms_totalistic);
             m_terms.emplace_back(
                 "Tot", &native_tot_exc_s,
-                "Outer-totalistic MAP rules. That is, the values are dependent on 's' and the sum of other cells ('q+w+...+c'). This is a strict subset of isotropic rules.\n\n"
+                "Outer-totalistic MAP rules, i.e. rules whose values are only dependent on 's' and the sum of other cells. This is a strict subset of isotropic rules ('Iso').\n\n"
                 "(This is also known as life-like rules, and is where the B/S notation applies.)");
             m_terms.emplace_back(
                 "Tot(+s)", &native_tot_inc_s,
-                "Inner-totalistic MAP rules. That is, the values are only dependent on the sum of all cells (including 's'). "
-                "This is a strict subset of outer-totalistic rules ('Tot').");
+                "Inner-totalistic MAP rules, i.e. rules whose values are only dependent on the sum of all cells (including 's'). This is a strict subset of outer-totalistic rules ('Tot').");
             m_terms.emplace_back("Hex", &hex_tot_exc_s, "Outer-totalistic hexagonal rules.");
             m_terms.emplace_back("Hex(+s)", &hex_tot_inc_s, "Inner-totalistic hexagonal rules.");
-            m_terms.emplace_back("Von", &von_tot_exc_s, "Outer-totalistic von-Neumann rules.");
-            m_terms.emplace_back("Von(+s)", &von_tot_inc_s, "Inner-totalistic von-Neumann rules.");
+            m_terms.emplace_back("Jvn", &jvn_tot_exc_s, "Outer-totalistic von Neumann rules.");
+            m_terms.emplace_back("Jvn(+s)", &jvn_tot_inc_s, "Inner-totalistic von Neumann rules.");
         }
         {
             // q w -    q w
             // a s d ~ a s d
             // - x c    x c
             terms_scope scope(m_terms, terms_hex);
-            m_terms.emplace_back("All", &hex_isotropic,
-                                 "Rules that emulate isotropic hexagonal rules. "
-                                 "For windows displaying such rules, you can hover and press '6' to "
-                                 "better view the symmetries in the corresponding hexagonal space.\n\n"
-                                 "(Note that these sets have no direct relation with native symmetries, and their "
-                                 "intersection with native-symmetry sets will typically be very small.)");
+            m_terms.emplace_back(
+                "Iso", &hex_isotropic,
+                "Rules that emulate isotropic hexagonal rules.\n\n"
+                "All sets in this line are strict subsets of 'Hex'; for windows displaying such rules, you can hover and press '6' to better view the symmetries in the hexagonal space.\n\n"
+                "(Some of these sets behave like subsets of native-symmetry sets; however, they are not conceptually related.)");
             m_terms.emplace_back(
                 "a-d", &hex_refl_asd,
                 "Rules that emulate reflection symmetry in the hexagonal tiling, taking the axis from 'a' to 'd' (a-to-d).");
-            m_terms.emplace_back("q-c", &hex_refl_qsc, "Ditto, the reflection axis is q-to-c.");
-            m_terms.emplace_back("w-x", &hex_refl_wsx, "Ditto, the reflection axis is w-to-x.");
-            m_terms.emplace_back("a|q", &hex_refl_aq, "Ditto, the reflection axis is vertical to a-to-q.");
-            m_terms.emplace_back("q|w", &hex_refl_qw, "Ditto, the reflection axis is vertical to q-to-w.");
-            m_terms.emplace_back("w|d", &hex_refl_wd, "Ditto, the reflection axis is vertical to w-to-d.");
+            m_terms.emplace_back("q-c", &hex_refl_qsc, "Similar to 'a-d'; the axis is q-to-c.");
+            m_terms.emplace_back("w-x", &hex_refl_wsx, "Similar to 'a-d'; the axis is w-to-x.");
+            m_terms.emplace_back("a|q", &hex_refl_aq, "Similar to 'a-d'; the axis is vertical to a-to-q.");
+            m_terms.emplace_back("q|w", &hex_refl_qw, "Similar to 'a-d'; the axis is vertical to q-to-w.");
+            m_terms.emplace_back("w|d", &hex_refl_wd, "Similar to 'a-d'; the axis is vertical to w-to-d.");
             m_terms.emplace_back("C2", &hex_C2,
-                                 "Rules that emulate C2 symmetry in the hexagonal tiling.\n"
-                                 "(Not to be confused with native C2 rules.)");
-            m_terms.emplace_back("C3", &hex_C3, "C3 symmetry.");
-            m_terms.emplace_back("C6", &hex_C6, "C6 symmetry. This is a strict subset of C2/C3.");
+                                 "Rules that emulate 2-fold rotational symmetry in the hexagonal tiling.");
+            m_terms.emplace_back("C3", &hex_C3, "3-fold rotational symmetry.");
+            m_terms.emplace_back("C6", &hex_C6,
+                                 "6-fold rotational symmetry. This is a strict subset of both 'C2' and 'C3'.");
         }
         assert(std::ranges::all_of(m_terms, [](const termT& t) { //
             return t.title && t.set && t.desc && !t.selected && !t.including && !t.disabled;
@@ -367,7 +377,7 @@ public:
         };
 
         imgui_Str(
-            "The \"working set\" refers to the intersection of selected sets. (So if a rule belongs to the working set, it also belongs to every selected set.) It will never be empty - if no sets are selected, the working set will be the entire MAP set. The program has access to all rules in the working set.\n\n"
+            "The \"working set\" refers to the intersection of selected sets. (So if a rule belongs to the working set, it also belongs to every selected set.) It will never be empty - if no sets are selected, the working set will be the entire MAP set. The program has access to all rules in it.\n\n"
             "For each set, if clicked with 'Ctrl', only that set will be selected (and the working set will be identical to it); if clicked without 'Ctrl', the set will be toggled selected or unselected:");
 
         explain(false, None, "Not selected.");
