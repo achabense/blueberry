@@ -41,13 +41,13 @@ public:
 };
 #endif
 
-// !!TODO: improve...
 static open_state intro_window(frame_main_token) {
     bool open = true;
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
 
-    // imgui_Window::next_window_titlebar_tooltip = "Double-click title bar to collapse/uncollapse.";
+    imgui_Window::next_window_titlebar_tooltip =
+        "Click collapse button, or double click title bar to collapse/uncollapse.";
     if (auto window =
             imgui_Window("Introduction", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::PushTextWrapPos(wrap_len());
@@ -103,6 +103,16 @@ static open_state intro_window(frame_main_token) {
             imgui_Str("Press '</>' to control 'Prev/Next' in the focused window.");
 
             ImGui::Bullet();
+            imgui_Str("Make sure you can save discoveries.");
+            ImGui::SameLine();
+            imgui_StrTooltip(
+                "(?)",
+                "The program relies on clipboard for output (e.g. to save rules and patterns), so make sure the clipboard works.\n\n"
+                "Take preview windows for example, there are two equivalent ways to copy the rule: open menu -> 'Copy rule', or send the rule to '..' (after 'Clipboard').\n\n"
+                "Some functions will record recently accepted rules. For example, the recently copied rules can be accessed from the menu for '..'.\n\n"
+                "For more details, see !!TODO...");
+
+            ImGui::Bullet();
             ImGui::BeginGroup();
             switch (sequence::seq("<|", "Prev", "Next", "|>")) {
                 case 0: at = 0; break;
@@ -114,11 +124,6 @@ static open_state intro_window(frame_main_token) {
             ImGui::Text("Total:%d At:%d", total, at + 1);
             ImGui::SameLine();
             config.set("Settings");
-            ImGui::SameLine();
-            imgui_StrTooltip(
-                "(?)",
-                "The program relies on clipboard for output (e.g. to save rules and patterns), so make sure you can copy the following rule to the clipboard.\n\n"
-                "!!TODO about record...");
 
             previewer::preview(at, config, rules[at]);
             ImGui::EndGroup();
@@ -203,8 +208,8 @@ void frame_main() {
                 copy_rule::get_rec({}).selectable_to_take_snapshot("Copied rules");
                 guide_mode::item_tooltip("Recently copied rules, including those copied via 'Copy rule'.");
             });
-            guide_mode::item_tooltip(
-                "Drag a rule here to copy it (as MAP-string) to the clipboard; equivalent to 'Copy rule'.");
+            guide_mode::item_tooltip("Drag a rule here to copy it (as MAP-string) to the clipboard.\n\n"
+                                     "(This is useful as some rule sources have no 'Copy rule' option.)");
             copy_rule::get_rec({}).display_snapshot_if_present();
         }
         ImGui::SameLine();

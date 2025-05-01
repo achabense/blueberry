@@ -663,8 +663,8 @@ public:
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(current_rule);
                     }
-                    guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard; "
-                                             "equivalent to sending the rule to '..' after 'Clipboard'.");
+                    guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
+                                             "Equivalent to sending the rule to '..' after 'Clipboard'.");
 
                     current_rule->selectable_to_take_snapshot("Recent");
                 });
@@ -1818,13 +1818,13 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             if (ImGui::Selectable("Copy rule")) {
                 copy_rule::copy(rule);
             }
-            guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard; "
-                                     "equivalent to sending the rule to '..' after 'Clipboard'.");
+            guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
+                                     "Equivalent to sending the rule to '..' after 'Clipboard'.");
             if (ImGui::Selectable("Explore")) {
                 runner.set_rule(rule);
             }
-            guide_mode::item_tooltip("Explore in the space window; "
-                                     "equivalent to sending the rule to 'MAP...' in the right panel.");
+            guide_mode::item_tooltip("Explore in the space window. "
+                                     "Equivalent to sending the rule to 'MAP...' in the right panel.");
             if (ImGui::Selectable("Explore (& state)")) {
                 runner.set_rule_and_state(rule, term.tile.size(), term.init);
             }

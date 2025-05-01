@@ -240,12 +240,12 @@ public:
             }
             m_terms.emplace_back(
                 "Hex", &ignore_hex,
-                "Rules whose values are independent of 'e' and 'z'. As a result, they can emulate hexagonal neighborhood - for any rule in this set, there exists an actual rule in the hexagonal tiling with the same behavior.\n\n"
+                "Rules whose values are independent of 'e' and 'z'. As a result, they can emulate range-1 hexagonal neighborhood - for any rule in this set, there exists an actual rule in the hexagonal tiling with the same behavior.\n\n"
                 "To be exact, for any pattern, if evolved under such a rule, the dynamics will correspond to a projected version evolved under an actual rule in the hexagonal space. See the last line for illustration.\n\n"
                 "(For windows displaying such rules, you can hover and press '6' to see the projected view.)");
             m_terms.emplace_back(
                 "Jvn", &ignore_jvn,
-                "Rules whose values are independent of 'q', 'e', 'z' and 'c'. As a result, they can emulate von Neumann neighborhood directly.\n\n"
+                "Rules whose values are independent of 'q', 'e', 'z' and 'c'. As a result, they can emulate range-1 von Neumann neighborhood directly.\n\n"
                 "(This can work naturally with native-symmetry sets.)");
             m_terms.emplace_back("Wadx", &ignore_wadx,
                                  "Rules whose values are independent of 'w', 'a', 'd' and 'x'.\n\n"
@@ -377,7 +377,8 @@ public:
         };
 
         imgui_Str(
-            "The \"working set\" refers to the intersection of selected sets. (So if a rule belongs to the working set, it also belongs to every selected set.) It will never be empty - if no sets are selected, the working set will be the entire MAP set. The program has access to all rules in it.\n\n"
+            "The \"working set\" refers to the intersection of selected sets. (So if a rule belongs to the working set, it also belongs to every selected set.) It will never be empty - if no sets are selected, the working set will be the entire MAP set.\n\n"
+            "The program has access to all rules in the working set.\n\n"
             "For each set, if clicked with 'Ctrl', only that set will be selected (and the working set will be identical to it); if clicked without 'Ctrl', the set will be toggled selected or unselected:");
 
         explain(false, None, "Not selected.");
