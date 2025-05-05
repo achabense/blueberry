@@ -612,6 +612,96 @@ namespace aniso {
     } // namespace _tests
 #endif // ENABLE_TESTS
 
+    namespace _misc {
+        class encoding_buf : no_copy {
+            // (Relying on the current encoding scheme (0b-qwe'asd'zxc).)
+            static_assert(codeT::bpos_q == 8 && codeT::bpos_w == 7 && codeT::bpos_e == 6 && //
+                          codeT::bpos_a == 5 && codeT::bpos_s == 4 && codeT::bpos_d == 3 && //
+                          codeT::bpos_z == 2 && codeT::bpos_x == 1 && codeT::bpos_c == 0);
+            // ("arbitrary-signed-int << bits" is made well-defined in C++20.)
+            static_assert((INT_MIN << 1) == 0);
+
+            uint8_t* vec_p6; // 0b..up[x-1][x][x+1]'cn[x-1][x][x+1]
+            int len;
+
+        public:
+            encoding_buf(const int l) : vec_p6(new uint8_t[l]{}), len(l) {}
+            ~encoding_buf() { delete[] vec_p6; }
+
+            // (The two functions can be impl-ed as a single template (class F = int); however, as tested the debug perf will be nasty.)
+            void feed(const cellT l, const cellT r, const cellT* const line) {
+                const int len_minus_1 = len - 1; // (For better debug-mode codegen.)
+                uint8_t* const vec_p6_local = vec_p6;
+
+                int p3 = (l << 1) | line[0];
+                for (int x = 0; x < len_minus_1; ++x) {
+                    p3 = (p3 << 1) | line[x + 1]; // 0b...[x-1][x][x+1]
+                    const int code_raw = (vec_p6_local[x] << 3) | (p3 & 0b111);
+                    vec_p6_local[x] = code_raw;
+                }
+                p3 = (p3 << 1) | r;
+                const int code_raw = (vec_p6_local[len_minus_1] << 3) | (p3 & 0b111);
+                vec_p6_local[len_minus_1] = code_raw;
+            }
+
+            void feed(const cellT l, const cellT r, const cellT* const line, cellT* const dest,
+                      const rule_like auto& rule) {
+                const int len_minus_1 = len - 1; // (For better debug-mode codegen.)
+                uint8_t* const vec_p6_local = vec_p6;
+
+                int p3 = (l << 1) | line[0];
+                for (int x = 0; x < len_minus_1; ++x) {
+                    p3 = (p3 << 1) | line[x + 1]; // 0b...[x-1][x][x+1]
+                    const int code_raw = (vec_p6_local[x] << 3) | (p3 & 0b111);
+                    vec_p6_local[x] = code_raw;
+                    dest[x] = rule(codeT(code_raw & 0b111'111'111));
+                }
+                p3 = (p3 << 1) | r;
+                const int code_raw = (vec_p6_local[len_minus_1] << 3) | (p3 & 0b111);
+                vec_p6_local[len_minus_1] = code_raw;
+                dest[len_minus_1] = rule(codeT(code_raw & 0b111'111'111));
+            }
+        };
+    } // namespace _misc
+
+    inline void apply_rule_torus(const rule_like auto& rule, const tile_ref tile) {
+        const vecT size = tile.size;
+        const auto first_line = std::make_unique_for_overwrite<cellT[]>(size.x);
+        std::copy_n(tile.line(0), size.x, first_line.get());
+
+        _misc::encoding_buf encoder(size.x);
+        {
+            const cellT* up = tile.line(size.y - 1);
+            encoder.feed(up[size.x - 1], up[0], up);
+            const cellT* cn = tile.line(0);
+            encoder.feed(cn[size.x - 1], cn[0], cn);
+        }
+        for (int y = 0; y < size.y; ++y) {
+            const cellT* dw = y + 1 < size.y ? tile.line(y + 1) : first_line.get();
+            encoder.feed(dw[size.x - 1], dw[0], dw, tile.line(y), rule);
+        }
+    }
+
+#ifdef ENABLE_TESTS
+    namespace _tests {
+        inline const testT test_apply_torus = [] {
+            const ruleT copy_q = make_rule([](codeT c) { return c.get(codeT::bpos_q); });
+
+            std::array<cellT, 120> data[2];
+            const tile_ref tile{data[0].data(), {.x = 10, .y = 12}};
+            const tile_ref compare{data[1].data(), {.x = 10, .y = 12}};
+            random_fill(tile, testT::rand, 0.5);
+
+            for (int i = 0; i < 12; ++i) {
+                rotate_copy_00_to(compare, tile, {1, 1});
+                apply_rule_torus(copy_q, tile);
+                assert(data[0] == data[1]);
+            }
+        };
+    } // namespace _tests
+#endif // ENABLE_TESTS
+
+#if 0
     inline constexpr int calc_border_size(const vecT size) { return 2 * (size.x + size.y) + 4; }
 
     namespace _misc {
@@ -666,66 +756,23 @@ namespace aniso {
 
     inline void apply_rule(const rule_like auto& rule, const tile_ref dest, const tile_const_ref source,
                            const border_const_ref source_border) {
-        // (Relying on current coding scheme.)
-        static_assert(codeT::bpos_q == 8 && codeT::bpos_w == 7 && codeT::bpos_e == 6 && //
-                      codeT::bpos_a == 5 && codeT::bpos_s == 4 && codeT::bpos_d == 3 && //
-                      codeT::bpos_z == 2 && codeT::bpos_x == 1 && codeT::bpos_c == 0);
-        // ~ "arbitrary-signed-int << bits" is made well-defined in C++20.
-        static_assert((INT_MIN << 1) == 0);
-
         assert(non_overlapping_or_same_area(source, dest));
         assert(source.size == dest.size);
         assert(source.size == source_border.size);
         const vecT size = source.size;
 
-        const auto vec_p6_data = std::make_unique_for_overwrite<uint8_t[]>(size.x);
-        uint8_t* const vec_p6 = vec_p6_data.get(); // 0b..qweasd
+        _misc::encoding_buf encoder(size.x);
         {
-            const cellT *const up = source_border.up_line(), *cn = source.line(0);
             const auto [up_l, up_r] = source_border.get_lr(-1);
+            encoder.feed(up_l, up_r, source_border.up_line());
             const auto [cn_l, cn_r] = source_border.get_lr(0);
-            int p3_up = (up_l << 1) | up[0]; // 0b...qwe (up[x-1][x][x+1])
-            int p3_cn = (cn_l << 1) | cn[0]; // 0b...asd (cn[x-1][x][x+1])
-            for (int x = 0; x < size.x - 1; ++x) {
-                p3_up = (p3_up << 1) | up[x + 1];
-                p3_cn = (p3_cn << 1) | cn[x + 1];
-                vec_p6[x] = (p3_up << 3) | (p3_cn & 0b111);
-            }
-            p3_up = (p3_up << 1) | up_r;
-            p3_cn = (p3_cn << 1) | cn_r;
-            vec_p6[size.x - 1] = (p3_up << 3) | (p3_cn & 0b111);
+            encoder.feed(cn_l, cn_r, source.line(0));
         }
-
         for (int y = 0; y < size.y; ++y) {
-            cellT* const dest_ = dest.line(y);
             const cellT* const dw = y == size.y - 1 ? source_border.down_line() : source.line(y + 1);
             const auto [dw_l, dw_r] = source_border.get_lr(y + 1);
-            int p3_dw = (dw_l << 1) | dw[0]; // 0b...zxc (dw[x-1][x][x+1])
-            for (int x = 0; x < size.x - 1; ++x) {
-                p3_dw = (p3_dw << 1) | dw[x + 1];
-                const int code_raw = (vec_p6[x] << 3) | (p3_dw & 0b111);
-                dest_[x] = rule(codeT(code_raw & 0b111'111'111));
-                vec_p6[x] = code_raw;
-            }
-            p3_dw = (p3_dw << 1) | dw_r;
-            const int code_raw = (vec_p6[size.x - 1] << 3) | (p3_dw & 0b111);
-            dest_[size.x - 1] = rule(codeT(code_raw & 0b111'111'111));
-            vec_p6[size.x - 1] = code_raw;
+            encoder.feed(dw_l, dw_r, dw, dest.line(y), rule);
         }
-    }
-
-    inline void apply_rule_torus(const rule_like auto& rule, const tile_ref dest, const tile_const_ref source) {
-        assert(source.size == dest.size);
-        const vecT size = source.size;
-
-        const auto border_data = std::make_unique_for_overwrite<cellT[]>(calc_border_size(size));
-        const border_ref border{.size = size, .data = border_data.get()};
-        border.collect_from(source, source, source, source, source, source, source, source);
-        apply_rule(rule, dest, source, border);
-    }
-
-    inline void apply_rule_torus(const rule_like auto& rule, const tile_ref tile) { //
-        apply_rule_torus(rule, tile, tile);
     }
 
     inline void fake_apply(const tile_const_ref tile, lockT& lock) {
@@ -765,23 +812,9 @@ namespace aniso {
                 assert(dest == rule[code]);
             }
         };
-
-        inline const testT test_apply_2 = [] {
-            const ruleT copy_q = make_rule([](codeT c) { return c.get(codeT::bpos_q); });
-
-            std::array<cellT, 120> data[2]{};
-            const tile_ref tile{&data[0][0], {.x = 10, .y = 12}};
-            const tile_ref compare{&data[1][0], {.x = 10, .y = 12}};
-            random_fill(tile, testT::rand, 0.5);
-
-            for (int i = 0; i < 12; ++i) {
-                rotate_copy_00_to(compare, tile, {1, 1});
-                apply_rule_torus(copy_q, tile, tile);
-                assert(data[0] == data[1]);
-            }
-        };
     } // namespace _tests
 #endif // ENABLE_TESTS
+#endif
 
     class tileT {
         vecT m_size;
@@ -923,19 +956,20 @@ namespace aniso {
 
     class tilesetT {
         std::vector<uint32_t> m_keys;
+        bool contains(const uint32_t key) const { //
+            return std::ranges::find(m_keys, key) != m_keys.end();
+        }
 
     public:
         bool empty() const { return m_keys.empty(); }
         int size() const { return m_keys.size(); }
 
-        bool contains(const tile_buf& tile) const {
-            const uint32_t key = tile.to_u32();
-            return std::ranges::find(m_keys, key) != m_keys.end();
+        bool contains(const tile_buf& tile) const { //
+            return contains(tile.to_u32());
         }
 
         void insert(const tile_buf& tile) {
-            const uint32_t key = tile.to_u32();
-            if (std::ranges::find(m_keys, key) == m_keys.end()) {
+            if (const uint32_t key = tile.to_u32(); !contains(key)) {
                 m_keys.push_back(key);
             }
         }

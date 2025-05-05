@@ -120,8 +120,12 @@ namespace aniso {
             ALWAYS_INLINE T operator()(codeT code) const
                 requires(std::is_same_v<T, cellT> && tag == 1)
             {
-                return m_map[code];
+                // return m_map[code]; // (In debug mode) still results in worse codegen even force-inlined...
+                return m_map[code.val];
             }
+
+            // std::span<const T, 512> data() const { return m_map; }
+            // std::span<T, 512> data() { return m_map; }
         };
 
         // clang-format off

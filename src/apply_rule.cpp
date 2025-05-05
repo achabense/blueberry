@@ -117,14 +117,15 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
 
     // Loop until there has been `limit` generations without newly invoked mappings.
     const int limit = 120;
-    for (int g = limit; g > 0; --g) {
+    for (int g = 0; g < limit; ++g) {
+        aniso::lockT next = lock;
         torus.run_torus([&](const aniso::codeT code) {
-            if (!lock[code]) {
-                g = limit;
-                lock[code] = true;
-            }
+            next[code] = true;
             return rule[code];
         });
+        if (compare_update(lock, next)) {
+            g = -1; // ++ -> 0
+        }
     }
 
     return lock;
