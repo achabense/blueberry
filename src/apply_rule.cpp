@@ -166,9 +166,9 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
 
     // Empty-range -> invalid.
     static constexpr auto locate_pattern_with_bg = [](const aniso::tile_const_ref tile, const aniso::vecT period_size,
-                                                      bool for_input = false) -> aniso::rangeT {
+                                                      const bool for_input = false) -> aniso::rangeT {
         // assert(aniso::has_enclosing_period(tile, period_size));
-        const aniso::rangeT range = aniso::bounding_box(tile, aniso::tile_buf(tile.clip_corner(period_size)).data());
+        const aniso::rangeT range = aniso::bounding_box(tile, period_size);
         if (range.empty()) {
             messenger::set_msg(for_input ? "The area contains nothing." : "The pattern dies out.");
             return {};
@@ -203,7 +203,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
             aniso::tile_buf aligned{period_size}; // Aligned to next.data().at(0, 0).
             aniso::rotate_copy_00_to(aligned.data(), background, padding);
             const aniso::rangeT relocate{.begin = padding, .end = padding + pattern.size};
-            aniso::fill_outside(next.data(), relocate, aligned.data());
+            aniso::fill_outside(next.data(), relocate, aligned);
             aniso::copy(next.data().clip(relocate), pattern);
             next.run_torus(rule);
 
@@ -292,14 +292,14 @@ struct initT {
 
     void initialize(aniso::tileT& tile) const {
         assert(!tile.empty());
-        aniso::fill(tile.data(), background.data());
+        aniso::fill(tile.data(), background);
 
         const aniso::vecT tile_size = tile.size();
         const auto range = clamp_window(tile_size, tile_size / 2, from_imvec_floor(to_imvec(tile_size) * area.get()));
         if (!range.empty()) {
             // (Not caring about how the area is aligned with the background.)
             std::mt19937 rand{(uint32_t)seed};
-            if (background.is_0()) {
+            if (aniso::is_pure_0(background)) {
                 aniso::random_fill(tile.data().clip(range), rand, density.get());
             } else {
                 aniso::random_flip(tile.data().clip(range), rand, density.get());
@@ -782,7 +782,7 @@ public:
 
             {
                 aniso::tileT demo(demo_size);
-                aniso::fill(demo.data(), init.background.data());
+                aniso::fill(demo.data(), init.background);
                 static aniso::tileT curr;
                 static bool skip_run = true;
                 if (ImGui::IsWindowAppearing() || init.background != m_torus.get_init().background) {
@@ -1404,7 +1404,7 @@ private:
                 const aniso::tile_const_ref sel_area = self.m_torus.read_only(sel_range);
                 const aniso::vecT p_size{2, 2};
                 if (check_border(sel_area, p_size)) {
-                    aniso::rangeT bound = aniso::bounding_box(sel_area, sel_area.clip_corner(p_size));
+                    aniso::rangeT bound = aniso::bounding_box(sel_area, p_size);
                     if (!bound.empty()) {
                         bound.begin -= p_size;
                         bound.end += p_size;

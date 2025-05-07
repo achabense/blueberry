@@ -19,24 +19,6 @@ namespace aniso {
     inline bool non_overlapping(const tile_const_ref, const tile_const_ref) { return true; }
     inline bool non_overlapping_or_same_area(const tile_const_ref, const tile_const_ref) { return true; }
 
-    namespace _misc {
-        class wrapped_int {
-            int i; // [0, r).
-            const int r;
-
-        public:
-            wrapped_int(int i, int r) : i(i), r(r) { assert(i >= 0 && i < r); }
-
-            int operator++(int) {
-                int j = i++;
-                if (i == r) {
-                    i = 0;
-                }
-                return j;
-            }
-        };
-    } // namespace _misc
-
     inline int count(const tile_const_ref tile) {
         int c = 0;
         tile.for_all_data([&c](std::span<const cellT> line) {
@@ -47,15 +29,19 @@ namespace aniso {
         return c;
     }
 
-    // (Both are not periodic.)
-    inline int count_diff(const tile_const_ref a, const tile_const_ref b) {
-        int c = 0;
-        for_all_data(a, b, [&c](const cellT* a, const cellT* b, int len) {
-            for (int i = 0; i < len; ++i) {
-                c += a[i] != b[i];
-            }
-        });
-        return c;
+    // (Typically small enough.)
+    struct backgroundT : tile_const_ref {};
+
+    inline bool is_pure_0(const backgroundT background) { //
+        return *background.data == cellT{0} && (background.size == vecT{1, 1} || !count(background));
+    }
+
+    inline bool is_pure(const backgroundT background) {
+        if (background.size == vecT{1, 1}) {
+            return true;
+        }
+        const int c = count(background);
+        return c == 0 || c == background.size.xy();
     }
 
     inline void copy(const tile_ref dest, const tile_const_ref source) {
@@ -68,37 +54,6 @@ namespace aniso {
     inline void copy_common(const tile_ref dest, const tile_const_ref source) {
         const vecT common = min(dest.size, source.size);
         copy(dest.clip_corner(common), source.clip_corner(common));
-    }
-
-    // (`repeat.at(0, 0)` is bound to `source.at(0, 0)`.)
-    inline void copy_diff(const tile_ref dest, const tile_const_ref source,
-                          const tile_const_ref repeat /*background*/) {
-        assert(non_overlapping(dest, source) && non_overlapping(dest, repeat));
-        assert(dest.size == source.size);
-        if (repeat.size == vecT{1, 1}) {
-            // Different from `blit` here.
-            for_all_data(dest, source, [background = *repeat.data](cellT* d, const cellT* s, int len) {
-                for (int i = 0; i < len; ++i) {
-                    if (s[i] != background) {
-                        d[i] = s[i];
-                    }
-                }
-            });
-            return;
-        }
-
-        _misc::wrapped_int dy(0, repeat.size.y);
-        dest.for_each_line([&](const int y, std::span<cellT> line) {
-            const cellT* const rep = repeat.line(dy++);
-            const cellT* s = source.line(y);
-            _misc::wrapped_int dx(0, repeat.size.x);
-            for (cellT& cell : line) {
-                const cellT v = *s++;
-                if (v != rep[dx++]) {
-                    cell = v;
-                }
-            }
-        });
     }
 
     inline void self_repeat(const tile_ref tile, const vecT period) {
@@ -138,7 +93,7 @@ namespace aniso {
         }
     }
 
-    inline void blit(const tile_ref dest, const tile_const_ref source, blitE mode) {
+    inline void blit(const tile_ref dest, const tile_const_ref source, const blitE mode) {
         switch (mode) {
             case blitE::Copy: blit<blitE::Copy>(dest, source); return;
             case blitE::Or: blit<blitE::Or>(dest, source); return;
@@ -163,20 +118,20 @@ namespace aniso {
         });
     }
 
-    // (`repeat.at(0, 0)` is bound to `tile.at(0, 0)`.)
-    inline void fill(const tile_ref tile, const tile_const_ref repeat) {
-        assert(non_overlapping(tile, repeat));
-        if (repeat.size == vecT{1, 1}) {
-            fill(tile, *repeat.data);
+    // (`background.at(0, 0)` is bound to `tile.at(0, 0)`.)
+    inline void fill(const tile_ref tile, const backgroundT background) {
+        assert(non_overlapping(tile, background));
+        if (is_pure(background)) {
+            fill(tile, *background.data);
         } else {
-            copy_common(tile, repeat);
-            self_repeat(tile, repeat.size);
+            copy_common(tile, background);
+            self_repeat(tile, background.size);
         }
     }
 
     // The result will be completely dependent on the state of `rand` and `density`.
     // (`bernoulli_distribution` cannot guarantee this.)
-    inline void random_fill(const tile_ref tile, std::mt19937& rand, double density) {
+    inline void random_fill(const tile_ref tile, std::mt19937& rand, const double density) {
         constexpr uint32_t max = std::mt19937::max();
         const uint32_t c = max * std::clamp(density, 0.0, 1.0);
         if (c == 0 || c == max) {
@@ -188,7 +143,7 @@ namespace aniso {
         }
     }
 
-    inline void random_flip(const tile_ref tile, std::mt19937& rand, double density) {
+    inline void random_flip(const tile_ref tile, std::mt19937& rand, const double density) {
         constexpr uint32_t max = std::mt19937::max();
         const uint32_t c = max * std::clamp(density, 0.0, 1.0);
         if (c == 0) { // Noop
@@ -203,6 +158,71 @@ namespace aniso {
         }
     }
 
+    namespace _misc {
+        inline void for_each_line(const backgroundT background, const vecT size, const auto& fn) {
+            const vecT matching_size{.x = size.x, .y = std::min(background.size.y, size.y)};
+            const auto matching_bg = std::make_unique_for_overwrite<cellT[]>(matching_size.xy());
+            fill({matching_bg.get(), matching_size}, background);
+            const cellT *const begin = matching_bg.get(), *const end = begin + matching_size.xy();
+
+            const cellT* p = begin;
+            for (int y = 0; y < size.y; ++y, p += size.x) {
+                if (p == end) {
+                    p = begin;
+                }
+                if constexpr (requires { fn((int)y, std::span(p, p + size.x)); }) {
+                    fn((int)y, std::span(p, p + size.x));
+                } else { // `fn` knows size.x.
+                    static_assert(requires { fn((int)y, (const cellT*)p); });
+                    fn((int)y, (const cellT*)p);
+                }
+            }
+        }
+    } // namespace _misc
+
+    // (`background.at(0, 0)` is bound to `tile.at(0, 0)`.)
+    inline int count_diff(const tile_const_ref tile, const backgroundT background) {
+        if (is_pure(background)) {
+            const int c = count(tile);
+            return *background.data == cellT{0} ? c : tile.size.xy() - c;
+        }
+
+        int c = 0;
+        _misc::for_each_line(background, tile.size, [&](const int y, const cellT* const bg) {
+            const cellT* const line = tile.line(y);
+            for (int x = 0; x < tile.size.x; ++x) {
+                c += bg[x] != line[x];
+            }
+        });
+        return c;
+    }
+
+    // (`background.at(0, 0)` is bound to `source.at(0, 0)`.)
+    inline void copy_diff(const tile_ref dest, const tile_const_ref source, const backgroundT background,
+                          const bool optimize = true) {
+        assert(non_overlapping(dest, source) && non_overlapping(dest, background));
+        assert(dest.size == source.size);
+
+        if (optimize && is_pure(background)) {
+            if (*background.data == cellT{0}) {
+                blit<blitE::Or>(dest, source);
+            } else {
+                blit<blitE::And>(dest, source);
+            }
+            return;
+        }
+
+        _misc::for_each_line(background, source.size, [&](const int y, const cellT* const bg) {
+            const cellT* const s = source.line(y);
+            cellT* const d = dest.line(y);
+            for (int x = 0; x < source.size.x; ++x) {
+                if (bg[x] != s[x]) {
+                    d[x] = s[x];
+                }
+            }
+        });
+    }
+
     inline void fill_outside(const tile_ref tile, const rangeT& range, const cellT v) {
         assert(tile.contains(range));
         tile.for_each_line([&](const int y, std::span<cellT> line) {
@@ -215,29 +235,23 @@ namespace aniso {
         });
     }
 
-    // (`repeat.at(0, 0)` is bound to `tile.at(0, 0)` instead of `range.begin`.)
-    inline void fill_outside(const tile_ref tile, const rangeT& range, const tile_const_ref repeat) {
-        if (repeat.size == vecT{1, 1}) {
-            fill_outside(tile, range, *repeat.data);
+    // (`background.at(0, 0)` is bound to `tile.at(0, 0)` instead of `range.begin`.)
+    inline void fill_outside(const tile_ref tile, const rangeT& range, const backgroundT background) {
+        if (is_pure(background)) {
+            fill_outside(tile, range, *background.data);
             return;
         }
 
         assert(tile.contains(range));
-        assert(non_overlapping(tile, repeat));
-        const auto fill = [](std::span<cellT> line, const cellT* rep, _misc::wrapped_int dx) {
-            for (cellT& cell : line) {
-                cell = rep[dx++];
-            }
-        };
+        assert(non_overlapping(tile, background));
 
-        _misc::wrapped_int dy(0, repeat.size.y);
-        tile.for_each_line([&](const int y, std::span<cellT> line) {
-            const cellT* const rep = repeat.line(dy++);
+        _misc::for_each_line(background, tile.size, [&](const int y, std::span<const cellT> bg) {
+            cellT* const line = tile.line(y);
             if (y < range.begin.y || y >= range.end.y) {
-                fill(line, rep, {0, repeat.size.x});
+                std::ranges::copy(bg, line);
             } else {
-                fill(line.first(range.begin.x), rep, {0, repeat.size.x});
-                fill(line.subspan(range.end.x), rep, {range.end.x % repeat.size.x, repeat.size.x});
+                std::ranges::copy(bg.first(range.begin.x), line);
+                std::ranges::copy(bg.subspan(range.end.x), line + range.end.x);
             }
         });
     }
@@ -245,15 +259,14 @@ namespace aniso {
     inline rangeT bounding_box(const tile_const_ref tile, const cellT background) {
         int min_x = INT_MAX, max_x = INT_MIN;
         int min_y = INT_MAX, max_y = INT_MIN;
-        tile.for_each_line([&](const int y, std::span<const cellT> line) {
-            for (int x = 0; const cellT cell : line) {
-                if (cell != background) {
+        tile.for_each_line([&](const int y, const cellT* const line) {
+            for (int x = 0; x < tile.size.x; ++x) {
+                if (line[x] != background) {
                     min_x = std::min(min_x, x);
                     max_x = std::max(max_x, x);
                     min_y = std::min(min_y, y);
                     max_y = std::max(max_y, y);
                 }
-                ++x;
             }
         });
         if (max_x != INT_MIN) {
@@ -263,26 +276,23 @@ namespace aniso {
         }
     }
 
-    // (`repeat.at(0, 0)` is bound to `tile.at(0, 0)`.)
-    inline rangeT bounding_box(const tile_const_ref tile, const tile_const_ref repeat /*background*/) {
-        if (repeat.size == vecT{1, 1}) {
-            return bounding_box(tile, *repeat.data);
+    // (`background.at(0, 0)` is bound to `tile.at(0, 0)`.)
+    inline rangeT bounding_box(const tile_const_ref tile, const backgroundT background) {
+        if (is_pure(background)) {
+            return bounding_box(tile, *background.data);
         }
 
         int min_x = INT_MAX, max_x = INT_MIN;
         int min_y = INT_MAX, max_y = INT_MIN;
-        _misc::wrapped_int dy(0, repeat.size.y);
-        tile.for_each_line([&](const int y, std::span<const cellT> line) {
-            const cellT* const rep = repeat.line(dy++);
-            _misc::wrapped_int dx(0, repeat.size.x);
-            for (int x = 0; const cellT cell : line) {
-                if (cell != rep[dx++]) {
+        _misc::for_each_line(background, tile.size, [&](const int y, const cellT* const bg) {
+            const cellT* const line = tile.line(y);
+            for (int x = 0; x < tile.size.x; ++x) {
+                if (line[x] != bg[x]) {
                     min_x = std::min(min_x, x);
                     max_x = std::max(max_x, x);
                     min_y = std::min(min_y, y);
                     max_y = std::max(max_y, y);
                 }
-                ++x;
             }
         });
         if (max_x != INT_MIN) {
@@ -292,8 +302,13 @@ namespace aniso {
         }
     }
 
+    // Treat corner as background.
+    inline rangeT bounding_box(const tile_const_ref tile, const vecT period) { //
+        return bounding_box(tile, backgroundT{tile.clip_corner(min(period, tile.size))});
+    }
+
     namespace _misc {
-        inline bool has_period_x(const tile_const_ref tile, int p) {
+        inline bool has_period_x(const tile_const_ref tile, const int p) {
             assert(0 < p && p <= tile.size.x);
             for (int y = 0; y < tile.size.y; ++y) {
                 const cellT* ln = tile.line(y);
@@ -304,7 +319,7 @@ namespace aniso {
             return true;
         }
 
-        inline bool has_period_y(const tile_const_ref tile, int p) {
+        inline bool has_period_y(const tile_const_ref tile, const int p) {
             assert(0 < p && p <= tile.size.y);
             for (int y = p; y < tile.size.y; ++y) {
                 if (!equal(tile.line(y), tile.line(y - p), tile.size.x)) {
@@ -346,7 +361,18 @@ namespace aniso {
 
 #ifdef ENABLE_TESTS
     namespace _tests {
-        // TODO: many tests in this header can be simplified if using `tileT`.
+        // (Only for tests.)
+        template <int x, int y>
+        struct fixed_tile {
+            static constexpr vecT size{.x = x, .y = y};
+            cellT data[x * y]{};
+
+            friend bool operator==(const fixed_tile&, const fixed_tile&) = default;
+
+            /*implicit*/ operator tile_ref() { return {data, size}; }
+            /*implicit*/ operator tile_const_ref() const { return {data, size}; }
+        };
+
         inline const testT test_periodic_functions = [] {
             const vecT padding_a{.x = int(testT::rand() % 5), .y = int(testT::rand() % 5)};
             const vecT padding_b{.x = int(testT::rand() % 5), .y = int(testT::rand() % 5)};
@@ -356,21 +382,37 @@ namespace aniso {
             const tile_ref tile{tile_data.get(), size};
             const rangeT inner_range{padding_a, padding_a + inner_size};
             fill(tile.clip(inner_range), {0});
-            const cellT period[4]{{1}, {0}, {0}, {1}}; // Checkerboard.
-            fill_outside(tile, inner_range, {period, {2, 2}});
-            const rangeT test_range = bounding_box(tile, {period, {2, 2}});
+            const fixed_tile<2, 2> period{{{1}, {0}, {0}, {1}}}; // Checkerboard.
+            fill_outside(tile, inner_range, backgroundT{period});
+            const rangeT test_range = bounding_box(tile, backgroundT{period});
             assert(!test_range.empty());
             assert(test_range.begin == inner_range.begin && test_range.end == inner_range.end);
         };
 
         inline const testT test_periodic_functions_2 = [] {
-            cellT tile_data[49]{};
-            const tile_ref tile{tile_data, {7, 7}};
-            const cellT period[4]{{0}, {0}, {0}, {1}}; // 0 0
-            fill(tile, {period, {2, 2}});              // 0 1
+            fixed_tile<7, 7> tile{};
+            const fixed_tile<2, 2> period{{{0}, {0}, {0}, {1}}}; // 0 0
+            fill(tile, backgroundT{period});                     // 0 1
             assert((spatial_period_full_area(tile, tile.size) == vecT{2, 2}));
             // Note that for this case the expected period (2,2) != smallest-enclosing-period (1,1)...
             assert(has_enclosing_period(tile, {2, 2}) && has_enclosing_period(tile, {1, 1}));
+        };
+
+        inline const testT test_periodic_functions_3 = [] {
+            fixed_tile<12, 10> dest{}, source{};
+            random_fill(dest, testT::rand, 0.5);
+            random_fill(source, testT::rand, 0.5);
+
+            const fixed_tile<2, 2> all_0{{{0}, {0}, {0}, {0}}};
+            const fixed_tile<2, 2> all_1{{{1}, {1}, {1}, {1}}};
+            for (const auto& bg : {all_0, all_1}) {
+                assert(is_pure(backgroundT{bg}));
+                auto test_opt = dest, test_xopt = dest;
+
+                copy_diff(test_opt, source, backgroundT{bg}, true);
+                copy_diff(test_xopt, source, backgroundT{bg}, false);
+                assert(test_opt == test_xopt);
+            }
         };
     } // namespace _tests
 #endif // ENABLE_TESTS
@@ -391,10 +433,10 @@ namespace aniso {
         }
 
         assert_val(const cellT test = source.at(0, 0));
-        source.for_each_line([&](int y, std::span<const cellT> line) {
+        source.for_each_line([&](const int y, const cellT* const line) {
             cellT* const dest_ = dest.line((y + to.y) % size.y);
-            std::copy_n(line.data(), size.x - to.x, dest_ + to.x);
-            std::copy_n(line.data() + size.x - to.x, to.x, dest_);
+            std::copy_n(line, size.x - to.x, dest_ + to.x);
+            std::copy_n(line + size.x - to.x, to.x, dest_);
         });
         assert(test == dest.at(to));
     }
@@ -437,11 +479,11 @@ namespace aniso {
             };
 
             putT put{str};
-            tile.for_each_line([&put, h = tile.size.y](const int y, std::span<const cellT> line) {
+            tile.for_each_line([&put, size = tile.size](const int y, const cellT* const line) {
                 if (y != 0) {
                     put.append(1, '$');
                 }
-                const cellT *pos = line.data(), *const end = line.data() + line.size();
+                const cellT *pos = line, *const end = line + size.x;
                 while (pos != end) {
                     const cellT cell = *pos++;
                     int n = 1;
@@ -449,7 +491,7 @@ namespace aniso {
                         ++n;
                         ++pos;
                     }
-                    const bool omit = y != 0 && y != h - 1 && pos == end && cell == 0;
+                    const bool omit = y != 0 && y != size.y - 1 && pos == end && cell == 0;
                     if (!omit) {
                         put.append(n, cell ? 'o' : 'b');
                     }
@@ -671,13 +713,13 @@ namespace aniso {
 
         _misc::encoding_buf encoder(size.x);
         {
-            const cellT* up = tile.line(size.y - 1);
+            const cellT* const up = tile.line(size.y - 1);
             encoder.feed(up[size.x - 1], up[0], up);
-            const cellT* cn = tile.line(0);
+            const cellT* const cn = tile.line(0);
             encoder.feed(cn[size.x - 1], cn[0], cn);
         }
         for (int y = 0; y < size.y; ++y) {
-            const cellT* dw = y + 1 < size.y ? tile.line(y + 1) : first_line.get();
+            const cellT* const dw = y + 1 < size.y ? tile.line(y + 1) : first_line.get();
             encoder.feed(dw[size.x - 1], dw[0], dw, tile.line(y), rule);
         }
     }
@@ -687,15 +729,13 @@ namespace aniso {
         inline const testT test_apply_torus = [] {
             const ruleT copy_q = make_rule([](codeT c) { return c.get(codeT::bpos_q); });
 
-            std::array<cellT, 120> data[2];
-            const tile_ref tile{data[0].data(), {.x = 10, .y = 12}};
-            const tile_ref compare{data[1].data(), {.x = 10, .y = 12}};
+            fixed_tile<10, 12> tile{}, compare{};
             random_fill(tile, testT::rand, 0.5);
 
             for (int i = 0; i < 12; ++i) {
                 rotate_copy_00_to(compare, tile, {1, 1});
                 apply_rule_torus(copy_q, tile);
-                assert(data[0] == data[1]);
+                assert(tile == compare);
             }
         };
     } // namespace _tests
@@ -934,7 +974,8 @@ namespace aniso {
         vecT size() const { return m_size; }
         tile_ref data() { return {m_data, m_size}; }
         tile_const_ref data() const { return {m_data, m_size}; }
-        bool is_0() const { return m_data[0] == cellT{0} && m_size == vecT{1, 1}; }
+
+        /*implicit*/ operator backgroundT() const { return {data()}; }
 
         // Value-preserving.
         void resize(const vecT size) {
@@ -978,7 +1019,7 @@ namespace aniso {
             const vecT size = tile.size();
             cellT data[tile_buf::capacity() * 4]{};
             tile_ref doubled(data, size * 2);
-            fill(doubled, tile.data());
+            fill(doubled, tile);
             for (int y = 0; y < size.y; ++y) {
                 for (int x = 0; x < size.x; ++x) {
                     const vecT pos{.x = x, .y = y};

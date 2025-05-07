@@ -116,9 +116,9 @@ namespace aniso {
                 for (int y = 0; y < size.y; ++y, p += stride) {
                     if constexpr (requires { fn((int)y, std::span{p, p + size.x}); }) {
                         fn((int)y, std::span{p, p + size.x});
-                    } else {
-                        static_assert(requires { fn(std::span{p, p + size.x}); });
-                        fn(std::span{p, p + size.x});
+                    } else { // `fn` knows size.x.
+                        static_assert(requires { fn((int)y, (T*)p); });
+                        fn((int)y, (T*)p);
                     }
                 }
             }
@@ -129,7 +129,10 @@ namespace aniso {
                 if (size.x == stride) {
                     fn(std::span{data, data + size.xy()});
                 } else {
-                    this->for_each_line(fn);
+                    T* p = data;
+                    for (int y = 0; y < size.y; ++y, p += stride) {
+                        fn(std::span{p, p + size.x});
+                    }
                 }
             }
         };
