@@ -576,6 +576,11 @@ public:
         bool seg_start = true;
         for (const auto& l : std::views::split(str, '\n')) {
             std::string_view sv{l.data(), l.size()};
+            // This does work for *normal* text (so `str` can be `string_view`), however, ... nah.
+            // if (sv.ends_with('\r')) {
+            //     sv.remove_suffix(1);
+            // }
+
             const bool has_prefix = !prefix.empty() && sv.starts_with(prefix);
             if (has_prefix) {
                 sv.remove_prefix(prefix.size());
@@ -587,7 +592,7 @@ public:
                 line.highlight = true;
                 m_highlighted.push_back(m_lines.size() - 1);
             }
-            if (const auto extr = aniso::extract_MAP_str(l); extr.has_rule()) {
+            if (const auto extr = aniso::extract_MAP_str(sv); extr.has_rule()) {
                 _attach_rule(line, extr.get_rule());
             }
         }

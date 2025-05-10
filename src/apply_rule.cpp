@@ -1037,11 +1037,12 @@ public:
                                                ImGuiWindowFlags_AlwaysAutoResize)) {
                 imgui_Str("Double-click to paste.");
                 if (m_paste->rule && *(m_paste->rule) != current_rule) {
-                    // !!TODO: redesign... this can be a rule-source...
+                    // !!TODO: redesign... how to display the rule?
                     ImGui::SameLine();
                     if (double_click_button_small("Rule")) {
                         current_rule.set_next_unchecked(*(m_paste->rule));
                     }
+                    pass_rule::source(*(m_paste->rule));
                     ImGui::SameLine();
                     imgui_StrTooltip("(?)", "The pattern specified a different rule.");
                 }
@@ -1488,8 +1489,8 @@ private:
                 if (self.m_paste) {
                     self.reset_m_paste();
                 } else if (std::string_view text = read_clipboard(); !text.empty()) {
-                    std::optional<aniso::ruleT> rule = std::nullopt;
-                    text = aniso::strip_RLE_header(text, &rule);
+                    // (Not interested in whether the header has correct format.)
+                    const std::string_view header = aniso::strip_RLE_header(text);
                     aniso::from_RLE_str(text, [&](const aniso::prepareT size) -> std::optional<aniso::tile_ref> {
                         if (size.empty()) {
                             // (void)paste_by_shortcut; // (Used to show diff vs 'Ctrl+V'.)
@@ -1504,7 +1505,7 @@ private:
                             return std::nullopt;
                         } else {
                             self.m_ctrl.push_pause_for_m_paste();
-                            self.m_paste = {.rule = rule,
+                            self.m_paste = {.rule = aniso::extract_one_rule(header),
                                             .tile = aniso::tileT(aniso::vecT{.x = (int)size.x, .y = (int)size.y}),
                                             .beg = {0, 0},
                                             .mode = aniso::blitE::Copy};

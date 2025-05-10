@@ -512,29 +512,23 @@ namespace aniso {
     // It's unfortunate that the project didn't consistently use intX_t from the beginning...
     static_assert(INT_MAX < LLONG_MAX);
 
-    [[nodiscard]] inline std::string_view strip_RLE_header(std::string_view text,
-                                                           std::optional<ruleT>* rule = nullptr) {
+    inline std::string_view /*header*/ strip_RLE_header(std::string_view& text) {
         const auto line_size = [](std::string_view str) {
             const auto find_nl = str.find('\n'); // Able to deal with "\r\n".
             return find_nl == str.npos ? str.size() : find_nl + 1;
         };
 
+        std::string_view header{};
         // TODO: whether to allow empty lines in between?
         while (text.starts_with('#')) {
             text.remove_prefix(line_size(text));
         }
         if (text.starts_with('x')) {
             const auto size = line_size(text);
-            if (rule) {
-                // (Not interested in whether the header has correct format.)
-                const auto extr = extract_MAP_str(text.substr(0, size));
-                if (extr.has_rule()) {
-                    rule->emplace(extr.get_rule());
-                }
-            }
+            header = text.substr(0, size);
             text.remove_prefix(size);
         }
-        return text;
+        return header;
     }
 
     struct prepareT {
@@ -548,7 +542,7 @@ namespace aniso {
 
     // (The size is calculated from the contents instead of header.)
     inline void from_RLE_str(std::string_view text, const func_ref<std::optional<tile_ref>(prepareT)> prepare) {
-        text = strip_RLE_header(text);
+        (void)strip_RLE_header(text);
 
         struct takerT {
             const char *str, *end;

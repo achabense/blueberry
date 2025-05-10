@@ -390,7 +390,7 @@ namespace aniso {
     public:
         // data = prefix + rule_str + lock_str + suffix.
         // !has-rule -> data = prefix
-        extrT(const std::span<const char> data, const bool ignore_lock) {
+        extrT(const std::span<const char> data, const bool with_lock) {
             const char* const begin = data.data();
             const char* const end = begin + data.size();
             std::string_view str{begin, end};
@@ -408,7 +408,7 @@ namespace aniso {
                     this->prefix = {begin, str.data()};
                     this->rule_str = {str.data(), rule_len};
                     str.remove_prefix(rule_len);
-                    if (!ignore_lock && str.size() >= lock_len && str.starts_with(" [") &&
+                    if (with_lock && str.size() >= lock_len && str.starts_with(" [") &&
                         str[2 /* [*/ + MAP_len] == ']') {
                         if (_misc::count_base64(str.substr(2 /* [*/, MAP_len)) == MAP_len) {
                             this->lock_str = {str.data(), lock_len};
@@ -423,14 +423,21 @@ namespace aniso {
         }
     };
 
-    inline extrT extract_MAP_str(std::span<const char> data, bool ignore_lock = false) {
-        return extrT(data, ignore_lock);
+    inline extrT extract_MAP_str(std::span<const char> data, bool with_lock = false) { //
+        return extrT(data, with_lock);
+    }
+
+    inline std::optional<ruleT> extract_one_rule(std::string_view str) {
+        if (const auto extr = extract_MAP_str(str); extr.has_rule()) {
+            return extr.get_rule();
+        }
+        return std::nullopt;
     }
 
     inline std::vector<ruleT> extract_all_rules(std::string_view str) {
         std::vector<ruleT> rules;
         for (;;) {
-            if (const auto extr = extract_MAP_str(str, true); extr.has_rule()) {
+            if (const auto extr = extract_MAP_str(str); extr.has_rule()) {
                 rules.push_back(extr.get_rule());
                 str = extr.suffix;
             } else {
@@ -444,7 +451,7 @@ namespace aniso {
         inline const testT test_MAP_str = [] {
             {
                 const std::string_view str = "...";
-                const auto extr = extract_MAP_str(str);
+                const auto extr = extract_MAP_str(str, true);
                 assert(extr.prefix == "..." && extr.suffix == "");
                 assert(!extr.has_rule() && !extr.has_lock());
             }
@@ -458,7 +465,7 @@ namespace aniso {
                 const ruleT gol = game_of_life();
                 assert(to_MAP_str(gol) == gol_str);
 
-                const auto extr = extract_MAP_str(gol_str);
+                const auto extr = extract_MAP_str(gol_str, true);
                 assert(extr.prefix == "" && extr.suffix == "");
                 assert(extr.get_rule() == gol);
                 assert(!extr.has_lock());
@@ -474,8 +481,8 @@ namespace aniso {
                 const std::string rule_only = "(prefix)" + to_MAP_str(rule) + "(suffix)";
                 const std::string with_lock = "(prefix)" + to_MAP_str(rule, &lock) + "(suffix)";
 
-                const auto extr1 = extract_MAP_str(rule_only);
-                const auto extr2 = extract_MAP_str(with_lock);
+                const auto extr1 = extract_MAP_str(rule_only, true);
+                const auto extr2 = extract_MAP_str(with_lock, true);
 
                 assert(extr1.prefix == "(prefix)" && extr2.prefix == "(prefix)");
                 assert(extr1.suffix == "(suffix)" && extr2.suffix == "(suffix)");
