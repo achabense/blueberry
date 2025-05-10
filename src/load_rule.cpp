@@ -485,7 +485,7 @@ struct preview_setting {
 // So, currently `textT` is line-based, and only recognizes the first rule for each line, and will
 // highlight the whole line if the line contains a rule.
 class textT : no_copy {
-    std::string m_text{};
+    std::vector<char> m_text{};
     std::vector<aniso::compressT> m_rules{};
 
     // Won't be invalidated by reallocation.
@@ -515,11 +515,17 @@ class textT : no_copy {
     std::vector<int> m_highlighted{}; // -> `m_lines`
 
     line_ref& _append_line(const std::string_view line) {
-        const str_ref ref = {(int)m_text.size(), (int)line.size()};
-        if (!line.empty()) {
-            m_text += line;
+        // Intentionally not:
+        // if (line.ends_with('\r')) { line.remove_suffix(1); }
+        const int old_size = m_text.size();
+        for (const char ch : line) {
+            // So there won't exist "empty" lines with single invisible '\r'.
+            if (ch != '\r') {
+                m_text.push_back(ch);
+            }
         }
-        return m_lines.emplace_back(ref);
+        const int new_size = m_text.size();
+        return m_lines.emplace_back(str_ref{.begin = old_size, .size = new_size - old_size});
     }
     void _attach_rule(line_ref& line, const aniso::ruleT& rule) {
         m_rules.emplace_back(rule);
@@ -571,16 +577,10 @@ public:
 
     // `str` is assumed to be utf8-encoded. (If not, the rules are still extractable.)
     // (A single "\n" will append two lines as {}{}; however, length() is still 1 for this case, and copying {}{} still results in a single "\n".)
-    void append(std::string str, const std::string_view prefix = {}) {
-        std::erase(str, '\r'); // So there won't exist "empty" lines with single invisible '\r'.
+    void append(const std::string_view str, const std::string_view prefix = {}) {
         bool seg_start = true;
         for (const auto& l : std::views::split(str, '\n')) {
             std::string_view sv{l.data(), l.size()};
-            // This does work for *normal* text (so `str` can be `string_view`), however, ... nah.
-            // if (sv.ends_with('\r')) {
-            //     sv.remove_suffix(1);
-            // }
-
             const bool has_prefix = !prefix.empty() && sv.starts_with(prefix);
             if (has_prefix) {
                 sv.remove_prefix(prefix.size());
@@ -916,9 +916,9 @@ static void load_file_impl() {
             }
             text.clear();
             if constexpr (debug_mode) {
-                text.append(std::move(str), "@@");
+                text.append(str, "@@");
             } else {
-                text.append(std::move(str));
+                text.append(str);
             }
             return true;
         }
@@ -1016,7 +1016,7 @@ static void load_clipboard_impl(const bool paste) {
                 messenger::set_msg("Identical.");
             } else {
                 const int to = text.lines();
-                text.append(std::string(str));
+                text.append(str);
                 text.to_line(to);
             }
         }
@@ -1065,7 +1065,7 @@ static void load_doc_impl() {
             // if (ImGui::Selectable(title, doc_id == i, ImGuiSelectableFlags_NoAutoClosePopups) && doc_id != i) {
             if (imgui_SelectableStyledButtonEx(i, title, doc_id == i) && compare_update(doc_id, i)) {
                 text.clear();
-                text.append(std::string(contents), "@@");
+                text.append(contents, "@@");
                 text.reset_scroll();
             }
         }
