@@ -89,16 +89,14 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
     ImGui::Image(to_texture(dest_data, scaleE::Linear), to_imvec(window_size));
 }
 
-// TODO: whether to hard-block when !is-hex-rule ?
-// `is_hexagonal_rule` is not strictly necessary, but it ensures that the projected view is
-// always meaningful.
-// (Otherwise, the dynamics of projected view cannot be produced by an actual range-1 hexagonal rule.)
 static bool want_hex_mode(const aniso::ruleT& rule) {
     if (shortcuts::no_ctrl() && shortcuts::global_flag(ImGuiKey_6)) {
-        if (rule_algo::is_hexagonal_rule(rule)) {
-            return true;
+        if (!rule_algo::is_hexagonal_rule(rule)) {
+            // (But actually, the projection still corresponds to a range-2 hex rule.)
+            messenger::set_msg("This rule does not belong to 'Hex' set.");
+            // return false;
         }
-        messenger::set_msg("This rule does not belong to 'Hex' subset.");
+        return true;
     }
     return false;
 }
@@ -665,7 +663,7 @@ public:
                         copy_rule::copy(current_rule);
                     }
                     guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
-                                             "Equivalent to sending the rule to '..' after 'Clipboard'.");
+                                             "Equivalent to sending the rule to '[C]' after 'Clipboard'.");
 
                     current_rule->selectable_to_take_snapshot("Recent");
                 });
@@ -1810,8 +1808,8 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                                       "Hold (pause) + 'S' to run manually.\n"
                                       "'D' to advance generation by 1.\n"
                                       "'F' to speed up. (+'A' to apply to the entire group.)\n\n"
-                                      "If the rule belongs to 'Hex' subset:\n"
-                                      "'6' to see the projected view in a hexagonal space.\n"
+                                      "For rules that belong to 'Hex' set:\n"
+                                      "'6' to see the projected view in hexagonal space.\n"
                                       "(This also applies to the space window.)");
             ImGui::SameLine();
             imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
@@ -1821,7 +1819,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                 copy_rule::copy(rule);
             }
             guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
-                                     "Equivalent to sending the rule to '..' after 'Clipboard'.");
+                                     "Equivalent to sending the rule to '[C]' after 'Clipboard'.");
             if (ImGui::Selectable("Explore")) {
                 runner.set_rule(rule);
             }

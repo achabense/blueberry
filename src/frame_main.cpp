@@ -107,9 +107,9 @@ static open_state intro_window(frame_main_token) {
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
-                "The program relies on clipboard for output (e.g. to save rules and patterns), so make sure the clipboard works.\n\n"
-                "Take preview windows for example, there are two equivalent ways to copy the rule: open menu -> 'Copy rule', or send the rule to '..' (after 'Clipboard').\n\n"
-                "Some functions will record recently accepted rules. For example, the recently copied rules can be accessed from the menu for '..'.\n\n"
+                "The program relies on clipboard to save rules and patterns, so make sure the clipboard works.\n\n"
+                "Take preview windows for example, there are two equivalent ways to copy rule to the clipboard: open menu -> 'Copy rule', or send the rule to '[C]' (after 'Clipboard').\n\n"
+                "Some functions will record recently accepted rules. For example, the copied rules are accessible from the menu for '[C]'.\n\n"
                 "For more details, see !!TODO...");
 
             ImGui::Bullet();
@@ -200,7 +200,7 @@ void frame_main() {
         }
         ImGui::SameLine();
         {
-            imgui_Str("..");
+            imgui_Str("[C]");
             if (const auto pass = pass_rule::dest(ImGuiKey_C, 'C'); pass.deliv) {
                 copy_rule::copy(*pass.deliv);
             }
