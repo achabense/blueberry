@@ -1,6 +1,6 @@
 #include "common.hpp"
 
-#ifndef NDEBUG
+#ifdef YDEBUG
 #define SET_FRAME_RATE
 #endif
 

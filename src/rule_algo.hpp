@@ -221,7 +221,7 @@ namespace aniso {
             }
         };
 
-        assert_val(const partitionT par_both = a.p | b.p);
+        for_assertion(const partitionT par_both = a.p | b.p);
         for (const codeT code : each_code) {
             if (!assigned[code]) {
                 // Suppose there really exists r (that belongs to both a and b), then by flipping all its values in any group of (a.p | b.p), the result must still belong to both a and b, as any group of (a.p | b.p) corresponds to one or multiple (entire) groups of (a.p) or (b.p).

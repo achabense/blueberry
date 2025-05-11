@@ -3,8 +3,20 @@
 // #include <bit>
 #include <concepts>
 // #include <functional>
+#include <cassert>
 #include <type_traits>
 #include <utility>
+
+#define assert_implies(a, b) assert(!(a) || (b))
+
+#ifndef NDEBUG
+#define YDEBUG
+#define for_assertion(v) v
+inline constexpr bool debug_mode = true;
+#else
+#define for_assertion(v)
+inline constexpr bool debug_mode = false;
+#endif
 
 struct no_create {
     no_create() = delete;

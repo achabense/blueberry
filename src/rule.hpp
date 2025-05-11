@@ -15,14 +15,8 @@
 
 #include "utils.hpp"
 
-// TODO: lift some to "utils.hpp"?
-#ifndef NDEBUG
-#define assert_val(v) v
-inline constexpr bool debug_mode = true;
+#ifdef YDEBUG
 #define ENABLE_TESTS
-#else
-#define assert_val(v)
-inline constexpr bool debug_mode = false;
 #endif
 
 #if defined(__clang__)
@@ -46,8 +40,6 @@ inline constexpr bool debug_mode = false;
 #endif
 
 static_assert(INT_MAX >= INT32_MAX);
-
-#define assert_implies(a, b) assert(!(a) || (b))
 
 namespace aniso {
 
