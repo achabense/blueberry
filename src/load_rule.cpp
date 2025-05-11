@@ -300,9 +300,8 @@ public:
         if (m_current.valid()) {
             if (!m_current.refresh()) {
                 messenger::set_msg("Cannot refresh the current folder.");
-                // TODO: whether to clear m_current?
             } else {
-                messenger::set_msg("Updated.");
+                messenger::dot();
             }
         }
     }
@@ -669,7 +668,7 @@ public:
                     str += m_lines[i].str.get(m_text);
                 }
                 // (wontfix) Won't copy if `str` contains '\0' (not expected to appear in utf8 text files).
-                set_clipboard_and_notify(str);
+                set_clipboard_and_notify(str, false /*"Copied."*/);
             }
         }
 
@@ -951,7 +950,7 @@ static void load_file_impl() {
         ImGui::SameLine();
         if (ImGui::SmallButton("Reload")) {
             if (try_load(*path)) {
-                messenger::set_msg("Updated.");
+                messenger::dot();
             }
             // Won't reset scroll.
         }
@@ -983,7 +982,7 @@ static void load_file_impl() {
         menu_like_popup::small_button(">");
         menu_like_popup::popup([] { text.select_line(); });
         ImGui::SameLine();
-        if (ImGui::SmallButton("Top")) { // !!TODO: whether to add tooltip?
+        if (ImGui::SmallButton("Top") && messenger::dot()) {
             text.reset_scroll();
         }
 
@@ -1027,8 +1026,7 @@ static void load_clipboard_impl(const bool paste) {
     }
 
     ImGui::SameLine();
-    if (double_click_button_small("Clear")) {
-        set_msg_cleared();
+    if (double_click_button_small("Clear") && messenger::dot()) {
         text.clear();
         last_str.clear();
         // last_str.shrink_to_fit(); // TODO: whether to release memory?
@@ -1045,7 +1043,7 @@ static void load_clipboard_impl(const bool paste) {
     menu_like_popup::small_button(">");
     menu_like_popup::popup([] { text.select_line(); });
     ImGui::SameLine();
-    if (ImGui::SmallButton("Top")) {
+    if (ImGui::SmallButton("Top") && messenger::dot()) {
         text.reset_scroll();
     }
 
@@ -1104,7 +1102,7 @@ static void load_doc_impl() {
         menu_like_popup::small_button(">");
         menu_like_popup::popup([] { text.select_line(); });
         ImGui::SameLine();
-        if (ImGui::SmallButton("Top")) {
+        if (ImGui::SmallButton("Top") && messenger::dot()) {
             text.reset_scroll();
         }
 

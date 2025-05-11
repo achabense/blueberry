@@ -695,11 +695,13 @@ class messenger : no_create {
         void display_if_present() {
             if (m_str.empty()) {
                 return;
-            } else if (m_min) {
+            }
+            const auto now = clockT::now();
+            if (m_min) {
                 if (const ImVec2 delta = ImGui::GetIO().MouseDelta; delta.x || delta.y) {
                     --m_count;
                 }
-                const bool t_expired = clockT::now() > m_time;
+                const bool t_expired = now > m_time;
                 const bool c_expired = m_count < 0;
                 // TODO: ideally the callers of `set_msg` should be able to specify quitting cond.
                 if (m_str.size() < 15 ? (c_expired || t_expired) : (c_expired && t_expired)) {
@@ -709,13 +711,27 @@ class messenger : no_create {
             }
 
             assert(!m_str.empty());
+            if (m_str == ".") {
+                if (!m_min) {
+                    m_count = 12;
+                    m_time = now + std::chrono::milliseconds(400);
+                    m_min = ImGui::GetMousePos();
+                }
+                assert(m_time >= now);
+                const float radius =
+                    4.0f * std::chrono::floor<std::chrono::milliseconds>(m_time - now).count() / 400.0f;
+                ImGui::GetForegroundDrawList()->AddCircleFilled(*m_min - ImVec2(1, 1), radius,
+                                                                IM_COL32(0, 255, 0, 255) /*light green*/);
+                return;
+            }
+
             const float text_wrap = wrap_len();
             const char *const text_beg = m_str.c_str(), *const text_end = text_beg + m_str.size();
             const ImVec2 window_padding = ImGui::GetStyle().WindowPadding;
             const ImVec2 window_size = ImGui::CalcTextSize(text_beg, text_end, false, text_wrap) + window_padding * 2;
             if (!m_min) {
                 m_count = 12;
-                m_time = clockT::now() + std::chrono::milliseconds(600);
+                m_time = now + std::chrono::milliseconds(600);
                 // TODO: support specifying appearing pos?
                 if (ImGui::IsMousePosValid()) [[likely]] {
                     m_min = clamp_window_pos(ImGui::GetMousePos() + window_padding, window_size);
@@ -742,6 +758,11 @@ public:
     template <class... U>
     static void set_msg(std::format_string<const U&...> fmt, const U&... args) {
         m_msg.set(std::format(fmt, args...));
+    }
+
+    static bool dot() {
+        m_msg.set(".");
+        return true;
     }
 
     static void display_msg_if_present(frame_main_token) { m_msg.display_if_present(); }
@@ -996,20 +1017,17 @@ public:
     }
 };
 
-// TODO: whether to check `has_effect`?
-inline void set_msg_cleared(bool /*has_effect*/ = true) {
-    // if (has_effect) {
-    messenger::set_msg("Cleared.");
-    // }
-}
-
-inline void set_clipboard_and_notify(const std::string& str) {
+inline void set_clipboard_and_notify(const std::string& str, const bool dot = true) {
     if (str.empty()) {
         // Ignore silently...
         // messenger::set_msg("Ignored empty str.");
     } else if (str.find('\0') == str.npos) {
         ImGui::SetClipboardText(str.c_str());
-        messenger::set_msg("Copied.");
+        if (dot) {
+            messenger::dot();
+        } else {
+            messenger::set_msg("Copied.");
+        }
     } else {
         // This can happen when the user tries to copy lines in a data file.
         // If copied, the result will be incomplete, and nothing in worst case (if starts with '\0').
@@ -1188,14 +1206,14 @@ private:
             imgui_Window::next_window_titlebar_tooltip =
                 "This is a snapshot of the actual record. When it's outdated, the window title will be marked with '*', and you can update with 'Update'.";
             if (auto window = imgui_Window(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
-                if (ImGui::SmallButton("Update")) {
+                if (ImGui::SmallButton("Update") && messenger::dot()) {
                     assert(!data.empty()); // (As there is currently no clear method.)
                     m_data = data;
                     m_outdated = false;
                     to_top = true;
                 }
                 ImGui::SameLine();
-                if (ImGui::SmallButton("Top")) {
+                if (ImGui::SmallButton("Top") && messenger::dot()) {
                     to_top = true;
                 }
                 ImGui::SameLine();
@@ -1270,6 +1288,7 @@ public:
     static std::string to_str(const aniso::ruleT& rule) { return aniso::to_MAP_str(rule); }
 
     static void copy(const aniso::ruleT& rule) {
+        // !!TODO: dot or "Copied."?
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
         rec.add(rule);
     }

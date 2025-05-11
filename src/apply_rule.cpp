@@ -626,6 +626,8 @@ public:
     void set_rule(const aniso::ruleT& rule) {
         if (!current_rule.set_next(rule)) {
             set_msg_identical();
+        } else {
+            // messenger::dot();
         }
     }
 
@@ -963,6 +965,7 @@ public:
         menu_like_popup::popup([&] {
             int id = 0;
             if (imgui_SelectableStyledButtonEx(id++, "Pos")) {
+                // messenger::dot(); // TODO: whether to show dots for these ops?
                 reset_pos();
             }
             guide_mode::item_tooltip(
@@ -1289,8 +1292,7 @@ public:
                             if (m_paste->paste_once) {
                                 reset_m_paste();
                             } else {
-                                // !!TODO: message looks awkward; what's the suitable feedback?
-                                // messenger::set_msg("Pasted.");
+                                messenger::dot();
                             }
                             return true;
                         } else { // Restore.
@@ -1672,7 +1674,7 @@ void previewer::configT::_set() {
     menu_like_popup::button("Init state");
     menu_like_popup::popup([] {
         initT& init = previewer_data::global_init;
-        if (ImGui::Button("Reset")) {
+        if (ImGui::Button("Reset") && messenger::dot()) {
             init = previewer_data::init_init;
         }
         ImGui::SameLine();

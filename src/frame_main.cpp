@@ -69,7 +69,7 @@ static open_state intro_window(frame_main_token) {
             imgui_Str("Right-click underlined text (like this) to open menu.");
             rclick_popup::popup(imgui_GetItemPosID(), [] {
                 if (ImGui::Selectable("...")) {
-                    messenger::set_msg("...");
+                    messenger::dot();
                 }
             });
 
@@ -77,7 +77,7 @@ static open_state intro_window(frame_main_token) {
             imgui_Str("Buttons like ");
             ImGui::SameLine(0, 0);
             if (double_click_button_small("this")) {
-                messenger::set_msg("this");
+                messenger::dot();
             }
             ImGui::SameLine(0, 0);
             imgui_Str(" require double-clicking.");
@@ -100,7 +100,7 @@ static open_state intro_window(frame_main_token) {
             imgui_Str("Right-click \"preview window\" (like below) to open menu.");
 
             ImGui::Bullet();
-            imgui_Str("Press '</>' to control 'Prev/Next' in the focused window.");
+            imgui_Str("Press left/right arrow keys to control 'Prev/Next' in the focused window.");
 
             ImGui::Bullet();
             imgui_Str("Make sure you can save discoveries.");

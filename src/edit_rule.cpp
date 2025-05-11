@@ -548,6 +548,26 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
     return nullptr;
 }
 
+static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set,
+                                     const aniso::ruleT* compare) {
+    if (compare) {
+        return get_deliv(pass, working_set, *compare);
+    } else {
+        return get_deliv(pass, working_set);
+    }
+}
+
+static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::ruleT* compare) {
+    if (const auto* any = pass.any()) {
+        if (compare && *any == *compare) {
+            pass.tooltip_or_message("Identical.");
+            return nullptr;
+        }
+        return pass.deliv;
+    }
+    return nullptr;
+}
+
 static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT& working_set) {
     if (rst->has_snapshot()) {
         bool updated = false;
@@ -687,10 +707,10 @@ public:
                 });
             }
             if (tag == Custom) {
-                if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_3, '3'), working_set /*, rule_custom*/)) {
+                if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_3, '3'), working_set, rule_custom)) {
                     rule_custom = *deliv;
                     m_tag = tag;
-                    messenger::set_msg("Updated.");
+                    messenger::dot();
                 }
             }
         }
@@ -726,8 +746,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
 
         auto manage = [](std::optional<aniso::ruleT>& rule) {
             rclick_popup::popup(imgui_GetItemPosID(), [&] {
-                if (ImGui::Selectable("Clear")) {
-                    set_msg_cleared(rule.has_value());
+                if (ImGui::Selectable("Clear") && messenger::dot()) {
                     rule.reset();
                 }
             });
@@ -738,9 +757,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
             previewer::preview_or_dummy(id, config, rule ? &*rule : nullptr);
         };
 
-        if (double_click_button_small("Clear" /*"Clear all"*/)) {
-            set_msg_cleared();
-            // messenger::set_msg("All cleared.");
+        if (double_click_button_small("Clear" /*"Clear all"*/) && messenger::dot()) {
             rule_01_rev.reset();
             rule_approx.reset();
             for (auto& rule : rule_temp) {
@@ -749,7 +766,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
         }
         // guide_mode::item_tooltip("Clear all rules in this window.");
         ImGui::SameLine();
-        const bool to_top = ImGui::SmallButton("Top");
+        const bool to_top = ImGui::SmallButton("Top") && messenger::dot();
         ImGui::SameLine();
         config.set("Settings", true /*small*/);
 
@@ -807,10 +824,8 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
 
                 ImGui::BeginGroup();
                 ImGui::Text("Temp %d", this_i);
-                if (const auto pass = manage(rule); pass.deliv) {
-                    // !!TODO: whether to compare?
-                    messenger::set_msg("Updated.");
-                    rule = *pass.deliv;
+                if (const auto* deliv = get_deliv(manage(rule), rule ? &*rule : nullptr)) {
+                    rule = *deliv;
                 }
                 if (this_i == 1) {
                     guide_mode::item_tooltip("Drag a rule here for later use.");
@@ -970,7 +985,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_R, 'R'), working_set, orderer)) {
             orderer.set(*deliv);
             page.clear();
-            messenger::set_msg("[R] updated.");
+            messenger::dot();
         }
         if (display_snapshot_if_present(orderer, working_set)) {
             page.clear();
@@ -1009,8 +1024,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             }
         }
         rclick_popup::popup(imgui_GetItemPosID(), [] {
-            if (ImGui::Selectable("Clear")) {
-                set_msg_cleared(!page.empty());
+            if (ImGui::Selectable("Clear") && messenger::dot()) {
                 page.clear();
             }
         });
@@ -1028,7 +1042,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
                 if (page.empty()) {
                     guide_mode::item_tooltip("Drag a rule here to go to where the rule belongs in the sequence.");
                 }
-                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
+                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set, !page.empty() ? &page[0] : nullptr)) {
                     reset_page(First, *deliv);
                 }
             }
@@ -1084,7 +1098,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         }
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_S, 'S'), working_set, target)) {
             target.set(*deliv);
-            messenger::set_msg("[S] updated.");
+            messenger::dot();
         }
         display_snapshot_if_present(target, working_set);
 
@@ -1129,8 +1143,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             ImGui::Text("Pages:%d At:N/A", calc_page());
         }
         rclick_popup::popup(imgui_GetItemPosID(), [] {
-            if (ImGui::Selectable("Clear")) {
-                set_msg_cleared(!rules.empty());
+            if (ImGui::Selectable("Clear") && messenger::dot()) {
                 rules.clear();
                 rules.shrink_to_fit();
                 page_no = 0;
@@ -1172,9 +1185,7 @@ void edit_rule(frame_main_token) {
             }
             if (pass.deliv) {
                 select_working.match(*pass.deliv);
-                if (collapse) {
-                    messenger::set_msg("Set updated.");
-                }
+                messenger::dot();
             }
         }
         guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
@@ -1274,7 +1285,7 @@ void edit_rule(frame_main_token) {
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set, target)) {
                 target.set(*deliv);
-                messenger::set_msg("[T] updated.");
+                messenger::dot();
             }
             display_snapshot_if_present(target, working_set);
 
@@ -1298,7 +1309,7 @@ void edit_rule(frame_main_token) {
 
     // !!TODO: whether to add here? whether to hide when it's not needed?
     // ImGui::SameLine();
-    // if (ImGui::SmallButton("Top")) {
+    // if (ImGui::SmallButton("Top") && messenger::dot();) {
     //     ImGui::SetNextWindowScroll({0, 0});
     // }
 
