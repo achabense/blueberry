@@ -1023,4 +1023,12 @@ namespace aniso {
         }
     };
 
+    [[nodiscard]] inline tile_buf realign_from_to(const tile_const_ref tile_from, const vecT from, const vecT to) {
+        assert(tile_from.size.xy() <= tile_buf::capacity());
+
+        tile_buf tile_to(tile_from.size);
+        rotate_copy_00_to(tile_to.data(), tile_from, from - to);
+        return tile_to;
+    }
+
 } // namespace aniso

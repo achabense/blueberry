@@ -198,10 +198,9 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
             // will be a lot of code.)
             aniso::tileT next(aniso::divmul_ceil(range.size() + padding * 2, period_size));
 
-            aniso::tile_buf aligned{period_size}; // Aligned to next.data().at(0, 0).
-            aniso::rotate_copy_00_to(aligned.data(), background, padding);
             const aniso::rangeT relocate{.begin = padding, .end = padding + pattern.size};
-            aniso::fill_outside(next.data(), relocate, aligned);
+            aniso::fill_outside(next.data(), relocate,
+                                aniso::realign_from_to(background, padding, {0, 0}) /*relative to `next`*/);
             aniso::copy(next.data().clip(relocate), pattern);
             next.run_torus(rule);
 
@@ -729,6 +728,10 @@ public:
                                       "'Ctrl' and left-click a cell to resize to that position.");
             ImGui::SameLine();
             imgui_Str("Background");
+            // ImGui::SameLine();
+            // if (ImGui::SmallButton("Flip")) {
+            //     aniso::flip(init.background.data());
+            // }
 
             // There are:
             // demo_size.z is a multiple of any i <= max_period.z, and
@@ -1367,21 +1370,46 @@ private:
                 aniso::random_flip(self.m_torus.write_only(self.m_sel->to_range()), rand, flip_den.get());
             } // (Without a comment here, the clang-format result will be extremely ugly...)
         };
+        constexpr op_term op_flip{
+            ImGuiKey_Minus, "- (_)", true,
+            [](runnerT& self) {
+                assert(self.m_sel);
+                aniso::flip(self.m_torus.write_only(self.m_sel->to_range()));
+            } //
+        };
 
-        // !!TODO: (v0.9.9?v0.9.8) support filling with periodic bg...
-        static aniso::cellT background{0};
+        static int background = 0; // TODO: -> enum.
         constexpr op_term op_clear_inside{
             ImGuiKey_Backspace, "Backspace", true,
             [](runnerT& self) {
                 assert(self.m_sel);
-                aniso::fill(self.m_torus.write_only(self.m_sel->to_range()), background);
+                const auto sel_area = self.m_torus.write_only(self.m_sel->to_range());
+                if (background == 0 || background == 1) {
+                    aniso::fill(sel_area, aniso::cellT(background));
+                } else {
+                    const aniso::vecT p_size{2, 2};
+                    if (check_border(sel_area, p_size)) {
+                        aniso::self_repeat(sel_area, p_size);
+                    }
+                }
             } //
         };
         constexpr op_term op_clear_outside{
             ImGuiKey_0, "0 (zero)", true,
             [](runnerT& self) {
                 assert(self.m_sel);
-                aniso::fill_outside(self.m_torus.write_only(), self.m_sel->to_range(), background);
+                if (background == 0 || background == 1) {
+                    aniso::fill_outside(self.m_torus.write_only(), self.m_sel->to_range(), aniso::cellT(background));
+                } else {
+                    const aniso::rangeT sel_range = self.m_sel->to_range();
+                    const auto sel_area = self.m_torus.read_only(sel_range);
+                    const aniso::vecT p_size{2, 2};
+                    if (check_border(sel_area, p_size)) {
+                        aniso::fill_outside(
+                            self.m_torus.write_only(), sel_range,
+                            aniso::realign_from_to(sel_area.clip_corner(p_size), sel_range.begin, {0, 0}));
+                    }
+                }
             } //
         };
 
@@ -1521,8 +1549,8 @@ private:
         // bool paste_by_shortcut = false;
 
         if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
-            for (const op_term& t : {op_random_flip, op_clear_inside, op_clear_outside, op_select_all, op_bounding_box,
-                                     op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
+            for (const op_term& t : {op_random_flip, op_flip, op_clear_inside, op_clear_outside, op_select_all,
+                                     op_bounding_box, op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
                 if (shortcuts::test_pressed(t.key, false)) {
                     op_highlight = t.key;
                     if (t.check_sel(*this)) {
@@ -1563,19 +1591,22 @@ private:
                 // !!TODO: reorder & show possible "2*2 bg" in a tooltip...
                 // ("e.g., pure white, pure black, striped, or checkerboard background")
 
-                ImGui::AlignTextToFramePadding();
-                imgui_Str("Background ~");
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                imgui_RadioButton("0", &background, {0});
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                imgui_RadioButton("1", &background, {1});
-                ImGui::SameLine();
-                imgui_StrTooltip("(?)", "'Clear inside/outside' will fill with this value.");
+                flip_den.step_slide("Density");
+                term("Random flip", op_random_flip);
+                term("Flip", op_flip);
 
                 ImGui::Separator();
 
-                flip_den.step_slide("Density");
-                term("Random flip", op_random_flip);
+                ImGui::AlignTextToFramePadding();
+                imgui_Str("Background ~");
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                imgui_RadioButton("0", &background, 0);
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                imgui_RadioButton("1", &background, 1);
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                imgui_RadioButton("C", &background, 2);
+                ImGui::SameLine();
+                imgui_StrTooltip("(?)", "'Clear inside/outside' will fill with this value."); // !!TODO: rewrite...
                 term("Clear inside", op_clear_inside);
                 term("Clear outside", op_clear_outside);
 
