@@ -668,7 +668,7 @@ public:
                     str += m_lines[i].str.get(m_text);
                 }
                 // (wontfix) Won't copy if `str` contains '\0' (not expected to appear in utf8 text files).
-                set_clipboard_and_notify(str, false /*"Copied."*/);
+                set_clipboard_and_notify(str);
             }
         }
 

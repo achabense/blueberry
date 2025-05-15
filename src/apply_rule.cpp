@@ -962,7 +962,7 @@ public:
         ImGui::SameLine(floor(1.5 * item_width));
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
-        menu_like_popup::popup([&] { set_init_state_in_popup(); });
+        menu_like_popup::popup(set_init_state_in_popup);
         ImGui::SameLine();
         menu_like_popup::button("Reset");
         menu_like_popup::popup([&] {

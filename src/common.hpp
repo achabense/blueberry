@@ -1017,17 +1017,14 @@ public:
     }
 };
 
-inline void set_clipboard_and_notify(const std::string& str, const bool dot = true) {
+inline void set_clipboard_and_notify(const std::string& str) {
     if (str.empty()) {
         // Ignore silently...
         // messenger::set_msg("Ignored empty str.");
     } else if (str.find('\0') == str.npos) {
         ImGui::SetClipboardText(str.c_str());
-        if (dot) {
-            messenger::dot();
-        } else {
-            messenger::set_msg("Copied.");
-        }
+        // messenger::dot();
+        messenger::set_msg("Copied.");
     } else {
         // This can happen when the user tries to copy lines in a data file.
         // If copied, the result will be incomplete, and nothing in worst case (if starts with '\0').
@@ -1054,7 +1051,7 @@ inline bool input_text(const char* label, std::span<char> buf, const char* hint 
     const bool ret = hint ? ImGui::InputTextWithHint(label, hint, buf.data(), buf.size(), flags, callback)
                           : ImGui::InputText(label, buf.data(), buf.size(), flags, callback);
     if (ImGui::IsItemActive() && !ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
-        !imgui_GetItemRect().ContainsWithPad(ImGui::GetMousePos(), ImGui::GetStyle().ItemSpacing * 2)) {
+        ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
         ImGui::ClearActiveID();
     }
     return ret;

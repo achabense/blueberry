@@ -205,7 +205,7 @@ void frame_main() {
                 copy_rule::copy(*pass.deliv);
             }
             rclick_popup::popup(imgui_GetItemPosID(), [] {
-                copy_rule::get_rec({}).selectable_to_take_snapshot("Copied rules");
+                copy_rule::get_rec({}).selectable_to_take_snapshot("Recent");
                 guide_mode::item_tooltip("Recently copied rules, including those copied via 'Copy rule'.");
             });
             guide_mode::item_tooltip("Drag a rule here to copy it (as MAP-string) to the clipboard.\n\n"
