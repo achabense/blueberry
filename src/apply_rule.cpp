@@ -346,29 +346,22 @@ public:
 class runnerT : no_copy {
     class staged_rule {
         rule_with_rec rule = aniso::game_of_life();
-        std::optional<aniso::ruleT> next = std::nullopt;
+        // std::optional<aniso::ruleT> next = std::nullopt;
+        aniso::ruleT next = {};
+        bool has_next = false;
 
     public:
         operator const aniso::ruleT&() const { return rule; }
         const aniso::ruleT& get() const { return rule; }
         const rec_for_rule* operator->() const { return rule.operator->(); }
 
-        void set_next_unchecked(const aniso::ruleT& r) {
-            assert(rule != r);
+        void set_next(const aniso::ruleT& r) {
             next = r;
+            has_next = true;
         }
-        bool set_next(const aniso::ruleT& r) {
-            if (rule != r) {
-                next = r;
-                return true;
-            }
-            return false;
-        }
-
         bool update() {
-            if (next) {
-                rule.set(*next);
-                next.reset();
+            if (std::exchange(has_next, false) && rule != next) {
+                rule.set(next);
                 return true;
             }
             return false;
@@ -622,25 +615,14 @@ class runnerT : no_copy {
         reset_m_paste();
         m_sel.reset();
     }
-    static void set_msg_identical() { messenger::set_msg("Identical."); }
 
 public:
-    void set_rule(const aniso::ruleT& rule) {
-        if (!current_rule.set_next(rule)) {
-            set_msg_identical();
-        } else {
-            // messenger::dot();
-        }
-    }
+    void set_rule(const aniso::ruleT& rule) { current_rule.set_next(rule); }
 
-    void set_rule_and_state(const aniso::ruleT& rule, const aniso::vecT& size, const initT& init) {
+    void set_state(const aniso::vecT& size, const initT& init) {
         reset_pos();
-
-        const bool rule_updated = current_rule.set_next(rule);
         if (m_torus.resize_and_set_init(size, init)) {
             reset_m_paste_and_m_sel();
-        } else if (!rule_updated) {
-            set_msg_identical();
         }
     }
 
@@ -672,19 +654,16 @@ public:
                     current_rule->selectable_to_take_snapshot("Recent");
                 });
             }
-            if (const auto pass = pass_rule::dest(ImGuiKey_2, '2')) {
-                if (*pass.any() == current_rule) {
-                    pass.tooltip_or_message("Identical.");
-                } else if (pass.deliv) {
-                    current_rule.set_next_unchecked(*pass.deliv);
-                }
+            if (const auto* deliv = pass_rule::dest(ImGuiKey_2, '2').deliv) {
+                current_rule.set_next(*deliv);
+                messenger::dot();
             }
             guide_mode::item_tooltip("MAP-string for the rule shown in the space window.\n\n"
                                      "Drag to send the rule elsewhere; drag a rule here to replace.");
             if (current_rule->has_snapshot()) {
                 current_rule->display_snapshot_if_present(
                     {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
-                      .set = [&](const aniso::ruleT& r) { (void)current_rule.set_next(r); }}});
+                      .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
             }
 
             ImGui::Separator();
@@ -702,6 +681,8 @@ public:
             ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
 
         auto set_init_state_in_popup = [&]() {
+            const bool reset = ImGui::Button("Reset") && messenger::dot();
+            ImGui::SameLine();
             const bool restart =
                 ImGui::Button("Restart") ||
                 (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_R) && shortcuts::highlight());
@@ -715,7 +696,7 @@ public:
             imgui_StrTooltip("(?)", "The space will pause and restart if you 'Restart' or change init settings.\n\n"
                                     "The shortcuts for 'Restart' ('R') and 'Pause' ('Space') also work here.");
 
-            initT init = m_torus.get_init();
+            initT init = reset ? torusT::init_init : m_torus.get_init();
 
             ImGui::PushItemWidth(item_width);
             imgui_StepSliderInt::fn("Seed", &init.seed, 0, 29);
@@ -731,10 +712,10 @@ public:
                                       "'Ctrl' and left-click a cell to resize to that position.");
             ImGui::SameLine();
             imgui_Str("Background");
-            // ImGui::SameLine();
-            // if (ImGui::SmallButton("Flip")) {
-            //     aniso::flip(init.background.data());
-            // }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("0/1")) {
+                aniso::flip(init.background.data());
+            }
 
             // There are:
             // demo_size.z is a multiple of any i <= max_period.z, and
@@ -847,8 +828,6 @@ public:
                 if (m_torus.resize({.x = ix.value_or(input_x.flush().value_or(size.x)),
                                     .y = iy.value_or(input_y.flush().value_or(size.y))})) {
                     reset_m_paste_and_m_sel();
-                } else {
-                    // set_msg_identical();
                 }
             }
         };
@@ -970,34 +949,27 @@ public:
         menu_like_popup::button("Reset");
         menu_like_popup::popup([&] {
             int id = 0;
-            if (imgui_SelectableStyledButtonEx(id++, "Pos")) {
-                // messenger::dot(); // TODO: whether to show dots for these ops?
+            if (imgui_SelectableStyledButtonEx(id++, "Pos") && messenger::dot()) {
                 reset_pos();
             }
             guide_mode::item_tooltip(
                 "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
             static_assert(torusT::init_size == aniso::vecT{600, 400});
-            if (imgui_SelectableStyledButtonEx(id++, "Size (600*400)")) {
+            if (imgui_SelectableStyledButtonEx(id++, "Size (600*400)") && messenger::dot()) {
                 reset_pos();
                 if (m_torus.resize(torusT::init_size)) {
                     reset_m_paste_and_m_sel();
-                } else {
-                    set_msg_identical();
                 }
             }
-            if (imgui_SelectableStyledButtonEx(id++, "Init state")) {
+            if (imgui_SelectableStyledButtonEx(id++, "Init state") && messenger::dot()) {
                 if (m_torus.set_init(torusT::init_init)) {
                     reset_m_paste_and_m_sel();
-                } else {
-                    set_msg_identical();
                 }
             }
-            if (imgui_SelectableStyledButtonEx(id++, "Size & state")) {
+            if (imgui_SelectableStyledButtonEx(id++, "Size & state") && messenger::dot()) {
                 reset_pos();
                 if (m_torus.resize_and_set_init(torusT::init_size, torusT::init_init)) {
                     reset_m_paste_and_m_sel();
-                } else {
-                    set_msg_identical();
                 }
             }
         });
@@ -1047,7 +1019,7 @@ public:
                     // !!TODO: redesign... how to display the rule?
                     ImGui::SameLine();
                     if (double_click_button_small("Rule")) {
-                        current_rule.set_next_unchecked(*(m_paste->rule));
+                        current_rule.set_next(*(m_paste->rule));
                     }
                     pass_rule::source(*(m_paste->rule));
                     ImGui::SameLine();
@@ -1125,8 +1097,6 @@ public:
                 if (m_torus.resize(fullscreen_size(m_coord.zoom))) {
                     reset_m_paste_and_m_sel();
                     find_suitable_zoom = false;
-                } else {
-                    // set_msg_identical();
                 }
             }
             if (std::exchange(find_suitable_zoom, false)) {
@@ -1288,8 +1258,7 @@ public:
                     m_torus.read_and_maybe_write([&](const aniso::tile_ref tile) {
                         const aniso::tile_ref paste_area = tile.clip({paste_beg, paste_end});
                         aniso::tileT temp(paste_area);
-                        // !!TODO: (v0.9.9?v0.9.8) support specifying align req?
-                        // TODO: (how to) support arbitrary transparent bg?
+                        // !!TODO: (v0.9.9) support specifying align req.
                         aniso::blit(paste_area, m_paste->tile.data(), m_paste->mode);
                         texture = to_texture(tile, scale_mode);
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
@@ -1447,7 +1416,7 @@ private:
             } //
         };
 
-        // !!TODO: (v0.9.9?v0.9.8) enhance to background sampling...
+        // !!TODO: (v0.9.9) enhance to background sampling...
         constexpr op_term op_test_bg_period{
             ImGuiKey_P, "P", true,
             [](runnerT& self) {
@@ -1645,8 +1614,25 @@ private:
     }
 };
 
+class activeT {
+    static_assert(std::is_same_v<int, decltype(ImGui::GetFrameCount())>);
+    int frame = 0;
+
+public:
+    void update() { frame = ImGui::GetFrameCount(); }
+
+    explicit operator bool() const {
+        const int f = ImGui::GetFrameCount();
+        return frame == f || frame + 1 == f;
+    }
+};
+
 static runnerT runner;
-void apply_rule(frame_main_token) { runner.display(); }
+static activeT runner_active;
+void apply_rule(frame_main_token) {
+    runner.display();
+    runner_active.update();
+}
 
 class previewer_data : no_create {
     friend class previewer;
@@ -1838,13 +1824,18 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             }
             guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
                                      "Equivalent to sending the rule to '[C]' after 'Clipboard'.");
-            if (ImGui::Selectable("Explore")) {
+            if (!runner_active) {
+                return;
+            }
+
+            if (ImGui::Selectable("Explore") && messenger::dot()) {
                 runner.set_rule(rule);
             }
             guide_mode::item_tooltip("Explore in the space window. "
-                                     "Equivalent to sending the rule to 'MAP...' in the right panel.");
-            if (ImGui::Selectable("Explore (& state)")) {
-                runner.set_rule_and_state(rule, term.tile.size(), term.init);
+                                     "Equivalent to sending the rule to the MAP-string ('MAP...') in the right panel.");
+            if (ImGui::Selectable("Explore (& state)") && messenger::dot()) {
+                runner.set_rule(rule);
+                runner.set_state(term.tile.size(), term.init);
             }
             guide_mode::item_tooltip(
                 "Explore in the space window, using the same space size and init state (so you can operate on the same patterns).");
