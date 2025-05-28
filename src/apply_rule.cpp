@@ -654,7 +654,7 @@ public:
                     current_rule->selectable_to_take_snapshot("Recent");
                 });
             }
-            if (const auto* deliv = pass_rule::dest(ImGuiKey_2, '2').deliv) {
+            if (const auto* deliv = pass_rule::dest(ImGuiKey_2, '2').get_deliv()) {
                 current_rule.set_next(*deliv);
                 messenger::dot();
             }

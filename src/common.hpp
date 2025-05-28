@@ -903,6 +903,7 @@ private:
 };
 
 // !!TODO: recheck logic...
+// TODO: support highlighting rule sources?
 // TODO: add scope? some source->dest may be meaningless.
 class pass_rule : no_create {
     inline static ImGuiID active = 0;
@@ -948,14 +949,15 @@ public:
     }
 
     struct passT {
-        const aniso::ruleT* hov;
-        const aniso::ruleT* deliv;
+        const aniso::ruleT* rule = nullptr;
+        bool hov = false, deliv = false;
 
-        const aniso::ruleT* any() const { return hov ? hov : deliv; }
-        explicit operator bool() const { return hov || deliv; }
+        const aniso::ruleT* get_hov() const { return hov ? rule : nullptr; }
+        const aniso::ruleT* get_deliv() const { return deliv ? rule : nullptr; }
 
-        // (Not directly using `hov`, for stable visual.)
+        // (Using _ForTooltip for stable visual.)
         bool hov_for_tooltip() const {
+            assert_implies(hov, rule);
             return hov &&
                    ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
         }
@@ -972,18 +974,16 @@ public:
         }
     };
 
-    // !!TODO: how to document the shortcuts?
     [[nodiscard]] static passT dest(const ImGuiKey shortcut = ImGuiKey_None, const char label = '\0') {
         if (active && ImGui::IsItemVisible()) {
             static item_timer timer{};
             render_rect(timer.test());
-            if (label) { // !!TODO: improve...
+            if (label) { // !!TODO: ideally should render at the foreground of individual windows...
                 const char str[]{'^', ' ', label, '\0'};
                 const ImVec2 pos = imgui_GetItemRect().GetBL() + ImVec2(-4, 5);
                 const ImVec2 padding = ImGui::GetStyle().FramePadding;
                 const ImVec2 size = imgui_CalcTextSize(str) + padding * 2;
                 const float alpha = 1;
-                // TODO: ideally should render at the foreground of individual windows...
                 ImDrawList* const drawlist = ImGui::GetForegroundDrawList();
                 drawlist->AddRectFilled(pos, pos + size, ImGui::GetColorU32(ImGuiCol_PopupBg, alpha));
                 drawlist->AddText(pos + padding, ImGui::GetColorU32(ImGuiCol_Text, alpha), str);
@@ -997,15 +997,15 @@ public:
                 if (deliv) {
                     active = false;
                 }
-                return {&rule, deliv ? &rule : nullptr};
+                return {.rule = &rule, .hov = true, .deliv = deliv};
             } else if (shortcut != ImGuiKey_None && shortcuts::no_ctrl() &&
                        GImGui->DragDropPayload.SourceId != ImGui::GetItemID() && shortcuts::test_pressed(shortcut)) {
                 timer.bind();
                 render_rect(true);
-                return {nullptr, &rule};
+                return {.rule = &rule, .hov = false, .deliv = true};
             }
         }
-        return {nullptr, nullptr};
+        return {.rule = nullptr, .hov = false, .deliv = false};
     }
 };
 
@@ -1177,7 +1177,7 @@ private:
             }();
 
             ImGui::SetNextWindowSize(min_size, updated ? ImGuiCond_Always : ImGuiCond_Appearing);
-            ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + m_settings.width(), 500});
+            ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + 120, 500});
             if (updated) {
                 ImGui::SetNextWindowCollapsed(false);
                 ImGui::SetNextWindowFocus();

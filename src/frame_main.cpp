@@ -202,8 +202,8 @@ void frame_main() {
         ImGui::SameLine();
         {
             imgui_Str("[C]");
-            if (const auto pass = pass_rule::dest(ImGuiKey_C, 'C'); pass.deliv) {
-                copy_rule::copy(*pass.deliv);
+            if (const auto* deliv = pass_rule::dest(ImGuiKey_C, 'C').get_deliv()) {
+                copy_rule::copy(*deliv);
             }
             rclick_popup::popup(imgui_GetItemPosID(), [] {
                 copy_rule::get_rec({}).selectable_to_take_snapshot("Recent");

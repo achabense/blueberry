@@ -527,45 +527,13 @@ void previewer::_show_belongs(const aniso::ruleT& rule) {
 }
 
 static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
-    if (const auto* any = pass.any()) {
-        if (working_set.contains(*any)) {
-            return pass.deliv;
-        }
+    if (pass.rule && !working_set.contains(*pass.rule)) {
         pass.tooltip_or_message("The rule does not belong to the working set.\n\n"
                                 "(To get a similar rule in the set, try using 'Approx' in the 'Misc' window.)");
-    }
-    return nullptr;
-}
-
-static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set,
-                                     const aniso::ruleT& compare) {
-    if (const auto* any = pass.any()) {
-        if (*any != compare) {
-            return get_deliv(pass, working_set);
-        }
-        pass.tooltip_or_message("Identical.");
-    }
-    return nullptr;
-}
-
-static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set,
-                                     const aniso::ruleT* compare) {
-    if (compare) {
-        return get_deliv(pass, working_set, *compare);
+        return nullptr;
     } else {
-        return get_deliv(pass, working_set);
+        return pass.get_deliv();
     }
-}
-
-static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::ruleT* compare) {
-    if (const auto* any = pass.any()) {
-        if (compare && *any == *compare) {
-            pass.tooltip_or_message("Identical.");
-            return nullptr;
-        }
-        return pass.deliv;
-    }
-    return nullptr;
 }
 
 static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT& working_set) {
@@ -577,7 +545,7 @@ static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT
             .get = [&]() -> decltype(auto) { return rst.get(); },
             .set =
                 [&](const aniso::ruleT& r) {
-                    if (get_deliv({.hov = nullptr, .deliv = &r}, working_set)) {
+                    if (get_deliv({.rule = &r, .hov = false, .deliv = true}, working_set)) {
                         rst.set(r);
                         updated = true;
                     }
@@ -707,7 +675,7 @@ public:
                 });
             }
             if (tag == Custom) {
-                if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_3, '3'), working_set, rule_custom)) {
+                if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_3, '3'), working_set)) {
                     rule_custom = *deliv;
                     m_tag = tag;
                     messenger::dot();
@@ -719,7 +687,6 @@ public:
     }
 };
 
-// !!TODO: unfinished...
 // 0/1-rev, approx and buffers...
 static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
     bool open = true;
@@ -736,36 +703,26 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
         return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
     }();
 
-    ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x, 500});
+    ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + 120, 500});
     ImGui::SetNextWindowSize(min_size, ImGuiCond_FirstUseEver);
     // !!TODO: better title...
     if (auto window = imgui_Window("Misc utils", &open, ImGuiWindowFlags_NoSavedSettings)) {
         static std::optional<aniso::ruleT> rule_01_rev = aniso::trans_reverse(aniso::game_of_life());
         static std::optional<aniso::ruleT> rule_approx;
-        static std::optional<aniso::ruleT> rule_temp[8];
+        static std::optional<aniso::ruleT> rule_temp[6];
 
-        auto manage = [](std::optional<aniso::ruleT>& rule) {
-            rclick_popup::popup(imgui_GetItemPosID(), [&] {
-                if (ImGui::Selectable("Clear") && messenger::dot()) {
-                    rule.reset();
-                }
-            });
-            return pass_rule::dest();
-        };
-        auto show_rule = [](int id, std::optional<aniso::ruleT>& rule) {
-            // https://stackoverflow.com/questions/73817020/why-is-there-no-built-in-way-to-get-a-pointer-from-an-stdoptional
-            previewer::preview_or_dummy(id, config, rule ? &*rule : nullptr);
-        };
-
-        if (double_click_button_small("Clear" /*"Clear all"*/) && messenger::dot()) {
-            rule_01_rev.reset();
-            rule_approx.reset();
-            for (auto& rule : rule_temp) {
+        auto clear_button = [](int& id, std::optional<aniso::ruleT>& rule) {
+            ImGui::PushID(id++);
+            if (double_click_button_small("Clear") && messenger::dot()) {
                 rule.reset();
             }
-        }
-        // guide_mode::item_tooltip("Clear all rules in this window.");
-        ImGui::SameLine();
+            ImGui::PopID();
+        };
+        auto show_rule = [](int& id, std::optional<aniso::ruleT>& rule) {
+            // https://stackoverflow.com/questions/73817020/why-is-there-no-built-in-way-to-get-a-pointer-from-an-stdoptional
+            previewer::preview_or_dummy(id++, config, rule ? &*rule : nullptr);
+        };
+
         const bool to_top = ImGui::SmallButton("Top") && messenger::dot();
         ImGui::SameLine();
         config.set("Settings", true /*small*/);
@@ -781,37 +738,47 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
 
             ImGui::Separator();
             ImGui::BeginGroup();
-            imgui_Str("0/1 reversal"); // !!TODO: add record?
-            if (const auto pass = manage(rule_01_rev)) {
-                if (aniso::_subsets::self_complementary.contains(*pass.any())) {
-                    pass.tooltip_or_message("The rule is self-complementary, so its reversal dual will be itself.");
+            clear_button(id, rule_01_rev);
+            ImGui::SameLine();
+            imgui_Str("0/1 reversal"); // TODO: add record?
+            {
+                ImGui::SameLine();
+                ImGui::BeginDisabled(!rule_01_rev.has_value());
+                if (ImGui::SmallButton("0/1##Rev") && rule_01_rev.has_value()) {
+                    rule_01_rev = aniso::trans_reverse(*rule_01_rev);
+                    messenger::dot(); // TODO: whether to show dot? (Will have no effect if the rule is self-compl...)
                 }
-                if (pass.deliv) {
-                    rule_01_rev = aniso::trans_reverse(*pass.deliv);
-                }
+                ImGui::EndDisabled();
             }
-            // !!TODO: should these be regular tooltips or guide-mode tooltips?
-            guide_mode::item_tooltip(
-                "Drag a rule here to get the 0/1 reversal dual for it.\n\n"
-                "(That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].)");
-            show_rule(id++, rule_01_rev);
+            ImGui::SameLine();
+            imgui_StrTooltip(
+                "(?)",
+                "Drag a rule here to get the 0/1 reversal dual for it. That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].\n\n"
+                "(If a rule is self-complementary, its 0/1 reversal dual will be itself.)");
+            show_rule(id, rule_01_rev);
+            if (const auto* deliv = pass_rule::dest().get_deliv()) {
+                rule_01_rev = aniso::trans_reverse(*deliv);
+                messenger::dot();
+            }
             ImGui::EndGroup();
 
             ImGui::SameLine(0, group_spacing_x);
 
-            ImGui::BeginGroup();
-            imgui_Str("Approx");
-            if (const auto pass = manage(rule_approx)) {
-                if (working_set.contains(*pass.any())) {
-                    pass.tooltip_or_message("The rule already belongs to the working set.");
-                }
-                if (pass.deliv) {
-                    rule_approx = aniso::approximate_v(working_set, *pass.deliv);
-                }
+            if (rule_approx && !working_set.contains(*rule_approx)) {
+                rule_approx.reset();
             }
-            guide_mode::item_tooltip("Drag a rule here to get a similar rule in the working set.\n\n"
-                                     "(This has no effect if the rule already belongs to the set.)");
-            show_rule(id++, rule_approx);
+            ImGui::BeginGroup();
+            clear_button(id, rule_approx);
+            ImGui::SameLine();
+            imgui_Str("Approx");
+            ImGui::SameLine();
+            imgui_StrTooltip("(?)", "Drag a rule here to get a similar rule in the working set.\n\n"
+                                    "(If a rule already belongs to the set, the result will be itself.)");
+            show_rule(id, rule_approx);
+            if (const auto* deliv = pass_rule::dest().get_deliv()) {
+                rule_approx = aniso::approximate_v(working_set, *deliv);
+                messenger::dot();
+            }
             ImGui::EndGroup();
 
             for (int i = 0; auto& rule : rule_temp) {
@@ -823,14 +790,18 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
                 }
 
                 ImGui::BeginGroup();
+                clear_button(id, rule);
+                ImGui::SameLine();
                 ImGui::Text("Temp %d", this_i);
-                if (const auto* deliv = get_deliv(manage(rule), rule ? &*rule : nullptr)) {
-                    rule = *deliv;
-                }
                 if (this_i == 1) {
-                    guide_mode::item_tooltip("Drag a rule here for later use.");
+                    ImGui::SameLine();
+                    imgui_StrTooltip("(?)", "Drag a rule here for later use.");
                 }
-                show_rule(id++, rule);
+                show_rule(id, rule);
+                if (const auto* deliv = pass_rule::dest().get_deliv()) {
+                    rule = *deliv;
+                    messenger::dot();
+                }
                 ImGui::EndGroup();
             }
         }
@@ -982,7 +953,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
                 orderer->selectable_to_take_snapshot("Recent");
             });
         }
-        if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_R, 'R'), working_set, orderer)) {
+        if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_R, 'R'), working_set)) {
             orderer.set(*deliv);
             page.clear();
             messenger::dot();
@@ -1042,8 +1013,9 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
                 if (page.empty()) {
                     guide_mode::item_tooltip("Drag a rule here to go to where the rule belongs in the sequence.");
                 }
-                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set, !page.empty() ? &page[0] : nullptr)) {
+                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
                     reset_page(First, *deliv);
+                    messenger::dot();
                 }
             }
         });
@@ -1096,7 +1068,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
                 target->selectable_to_take_snapshot("Recent");
             });
         }
-        if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_S, 'S'), working_set, target)) {
+        if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_S, 'S'), working_set)) {
             target.set(*deliv);
             messenger::dot();
         }
@@ -1178,13 +1150,13 @@ void edit_rule(frame_main_token) {
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
         imgui_Str("Working set");
-        if (const auto pass = pass_rule::dest(ImGuiKey_1, '1')) {
+        if (const auto pass = pass_rule::dest(ImGuiKey_1, '1'); pass.rule) {
             if (collapse && pass.hov_for_tooltip() && ImGui::BeginTooltip()) {
-                select_working.select({.rule = pass.hov, .select = true, .tooltip = false});
+                select_working.select({.rule = pass.rule, .select = true, .tooltip = false});
                 ImGui::EndTooltip();
             }
             if (pass.deliv) {
-                select_working.match(*pass.deliv);
+                select_working.match(*pass.rule);
                 messenger::dot();
             }
         }
@@ -1265,9 +1237,10 @@ void edit_rule(frame_main_token) {
             "(You can 'Collapse' the set table to leave more room for the preview windows.)");
 
         if (!show_random_access) {
-            if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set /*, target*/)) {
+            if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set)) {
                 target.set(*deliv);
                 show_random_access = true;
+                messenger::dot();
                 // (v will be skipped for this frame; that's ok.)
             }
         } else {
@@ -1283,7 +1256,7 @@ void edit_rule(frame_main_token) {
                     target->selectable_to_take_snapshot("Recent");
                 });
             }
-            if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set, target)) {
+            if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set)) {
                 target.set(*deliv);
                 messenger::dot();
             }
