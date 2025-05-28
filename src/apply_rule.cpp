@@ -8,7 +8,10 @@
 
 static ImVec2 to_imvec(const aniso::vecT& vec) { return ImVec2(vec.x, vec.y); }
 
-static aniso::vecT from_imvec_floor(const ImVec2& vec) { return {.x = int(floor(vec.x)), .y = int(floor(vec.y))}; }
+template <float (&fn)(float) = floor>
+static aniso::vecT from_imvec(const ImVec2& vec) {
+    return {.x = int(fn(vec.x)), .y = int(fn(vec.y))};
+}
 
 static aniso::rangeT clamp_window(aniso::vecT size, aniso::vecT region_center, aniso::vecT region_size) {
     region_size = aniso::min(size, region_size);
@@ -292,7 +295,7 @@ struct initT {
         aniso::fill(tile.data(), background);
 
         const aniso::vecT tile_size = tile.size();
-        const auto range = clamp_window(tile_size, tile_size / 2, from_imvec_floor(to_imvec(tile_size) * area.get()));
+        const auto range = clamp_window(tile_size, tile_size / 2, tile_size.mul_and_trunc(area.get()));
         if (!range.empty()) {
             // (Not caring about how the area is aligned with the background.)
             std::mt19937 rand{(uint32_t)seed};
@@ -1103,12 +1106,10 @@ public:
             }
 
             const auto fullscreen_size = [&](const zoomT& z) {
-                // return m_torus.calc_size(from_imvec_floor((canvas_size - ImVec2(20, 20)) / z));
+                // return m_torus.calc_size(from_imvec((canvas_size - ImVec2(20, 20)) / z));
                 // (v So that 220*160 will choose zoom = 2...)
-                return m_torus.calc_size(
-                    from_imvec_floor((canvas_size - (z > 2 ? ImVec2(70, 70) : ImVec2(50, 50))) / z));
-                // return m_torus.calc_size(
-                //     from_imvec_floor((canvas_size - ImVec2(30, 30) * std::max((float)z, 1.0f)) / z));
+                return m_torus.calc_size(from_imvec((canvas_size - (z > 2 ? ImVec2(70, 70) : ImVec2(50, 50))) / z));
+                // return m_torus.calc_size(from_imvec((canvas_size - ImVec2(30, 30) * std::max((float)z, 1.0f)) / z));
             };
 
             if (resize_fullscreen_tooltip) {
@@ -1197,7 +1198,7 @@ public:
                     m_coord.bind(space_pos_clamped, mouse_pos_clamped);
                 }
 
-                const aniso::vecT cel_pos = from_imvec_floor(m_coord.to_space(mouse_pos));
+                const aniso::vecT cel_pos = from_imvec(m_coord.to_space(mouse_pos));
 
                 // (`want_hex_mode` should be tested only when the zoom window is really going to be shown.)
                 if (!m_paste && !(m_sel && m_sel->active && m_sel->to_range().size().xy() > 2)) {
@@ -1433,18 +1434,11 @@ private:
                 const aniso::tile_const_ref sel_area = self.m_torus.read_only(sel_range);
                 const aniso::vecT p_size{2, 2};
                 if (check_border(sel_area, p_size)) {
-                    aniso::rangeT bound = aniso::bounding_box(sel_area, p_size);
+                    const aniso::rangeT bound = aniso::bounding_box(sel_area, p_size);
                     if (!bound.empty()) {
-                        bound.begin -= p_size;
-                        bound.end += p_size;
-                        // (Pad another layer of bg pattern if possible; this behaves well but skipped to keep same as `identify`.)
-                        if (false && bound.begin.both_gteq(p_size) && bound.end.both_lteq(sel_area.size - p_size)) {
-                            bound.begin -= p_size;
-                            bound.end += p_size;
-                        }
                         self.m_sel = {.active = false,
-                                      .beg = sel_range.begin + bound.begin,
-                                      .end = sel_range.begin + bound.end.minus(1, 1)};
+                                      .beg = sel_range.begin + bound.begin - p_size,
+                                      .end = sel_range.begin + bound.end.minus(1, 1) + p_size};
                     } else {
                         // m_sel.reset();
                         messenger::set_msg("The area contains nothing.");
@@ -1809,7 +1803,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
     if (hovered && imgui_IsItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
         assert(ImGui::IsMousePosValid());
-        const aniso::vecT pos = from_imvec_floor((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
+        const aniso::vecT pos = from_imvec((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
         if (ImGui::BeginTooltip()) {
             const aniso::rangeT clamped = clamp_window(tile_size, pos, {64, 48});

@@ -13,14 +13,15 @@ namespace aniso {
         friend vecT operator-(const vecT& a, const vecT& b) { return {.x = a.x - b.x, .y = a.y - b.y}; }
         friend vecT operator/(const vecT& a, int b) { return {.x = a.x / b, .y = a.y / b}; }
         friend vecT operator*(const vecT& a, int b) { return {.x = a.x * b, .y = a.y * b}; }
+
         friend vecT operator/(const vecT& a, double b) = delete;
         friend vecT operator*(const vecT& a, double b) = delete;
-
-        void operator+=(const vecT& other) { x += other.x, y += other.y; }
-        void operator-=(const vecT& other) { x -= other.x, y -= other.y; }
+        [[nodiscard]] vecT div_and_trunc(double b) const { return {.x = int(x / b), .y = int(y / b)}; }
+        [[nodiscard]] vecT mul_and_trunc(double b) const { return {.x = int(x * b), .y = int(y * b)}; }
 
         [[nodiscard]] vecT plus(int dx, int dy) const { return {.x = x + dx, .y = y + dy}; }
         [[nodiscard]] vecT minus(int dx, int dy) const { return {.x = x - dx, .y = y - dy}; }
+
         bool both_gteq(const vecT& b) const { return x >= b.x && y >= b.y; } // >=
         bool both_lteq(const vecT& b) const { return x <= b.x && y <= b.y; } // <=
         bool both_lt(const vecT& b) const { return x < b.x && y < b.y; }     // <

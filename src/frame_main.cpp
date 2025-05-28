@@ -84,18 +84,6 @@ static open_state intro_window(frame_main_token) {
         }
         ImGui::Separator();
         {
-            // (Selected from "Documents/Rules in different sets")
-            // !!TODO: better examples.
-            static const auto rules = aniso::extract_all_rules(
-                "MAPAAAAAQABARcAAQEXARcXfwABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
-                "MAPIIAAAYABARcAAQEXARcXf4ABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
-                "MAPAAEAAAEBABcAEQEHARcXfwABARcBFxd/AVcXPxd/f/8AAQEXAxcVfwEXF38Xf3//ARcXfx9/d/8X/39///9//w "
-                "MAPAAAAEQAREXcAAAARABERdwAREXcRd3f/ABERdxF3d/8AERF3EXd3/wAREXcRd3f/EXd3/3f///8Rd3f/d////w ");
-            static int at = 0;
-            static previewer::configT config{previewer::configT::_220_160};
-            const int total = rules.size();
-            assert(total == 4);
-
             ImGui::Bullet();
             imgui_Str("Right-click \"preview window\" (like below) to open menu.");
 
@@ -112,6 +100,19 @@ static open_state intro_window(frame_main_token) {
                 "Some functions will record recently accepted rules. For example, the copied rules are accessible from the menu for '[C]'.\n\n"
                 "For more details, see !!TODO...");
 
+            // (Selected from "Documents/Rules in different sets")
+            // !!TODO: better examples.
+            static const auto rules = aniso::extract_all_rules(
+                "MAPAAAAAQABARcAAQEXARcXfwABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
+                "MAPIIAAAYABARcAAQEXARcXf4ABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
+                "MAPAAEAAAEBABcAEQEHARcXfwABARcBFxd/AVcXPxd/f/8AAQEXAxcVfwEXF38Xf3//ARcXfx9/d/8X/39///9//w "
+                "MAPAAAAEQAREXcAAAARABERdwAREXcRd3f/ABERdxF3d/8AERF3EXd3/wAREXcRd3f/EXd3/3f///8Rd3f/d////w ");
+            static int at = 0;
+            static previewer::configT config{previewer::configT::_220_160};
+            const int total = rules.size();
+            assert(total == 4);
+
+            ImGui::AlignTextToFramePadding();
             ImGui::Bullet();
             ImGui::BeginGroup();
             switch (sequence::seq("<|", "Prev", "Next", "|>")) {
