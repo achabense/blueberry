@@ -1669,15 +1669,6 @@ void previewer::configT::_set() {
     // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {3, 2});
     ImGui::PushItemWidth(item_width);
 
-#if 0
-    // TODO: what to reset? size/zoom or size/zoom/seed/step?
-    if (ImGui::Button("Reset")) {
-        _reset_size_zoom();
-    }
-    guide_mode::item_tooltip("(Width, height and zoom.)");
-    ImGui::Separator();
-#endif
-
     imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20);
     imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20);
     ImGui::AlignTextToFramePadding();

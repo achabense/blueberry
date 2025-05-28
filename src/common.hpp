@@ -623,10 +623,9 @@ public:
             const std::string str = to_str(to_v(u));
             ImGui::RenderTextClipped(rect.Min, rect.Max, str.data(), str.data() + str.size(), nullptr,
                                      ImVec2(0.5f, 0.5f));
-            if (imgui_IsItemHoveredForTooltip()) {
-                imgui_ItemTooltip(
-                    to_str(to_v(value_if_clicked(rect.GetWidth(), u_max, ImGui::GetMousePos().x - rect.Min.x))));
-            }
+            imgui_ItemTooltip([&] {
+                imgui_Str(to_str(to_v(value_if_clicked(rect.GetWidth(), u_max, ImGui::GetMousePos().x - rect.Min.x))));
+            });
         }
 
         ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
@@ -834,13 +833,6 @@ public:
         global_timer::intervalT interval = init_zero_interval ? 0 : global_timer::min_nonzero_interval;
 
         void _set();
-        void _reset_size_zoom() {
-            zoom_ = 1;
-            width_ = 220;
-            height_ = 160;
-            // seed = 0;
-            // step = 1;
-        }
 
     public:
         // TODO: temporarily preserved to avoid breaking existing calls.
@@ -1107,7 +1099,10 @@ public:
 
     // LRU; inefficient but no problem as `m_capacity` is small enough.
     void add(const aniso::compressT& rule) {
-        if (!std::erase(m_data, rule) && m_data.size() == m_capacity) {
+        const auto found = find(rule);
+        if (found != m_data.end()) {
+            m_data.erase(found);
+        } else if (m_data.size() == m_capacity) {
             m_data.pop_back();
         }
         m_data.insert(m_data.begin(), rule);
@@ -1285,7 +1280,6 @@ public:
     static std::string to_str(const aniso::ruleT& rule) { return aniso::to_MAP_str(rule); }
 
     static void copy(const aniso::ruleT& rule) {
-        // !!TODO: dot or "Copied."?
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
         rec.add(rule);
     }

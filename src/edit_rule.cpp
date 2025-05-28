@@ -337,7 +337,7 @@ public:
     }
 
 private:
-    enum centerE { Selected, Including, Disabled, None }; // TODO: add "equals" relation?
+    enum centerE { Selected, Including, Disabled, None };
 
     // (Follows `ImGui::Dummy` or `ImGui::InvisibleButton`.)
     static void put_term(bool contains_rule, centerE center, char title /* '\0' ~ no title */) {
@@ -588,7 +588,7 @@ static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT
     return false;
 }
 
-// !!TODO: currently called the "observer"; still not quite ideal name...
+// TODO: currently called the "observer"; still not quite ideal name...
 class rule_selector : no_copy {
     enum tagE { Zero, Identity, Known, Custom };
     tagE m_tag = Zero;
@@ -1364,11 +1364,6 @@ void edit_rule(frame_main_token) {
 
             const aniso::codeT head = group[0];
             const auto group_details = [&] {
-                // !!TODO: (where to) document the meaning of values...
-                imgui_Str(show_random_access ? "... Click to flip the values in this group." //
-                                             : "...");
-                ImGui::Separator();
-
                 ImGui::PushTextWrapPos(-1); // No wrapping.
                 const int group_size = group.size();
                 ImGui::Text("Members: %d", group_size);
@@ -1384,7 +1379,7 @@ void edit_rule(frame_main_token) {
                     if (show_random_access) {
                         imgui_Str(labels_diff[diff[code]]);
                     } else {
-                        imgui_Str(labels_val[observer[code]]); // !!TODO: improve...
+                        imgui_Str(labels_val[observer[code]]);
                     }
                 }
                 if (group_size > max_to_show) {
@@ -1394,34 +1389,22 @@ void edit_rule(frame_main_token) {
             };
 
             if (show_random_access) {
-                // const bool pure = working_contains /*perf*/ || aniso::all_same_or_different(group, observer, target);
-                constexpr bool pure = true;
                 const auto get_adjacent_rule = [&] { return aniso::flip_values_v(group, target); };
 
                 ImGui::BeginGroup();
                 // _ButtonHovered: ImVec4(0.26f, 0.59f, 0.98f, 1.00f)
                 // [0]:Button, [1]:Hover, [2]:Active
-                static constexpr ImVec4 button_col_normal[3]{
+                static constexpr ImVec4 button_color[3]{
                     {0.26f, 0.59f, 0.98f, 0.70f}, {0.26f, 0.59f, 0.98f, 0.85f}, {0.26f, 0.59f, 0.98f, 1.00f}};
-                static constexpr ImVec4 button_col_impure[3]{
-                    {0.26f, 0.59f, 0.98f, 0.30f}, {0.26f, 0.59f, 0.98f, 0.40f}, {0.26f, 0.59f, 0.98f, 0.50f}};
-                const ImVec4* const button_color = pure ? button_col_normal : button_col_impure;
+                // static constexpr ImVec4 button_col_impure[3]{
+                //     {0.26f, 0.59f, 0.98f, 0.30f}, {0.26f, 0.59f, 0.98f, 0.40f}, {0.26f, 0.59f, 0.98f, 0.50f}};
                 ImGui::PushStyleColor(ImGuiCol_Button, button_color[0]);
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color[1]);
                 ImGui::PushStyleColor(ImGuiCol_ButtonActive, button_color[2]);
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
-                // const bool enable_edit = working_contains || ImGui::GetIO().KeyCtrl;
-                // if (!enable_edit) {
-                //     // Not using ImGui::BeginDisabled(), so the button color will not be affected.
-                //     ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-                // }
                 if (code_button(head, button_zoom)) {
                     target.set(get_adjacent_rule());
-                    // set_apply_rule_target(target); !!TODO: whether to support this?
                 }
-                // if (!enable_edit) {
-                //     ImGui::PopItemFlag();
-                // }
                 ImGui::PopStyleVar();
                 ImGui::PopStyleColor(3);
 
@@ -1429,8 +1412,7 @@ void edit_rule(frame_main_token) {
 
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 align_text(ImGui::GetItemRectSize().y);
-                imgui_Str(!pure ? "-x" : labels_diff_from_to[diff[head]]);
-                // if (has_lock) { imgui_ItemRect(IM_COL32_WHITE, ImVec2(-2, -2)); }
+                imgui_Str(labels_diff_from_to[diff[head]]);
 
                 const int preview_id = this_n;
                 previewer::preview(preview_id, config, get_adjacent_rule /*()*/);
