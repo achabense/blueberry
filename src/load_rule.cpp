@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS // For `localtime`
 #include <filesystem>
 #include <fstream>
 #include <ranges>
@@ -1150,4 +1151,77 @@ open_state load_doc(const ImVec2 init_pos, frame_main_token) {
         load_doc_impl();
     }
     return {open};
+}
+
+static std::array<int, 3> get_year_month_day() {
+    const time_t now = time(0);
+    if (const tm* local = localtime(&now)) {
+        return {local->tm_year + 1900, local->tm_mon + 1, local->tm_mday};
+    } else { // UTC; won't bother with `chrono::current_zone()`.
+        const std::chrono::year_month_day ymd(
+            std::chrono::floor<std::chrono::days>(std::chrono::system_clock::from_time_t(now)));
+        // Why do they define only unsigned explicit casts for month and day...
+        return {
+            ymd.year().operator int(),
+            int(ymd.month().operator unsigned int()),
+            int(ymd.day().operator unsigned int()),
+        };
+    }
+}
+
+class rule_saver : no_copy {
+    std::fstream m_file{};
+    rec_for_rule m_rec{};
+
+public:
+    explicit rule_saver(const std::string& u8path) {
+        if (u8path.empty()) {
+            return;
+        }
+        try {
+            const pathT p = cpp17_u8path(u8path);
+            if (p.empty() || !std::filesystem::is_directory(p)) {
+                return;
+            }
+            const pathT folder = std::filesystem::canonical(p) / "autosaved";
+            const auto status = std::filesystem::status(folder);
+            if (std::filesystem::is_directory(status) ||
+                (!std::filesystem::exists(status) && std::filesystem::create_directory(folder))) {
+                const auto [y, m, d] = get_year_month_day();
+                // `app` does imply `out`, see https://eel.is/c++draft/filebuf.members
+                m_file.open(folder / std::format("{}-{}-{}.txt", y, m, d), //
+                            std::ios_base::in | std::ios_base::app | std::ios_base::binary);
+                if (m_file) {
+                    bool empty = true;
+                    std::string line;
+                    while (std::getline(m_file, line)) {
+                        empty = false;
+                        if (const auto rule = aniso::extract_one_rule(line)) {
+                            m_rec.add(*rule);
+                        }
+                    }
+                    m_file.clear(); // Necessary for writing.
+                    if (empty) {
+                        m_file << std::format("{}-{}-{}\n", y, m, d) << std::flush;
+                    }
+                }
+            }
+        } catch (...) {
+            return;
+        }
+    }
+
+    bool valid() const { return m_file.is_open() && m_file; }
+
+    void save_if_valid(const aniso::ruleT& rule) {
+        if (valid() && !m_rec.contains(rule)) {
+            m_file << ('\n' + aniso::to_MAP_str(rule)) << std::flush;
+            m_rec.add(rule);
+        }
+    }
+};
+
+void copy_rule::save(const aniso::ruleT& rule) {
+    static rule_saver saver(home_path_utf8());
+    saver.save_if_valid(rule);
 }

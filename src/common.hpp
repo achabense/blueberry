@@ -1276,12 +1276,17 @@ public:
 class copy_rule : no_create {
     inline static rec_for_rule rec{};
 
+    static void save(const aniso::ruleT& rule);
+
 public:
     static std::string to_str(const aniso::ruleT& rule) { return aniso::to_MAP_str(rule); }
 
     static void copy(const aniso::ruleT& rule) {
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
         rec.add(rule);
+        if constexpr (debug_mode) {
+            save(rule); // !!TODO: experimental...
+        }
     }
 
     static const rec_for_rule& get_rec(frame_main_token) { return rec; }
