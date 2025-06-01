@@ -1724,10 +1724,60 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     }
     term.active = true;
 
+    const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
+
     // TODO: (though the actual behaviors are ok) these op logics are quite messy...
     const bool passing = pass_rule::source(rule);
-    const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
-    const bool hovered = !passing && ImGui::IsItemHovered();
+    rclick_popup::hoverE hov = rclick_popup::None;
+    bool restart_from_menu = false;
+    if (!passing) {
+        const id_pair popup_id{ImGui::GetItemID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
+        hov = rclick_popup::popup_no_highlight(popup_id, [&] {
+            imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n"
+                                      "Hold to pause.\n\n"
+                                      "Similar to space window's 'Restart' and '+s/+1/+!':\n"
+                                      "'R' to restart. (+'A' to apply to the entire group.)\n"
+                                      "Hold (pause) + 'S' to run manually.\n"
+                                      "'D' to advance generation by 1.\n"
+                                      "'F' to speed up. (+'A' to apply to the entire group.)\n\n"
+                                      "For rules that belong to 'Hex' set:\n"
+                                      "'6' to see the projected view in hexagonal space.\n"
+                                      "(This also applies to the space window.)");
+            ImGui::SameLine();
+            imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
+            ImGui::Separator();
+
+            if (ImGui::Selectable("Copy rule")) {
+                copy_rule::copy(rule);
+            }
+            guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
+                                     "Equivalent to sending the rule to '[C]' after 'Clipboard'.");
+            if (ImGui::Selectable("Restart")) {
+                restart_from_menu = true;
+            }
+            guide_mode::item_tooltip("Equivalent to the shortcut ('R').");
+
+            if (!runner_active) {
+                return;
+            }
+
+            if (ImGui::Selectable("Explore") && messenger::dot()) {
+                runner.set_rule(rule);
+            }
+            guide_mode::item_tooltip("Explore in the space window. "
+                                     "Equivalent to sending the rule to the MAP-string ('MAP...') in the right panel.");
+            if (ImGui::Selectable("Explore (& state)") && messenger::dot()) {
+                runner.set_rule(rule);
+                runner.set_state(tile_size, previewer_data::global_init);
+                // runner.set_state(term.tile.size(), term.init);
+            }
+            guide_mode::item_tooltip(
+                "Explore in the space window, using the same space size and init state (so you can operate on the same patterns).");
+        });
+    }
+    assert_implies(passing, hov == rclick_popup::None);
+
+    const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
     const bool shortcut_avail =
         shortcuts::no_ctrl() && (shortcuts::global_flag(ImGuiKey_A) ? keys_avail_and_window_hovered()
@@ -1735,9 +1785,10 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const bool hovered_and_shortcut_avail = hovered && shortcut_avail;
     assert_implies(passing, !shortcut_avail);
 
-    const bool restart = (shortcut_avail && shortcuts::test_pressed(ImGuiKey_R)) + // No short-circuiting.
-                         term.tile.resize(tile_size) + compare_update(term.init, previewer_data::global_init) +
-                         compare_update(term.rule, rule);
+    const bool restart =
+        (restart_from_menu || (shortcut_avail && shortcuts::test_pressed(ImGuiKey_R))) + // No short-circuiting.
+        term.tile.resize(tile_size) + compare_update(term.init, previewer_data::global_init) +
+        compare_update(term.rule, rule);
     if (restart) {
         term.init.initialize(term.tile);
     }
@@ -1776,8 +1827,11 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
 
     const scaleE scale_mode = config.zoom_ >= 1 ? scaleE::Nearest : scaleE::Linear;
     const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
-    bool hex_mode = false;
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+    imgui_ItemRect(hov == rclick_popup::None ? default_border_color()
+                                             : rclick_popup::highlight_col(hov == rclick_popup::Popup));
+
+    bool hex_mode = false;
     if (hovered && imgui_IsItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
         assert(ImGui::IsMousePosValid());
         const aniso::vecT pos = from_imvec((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
@@ -1800,50 +1854,4 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         }
         ImGui::PopStyleVar();
     }
-
-    ImU32 border_col = default_border_color();
-    if (!passing) {
-        const id_pair popup_id{ImGui::GetItemID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
-        const auto hov = rclick_popup::popup_no_highlight(popup_id, [&] {
-            imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n"
-                                      "Hold to pause.\n\n"
-                                      "Similar to space window's 'Restart' and '+s/+1/+!':\n"
-                                      "'R' to restart. (+'A' to apply to the entire group.)\n"
-                                      "Hold (pause) + 'S' to run manually.\n"
-                                      "'D' to advance generation by 1.\n"
-                                      "'F' to speed up. (+'A' to apply to the entire group.)\n\n"
-                                      "For rules that belong to 'Hex' set:\n"
-                                      "'6' to see the projected view in hexagonal space.\n"
-                                      "(This also applies to the space window.)");
-            ImGui::SameLine();
-            imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
-            ImGui::Separator();
-
-            if (ImGui::Selectable("Copy rule")) {
-                copy_rule::copy(rule);
-            }
-            guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
-                                     "Equivalent to sending the rule to '[C]' after 'Clipboard'.");
-            if (!runner_active) {
-                return;
-            }
-
-            if (ImGui::Selectable("Explore") && messenger::dot()) {
-                runner.set_rule(rule);
-            }
-            guide_mode::item_tooltip("Explore in the space window. "
-                                     "Equivalent to sending the rule to the MAP-string ('MAP...') in the right panel.");
-            if (ImGui::Selectable("Explore (& state)") && messenger::dot()) {
-                runner.set_rule(rule);
-                runner.set_state(term.tile.size(), term.init);
-            }
-            guide_mode::item_tooltip(
-                "Explore in the space window, using the same space size and init state (so you can operate on the same patterns).");
-        });
-        if (hov != rclick_popup::None) {
-            border_col = rclick_popup::highlight_col(hov == rclick_popup::Popup);
-        }
-    }
-
-    imgui_ItemRect(border_col);
 }
