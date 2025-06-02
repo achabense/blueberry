@@ -854,16 +854,9 @@ struct page_adapter {
 
 // !!TODO: improve...
 static void show_in_tooltip(const previewer::configT& config, const aniso::ruleT& rule) {
-    imgui_ItemTooltip([&] {
-        static bool show_rule = true;
-        imgui_Str("Press 'Z' to toggle display.");
-        if (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_Z)) {
-            show_rule = !show_rule;
-        }
-        if (show_rule) {
-            previewer::preview(-1, config, rule);
-        }
-    });
+    // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    imgui_ItemTooltip([&] { previewer::preview(-1, config, rule); });
+    // ImGui::PopStyleVar();
 }
 
 static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
