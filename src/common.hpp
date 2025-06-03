@@ -876,8 +876,7 @@ public:
                                  }) {
                 _preview(id2, config, rule_or_get_rule());
             } else {
-                // (Should be `static_assert(false)` when the DR gets widely adopted.)
-                assert(false);
+                static_assert(always_false_v<decltype(rule_or_get_rule)>);
             }
         }
     }

@@ -30,6 +30,11 @@ struct no_copy {
     no_copy& operator=(no_copy&&) = delete;
 };
 
+// `static_assert(false)` was introduced as a DR in C++23. However, there is no standard way (macro / constexpr bool)
+// to detect whether the DR is actually implemented. As a result, the DR cannot be relied upon in C++20...
+template <class T>
+inline constexpr bool always_false_v = false;
+
 // ~ `requires requires` makes errors happen at call sites instead of inside the function.
 template <class T, class U>
     requires requires(T& t, const U& u) {

@@ -726,7 +726,8 @@ public:
             constexpr aniso::vecT demo_size{.x = 24, .y = 24};
             constexpr int demo_zoom = 3;
             constexpr ImVec2 cell_button_size{18, 18};
-            assert(max_period.xy() == init.background.capacity()); // TODO: -> static_assert when convenient...
+            // static_assert(max_period.x * max_period.y == init.background.capacity()); This works, but why?
+            static_assert(max_period.x * max_period.y == aniso::tile_buf::capacity());
 
             ImGui::InvisibleButton("##Board", cell_button_size * to_imvec(max_period),
                                    ImGuiButtonFlags_MouseButtonLeft |
