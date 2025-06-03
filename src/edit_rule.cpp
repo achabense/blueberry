@@ -536,21 +536,20 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
     }
 }
 
-static bool display_snapshot_if_present(rule_with_rec& rst, const aniso::subsetT& working_set) {
-    if (rst->has_snapshot()) {
+static bool display_snapshot_if_present(rule_snapshot& snapshot, rule_with_rec& rst,
+                                        const aniso::subsetT& working_set) {
+    if (snapshot) {
         bool updated = false;
-        rst->display_snapshot_if_present({{
-            // (The function is no longer stored; preserved for reference.)
-            // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
-            .get = [&]() -> decltype(auto) { return rst.get(); },
-            .set =
-                [&](const aniso::ruleT& r) {
-                    if (get_deliv({.rule = &r, .hov = false, .deliv = true}, working_set)) {
-                        rst.set(r);
-                        updated = true;
-                    }
-                } //
-        }});
+        // (The function is no longer stored; preserved for reference.)
+        // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
+        const auto get = [&]() -> decltype(auto) { return rst.get(); };
+        const auto set = [&](const aniso::ruleT& r) {
+            if (get_deliv({.rule = &r, .hov = false, .deliv = true}, working_set)) {
+                rst.set(r);
+                updated = true;
+            }
+        };
+        display_snapshot_if_present(snapshot, rst.rec(), {{.get = get, .set = set}});
         return updated;
     }
     return false;
@@ -940,10 +939,11 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         }
         ImGui::SameLine();
         imgui_StrWithID("[R]");
+        static rule_snapshot snapshot;
         if (!pass_rule::source(orderer)) {
             show_in_tooltip(config, orderer);
             rclick_popup::popup(ImGui::GetItemID(), [&] { //
-                orderer->selectable_to_take_snapshot("Recent");
+                selectable_to_take_snapshot("Recent", orderer.rec(), snapshot);
             });
         }
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_R, 'R'), working_set)) {
@@ -951,7 +951,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             page.clear();
             messenger::dot();
         }
-        if (display_snapshot_if_present(orderer, working_set)) {
+        if (display_snapshot_if_present(snapshot, orderer, working_set)) {
             page.clear();
         }
 
@@ -1055,17 +1055,18 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         }
         ImGui::SameLine();
         imgui_StrWithID("[S]");
+        static rule_snapshot snapshot;
         if (!pass_rule::source(target)) {
             show_in_tooltip(config, target);
             rclick_popup::popup(ImGui::GetItemID(), [&] { //
-                target->selectable_to_take_snapshot("Recent");
+                selectable_to_take_snapshot("Recent", target.rec(), snapshot);
             });
         }
         if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_S, 'S'), working_set)) {
             target.set(*deliv);
             messenger::dot();
         }
-        display_snapshot_if_present(target, working_set);
+        display_snapshot_if_present(snapshot, target, working_set);
 
         static std::vector<aniso::compressT> rules{};
         static int page_no = 0;
@@ -1241,19 +1242,20 @@ void edit_rule(frame_main_token) {
                 target.set(working_set.rule);
             }
 
+            static rule_snapshot snapshot;
             ImGui::SameLine();
             imgui_StrWithID("[T]");
             if (!pass_rule::source(target)) {
                 show_in_tooltip(config, target);
                 rclick_popup::popup(ImGui::GetItemID(), [] { //
-                    target->selectable_to_take_snapshot("Recent");
+                    selectable_to_take_snapshot("Recent", target.rec(), snapshot);
                 });
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set)) {
                 target.set(*deliv);
                 messenger::dot();
             }
-            display_snapshot_if_present(target, working_set);
+            display_snapshot_if_present(snapshot, target, working_set);
 
             ImGui::SameLine();
             config.set("Settings");
