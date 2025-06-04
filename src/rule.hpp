@@ -508,12 +508,10 @@ namespace aniso {
 
         friend bool operator==(const compressT&, const compressT&) = default;
 
-        struct hashT {
-            auto operator()(const compressT& cmpr) const {
-                return std::hash<std::string_view>{}(
-                    {reinterpret_cast<const char*>(&cmpr.m_data), sizeof(cmpr.m_data)});
-            }
-        };
+        size_t hash() const {
+            return std::hash<std::string_view>{}( //
+                {reinterpret_cast<const char*>(&m_data), sizeof(m_data)});
+        }
     };
 
     static_assert(std::is_trivially_copyable_v<compressT>);

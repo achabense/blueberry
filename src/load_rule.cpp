@@ -1169,9 +1169,37 @@ static std::array<int, 3> get_year_month_day() {
     }
 }
 
+class rec_for_rule_b : no_copy {
+    std::vector<aniso::compressT> m_rules;
+    int m_capacity;
+    int m_pos = 0;
+
+public:
+    explicit rec_for_rule_b(/*const int cap = 100*/) : m_capacity(100) { //
+        m_rules.reserve(m_capacity);
+    }
+
+    // Ring buffer.
+    bool add(const aniso::compressT& rule) {
+        const bool contains = std::ranges::find(m_rules, rule) != m_rules.end();
+        if (!contains) {
+            if (m_rules.size() < m_capacity) {
+                m_rules.push_back(rule);
+            } else {
+                m_rules[m_pos] = rule;
+                if (++m_pos == m_capacity) {
+                    m_pos = 0;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+};
+
 class rule_saver : no_copy {
     std::fstream m_file{};
-    rec_for_rule m_rec{};
+    rec_for_rule_b m_rec{};
 
 public:
     explicit rule_saver(const std::string& u8path) {
@@ -1214,9 +1242,8 @@ public:
     bool valid() const { return m_file.is_open() && m_file; }
 
     void save_if_valid(const aniso::ruleT& rule) {
-        if (valid() && !m_rec.contains(rule)) {
+        if (valid() && m_rec.add(rule)) {
             m_file << ('\n' + aniso::to_MAP_str(rule)) << std::flush;
-            m_rec.add(rule);
         }
     }
 };

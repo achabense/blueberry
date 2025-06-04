@@ -1080,6 +1080,19 @@ public:
     }
 };
 
+// TODO: whether to apply this? (rule_snapshot & rec_for_rule(_b))
+#if 0
+struct rule_and_hash {
+    aniso::compressT rule;
+    size_t hash;
+    rule_and_hash(const auto& r) : rule(r), hash(rule.hash()) {}
+    bool operator==(const rule_and_hash& other) const { //
+        return hash == other.hash && rule == other.rule;
+    }
+};
+static_assert(std::is_trivially_copyable_v<rule_and_hash>);
+#endif
+
 class rule_snapshot : no_copy {
     using dataT = std::vector<aniso::compressT>;
     previewer::configT m_settings{previewer::configT::_220_160};
