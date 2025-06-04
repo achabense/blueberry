@@ -17,7 +17,16 @@ using pathT = std::filesystem::path;
 // implementations any more.
 
 // It's unclear whether these functions can fail due to transcoding...
-static std::string cpp17_u8string(const pathT& path) noexcept {
+static std::optional<std::string> cpp17_u8string(const pathT& path) noexcept {
+    try {
+        const auto u8string = path.u8string();
+        return std::string(u8string.begin(), u8string.end());
+    } catch (...) {
+        assert(false);
+        return std::nullopt;
+    }
+}
+static std::string cpp17_u8string_b(const pathT& path) noexcept {
     try {
         const auto u8string = path.u8string();
         return std::string(u8string.begin(), u8string.end());
@@ -32,12 +41,12 @@ static std::string cpp17_u8string(const pathT& path) noexcept {
 // As to making an `std::u8string` first, see:
 // https://stackoverflow.com/questions/57603013/how-to-safely-convert-const-char-to-const-char8-t-in-c20
 // In short, in C++20 it's impossible to get `char8_t*` from `char*` without copy and in a well-defined way.
-static pathT cpp17_u8path(const std::string_view path) noexcept {
+static std::optional<pathT> cpp17_u8path(const std::string_view path) noexcept {
     try {
         return pathT(std::u8string(path.begin(), path.end()));
     } catch (...) {
         assert(false);
-        return {};
+        return std::nullopt;
     }
 }
 
@@ -54,7 +63,7 @@ static pathT cpp17_u8path(const std::string_view path) noexcept {
         return "";
     }
 
-    std::string full_str = cpp17_u8string(p);
+    std::string full_str = cpp17_u8string_b(p);
     const float full_w = imgui_CalcTextSize(full_str).x;
     if (full_w <= avail_w) {
         set_clipped(false);
@@ -79,10 +88,10 @@ static pathT cpp17_u8path(const std::string_view path) noexcept {
         const float sep_w = imgui_CalcCharWidth(sep);
 
         std::vector<std::string> vec;
-        vec.push_back(cpp17_u8string(segs.back()));
+        vec.push_back(cpp17_u8string_b(segs.back()));
         float suffix_w = imgui_CalcTextSize(vec.back()).x + imgui_CalcTextSize("...").x + sep_w;
         for (auto pos = segs.rbegin() + 1; pos != segs.rend(); ++pos) {
-            std::string seg_str = cpp17_u8string(*pos);
+            std::string seg_str = cpp17_u8string_b(*pos);
             const float seg_w = imgui_CalcTextSize(seg_str).x;
             if (suffix_w + (seg_w + sep_w) <= avail_w) {
                 suffix_w += (seg_w + sep_w);
@@ -106,43 +115,64 @@ static pathT cpp17_u8path(const std::string_view path) noexcept {
     }
 }
 
+static void copy_path(const pathT& p) {
+    if (const auto str = cpp17_u8string(p)) {
+        set_clipboard_and_notify(*str);
+    } else {
+        messenger::set_msg("Cannot convert path to utf-8.");
+    }
+}
+static bool has_open_url_fn() { return GImGui->PlatformIO.Platform_OpenInShellFn; }
+static bool open_url(const char* url) {
+    if (GImGui->PlatformIO.Platform_OpenInShellFn) {
+        return GImGui->PlatformIO.Platform_OpenInShellFn(GImGui, url);
+    }
+    return false;
+}
+// TODO: -> open-folder?
+static bool open_url(const pathT& p) {
+    if (const auto str = cpp17_u8string(p)) {
+        return open_url(str->c_str());
+    } else {
+        messenger::set_msg("Cannot convert path to utf-8.");
+        return false;
+    }
+}
+
 // TODO: whether to support opening folder with `Platform_OpenInShellFn` (SDL_OpenUrl)?
 static void display_path(const pathT& p, float avail_w) {
     bool clipped = false;
     imgui_Str(clip_path(p, avail_w, &clipped));
     rclick_popup::popup(imgui_GetItemPosID(), [&] {
         if (ImGui::Selectable("Copy path")) {
-            set_clipboard_and_notify(cpp17_u8string(p));
+            copy_path(p);
         }
         if constexpr (debug_mode) {
-            ImGuiContext& g = *ImGui::GetCurrentContext();
-            if (g.PlatformIO.Platform_OpenInShellFn) {
-                if (ImGui::Selectable("Open locally")) {
-                    g.PlatformIO.Platform_OpenInShellFn(&g, cpp17_u8string(p).c_str());
-                }
+            if (has_open_url_fn() && ImGui::Selectable("Open locally")) {
+                open_url(p);
             }
         }
     });
     if (clipped) {
-        imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string(p)); });
+        imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
     }
 }
 static void display_filename(const pathT& p) {
     const char prefix[]{'.', '.', '.', char(pathT::preferred_separator), '\0'};
-    imgui_Str(prefix + cpp17_u8string(p.filename()));
+    imgui_Str(prefix + cpp17_u8string_b(p.filename()));
     rclick_popup::popup(imgui_GetItemPosID(), [&] {
         if (ImGui::Selectable("Copy path")) {
-            set_clipboard_and_notify(cpp17_u8string(p));
+            copy_path(p);
         }
     });
-    imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string(p)); });
+    imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
 }
 
 class folderT {
     struct entryT {
         pathT name;
         std::string str;
-        entryT(pathT&& n) noexcept : name(std::move(n)), str(cpp17_u8string(name)) {}
+        entryT(pathT&& n) noexcept : name(std::move(n)), str(cpp17_u8string_b(name)) {}
     };
 
     pathT m_path{};
@@ -310,9 +340,9 @@ public:
     explicit file_nav(const std::string& u8path) {
         if (!u8path.empty()) {
             std::error_code ec{};
-            const pathT p = cpp17_u8path(u8path);
-            if (!p.empty() && std::filesystem::is_directory(p, ec)) {
-                if (pathT cp = std::filesystem::canonical(p, ec); !ec) {
+            const auto p = cpp17_u8path(u8path);
+            if (p && std::filesystem::is_directory(*p, ec)) {
+                if (pathT cp = std::filesystem::canonical(*p, ec); !ec) {
                     if (m_current.assign_dir(cp)) {
                         m_home.swap(cp);
                     }
@@ -325,7 +355,8 @@ public:
         if (input_text("Open", buf_path, "Folder or file path", ImGuiInputTextFlags_EnterReturnsTrue) &&
             buf_path[0] != '\0') {
             // It's impressive that path has implicit c-str ctor... why?
-            if (!m_current.assign_dir_or_file(cpp17_u8path(buf_path), target)) {
+            const auto p = cpp17_u8path(buf_path);
+            if (!p || !m_current.assign_dir_or_file(*p, target)) {
                 messenger::set_msg("Cannot open this path.");
             }
 
@@ -351,7 +382,7 @@ public:
                     }
                     rclick_popup::popup2([&] { // (Undocumented.)
                         if (ImGui::Selectable("Copy path")) {
-                            set_clipboard_and_notify(cpp17_u8string(m_current / file));
+                            copy_path(m_current / file);
                         }
                     });
                 }
@@ -451,7 +482,7 @@ public:
                         }
                         rclick_popup::popup2([&] { // (Undocumented.)
                             if (ImGui::Selectable("Copy path")) {
-                                set_clipboard_and_notify(cpp17_u8string(m_current / dir));
+                                copy_path(m_current / dir);
                             }
                         });
                     }
@@ -891,7 +922,7 @@ static std::string to_size(uintmax_t size) {
 
     if (!ec && size > max_size) {
         messenger::set_msg("File too large: {} > {}", to_size(size), to_size(max_size));
-    } else {
+    } else { // !!TODO: the error messages should be redesigned one day...
         messenger::set_msg("Failed to load file.");
     }
     return false;
@@ -1081,12 +1112,8 @@ static void load_doc_impl() {
             if (ImGui::Selectable("Copy link")) {
                 set_clipboard_and_notify(url);
             }
-
-            ImGuiContext& g = *ImGui::GetCurrentContext();
-            if (g.PlatformIO.Platform_OpenInShellFn) {
-                if (ImGui::Selectable("Open in browser")) {
-                    g.PlatformIO.Platform_OpenInShellFn(&g, url);
-                }
+            if (has_open_url_fn() && ImGui::Selectable("Open in browser")) {
+                open_url(url);
             }
         });
 
@@ -1207,11 +1234,11 @@ public:
             return;
         }
         try {
-            const pathT p = cpp17_u8path(u8path);
-            if (p.empty() || !std::filesystem::is_directory(p)) {
+            const auto p = cpp17_u8path(u8path);
+            if (!p || !std::filesystem::is_directory(*p)) {
                 return;
             }
-            const pathT folder = std::filesystem::canonical(p) / "autosaved";
+            const pathT folder = std::filesystem::canonical(*p) / "autosaved";
             const auto status = std::filesystem::status(folder);
             if (std::filesystem::is_directory(status) ||
                 (!std::filesystem::exists(status) && std::filesystem::create_directory(folder))) {
