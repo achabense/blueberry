@@ -72,6 +72,13 @@ inline bool imgui_IsItemFullyVisible() { //
     return GImGui->CurrentWindow->ClipRect.Contains(GImGui->LastItemData.Rect);
 }
 
+inline bool imgui_IsItemPartiallyVisible(const float least) {
+    ImRect rect = GImGui->LastItemData.Rect;
+    const float full_area = rect.GetArea();
+    rect.ClipWithFull(GImGui->CurrentWindow->ClipRect);
+    return rect.GetArea() >= full_area * least;
+}
+
 // `!ImGui::IsAnyItemActive() || ImGui::IsItemActive()`
 inline bool imgui_IsItemOrNoneActive() { //
     return GImGui->ActiveId == 0 || GImGui->ActiveId == GImGui->LastItemData.ID;
