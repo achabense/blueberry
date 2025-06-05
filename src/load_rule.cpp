@@ -129,9 +129,12 @@ static bool open_url(const char* url) {
     }
     return false;
 }
-// TODO: -> open-folder?
-static bool open_url(const pathT& p) {
-    if (const auto str = cpp17_u8string(p)) {
+static bool open_folder(const pathT& p) {
+    std::error_code ec{};
+    if (!std::filesystem::is_directory(p, ec)) {
+        messenger::set_msg("Not a folder.");
+        return false;
+    } else if (const auto str = cpp17_u8string(p)) {
         return open_url(str->c_str());
     } else {
         messenger::set_msg("Cannot convert path to utf-8.");
@@ -139,18 +142,12 @@ static bool open_url(const pathT& p) {
     }
 }
 
-// TODO: whether to support opening folder with `Platform_OpenInShellFn` (SDL_OpenUrl)?
-static void display_path(const pathT& p, float avail_w) {
+static void display_path(const pathT& p, const float avail_w) {
     bool clipped = false;
     imgui_Str(clip_path(p, avail_w, &clipped));
     rclick_popup::popup(imgui_GetItemPosID(), [&] {
         if (ImGui::Selectable("Copy path")) {
             copy_path(p);
-        }
-        if constexpr (debug_mode) {
-            if (has_open_url_fn() && ImGui::Selectable("Open locally")) {
-                open_url(p);
-            }
         }
     });
     if (clipped) {
@@ -326,6 +323,10 @@ class file_nav : no_copy {
 
 public:
     bool valid() const { return m_current.valid(); }
+    const auto& current_path() const {
+        assert(valid());
+        return m_current.path();
+    }
 
     void refresh_if_valid() {
         if (m_current.valid()) {
@@ -425,14 +426,6 @@ public:
     }
 #endif
 
-    void show_current() {
-        if (m_current.valid()) {
-            display_path(m_current.path(), ImGui::GetContentRegionAvail().x);
-        } else {
-            imgui_StrDisabled("N/A");
-        }
-    }
-
     // Return one of file path in `m_current`.
     std::optional<pathT> display() {
         std::optional<pathT> target = std::nullopt;
@@ -455,9 +448,17 @@ public:
                 // TODO: reconsider disabled vs hiding...
                 // ImGui::BeginDisabled(m_home.empty());
                 if (!m_home.empty()) {
-                    if (imgui_SelectableStyledButtonEx(id++, "Home")) {
+                    if (imgui_SelectableStyledButtonEx(id++, "Home") && messenger::dot()) {
                         set_dir(m_home);
                     }
+                    rclick_popup::popup2([&] { // (Undocumented.)
+                        if (ImGui::Selectable("Copy path")) {
+                            copy_path(m_home);
+                        }
+                        // if (has_open_url_fn() && ImGui::Selectable("Open locally")) {
+                        //     open_folder(m_home);
+                        // }
+                    });
                 }
                 // ImGui::EndDisabled();
                 // if (m_home.empty()) {
@@ -484,6 +485,9 @@ public:
                             if (ImGui::Selectable("Copy path")) {
                                 copy_path(m_current / dir);
                             }
+                            // if (has_open_url_fn() && ImGui::Selectable("Open locally")) {
+                            //     open_folder(m_current / dir);
+                            // }
                         });
                     }
                     if (sel) {
@@ -923,7 +927,7 @@ static std::string to_size(uintmax_t size) {
     if (!ec && size > max_size) {
         messenger::set_msg("File too large: {} > {}", to_size(size), to_size(max_size));
     } else { // !!TODO: the error messages should be redesigned one day...
-        messenger::set_msg("Failed to load file.");
+        messenger::set_msg("Cannot load this file.");
     }
     return false;
 }
@@ -970,7 +974,18 @@ static void load_file_impl() {
         menu_like_popup::popup([] { nav.selet_history(); });
 #endif
         ImGui::SameLine();
-        nav.show_current();
+        if (nav.valid()) {
+            if (has_open_url_fn()) {
+                if (double_click_button_small("Local")) {
+                    open_folder(nav.current_path());
+                }
+                guide_mode::item_tooltip("Open in file manager.");
+                ImGui::SameLine();
+            }
+            display_path(nav.current_path(), ImGui::GetContentRegionAvail().x);
+        } else {
+            imgui_StrDisabled("N/A");
+        }
 
         ImGui::Separator();
         if (auto sel = nav.display(); sel && try_load(*sel)) {

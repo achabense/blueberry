@@ -1216,7 +1216,7 @@ class rec_for_rule : no_copy {
     mutable bool m_written = false; // (Workaround to notify snapshot.)
 
 public:
-    explicit rec_for_rule(/*const int cap = 32*/) : m_capacity(32) {
+    explicit rec_for_rule(/*const int cap = 40*/) : m_capacity(40) {
         // assert(cap > 0 && cap < 100);
         m_data.reserve(m_capacity);
     }

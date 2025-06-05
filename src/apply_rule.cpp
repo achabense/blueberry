@@ -342,6 +342,7 @@ public:
     const char* str() const { return terms[m_index].str; }
 };
 
+// TODO: stop running when the space is moved out of scope?
 // TODO: refactor; the code is horribly messy...
 class runnerT : no_copy {
     class staged_rule {
