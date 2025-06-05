@@ -324,7 +324,7 @@ class file_nav : no_copy {
 public:
     bool valid() const { return m_current.valid(); }
     const auto& current_path() const {
-        assert(valid());
+        assert(m_current.valid());
         return m_current.path();
     }
 
@@ -444,34 +444,33 @@ public:
                 ImGui::SetNextItemWidth(std::min(ImGui::CalcItemWidth(), (float)item_width));
                 input_path(target);
                 ImGui::Separator();
-
-                // TODO: reconsider disabled vs hiding...
-                // ImGui::BeginDisabled(m_home.empty());
-                if (!m_home.empty()) {
-                    if (imgui_SelectableStyledButtonEx(id++, "Home") && messenger::dot()) {
-                        set_dir(m_home);
-                    }
-                    rclick_popup::popup2([&] { // (Undocumented.)
-                        if (ImGui::Selectable("Copy path")) {
-                            copy_path(m_home);
+                {
+                    // TODO: reconsider disabled vs hiding...
+                    bool any = false;
+                    if (!m_home.empty()) {
+                        any = true;
+                        if (imgui_SelectableStyledButtonEx(id++, "Home") && messenger::dot()) {
+                            set_dir(m_home);
                         }
-                        // if (has_open_url_fn() && ImGui::Selectable("Open locally")) {
-                        //     open_folder(m_home);
-                        // }
-                    });
+                        rclick_popup::popup2([&] { // (Undocumented.)
+                            if (ImGui::Selectable("Copy path")) {
+                                copy_path(m_home);
+                            }
+                            // if (has_open_url_fn() && ImGui::Selectable("Open locally")) {
+                            //     open_folder(m_home);
+                            // }
+                        });
+                    }
+                    if (m_current.valid()) {
+                        any = true;
+                        if (imgui_SelectableStyledButtonEx(id++, "..")) {
+                            set_dir(".."); // (Both ".." and m_current.path().parent_path() work here.)
+                        }
+                    }
+                    if (any) {
+                        ImGui::Separator();
+                    }
                 }
-                // ImGui::EndDisabled();
-                // if (m_home.empty()) {
-                //     imgui_ItemTooltip("Not available.");
-                // }
-
-                // ImGui::BeginDisabled(!m_current.valid());
-                if (imgui_SelectableStyledButtonEx(id++, "..")) {
-                    set_dir(".."); // (Both ".." and m_current.path().parent_path() work here.)
-                }
-                // ImGui::EndDisabled();
-
-                ImGui::Separator();
                 if (auto child = imgui_ChildWindow("Folders")) {
                     if (m_current.dirs().empty()) {
                         imgui_StrDisabled("None");
@@ -940,9 +939,8 @@ static int count_line(const std::string_view str) { //
 // TODO: add a mode to avoid opening files without rules?
 static void load_file_impl() {
     static file_nav nav(home_path_utf8());
-
+    static std::optional<pathT> file_path;
     static textT text;
-    static std::optional<pathT> path;
     static auto try_load = [](const pathT& p) -> bool {
         if (std::string str; load_binary(p, str)) {
             if (const int l = count_line(str); l > max_line) {
@@ -960,28 +958,25 @@ static void load_file_impl() {
         return false;
     };
 
-    if (!path) {
-        // ImGui::BeginDisabled(!nav.valid());
-        if (ImGui::SmallButton("Refresh")) {
-            nav.refresh_if_valid();
-        }
-        // ImGui::EndDisabled();
+    if (!file_path) {
 #if 0
-        ImGui::SameLine();
         // `BeginPopup` will consume the settings, even if not opened.
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
         menu_like_popup::small_button("Recent");
         menu_like_popup::popup([] { nav.selet_history(); });
 #endif
-        ImGui::SameLine();
         if (nav.valid()) {
+            if (ImGui::SmallButton("Refresh")) {
+                nav.refresh_if_valid();
+            }
             if (has_open_url_fn()) {
+                ImGui::SameLine();
                 if (double_click_button_small("Local")) {
                     open_folder(nav.current_path());
                 }
                 guide_mode::item_tooltip("Open in file manager.");
-                ImGui::SameLine();
             }
+            ImGui::SameLine();
             display_path(nav.current_path(), ImGui::GetContentRegionAvail().x);
         } else {
             imgui_StrDisabled("N/A");
@@ -990,13 +985,13 @@ static void load_file_impl() {
         ImGui::Separator();
         if (auto sel = nav.display(); sel && try_load(*sel)) {
             text.reset_scroll();
-            path = std::move(*sel);
+            file_path = std::move(*sel);
         }
     } else {
         const bool close = ImGui::SmallButton("Close");
         ImGui::SameLine();
         if (ImGui::SmallButton("Reload")) {
-            if (try_load(*path)) {
+            if (try_load(*file_path)) {
                 messenger::dot();
             }
             // Won't reset scroll.
@@ -1006,25 +1001,24 @@ static void load_file_impl() {
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
         menu_like_popup::small_button("Select");
         menu_like_popup::popup([] {
-            std::optional<pathT> sel = std::nullopt;
-            {
-                if (ImGui::Button("Refresh")) {
-                    nav.refresh_if_valid();
-                }
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(floor(item_width * 0.75));
-                nav.input_filter();
-                ImGui::Separator();
-                const pathT name = path->filename();
-                nav.select_file(sel, &name);
+            if (ImGui::Button("Refresh")) {
+                nav.refresh_if_valid();
             }
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(floor(item_width * 0.75));
+            nav.input_filter();
+            ImGui::Separator();
+
+            std::optional<pathT> sel = std::nullopt;
+            const pathT name = file_path->filename();
+            nav.select_file(sel, &name);
             if (sel && try_load(*sel)) {
                 text.reset_scroll(); // Even if the new path is the same as the old one.
-                path = std::move(*sel);
+                file_path = std::move(*sel);
             }
         });
         ImGui::SameLine();
-        display_filename(*path);
+        display_filename(*file_path);
         ImGui::SameLine();
         menu_like_popup::small_button(">");
         menu_like_popup::popup([] { text.select_line(); });
@@ -1036,7 +1030,7 @@ static void load_file_impl() {
         ImGui::Separator();
         text.display();
         if (close) {
-            path.reset();
+            file_path.reset();
             text.clear();
         }
     }
@@ -1098,10 +1092,10 @@ static void load_clipboard_impl(const bool paste) {
     text.display();
 }
 
-// Defined in "docs.cpp". [0]:title [1]:contents, null-terminated.
-extern const char* const docs[][2];
-
 static void load_doc_impl() {
+    // Defined in "docs.cpp". [0]:title [1]:contents, null-terminated.
+    extern const char* const docs[][2];
+
     static textT text;
     static std::optional<int> doc_id = std::nullopt;
     static auto select = []() {
