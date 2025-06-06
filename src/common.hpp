@@ -901,7 +901,6 @@ private:
     static void _show_belongs(const aniso::ruleT& rule);
 };
 
-// !!TODO: recheck logic...
 // TODO: support highlighting rule sources?
 // TODO: add scope? some source->dest may be meaningless.
 class pass_rule : no_create {
@@ -909,7 +908,6 @@ class pass_rule : no_create {
     inline static bool keep_active = false;
     inline static aniso::ruleT rule{};
 
-    // TODO: improve style...
     static void render_rect(const bool bright) {
         ImGui::PushStyleColor(ImGuiCol_DragDropTarget, IM_COL32(0, 128, 255, bright ? 255 : 64));
         ImGui::RenderDragDropTargetRect(imgui_GetItemRect(), GImGui->CurrentWindow->ClipRect);
@@ -973,11 +971,13 @@ public:
         }
     };
 
-    [[nodiscard]] static passT dest(const ImGuiKey shortcut = ImGuiKey_None, const char label = '\0') {
+    [[nodiscard]] static passT dest(const ImGuiKey /*shortcut*/ = ImGuiKey_None, const char /*label*/ = '\0') {
         if (active && ImGui::IsItemVisible()) {
+            render_rect(false);
+#if 0
             static item_timer timer{};
             render_rect(timer.test());
-            if (label) { // !!TODO: ideally should render at the foreground of individual windows...
+            if (label) { // TODO: should render at the foreground of individual windows...
                 const char str[]{'^', ' ', label, '\0'};
                 const ImVec2 pos = imgui_GetItemRect().GetBL() + ImVec2(-4, 5);
                 const ImVec2 padding = ImGui::GetStyle().FramePadding;
@@ -988,6 +988,7 @@ public:
                 drawlist->AddText(pos + padding, ImGui::GetColorU32(ImGuiCol_Text, alpha), str);
                 drawlist->AddRect(pos, pos + size, ImGui::GetColorU32(ImGuiCol_Border, alpha));
             }
+#endif
             if (ImGui::BeginDragDropTarget()) {
                 const bool deliv = ImGui::AcceptDragDropPayload(
                     "#Rule", ImGuiDragDropFlags_AcceptNoPreviewTooltip | ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
@@ -997,12 +998,15 @@ public:
                     active = false;
                 }
                 return {.rule = &rule, .hov = true, .deliv = deliv};
-            } else if (shortcut != ImGuiKey_None && shortcuts::no_ctrl() &&
-                       GImGui->DragDropPayload.SourceId != ImGui::GetItemID() && shortcuts::test_pressed(shortcut)) {
+            }
+#if 0
+            if (shortcut != ImGuiKey_None && shortcuts::no_ctrl() &&
+                GImGui->DragDropPayload.SourceId != ImGui::GetItemID() && shortcuts::test_pressed(shortcut)) {
                 timer.bind();
                 render_rect(true);
                 return {.rule = &rule, .hov = false, .deliv = true};
             }
+#endif
         }
         return {.rule = nullptr, .hov = false, .deliv = false};
     }
