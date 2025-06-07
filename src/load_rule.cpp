@@ -8,19 +8,25 @@
 // By default the project does not care about exceptions (taking as if they don't exist), but std::filesystem is an exception to this...
 // (& `bad_alloc` is always considered impossible to happen.)
 
-// The program is not going to support write access to files. However, there should be an easy way to open text file with default text editor...
-// TODO: how to do that? `SDL_OpenUrl` is not suitable as it will open path in the "preferred way"...
-
 using pathT = std::filesystem::path;
 
-// (wontfix) After wasting so much time, I'd rather afford the extra copy than bothering with "more efficient"
-// implementations any more.
-
 // It's unclear whether these functions can fail due to transcoding...
+
+// The direct conversion between path and utf8-encoded std::string was broken by this paper.
+// https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0482r6.html
+static std::string cpp17_u8string_maythrow(const pathT& path) {
+    const auto u8string = path.u8string();
+    return std::string(u8string.begin(), u8string.end());
+}
+static pathT cpp17_u8path_maythrow(const std::string_view path) {
+    // There is no well-defined way to get a u8string_view from a string_view.
+    // https://stackoverflow.com/questions/57603013/how-to-safely-convert-const-char-to-const-char8-t-in-c20
+    return pathT(std::u8string(path.begin(), path.end()));
+}
+
 static std::optional<std::string> cpp17_u8string(const pathT& path) noexcept {
     try {
-        const auto u8string = path.u8string();
-        return std::string(u8string.begin(), u8string.end());
+        return cpp17_u8string_maythrow(path);
     } catch (...) {
         assert(false);
         return std::nullopt;
@@ -28,22 +34,15 @@ static std::optional<std::string> cpp17_u8string(const pathT& path) noexcept {
 }
 static std::string cpp17_u8string_b(const pathT& path) noexcept {
     try {
-        const auto u8string = path.u8string();
-        return std::string(u8string.begin(), u8string.end());
+        return cpp17_u8string_maythrow(path);
     } catch (...) {
         assert(false);
         return "?";
     }
 }
-
-// As to why not using `filesystem::u8path`:
-// There is no standard way to shut the compiler up for a [[deprecated]] warning.
-// As to making an `std::u8string` first, see:
-// https://stackoverflow.com/questions/57603013/how-to-safely-convert-const-char-to-const-char8-t-in-c20
-// In short, in C++20 it's impossible to get `char8_t*` from `char*` without copy and in a well-defined way.
 static std::optional<pathT> cpp17_u8path(const std::string_view path) noexcept {
     try {
-        return pathT(std::u8string(path.begin(), path.end()));
+        return cpp17_u8path_maythrow(path);
     } catch (...) {
         assert(false);
         return std::nullopt;
