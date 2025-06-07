@@ -174,7 +174,7 @@ class folderT {
     pathT m_path{};
     std::vector<entryT> m_dirs{}, m_files{};
 
-    static void collect(const pathT& path, std::vector<entryT>& dirs, std::vector<entryT>& files) noexcept(false) {
+    static void collect_maythrow(const pathT& path, std::vector<entryT>& dirs, std::vector<entryT>& files) {
         assert(dirs.empty() && files.empty());
         int max_entry = 5000;
         for (const auto& entry :
@@ -245,14 +245,15 @@ public:
     }
 
     bool assign_dir(const pathT& path) noexcept {
-        if (path.empty()) {
+        // Let's assume no real implementation will ever throw from `is_absolute()`...
+        if (path.empty() || (m_path.empty() && !path.is_absolute())) {
             return false;
         }
 
         try {
             pathT cp = std::filesystem::canonical(m_path / path);
             std::vector<entryT> dirs, files;
-            collect(cp, dirs, files);
+            collect_maythrow(cp, dirs, files);
             m_path.swap(cp);
             m_dirs.swap(dirs);
             m_files.swap(files);
@@ -269,7 +270,7 @@ public:
 
         try {
             std::vector<entryT> dirs, files;
-            collect(m_path, dirs, files);
+            collect_maythrow(m_path, dirs, files);
             m_dirs.swap(dirs);
             m_files.swap(files);
             return true;
@@ -279,7 +280,7 @@ public:
     }
 
     bool assign_dir_or_file(const pathT& path, std::optional<pathT>& out_file) noexcept {
-        if (path.empty()) {
+        if (path.empty() || (m_path.empty() && !path.is_absolute())) {
             return false;
         }
 
@@ -298,7 +299,7 @@ public:
                 return false;
             }
 
-            // Convert 'path' to the format so the equivalence can be checked by pure string comparision.
+            // Convert 'path' to the format so the equivalence can be checked by pure string comparison.
             // Have to resort to this horribly inefficient one-by-one test, as the format of filenames are unclear in both sides...
             // (Especially, it's unclear whether directory-entry.path() has "canonical" filename...)
             for (const entryT& file : temp.m_files) {
@@ -965,15 +966,15 @@ static void load_file_impl() {
         menu_like_popup::popup([] { nav.selet_history(); });
 #endif
         if (nav.valid()) {
-            if (ImGui::SmallButton("Refresh")) {
-                nav.refresh_if_valid();
-            }
             if (has_open_url_fn()) {
-                ImGui::SameLine();
                 if (double_click_button_small("Local")) {
                     open_folder(nav.current_path());
                 }
                 guide_mode::item_tooltip("Open in file manager.");
+                ImGui::SameLine();
+            }
+            if (ImGui::SmallButton("Refresh")) {
+                nav.refresh_if_valid();
             }
             ImGui::SameLine();
             display_path(nav.current_path(), ImGui::GetContentRegionAvail().x);
@@ -1242,17 +1243,18 @@ public:
             return;
         }
         try {
-            const auto p = cpp17_u8path(u8path);
-            if (!p || !std::filesystem::is_directory(*p)) {
+            const pathT p = cpp17_u8path_maythrow(u8path);
+            if (!std::filesystem::is_directory(p)) {
                 return;
             }
-            const pathT folder = std::filesystem::canonical(*p) / "autosaved";
+            const pathT folder = p / "autosaved"; // !!TODO: decide the name before v0.9.8 release...
             const auto status = std::filesystem::status(folder);
             if (std::filesystem::is_directory(status) ||
                 (!std::filesystem::exists(status) && std::filesystem::create_directory(folder))) {
                 const auto [y, m, d] = get_year_month_day();
+                const std::string ymd_str = std::format("{}-{:02}-{:02}", y, m, d);
                 // `app` does imply `out`, see https://eel.is/c++draft/filebuf.members
-                m_file.open(folder / std::format("{}-{}-{}.txt", y, m, d), //
+                m_file.open(folder / (ymd_str + ".txt"),
                             std::ios_base::in | std::ios_base::app | std::ios_base::binary);
                 if (m_file) {
                     bool empty = true;
@@ -1265,7 +1267,7 @@ public:
                     }
                     m_file.clear(); // Necessary for writing.
                     if (empty) {
-                        m_file << std::format("{}-{}-{}\n", y, m, d) << std::flush;
+                        m_file << (ymd_str + '\n') << std::flush;
                     }
                 }
             }

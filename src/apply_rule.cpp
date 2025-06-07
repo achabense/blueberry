@@ -643,7 +643,7 @@ public:
 
             static rule_snapshot snapshot; // TODO: technically this should be a class member...
             const ImGuiID map_id = ImGui::GetID("MAP-str");
-            imgui_StrWithID(copy_rule::to_str(current_rule), map_id);
+            imgui_StrWithID(aniso::to_MAP_str(current_rule), map_id);
             if (!pass_rule::source(current_rule)) {
                 assert(ImGui::GetItemID() == map_id);
                 rclick_popup::popup(map_id, [&] {

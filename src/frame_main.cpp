@@ -93,7 +93,7 @@ static open_state intro_window(frame_main_token) {
             ImGui::Bullet();
             imgui_Str("Make sure you can save discoveries.");
             ImGui::SameLine();
-            imgui_StrTooltip(
+            imgui_StrTooltip( // !!TODO: about auto-saving...
                 "(?)",
                 "The program relies on clipboard to save rules and patterns, so make sure the clipboard works.\n\n"
                 "Take preview windows for example, there are two equivalent ways to copy rule to the clipboard: open menu -> 'Copy rule', or send the rule to '[C]' (after 'Clipboard').\n\n"
