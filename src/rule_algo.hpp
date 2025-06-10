@@ -17,46 +17,45 @@ namespace aniso {
 
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
     class equivT {
-        friend class partitionT;
-
-        mutable codeT::map_to<codeT> parof;
-
-        codeT headof(codeT c) const {
-            if (parof[c] == c) {
-                return c;
-            } else {
-                return parof[c] = headof(parof[c]);
-            }
-        }
+        mutable codeT::map_to<codeT> m_par;
 
     public:
         equivT() {
             for (const codeT code : each_code) {
-                parof[code] = code;
+                m_par[code] = code;
             }
         }
 
-        bool has_eq(codeT a, codeT b) const { return headof(a) == headof(b); }
+        codeT head_for(codeT c) const {
+            if (m_par[c] == c) {
+                return c;
+            } else {
+                return m_par[c] = head_for(m_par[c]);
+            }
+        }
+
+        bool has_eq(codeT a, codeT b) const { return head_for(a) == head_for(b); }
         bool has_eq(const equivT& other) const {
             return for_each_code_all_of([&](codeT code) { //
-                return has_eq(code, other.parof[code]);
+                return has_eq(code, other.m_par[code]);
             });
         }
 
-        void add_eq(codeT a, codeT b) { parof[headof(a)] = headof(b); }
+        void add_eq(codeT a, codeT b) { m_par[head_for(a)] = head_for(b); }
         void add_eq(const equivT& other) {
             for (const codeT code : each_code) {
-                add_eq(code, other.parof[code]);
+                add_eq(code, other.m_par[code]);
             }
-        }
-        friend equivT operator|(const equivT& a, const equivT& b) {
-            equivT c = a;
-            c.add_eq(b);
-            return c;
         }
     };
 
     static_assert(std::is_trivially_copyable_v<equivT>);
+
+    inline equivT operator|(const equivT& a, const equivT& b) {
+        equivT c = a;
+        c.add_eq(b);
+        return c;
+    }
 
     using groupT = std::span<const codeT>;
 
@@ -94,14 +93,13 @@ namespace aniso {
     }
 
     class partitionT {
-        equivT m_eq;
-        int m_k{}; // `m_eq` has `m_k` groups.
+        int m_k{}; // Number of groups.
 
-        // Map codeT to an integer ∈ [0, m_k) (which represents the group the code belongs to).
+        // Map codeT of the same group to the same integer ∈ [0, m_k).
         codeT::map_to<int16_t> m_map{};
 
         // (Permutation of all codeT.)
-        // codeT of the same group are stored consecutively to provide span.
+        // Store codeT of the same group consecutively to provide span.
         std::array<codeT, 512> m_data{};
 
         struct group_pos {
@@ -115,9 +113,10 @@ namespace aniso {
         partitionT(const partitionT&) = default;
         partitionT& operator=(const partitionT&) = default;
 
-        groupT group_for(codeT code) const { return m_groups[m_map[code]].get(m_data); }
+        /*implicit*/ partitionT(const equivT& eq) { assign(eq); }
+        partitionT& operator=(const equivT& eq) = delete; // -> `assign(eq)`
 
-        // (It doesn't matter which represents the group, as long as stable, e.g. `eq.headof()` is also ok.)
+        groupT group_for(codeT code) const { return m_groups[m_map[code]].get(m_data); }
         // <-> `group_for(code)[0]`:
         codeT head_for(codeT code) const { return m_data[m_groups[m_map[code]].pos]; }
 
@@ -129,11 +128,20 @@ namespace aniso {
             return std::views::transform(m_groups, [&](const group_pos& pos) { return m_data[pos.pos]; });
         }
 
-        /*implicit*/ partitionT(const equivT& eq) : m_eq(eq) {
+        bool has_group(const groupT& group) const {
+            const int v = m_map[group[0]];
+            return std::ranges::all_of(group.subspan(1), [&, v](const codeT code) { //
+                return v == m_map[code];
+            });
+        }
+
+        friend bool operator==(const partitionT& a, const partitionT& b) { return a.m_map == b.m_map; }
+
+        void assign(const equivT& eq) {
             m_k = 0;
             m_map.fill(-1);
             for (const codeT code : each_code) {
-                const codeT head = m_eq.headof(code);
+                const codeT head = eq.head_for(code);
                 if (m_map[head] == -1) {
                     m_map[head] = m_k++;
                 }
@@ -161,15 +169,29 @@ namespace aniso {
                 m_data[pos[j]++] = code;
             }
         }
-
-        bool is_refinement_of(const partitionT& other) const { return other.m_eq.has_eq(m_eq); }
-        // <-> `a.is_refinement_of(b) && b.is_refinement_of(a)`:
-        friend bool operator==(const partitionT& a, const partitionT& b) { return a.m_map == b.m_map; }
-
-        friend partitionT operator|(const partitionT& a, const partitionT& b) { //
-            return partitionT(a.m_eq | b.m_eq);
-        }
     };
+
+    inline void add_eq(equivT& eq, const groupT& group) {
+        const codeT head = group[0];
+        for (const codeT code : group.subspan(1)) {
+            eq.add_eq(head, code);
+        }
+    }
+
+    inline void add_eq(equivT& a, const equivT& b) = delete; // -> `a.add_eq(b)`
+
+    inline void add_eq(equivT& eq, const partitionT& p) {
+        for (const groupT& group : p.groups()) {
+            add_eq(eq, group);
+        }
+    }
+
+    inline equivT operator|(const partitionT& a, const partitionT& b) {
+        equivT eq{};
+        add_eq(eq, a);
+        add_eq(eq, b);
+        return eq;
+    }
 
     // A rule belongs to `subsetT` s = (r, p) iff it's all-same or all-different than (r) for each group in (p).
     // (As a result, any rule in the set can equally serve as (r); there is no difference which rule is used.)
@@ -183,7 +205,10 @@ namespace aniso {
             return std::ranges::all_of(p.groups(),
                                        [&](const groupT& group) { return all_same_or_different(group, rule, r); });
         }
-        bool includes(const subsetT& other) const { return contains(other.rule) && p.is_refinement_of(other.p); }
+        bool includes(const subsetT& other) const {
+            return contains(other.rule) && // this.p is refinement of other.p ~>
+                   std::ranges::all_of(p.groups(), [&](const groupT& group) { return other.p.has_group(group); });
+        }
 
         // <-> `a.includes(b) && b.includes(a)`:
         friend bool operator==(const subsetT& a, const subsetT& b) { return a.contains(b.rule) && a.p == b.p; }
