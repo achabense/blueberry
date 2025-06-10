@@ -1837,10 +1837,14 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
         imgui_ItemRectFilled(IM_COL32_GREY(128, 48));
     }
     imgui_ItemRect(hov == rclick_popup::None ? default_border_color()
-                                             : rclick_popup::highlight_col(hov == rclick_popup::Popup));
+                                             : rclick_popup::highlight_col(hov == rclick_popup::PopupVisible));
 
+    const bool popup_invisible = hov == rclick_popup::PopupInvisible;
+    const bool tooltip = (hovered || popup_invisible) &&
+                         imgui_IsItemHoveredForTooltip(popup_invisible ? ImGuiHoveredFlags_AllowWhenBlockedByPopup
+                                                                       : ImGuiHoveredFlags_None);
     bool hex_mode = false;
-    if (hovered && imgui_IsItemHoveredForTooltip() && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
+    if (tooltip && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
         assert(ImGui::IsMousePosValid());
         const aniso::vecT pos = from_imvec((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});

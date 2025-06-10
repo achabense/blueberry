@@ -329,7 +329,8 @@ public:
         assert(!in_popup);
     }
 
-    enum class hoverE { None, Hovered, Popup };
+    // Popups are hidden at the first frame due to auto-resize, but will still block items.
+    enum class hoverE { None, Hovered, PopupInvisible, PopupVisible };
     using enum hoverE;
 
     [[nodiscard]] static hoverE popup_no_highlight(const id_pair id, const func_ref<void()> fn) {
@@ -358,7 +359,8 @@ public:
         if (bound_id == id) {
             if (ImGui::BeginPopup(shared_popup)) {
                 bound_id_next = id;
-                hov = Popup;
+                hov = ImGui::IsWindowAppearing() ? PopupInvisible : PopupVisible;
+                assert_implies(hov == PopupInvisible, GImGui->CurrentWindow->Hidden);
 
                 lock_scroll();
                 in_popup = true;
@@ -385,7 +387,7 @@ public:
     static hoverE popup(const id_pair id, const func_ref<void()> fn) {
         const hoverE hov = popup_no_highlight(id, fn);
         if (hov != None) {
-            imgui_ItemUnderline(highlight_col(hov == Popup));
+            imgui_ItemUnderline(highlight_col(hov == PopupVisible));
         }
         return hov;
     }
@@ -394,7 +396,7 @@ public:
         const ImGuiID id = ImGui::GetItemID();
         assert(id);
         const hoverE hov = popup_no_highlight(id, fn);
-        if (hov == Popup) {
+        if (hov == PopupInvisible || hov == PopupVisible) {
             shortcuts::highlight(id);
         }
         return hov;
@@ -955,8 +957,7 @@ public:
         // (Using _ForTooltip for stable visual.)
         bool hov_for_tooltip() const {
             assert_implies(hov, rule);
-            return hov &&
-                   ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+            return hov && imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
         }
 
         void tooltip_or_message(const std::string_view str) const {

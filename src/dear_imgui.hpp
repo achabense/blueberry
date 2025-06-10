@@ -102,9 +102,13 @@ inline bool imgui_IsWindowFocused() {
     return false;
 }
 
+inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
+    return ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | flags);
+}
+
 // Workaround to provide stable hovering check for texts and groups.
 // Related: https://github.com/ocornut/imgui/issues/7984 and 7945
-inline bool imgui_IsItemHoveredForTooltip(const std::optional<ImGuiID> id = std::nullopt) {
+[[deprecated]] inline bool imgui_IsItemHoveredForTooltipEx(const std::optional<ImGuiID> id = std::nullopt) {
     if (!id) {
         return ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
     } else {
