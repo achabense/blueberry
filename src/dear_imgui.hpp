@@ -140,6 +140,8 @@ inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
     }
     if (imgui_IsItemHoveredForTooltip()) {
         if (ImGui::BeginTooltip()) {
+            // (Tooltips will be hidden for one extra frame before appearing.)
+            const bool visible = !GImGui->CurrentWindow->Hidden;
             if (GImGui->CurrentWindow->BeginCount > 1) {
                 ImGui::Separator();
             }
@@ -148,7 +150,7 @@ inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
             desc();
             ImGui::PopTextWrapPos();
             ImGui::EndTooltip();
-            return true;
+            return visible;
         }
     }
     return false;

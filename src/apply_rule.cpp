@@ -636,9 +636,12 @@ public:
             m_ctrl.set_pause(false);
         }
 
+        bool highlight_canvas = false;
         {
             ImGui::AlignTextToFramePadding();
-            imgui_StrTooltip("(...)", "!!TODO (about space window)");
+            if (imgui_StrTooltip("(...)", "!!TODO (about space window)")) {
+                highlight_canvas = true;
+            }
             ImGui::SameLine();
 
             static rule_snapshot snapshot; // TODO: technically this should be a class member...
@@ -673,7 +676,6 @@ public:
 
         std::optional<zoomT> resize_fullscreen_tooltip = std::nullopt;
         std::optional<zoomT> resize_fullscreen = std::nullopt;
-        bool highlight_canvas = false;
 
         constexpr const char* canvas_name = "Canvas";
         const ImGuiID canvas_id = ImGui::GetID(canvas_name);
@@ -1293,15 +1295,6 @@ public:
                 }
                 drawlist->AddRect(screen_min, screen_max, previewer::default_border_color());
                 drawlist->PopClipRect();
-
-                // `skip` is a workaround to make the highlight appear in the same frame with the tooltip.
-                // (Tooltips will be hidden for one extra frame before appearing.)
-                static bool skip = true;
-                if (!highlight_canvas) {
-                    skip = true;
-                } else if (std::exchange(skip, false)) {
-                    highlight_canvas = false;
-                }
 
                 if (hovered || highlight_canvas) {
                     imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_Separator));
