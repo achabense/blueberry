@@ -216,7 +216,13 @@ int main(int, char**) {
         if (!window) {
             resource_failure();
         }
-        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+        if constexpr (1) {
+            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+        } else {
+            // The high memory usage is mostly due to GPU rendering.
+            // However, software rendering has a lot of visual flaws (off-by-1-pixel etc)...
+            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+        }
         if (!renderer) {
             resource_failure();
         }
