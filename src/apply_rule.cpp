@@ -1547,9 +1547,6 @@ private:
                     }
                 };
 
-                // !!TODO: reorder & show possible "2*2 bg" in a tooltip...
-                // ("e.g., pure white, pure black, striped, or checkerboard background")
-
                 flip_den.step_slide("Density");
                 term("Random flip", op_random_flip);
                 term("Flip", op_flip);
@@ -1565,7 +1562,35 @@ private:
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 imgui_RadioButton("C", &background, 2);
                 ImGui::SameLine();
-                imgui_StrTooltip("(?)", "'Clear inside/outside' will fill with this value."); // !!TODO: rewrite...
+                imgui_StrTooltip("(?)", [] {
+                    imgui_Str("For 'Clear inside/outside':\n"
+                              "0/1: fill area with 0 or 1.\n"
+                              "C: !!TODO...\n\n"
+                              "... 2*2 periodic bg ...");
+
+                    static constexpr std::array<aniso::cellT, 4> bg_data[]{
+                        {{{0}, {0}, {0}, {0}}}, {{{1}, {1}, {1}, {1}}}, {{{0}, {1}, {1}, {0}}}, {{{1}, {0}, {0}, {0}}},
+                        {{{0}, {1}, {1}, {1}}}, {{{1}, {0}, {1}, {0}}}, {{{1}, {1}, {0}, {0}}},
+                    };
+                    constexpr int total = std::size(bg_data);
+                    constexpr aniso::vecT demo_size{.x = 16, .y = 16};
+                    constexpr int demo_zoom = 3;
+
+                    aniso::tileT demo_tile({.x = demo_size.x, .y = demo_size.y * total});
+                    for (int i = 0; i < total; ++i) {
+                        const aniso::vecT pos{.x = 0, .y = demo_size.y * i};
+                        aniso::fill(demo_tile.data().clip({pos, pos + demo_size}), {{bg_data[i].data(), {2, 2}}});
+                    }
+                    const ImTextureID texture = to_texture(demo_tile.data(), scaleE::Nearest);
+                    for (int i = 0; i < total; ++i) {
+                        if (i != 0) {
+                            ImGui::SameLine();
+                        }
+                        ImGui::Image(texture, to_imvec(demo_size * demo_zoom), ImVec2(0, float(i) / total),
+                                     ImVec2(1, float(i + 1) / total));
+                        imgui_ItemRect(IM_COL32_GREY(160, 255));
+                    }
+                });
                 term("Clear inside", op_clear_inside);
                 term("Clear outside", op_clear_outside);
 
