@@ -245,6 +245,14 @@ void frame_main() {
                 ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
                 ImGui::ShowDemoWindow(&show_demo);
             }
+
+            using clockT = std::chrono::steady_clock;
+            static const auto started = clockT::now();
+            const std::chrono::hh_mm_ss hms(clockT::now() - started);
+            ImGui::SameLine(0, wide_spacing);
+            ImGui::Text("Time:%02d:%02d:%02d", (int)hms.hours().count(), (int)hms.minutes().count(),
+                        (int)hms.seconds().count());
+
             ImGui::SameLine(0, wide_spacing);
             ImGui::Text("Frame:%d", ImGui::GetFrameCount());
         }
