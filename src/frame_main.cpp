@@ -108,7 +108,7 @@ static open_state intro_window(frame_main_token) {
                 "MAPAAEAAAEBABcAEQEHARcXfwABARcBFxd/AVcXPxd/f/8AAQEXAxcVfwEXF38Xf3//ARcXfx9/d/8X/39///9//w "
                 "MAPAAAAEQAREXcAAAARABERdwAREXcRd3f/ABERdxF3d/8AERF3EXd3/wAREXcRd3f/EXd3/3f///8Rd3f/d////w ");
             static int at = 0;
-            static previewer::configT config{previewer::configT::_220_160};
+            static previewer::configT config{previewer::default_settings};
             const int total = rules.size();
             assert(total == 4);
 

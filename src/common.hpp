@@ -825,6 +825,8 @@ public:
 // Preview rules.
 class previewer : no_create {
 public:
+    enum { default_settings };
+
     class configT {
         friend class previewer;
         float zoom_ = 1;
@@ -837,9 +839,7 @@ public:
         void _set();
 
     public:
-        // TODO: temporarily preserved to avoid breaking existing calls.
-        enum sizeE { _220_160 = 0 };
-        configT(sizeE) {}
+        /*implicit*/ configT(decltype(default_settings)) {}
 
         int width() const { return width_; }
         int height() const { return height_; }
@@ -904,7 +904,6 @@ private:
 };
 
 // TODO: support highlighting rule sources?
-// TODO: add scope? some source->dest may be meaningless.
 class pass_rule : no_create {
     inline static ImGuiID active = 0;
     inline static bool keep_active = false;
@@ -1100,7 +1099,7 @@ static_assert(std::is_trivially_copyable_v<rule_and_hash>);
 
 class rule_snapshot : no_copy {
     using dataT = std::vector<aniso::compressT>;
-    previewer::configT m_settings{previewer::configT::_220_160};
+    previewer::configT m_settings{previewer::default_settings};
 
     dataT m_data{};
     bool m_newly_updated{};
@@ -1123,7 +1122,6 @@ public:
         func_ref<aniso::compressT()> get;
         func_ref<void(const aniso::compressT&)> set;
     };
-    // TODO: support specifying title?
     open_state display(const dataT& data, const std::optional<contextT>& context) {
         assert(!m_data.empty());
         const bool updated = std::exchange(m_newly_updated, false);
@@ -1152,7 +1150,7 @@ public:
             }
         }
 
-        // !!TODO: redesign title; ideally should not rely on `this`...
+        // !!TODO: support specifying title; should not rely on `this`...
         // ("###Label" is different than "Label"...)
         // assert(ImGui::GetID("123###123") != ImGui::GetID("123"));
         const std::string title =
@@ -1255,6 +1253,7 @@ inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& r
     ImGui::BeginDisabled(empty);
     if (ImGui::Selectable(std::format("{} ({})###{}", label, rec.size(), label).c_str())) {
         snapshot.update(rec.data());
+        (void)rec.written_since_last_check(); // Consume written flag.
     }
     ImGui::EndDisabled();
     if (empty) {

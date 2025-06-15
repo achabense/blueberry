@@ -508,7 +508,7 @@ public:
 
 struct preview_setting {
     bool enabled = true;
-    previewer::configT config = previewer::configT::_220_160;
+    previewer::configT config = previewer::default_settings;
 };
 
 // !!TODO: (v0.9.9?v0.9.8) support loading pattern from text page directly.

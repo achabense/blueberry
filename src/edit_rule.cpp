@@ -520,7 +520,7 @@ public:
     }
 };
 
-// !!TODO: show whether belongs to the working set && dist to the observer?
+// TODO: show whether belongs to the working set && dist to the observer?
 void previewer::_show_belongs(const aniso::ruleT& rule) {
     static subset_selector dummy{};
     dummy.select({.rule = &rule, .select = false, .tooltip = false});
@@ -670,7 +670,7 @@ public:
                         ImGui::Separator();
                     }
                     imgui_Str(terms[tag].desc);
-                    previewer::preview(-1, previewer::configT::_220_160, rule);
+                    previewer::preview(-1, previewer::default_settings, rule);
                 });
             }
             if (tag == Custom) {
@@ -692,7 +692,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
 
-    static previewer::configT config{previewer::configT::_220_160};
+    static previewer::configT config{previewer::default_settings};
     const int group_spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
     const ImVec2 min_size = [&] {
         const auto& style = ImGui::GetStyle();
@@ -704,7 +704,6 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
 
     ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + 120, 500});
     ImGui::SetNextWindowSize(min_size, ImGuiCond_FirstUseEver);
-    // !!TODO: better title...
     if (auto window = imgui_Window("Misc utils", &open, ImGuiWindowFlags_NoSavedSettings)) {
         static std::optional<aniso::ruleT> rule_01_rev = aniso::trans_reverse(aniso::game_of_life());
         static std::optional<aniso::ruleT> rule_approx;
@@ -851,7 +850,7 @@ struct page_adapter {
         "This window can be auto-resized by double-clicking its resize border.";
 };
 
-// !!TODO: improve...
+// TODO: improve...
 static void show_in_tooltip(const previewer::configT& config, const aniso::ruleT& rule) {
     // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     imgui_ItemTooltip([&] { previewer::preview(-1, config, rule); });
@@ -871,7 +870,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static rule_with_rec orderer = working_set.rule;
         static std::deque<aniso::ruleT> page;
-        static previewer::configT config{previewer::configT::_220_160};
+        static previewer::configT config{previewer::default_settings};
         {
             // TODO: unnecessarily expensive (can be replaced by selector.rep()).
             static aniso::subsetT cmp_set = working_set;
@@ -1027,7 +1026,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
     if (auto window =
             imgui_Window("Random rules", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static rule_with_rec target = working_set.rule;
-        static previewer::configT config{previewer::configT::_220_160};
+        static previewer::configT config{previewer::default_settings};
         if (!working_set.contains(target)) { // Working set changes.
             target.set(working_set.rule);
         }
@@ -1192,7 +1191,7 @@ void edit_rule(frame_main_token) {
     static bool show_random_access = false;
     // TODO: whether to support dirty editing (the target doesn't have to belong to the set)?
     static rule_with_rec target = working_set.rule; // Random-access
-    static previewer::configT config{previewer::configT::_220_160};
+    static previewer::configT config{previewer::default_settings};
     {
         static bool show_misc = false;
         ImGui::Checkbox("Misc", &show_misc);
@@ -1262,7 +1261,7 @@ void edit_rule(frame_main_token) {
         }
     }
 
-    // !!TODO: there should finally be one single if-show_random_access scope...
+    // TODO: there should finally be one single if-show_random_access scope...
     // const bool working_contains = show_random_access /*workaround*/ && working_set.contains(target);
     assert_implies(show_random_access, working_set.contains(target));
 
@@ -1275,9 +1274,9 @@ void edit_rule(frame_main_token) {
         // !!TODO: improve...
     }
 
-    // !!TODO: whether to add here? whether to hide when it's not needed?
+    // TODO: whether to add here? whether to hide when it's not needed?
     // ImGui::SameLine();
-    // if (ImGui::SmallButton("Top") && messenger::dot();) {
+    // if (ImGui::SmallButton("Top") && messenger::dot()) {
     //     ImGui::SetNextWindowScroll({0, 0});
     // }
 
