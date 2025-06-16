@@ -110,7 +110,7 @@ inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
 }
 
 // TODO: should finally be configurable in the program.
-// inline const bool init_maximize_window = false;
+inline const bool init_maximize_window = false;
 inline const bool init_zero_interval = false;
 inline const bool init_show_intro = true;
 inline const bool init_compact_mode = false;

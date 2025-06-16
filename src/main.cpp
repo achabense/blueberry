@@ -213,9 +213,8 @@ int main(int, char**) {
     {
         constexpr const char* window_title = "Blueberry v 0.9.8 (WIP)";
 
-        // To maximize the window: SDL_WINDOW_MAXIMIZED, or for guaranteed initial color:
-        // SDL_WINDOW_HIDDEN (-> SDL_MaximizeWindow) -> manual render-clear -> SDL_ShowWindow
-        const SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+        const SDL_WindowFlags window_flags =
+            (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
         window =
             SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
         if (!window) {
@@ -231,6 +230,13 @@ int main(int, char**) {
         if (!renderer) {
             resource_failure();
         }
+
+        if constexpr (init_maximize_window) {
+            SDL_MaximizeWindow(window);
+        }
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        SDL_ShowWindow(window); // Guaranteed to be all-black.
     }
 
     // Setup Dear ImGui context
@@ -301,16 +307,21 @@ int main(int, char**) {
 
     auto end_frame = [] {
         ImGui::Render();
-        const ImGuiIO& io = ImGui::GetIO();
-        SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
-        // `SDL_RenderClear` seems not necessary, as the program uses full-screen window.
-        // (Kept as it does no harm.)
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
+        // Skip rendering in the first frame for better visual.
+        // (The intro window is hidden in the first frame due to auto-resize.)
+        if (ImGui::GetFrameCount() >= 2) {
+            const ImGuiIO& io = ImGui::GetIO();
+            SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
-        SDL_RenderPresent(renderer);
+            // `SDL_RenderClear` seems not necessary, as the program uses full-screen window.
+            // (Kept as it does no harm.)
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+
+            ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+            SDL_RenderPresent(renderer);
+        }
     };
 
     texture_pool::begin();
