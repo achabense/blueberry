@@ -1331,7 +1331,7 @@ void edit_rule(frame_main_token) {
 
             const aniso::codeT head = group[0];
             const auto group_details = [&] {
-                ImGui::PushTextWrapPos(-1); // No wrapping.
+                // ImGui::PushTextWrapPos(-1); // No wrapping.
                 const int group_size = group.size();
                 ImGui::Text("Members: %d", group_size);
                 const int perline = 8;
@@ -1352,7 +1352,7 @@ void edit_rule(frame_main_token) {
                 if (group_size > max_to_show) {
                     imgui_Str("...");
                 }
-                ImGui::PopTextWrapPos();
+                // ImGui::PopTextWrapPos();
             };
 
             if (show_random_access) {
@@ -1375,7 +1375,11 @@ void edit_rule(frame_main_token) {
                 ImGui::PopStyleVar();
                 ImGui::PopStyleColor(3);
 
-                imgui_ItemTooltip(group_details);
+                // imgui_ItemTooltip(group_details);
+                if (ImGui::BeginItemTooltip()) {
+                    group_details();
+                    ImGui::EndTooltip();
+                }
 
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 align_text(ImGui::GetItemRectSize().y);
@@ -1386,7 +1390,11 @@ void edit_rule(frame_main_token) {
                 ImGui::EndGroup();
             } else {
                 code_image(head, button_zoom, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
-                imgui_ItemTooltip(group_details);
+                // imgui_ItemTooltip(group_details);
+                if (ImGui::BeginItemTooltip()) {
+                    group_details();
+                    ImGui::EndTooltip();
+                }
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 align_text(ImGui::GetItemRectSize().y);
                 imgui_Str(labels_val[observer[head]]);

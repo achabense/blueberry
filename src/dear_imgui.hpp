@@ -135,23 +135,18 @@ inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
 }
 
 inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
-    if (GImGui->CurrentWindow->SkipItems) {
-        return false;
-    }
-    if (imgui_IsItemHoveredForTooltip()) {
-        if (ImGui::BeginTooltip()) {
-            // (Tooltips will be hidden for one extra frame before appearing.)
-            const bool visible = !GImGui->CurrentWindow->Hidden;
-            if (GImGui->CurrentWindow->BeginCount > 1) {
-                ImGui::Separator();
-            }
-            // The same as the one in `HelpMarker` in "imgui_demo.cpp".
-            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-            desc();
-            ImGui::PopTextWrapPos();
-            ImGui::EndTooltip();
-            return visible;
+    if (!GImGui->CurrentWindow->SkipItems && ImGui::BeginItemTooltip()) {
+        // (Tooltips will be hidden for one extra frame before appearing.)
+        const bool visible = !GImGui->CurrentWindow->Hidden;
+        if (GImGui->CurrentWindow->BeginCount > 1) {
+            ImGui::Separator();
         }
+        // The same as the one in `HelpMarker` in "imgui_demo.cpp".
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        desc();
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+        return visible;
     }
     return false;
 }

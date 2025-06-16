@@ -1765,7 +1765,12 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                                       "'6' to see the projected view in hexagonal space.\n"
                                       "(This also applies to the space window.)");
             ImGui::SameLine();
-            imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
+            // imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
+            imgui_StrDisabled("Belongs");
+            if (ImGui::BeginItemTooltip()) {
+                _show_belongs(rule);
+                ImGui::EndTooltip();
+            }
             ImGui::Separator();
 
             if (ImGui::Selectable("Copy rule")) {
