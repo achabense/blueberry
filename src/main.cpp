@@ -188,6 +188,11 @@ std::string backend_fn::home_path_utf8() {
     }
 }
 
+static int frame_per_sec = 100;
+void backend_fn::set_frame_rate() { //
+    imgui_StepSliderInt::fn("FPS", &frame_per_sec, 4, 100);
+}
+
 // The encoding of `argv` cannot be relied upon, see:
 // https://stackoverflow.com/questions/5408730/what-is-the-encoding-of-argv
 int main(int, char**) {
@@ -317,11 +322,10 @@ int main(int, char**) {
 
         end_frame();
 
-        // Limit the framerate to be at most 100 fps.
         // (Normally `SDL_RENDERER_PRESENTVSYNC` will further limit to a smaller framerate, like 60fps.)
         static Uint64 last = 0;
         const Uint64 now = SDL_GetTicks64();
-        const Uint64 until = last + 10;
+        const Uint64 until = last + 1000 / frame_per_sec;
         if (now < until) {
             SDL_Delay(until - now);
             last = until; // Instead of another `SDL_GetTicks64()` call.

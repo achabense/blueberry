@@ -1,46 +1,5 @@
 #include "common.hpp"
 
-#ifdef YDEBUG
-#define SET_FRAME_RATE
-#endif
-
-#ifdef SET_FRAME_RATE
-#include <thread>
-
-class timerT {
-    // (Typically the framerate is limited by VSync in this case, like 60 fps.)
-    static constexpr int max_fps = 100;
-    int fps = max_fps;
-
-    using clockT = std::chrono::steady_clock;
-    clockT::time_point last{};
-
-public:
-    void wait() {
-        using namespace std::chrono_literals;
-        const auto now = clockT::now();
-        const auto until = last + 1000ms / fps;
-        if (now < until) {
-            std::this_thread::sleep_until(until);
-            last = until; // Instead of another `clockT::now()` call.
-        } else {
-            last = now;
-        }
-    }
-
-    void set_fps() {
-        imgui_RadioButton("Auto", &fps, max_fps);
-        ImGui::SameLine();
-        imgui_StrTooltip("(?)", "Typically limited by VSync.");
-
-        ImGui::SameLine();
-        imgui_RadioButton("50 fps", &fps, 50);
-        ImGui::SameLine();
-        imgui_RadioButton("10 fps", &fps, 10);
-    }
-};
-#endif
-
 static open_state intro_window(frame_main_token) {
     bool open = true;
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
@@ -143,11 +102,6 @@ void frame_main() {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{3, 2});
     }
 
-#ifdef SET_FRAME_RATE
-    static timerT timer;
-    timer.wait();
-#endif // SET_FRAME_RATE
-
     global_timer::begin_frame({});
     shortcuts::begin_frame({});
     rclick_popup::begin_frame({});
@@ -229,13 +183,11 @@ void frame_main() {
 
         ImGui::SameLine(0, wide_spacing);
         ImGui::Text("(%d FPS)", (int)round(ImGui::GetIO().Framerate));
-#ifdef SET_FRAME_RATE
-        ImGui::SameLine();
-        menu_like_popup::small_button("Set");
-        menu_like_popup::popup([] { timer.set_fps(); });
-#endif // SET_FRAME_RATE
-
         if constexpr (debug_mode) {
+            ImGui::SameLine();
+            menu_like_popup::small_button("Set");
+            menu_like_popup::popup(set_frame_rate);
+
             ImGui::SameLine(0, wide_spacing);
             imgui_Str("(Debug mode)");
             ImGui::SameLine();

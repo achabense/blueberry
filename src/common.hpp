@@ -86,6 +86,8 @@ inline namespace backend_fn {
                      const ImVec4& tint_col = ImVec4(1, 1, 1, 1));
 
     std::string home_path_utf8(); // "." ~ current path, empty ~ unavailable.
+
+    void set_frame_rate(); // Shown in popup.
 } // namespace backend_fn
 
 inline const int item_width = 220;
