@@ -23,11 +23,10 @@ inline ImRect imgui_GetWindowRect() {
 // (Referring to `ImGui::GetContentRegionAvail`.)
 // (Returning optional as `GetContentRegionAvail` may return negative values.)
 inline std::optional<ImRect> imgui_GetAvailRect() {
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    const ImVec2 pos_min = window->DC.CursorPos;
+    const ImGuiWindow& window = *GImGui->CurrentWindow;
+    const ImVec2 pos_min = window.DC.CursorPos;
     const ImVec2 pos_max =
-        (window->DC.CurrentColumns || g.CurrentTable) ? window->WorkRect.Max : window->ContentRegionRect.Max;
+        (window.DC.CurrentColumns || GImGui->CurrentTable) ? window.WorkRect.Max : window.ContentRegionRect.Max;
     if (pos_min.x < pos_max.x && pos_min.y < pos_max.y) {
         return ImRect{pos_min, pos_max};
     } else {
@@ -103,7 +102,7 @@ inline bool imgui_IsWindowFocused() {
 }
 
 // ImGui::IsPopupOpen(id, 0), i.e. open at the current BeginPopup() level.
-inline bool imgui_IsPopupOpen(const ImGuiID id) { //
+inline bool imgui_IsPopupOpen(const ImGuiID id) {
     const ImGuiContext& g = *GImGui;
     return g.OpenPopupStack.Size > g.BeginPopupStack.Size && g.OpenPopupStack[g.BeginPopupStack.Size].PopupId == id;
 }
@@ -134,30 +133,20 @@ inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
 
 // Workaround to provide stable hovering check for texts and groups.
 // Related: https://github.com/ocornut/imgui/issues/7984 and 7945
-[[deprecated]] inline bool imgui_IsItemHoveredForTooltipEx(const std::optional<ImGuiID> id = std::nullopt) {
-    if (!id) {
-        return ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
-    } else {
-        const ImGuiID using_id = *id;
-
-        // HoverFlagsForTooltipMouse ~ Stationary | DelayShort | AllowWhenDisabled
-        if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-            return false;
-        }
-
-        ImGuiContext& g = *GImGui;
-        // if (g.HoverItemDelayIdPreviousFrame != using_id) { // ImGuiHoveredFlags_NoSharedDelay
-        //     g.HoverItemDelayTimer = 0.0f;
-        // }
-        g.HoverItemDelayId = using_id;
-        if (g.HoverItemUnlockedStationaryId != using_id) { // ImGuiHoveredFlags_Stationary
-            return false;
-        }
-        if (g.HoverItemDelayTimer < g.Style.HoverDelayShort) { // ImGuiHoveredFlags_DelayShort
-            return false;
-        }
-        return true;
+[[deprecated]] inline bool imgui_IsItemHoveredForTooltipEx(const ImGuiID id) {
+    // HoverFlagsForTooltipMouse ~ Stationary | DelayShort | AllowWhenDisabled
+    if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        return false;
     }
+
+    ImGuiContext& g = *GImGui;
+    // if (g.HoverItemDelayIdPreviousFrame != id) { // ImGuiHoveredFlags_NoSharedDelay
+    //     g.HoverItemDelayTimer = 0.0f;
+    // }
+    g.HoverItemDelayId = id;
+    // ImGuiHoveredFlags_Stationary | ImGuiHoveredFlags_DelayShort
+    return g.HoverItemUnlockedStationaryId == id && //
+           g.HoverItemDelayTimer >= g.Style.HoverDelayShort;
 }
 
 inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
@@ -215,15 +204,15 @@ inline void imgui_StrColored(std::string_view str, const ImVec4& col) {
 // (Referring to `ImGui::TextLink`.)
 inline void imgui_StrWithID(std::string_view str, const ImGuiID id) {
     assert(id != 0);
-    ImGuiWindow* const window = ImGui::GetCurrentWindow();
-    if (window->SkipItems) {
+    const ImGuiWindow& window = *ImGui::GetCurrentWindow();
+    if (window.SkipItems) {
         return;
     }
 
     const char* const begin = str.data();
     const char* const end = begin + str.size();
 
-    const ImVec2 pos = {window->DC.CursorPos.x, window->DC.CursorPos.y + window->DC.CurrLineTextBaseOffset};
+    const ImVec2 pos = {window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset};
     const ImVec2 size = ImGui::CalcTextSize(begin, end, false);
     const ImRect bb = {pos, pos + size};
     ImGui::ItemSize(size, 0.0f);
@@ -263,12 +252,12 @@ inline bool imgui_StrTooltip(std::string_view str, std::string_view desc) {
 // `window->Name` may not be updated to Begin-name: https://github.com/ocornut/imgui/issues/8493
 inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::string_view tooltip,
                                         const char* window_name) {
-    ImGuiWindow* const window = ImGui::GetCurrentWindow();
-    const bool old_skip = std::exchange(window->SkipItems, false); // Display regardless of whether collapsed.
-    const auto [min, max] = window->TitleBarRect();
+    ImGuiWindow& window = *ImGui::GetCurrentWindow();
+    const bool old_skip = std::exchange(window.SkipItems, false); // Display regardless of whether collapsed.
+    const auto [min, max] = window.TitleBarRect();
     ImGui::PushClipRect(min, max, false);
     {
-        const bool has_collapse_button = !(window->Flags & ImGuiWindowFlags_NoCollapse);
+        const bool has_collapse_button = !(window.Flags & ImGuiWindowFlags_NoCollapse);
         const ImVec2 old_pos = ImGui::GetCursorScreenPos();
         ImGui::SetCursorPos({ImGui::CalcTextSize(window_name, nullptr, true).x +
                                  ImGui::GetFrameHeight() * (has_collapse_button ? 2 : 1),
@@ -280,7 +269,7 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
         ImGui::SetCursorScreenPos(old_pos);
     }
     ImGui::PopClipRect();
-    window->SkipItems = old_skip;
+    window.SkipItems = old_skip;
 }
 
 // (Not general enough to add 'imgui' prefix...)
@@ -363,9 +352,8 @@ inline bool imgui_TestItemFlag(ImGuiItemFlags flag) { //
 }
 
 inline float imgui_ContentRegionMaxAbsX() {
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    return (window->DC.CurrentColumns || g.CurrentTable) ? window->WorkRect.Max.x : window->ContentRegionRect.Max.x;
+    const ImGuiWindow& window = *GImGui->CurrentWindow;
+    return (window.DC.CurrentColumns || GImGui->CurrentTable) ? window.WorkRect.Max.x : window.ContentRegionRect.Max.x;
 }
 
 inline float imgui_ItemSpacingX() { return ImGui::GetStyle().ItemSpacing.x; }
@@ -400,15 +388,15 @@ inline ImVec2 imgui_CalcRequiredWindowSize() { //
 
 // (Referring to `ImGui::Get/SetCursorScreenPos(...)`.)
 inline void imgui_AddCursorPosX(float dx) {
-    ImGuiWindow* const window = ImGui::GetCurrentWindow();
-    window->DC.CursorPos.x = floor(window->DC.CursorPos.x + dx);
-    window->DC.IsSetPos = true;
+    ImGuiWindow& window = *ImGui::GetCurrentWindow();
+    window.DC.CursorPos.x = floor(window.DC.CursorPos.x + dx);
+    window.DC.IsSetPos = true;
 }
 
 inline void imgui_AddCursorPosY(float dy) {
-    ImGuiWindow* const window = ImGui::GetCurrentWindow();
-    window->DC.CursorPos.y = floor(window->DC.CursorPos.y + dy);
-    window->DC.IsSetPos = true;
+    ImGuiWindow& window = *ImGui::GetCurrentWindow();
+    window.DC.CursorPos.y = floor(window.DC.CursorPos.y + dy);
+    window.DC.IsSetPos = true;
 }
 
 // TODO: workaround to set min column width for tables. Highly dependent on impl details.
