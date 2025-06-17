@@ -244,6 +244,43 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
     // GImGui->StyleVarStack.swap(old_stack);
 }
 
+// It's enough to focus the source window by calling `SetWindowFocus` before `OpenPopup`.
+// However, the parent window will be brought to foreground immediately, while the popup will appear at next frame due to auto-resize...
+// !!TODO: too tricky... maybe it's a good idea just to accept it...
+class popup_with_focus : no_create {
+public:
+    static constexpr bool appear_at_same_frame = debug_mode;
+
+    static void open_popup(const ImGuiID popup_id, const ImGuiPopupFlags popup_flags) {
+        if constexpr (!appear_at_same_frame) {
+            ImGui::SetWindowFocus();
+        }
+        ImGui::OpenPopupEx(popup_id, popup_flags);
+        assert(imgui_IsPopupOpen(popup_id));
+        if constexpr (appear_at_same_frame) {
+            auto& popup_ref = GImGui->OpenPopupStack.back();
+            assert(popup_ref.PopupId == popup_id);
+            popup_ref.RestoreNavWindow = GImGui->CurrentWindow->RootWindow;
+        }
+    }
+
+    // Must be called inside popup.
+    static void set_focus(const ImGuiID popup_id, const ImGuiWindow* source) {
+        if constexpr (appear_at_same_frame) {
+            const auto& popup_ref = GImGui->BeginPopupStack.back();
+            if (popup_ref.OpenFrameCount + 1 == GImGui->FrameCount) { // Visually appearing.
+                assert(popup_ref.PopupId == popup_id);
+                assert(popup_ref.RestoreNavWindow == source->RootWindow);
+                assert(popup_ref.Window == GImGui->CurrentWindow); // The popup itself.
+                if (!(popup_ref.RestoreNavWindow->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus)) {
+                    ImGui::BringWindowToDisplayFront(popup_ref.RestoreNavWindow);
+                }
+                ImGui::BringWindowToDisplayFront(popup_ref.Window);
+            }
+        }
+    }
+};
+
 // Looks like a common popup, and will appear like a menu (but with more consistent closing behavior).
 // (Can be called recursively.)
 class menu_like_popup : no_create {
@@ -273,14 +310,15 @@ public:
         assert(item_id != 0 && item_id == expected_id); // Must follow `(small_)button()`.
         const ImGuiID popup_id = item_id;
 
+        const ImGuiWindow* source_window = GImGui->CurrentWindow;
         if (!imgui_IsPopupOpen(popup_id) && imgui_IsItemOrNoneActive() && imgui_IsItemHoveredForTooltip()) {
-            ImGui::OpenPopupEx(popup_id, ImGuiPopupFlags_NoReopen);
-            assert(imgui_IsPopupOpen(popup_id));
+            popup_with_focus::open_popup(popup_id, ImGuiPopupFlags_NoReopen);
             ImGui::SetNextWindowPos(item_rect.GetTR(), ImGuiCond_Appearing); // Like a menu.
         }
 
         if (imgui_BeginPopupRecycled(popup_id)) {
             if (imgui_IsWindowHoverable()) { // Topmost popup.
+                popup_with_focus::set_focus(popup_id, source_window);
                 const ImVec2 mouse_pos = ImGui::GetMousePos();
                 const auto window_rect = imgui_GetWindowRect();
                 if (!window_rect.Contains(mouse_pos)) {
@@ -352,13 +390,15 @@ public:
         //     return;
         // }
 
+        const ImGuiWindow* source_window = GImGui->CurrentWindow;
         if (!bound_id && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-            ImGui::OpenPopupEx(popup_id, ImGuiPopupFlags_NoReopen);
+            popup_with_focus::open_popup(popup_id, ImGuiPopupFlags_NoReopen);
             bound_id = id;
         }
 
         if (bound_id == id) {
             if (imgui_BeginPopupRecycled(popup_id)) {
+                popup_with_focus::set_focus(popup_id, source_window);
                 bound_id_next = id;
                 hov = ImGui::IsWindowAppearing() ? PopupInvisible : PopupVisible;
                 assert_implies(hov == PopupInvisible, GImGui->CurrentWindow->Hidden);
@@ -1000,6 +1040,7 @@ public:
                 render_rect(true);
                 if (deliv) {
                     active = false;
+                    ImGui::SetWindowFocus();
                 }
                 return {.rule = &rule, .hov = true, .deliv = deliv};
             }
