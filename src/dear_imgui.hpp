@@ -102,6 +102,32 @@ inline bool imgui_IsWindowFocused() {
     return false;
 }
 
+// ImGui::IsPopupOpen(id, 0), i.e. open at the current BeginPopup() level.
+inline bool imgui_IsPopupOpen(const ImGuiID id) { //
+    const ImGuiContext& g = *GImGui;
+    return g.OpenPopupStack.Size > g.BeginPopupStack.Size && g.OpenPopupStack[g.BeginPopupStack.Size].PopupId == id;
+}
+
+// (Referring to `ImGui::BeginPopupEx` and `ImGui::BeginPopup`.)
+inline bool imgui_BeginPopupRecycled(const ImGuiID id, const ImGuiWindowFlags window_flags = 0) {
+    if (!imgui_IsPopupOpen(id)) {
+        GImGui->NextWindowData.ClearFlags();
+        return false;
+    }
+
+    constexpr ImGuiWindowFlags extra_flags = ImGuiWindowFlags_Popup | ImGuiWindowFlags_AlwaysAutoResize |
+                                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings;
+    const std::string name = "PopupEx_" + std::to_string(GImGui->BeginPopupStack.Size);
+    if (ImGui::Begin(name.c_str(), nullptr, window_flags | extra_flags)) {
+        assert(GImGui->CurrentWindow->BeginCount == 1); // Otherwise, likely due to id collision.
+        if (GImGui->CurrentWindow->BeginCount == 1) [[likely]] {
+            return true;
+        }
+    }
+    ImGui::EndPopup();
+    return false;
+}
+
 inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
     return ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | flags);
 }

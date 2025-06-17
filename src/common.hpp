@@ -254,7 +254,7 @@ public:
     // (Used to be `NavHighlightActivated`, but that's problematic in some cases.)
     static void button(const char* label, bool small = false) {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
-        const bool is_open = ImGui::IsPopupOpen((expected_id = ImGui::GetID(label)), 0);
+        const bool is_open = imgui_IsPopupOpen(expected_id = ImGui::GetID(label));
         if (is_open) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
         }
@@ -271,15 +271,15 @@ public:
         const ImRect item_rect = imgui_GetItemRect();
         const ImGuiID item_id = ImGui::GetItemID();
         assert(item_id != 0 && item_id == expected_id); // Must follow `(small_)button()`.
+        const ImGuiID popup_id = item_id;
 
-        if (!ImGui::IsPopupOpen(item_id, 0) && imgui_IsItemOrNoneActive() && imgui_IsItemHoveredForTooltip()) {
-            ImGui::OpenPopupEx(item_id, ImGuiPopupFlags_NoReopen);
-            assert(ImGui::IsPopupOpen(item_id, 0));
+        if (!imgui_IsPopupOpen(popup_id) && imgui_IsItemOrNoneActive() && imgui_IsItemHoveredForTooltip()) {
+            ImGui::OpenPopupEx(popup_id, ImGuiPopupFlags_NoReopen);
+            assert(imgui_IsPopupOpen(popup_id));
             ImGui::SetNextWindowPos(item_rect.GetTR(), ImGuiCond_Appearing); // Like a menu.
         }
 
-        if (ImGui::BeginPopupEx(item_id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar |
-                                             ImGuiWindowFlags_NoSavedSettings)) {
+        if (imgui_BeginPopupRecycled(popup_id)) {
             if (imgui_IsWindowHoverable()) { // Topmost popup.
                 const ImVec2 mouse_pos = ImGui::GetMousePos();
                 const auto window_rect = imgui_GetWindowRect();
@@ -345,21 +345,20 @@ public:
         assert(!in_popup); // Cannot open recursively.
         hoverE hov = Hovered;
 
-        // (Avoid creating windows for one-off usage.)
-        constexpr const char* shared_popup = "Shared-popup";
-        assert_implies(!bound_id, !ImGui::IsPopupOpen(shared_popup));
+        const ImGuiID popup_id = ImGui::GetID("Rclick-popup");
+        assert_implies(!bound_id, !imgui_IsPopupOpen(popup_id));
         // (This doesn't break assertion, which means skipping `BeginPopup` is able to close the popup as well.)
         // if (ImGui::IsKeyDown(ImGuiKey_Q)) {
         //     return;
         // }
 
         if (!bound_id && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-            ImGui::OpenPopup(shared_popup);
+            ImGui::OpenPopupEx(popup_id, ImGuiPopupFlags_NoReopen);
             bound_id = id;
         }
 
         if (bound_id == id) {
-            if (ImGui::BeginPopup(shared_popup)) {
+            if (imgui_BeginPopupRecycled(popup_id)) {
                 bound_id_next = id;
                 hov = ImGui::IsWindowAppearing() ? PopupInvisible : PopupVisible;
                 assert_implies(hov == PopupInvisible, GImGui->CurrentWindow->Hidden);

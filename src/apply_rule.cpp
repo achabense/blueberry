@@ -777,7 +777,7 @@ public:
                 aniso::fill(demo.data(), init.background);
                 static aniso::tileT curr;
                 static bool skip_run = true;
-                if (ImGui::IsWindowAppearing() || init.background != m_torus.get_init().background) {
+                if (ImGui::IsWindowAppearing() || curr.empty() || init.background != m_torus.get_init().background) {
                     curr = aniso::tileT(demo);
                     skip_run = true;
                 }
