@@ -443,6 +443,7 @@ inline bool double_click_button_small(const char* label) {
 inline bool imgui_SelectableStyledButton(const char* label, const bool selected = false,
                                          const char* menu_shortcut = nullptr) {
     assert(!GImGui->CurrentWindow->DC.IsSameLine);
+    GImGui->CurrentWindow->WriteAccessed = true;
     if (GImGui->CurrentWindow->SkipItems) {
         return false;
     }
@@ -492,6 +493,7 @@ inline bool imgui_SelectableStyledButton(const char* label, const bool selected 
 // The actual item-id is id/##Sel, irrelevant to 'label'.
 inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view label, const bool selected = false) {
     assert(!GImGui->CurrentWindow->DC.IsSameLine);
+    GImGui->CurrentWindow->WriteAccessed = true;
     if (GImGui->CurrentWindow->SkipItems) {
         return false;
     }
@@ -605,6 +607,7 @@ public:
     static bool fn(const char* label, int* v, int v_min, int v_max, int v_step = 1,
                    const func_ref<std::string(int)> to_str = to_str_default) {
         const auto [minus, plus] = std::exchange(next_shortcuts, {ImGuiKey_None, ImGuiKey_None});
+        GImGui->CurrentWindow->WriteAccessed = true;
         if (GImGui->CurrentWindow->SkipItems) {
             return false;
         }

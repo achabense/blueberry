@@ -204,7 +204,9 @@ inline void imgui_StrColored(std::string_view str, const ImVec4& col) {
 // (Referring to `ImGui::TextLink`.)
 inline void imgui_StrWithID(std::string_view str, const ImGuiID id) {
     assert(id != 0);
-    const ImGuiWindow& window = *ImGui::GetCurrentWindow();
+    // (All ImGui:: widgets set `WriteAccessed` (via `GetCurrentWindow`) before testing `SkipItems`...)
+    GImGui->CurrentWindow->WriteAccessed = true;
+    const ImGuiWindow& window = *GImGui->CurrentWindow;
     if (window.SkipItems) {
         return;
     }
