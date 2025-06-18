@@ -23,7 +23,7 @@ inline ImRect imgui_GetWindowRect() {
 // (Referring to `ImGui::GetContentRegionAvail`.)
 // (Returning optional as `GetContentRegionAvail` may return negative values.)
 inline std::optional<ImRect> imgui_GetAvailRect() {
-    const ImGuiWindow& window = *GImGui->CurrentWindow;
+    const auto& window = *GImGui->CurrentWindow;
     const ImVec2 pos_min = window.DC.CursorPos;
     const ImVec2 pos_max =
         (window.DC.CurrentColumns || GImGui->CurrentTable) ? window.WorkRect.Max : window.ContentRegionRect.Max;
@@ -103,7 +103,7 @@ inline bool imgui_IsWindowFocused() {
 
 // ImGui::IsPopupOpen(id, 0), i.e. open at the current BeginPopup() level.
 inline bool imgui_IsPopupOpen(const ImGuiID id) {
-    const ImGuiContext& g = *GImGui;
+    const auto& g = *GImGui;
     return g.OpenPopupStack.Size > g.BeginPopupStack.Size && g.OpenPopupStack[g.BeginPopupStack.Size].PopupId == id;
 }
 
@@ -206,7 +206,7 @@ inline void imgui_StrWithID(std::string_view str, const ImGuiID id) {
     assert(id != 0);
     // (All ImGui:: widgets set `WriteAccessed` (via `GetCurrentWindow`) before testing `SkipItems`...)
     GImGui->CurrentWindow->WriteAccessed = true;
-    const ImGuiWindow& window = *GImGui->CurrentWindow;
+    const auto& window = *GImGui->CurrentWindow;
     if (window.SkipItems) {
         return;
     }
@@ -354,7 +354,7 @@ inline bool imgui_TestItemFlag(ImGuiItemFlags flag) { //
 }
 
 inline float imgui_ContentRegionMaxAbsX() {
-    const ImGuiWindow& window = *GImGui->CurrentWindow;
+    const auto& window = *GImGui->CurrentWindow;
     return (window.DC.CurrentColumns || GImGui->CurrentTable) ? window.WorkRect.Max.x : window.ContentRegionRect.Max.x;
 }
 

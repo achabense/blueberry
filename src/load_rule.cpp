@@ -809,7 +809,7 @@ private:
             const bool test_hover = (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos();
             const float region_max_x = imgui_ContentRegionMaxAbsX();
-            ImDrawList* const drawlist = ImGui::GetWindowDrawList();
+            ImDrawList& drawlist = *ImGui::GetWindowDrawList();
 
             // (Inefficient, but not worth bothering.)
             const int digit_width = m_lines.size() < 100 ? 2 : std::to_string(m_lines.size()).size();
@@ -852,8 +852,8 @@ private:
                     }
                 }
                 if (m_sel && m_sel->contains(this_l)) {
-                    drawlist->AddRectFilled(str_min, {region_max_x, str_max.y}, IM_COL32_GREY(255, 16));
-                    drawlist->AddRectFilled(str_min, str_max, IM_COL32_GREY(255, 40));
+                    drawlist.AddRectFilled(str_min, {region_max_x, str_max.y}, IM_COL32_GREY(255, 16));
+                    drawlist.AddRectFilled(str_min, str_max, IM_COL32_GREY(255, 40));
                 }
 
                 if (rule.has_value()) {
@@ -861,11 +861,11 @@ private:
                     constexpr bool has_lock = false;
 
                     if (rule.pos == m_pos) {
-                        drawlist->AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 60));
+                        drawlist.AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 60));
                     }
                     if (!m_sel &&
                         (line_hovered && mouse_pos.x >= str_min.x && mouse_pos.x < str_max.x /*str-hovered*/)) {
-                        drawlist->AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 30));
+                        drawlist.AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 30));
                         if (!locating && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                             pass.pos = rule.pos;
                         }

@@ -787,11 +787,11 @@ class messenger : no_create {
 
             const ImVec2 window_min = *m_min;
             const ImVec2 window_max = window_min + window_size;
-            ImDrawList* const drawlist = ImGui::GetForegroundDrawList();
-            drawlist->AddRectFilled(window_min, window_max, ImGui::GetColorU32(ImGuiCol_PopupBg));
-            drawlist->AddRect(window_min, window_max, ImGui::GetColorU32(ImGuiCol_Border));
-            drawlist->AddText(nullptr, 0.0f, window_min + window_padding, ImGui::GetColorU32(ImGuiCol_Text), text_beg,
-                              text_end, text_wrap);
+            ImDrawList& drawlist = *ImGui::GetForegroundDrawList();
+            drawlist.AddRectFilled(window_min, window_max, ImGui::GetColorU32(ImGuiCol_PopupBg));
+            drawlist.AddRect(window_min, window_max, ImGui::GetColorU32(ImGuiCol_Border));
+            drawlist.AddText(nullptr, 0.0f, window_min + window_padding, ImGui::GetColorU32(ImGuiCol_Text), text_beg,
+                             text_end, text_wrap);
         }
     };
 
@@ -1027,10 +1027,10 @@ public:
                 const ImVec2 padding = ImGui::GetStyle().FramePadding;
                 const ImVec2 size = imgui_CalcTextSize(str) + padding * 2;
                 const float alpha = 1;
-                ImDrawList* const drawlist = ImGui::GetForegroundDrawList();
-                drawlist->AddRectFilled(pos, pos + size, ImGui::GetColorU32(ImGuiCol_PopupBg, alpha));
-                drawlist->AddText(pos + padding, ImGui::GetColorU32(ImGuiCol_Text, alpha), str);
-                drawlist->AddRect(pos, pos + size, ImGui::GetColorU32(ImGuiCol_Border, alpha));
+                ImDrawList& drawlist = *ImGui::GetForegroundDrawList();
+                drawlist.AddRectFilled(pos, pos + size, ImGui::GetColorU32(ImGuiCol_PopupBg, alpha));
+                drawlist.AddText(pos + padding, ImGui::GetColorU32(ImGuiCol_Text, alpha), str);
+                drawlist.AddRect(pos, pos + size, ImGui::GetColorU32(ImGuiCol_Border, alpha));
             }
 #endif
             if (ImGui::BeginDragDropTarget()) {

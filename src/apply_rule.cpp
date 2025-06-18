@@ -739,7 +739,7 @@ public:
                 const ImVec2 button_beg = ImGui::GetItemRectMin();
                 const bool button_hovered = ImGui::IsItemHovered();
                 const ImVec2 mouse_pos = ImGui::GetMousePos();
-                ImDrawList* const drawlist = ImGui::GetWindowDrawList();
+                ImDrawList& drawlist = *ImGui::GetWindowDrawList();
                 const aniso::tile_ref data = init.background.data();
                 std::optional<aniso::vecT> resize{};
                 for (int y = 0; y < max_period.y; ++y) {
@@ -748,10 +748,10 @@ public:
 
                         const ImVec2 cell_beg = button_beg + cell_button_size * ImVec2(x, y);
                         const ImVec2 cell_end = cell_beg + cell_button_size;
-                        drawlist->AddRectFilled(cell_beg, cell_end,
-                                                in_range ? (data.at(x, y) ? IM_COL32_WHITE : IM_COL32_BLACK)
-                                                         : IM_COL32_GREY(60, 255));
-                        drawlist->AddRect(cell_beg, cell_end, IM_COL32_GREY(160, 255));
+                        drawlist.AddRectFilled(cell_beg, cell_end,
+                                               in_range ? (data.at(x, y) ? IM_COL32_WHITE : IM_COL32_BLACK)
+                                                        : IM_COL32_GREY(60, 255));
+                        drawlist.AddRect(cell_beg, cell_end, IM_COL32_GREY(160, 255));
                         if (button_hovered && ImRect(cell_beg, cell_end).Contains(mouse_pos) /*[)*/) {
                             if (shortcuts::ctrl()) {
                                 if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -1206,15 +1206,15 @@ public:
                 const ImVec2 screen_min = ImFloor(canvas_min + m_coord.to_canvas({0, 0}));
                 const ImVec2 screen_max = screen_min + to_imvec(tile_size) * m_coord.zoom;
 
-                ImDrawList* const drawlist = ImGui::GetWindowDrawList();
-                drawlist->PushClipRect(canvas_min, canvas_max);
-                drawlist->AddRectFilled(canvas_min, canvas_max, IM_COL32_GREY(24, 255));
+                ImDrawList& drawlist = *ImGui::GetWindowDrawList();
+                drawlist.PushClipRect(canvas_min, canvas_max);
+                drawlist.AddRectFilled(canvas_min, canvas_max, IM_COL32_GREY(24, 255));
 
                 const scaleE scale_mode = m_coord.zoom < 1 ? scaleE::Linear : scaleE::Nearest;
                 if (!m_paste) {
                     const ImTextureID texture = to_texture(m_torus.read_only(), scale_mode);
 
-                    drawlist->AddImage(texture, screen_min, screen_max);
+                    drawlist.AddImage(texture, screen_min, screen_max);
                     if (zoom_center.has_value()) {
                         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
                         if (ImGui::BeginTooltip()) {
@@ -1279,22 +1279,22 @@ public:
                         }
                     });
 
-                    drawlist->AddImage(texture, screen_min, screen_max);
+                    drawlist.AddImage(texture, screen_min, screen_max);
                     // (It's ok to render for this frame even if `m_paste` has been consumed.)
                     const ImVec2 paste_min = screen_min + to_imvec(paste_beg) * m_coord.zoom;
                     const ImVec2 paste_max = screen_min + to_imvec(paste_end) * m_coord.zoom;
-                    drawlist->AddRectFilled(paste_min, paste_max, IM_COL32(255, 0, 0, 60));
+                    drawlist.AddRectFilled(paste_min, paste_max, IM_COL32(255, 0, 0, 60));
                 }
 
                 if (m_sel) {
                     const auto [sel_beg, sel_end] = m_sel->to_range();
                     const ImVec2 sel_min = screen_min + to_imvec(sel_beg) * m_coord.zoom;
                     const ImVec2 sel_max = screen_min + to_imvec(sel_end) * m_coord.zoom;
-                    drawlist->AddRectFilled(sel_min, sel_max, IM_COL32(0, 255, 0, !m_paste ? 40 : 20));
+                    drawlist.AddRectFilled(sel_min, sel_max, IM_COL32(0, 255, 0, !m_paste ? 40 : 20));
                     // drawlist->AddRect(sel_min, sel_max, IM_COL32(0, 255, 0, 160));
                 }
-                drawlist->AddRect(screen_min, screen_max, previewer::default_border_color());
-                drawlist->PopClipRect();
+                drawlist.AddRect(screen_min, screen_max, previewer::default_border_color());
+                drawlist.PopClipRect();
 
                 if (hovered || highlight_canvas) {
                     imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_Separator));
