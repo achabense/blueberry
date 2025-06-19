@@ -1147,9 +1147,16 @@ class rule_snapshot : no_copy {
 
     dataT m_data{};
     bool m_newly_updated{};
-    bool m_outdated{};
+    bool m_outdated{}; // TODO: remove this?
+
+    const char* m_title{};
 
 public:
+    explicit rule_snapshot(const char* title) {
+        assert(title);
+        m_title = title;
+    }
+
     bool empty() const { return m_data.empty(); }
     explicit operator bool() const { return !empty(); }
     void clear() { m_data.clear(); }
@@ -1194,14 +1201,10 @@ public:
             }
         }
 
-        // !!TODO: support specifying title; should not rely on `this`...
-        // ("###Label" is different than "Label"...)
-        // assert(ImGui::GetID("123###123") != ImGui::GetID("123"));
-        const std::string title =
-            std::string(m_outdated ? "Record *" : "Record") + "###Snapshot" + std::to_string(uintptr_t(this));
-
         imgui_Window::next_window_titlebar_tooltip =
-            "This is a snapshot of the actual record. When it's outdated, the window title will be marked with '*', and you can update with 'Update'.";
+            "This is a snapshot of the actual record. When it's outdated, the window title will be marked with '*', and you can update it with the 'Update' button.";
+
+        const std::string title = std::format("{}{}###{}", m_title, m_outdated ? " *" : "", m_title);
         if (auto window = imgui_Window(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
             if (ImGui::SmallButton("Update") && messenger::dot()) {
                 assert(!data.empty()); // (As there is currently no clear method.)

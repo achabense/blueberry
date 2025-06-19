@@ -644,7 +644,7 @@ public:
             }
             ImGui::SameLine();
 
-            static rule_snapshot snapshot; // TODO: technically this should be a class member...
+            static rule_snapshot snapshot{"Recent (space window)"}; // TODO: technically should be a class member...
             const ImGuiID map_id = ImGui::GetID("MAP-str");
             imgui_StrWithID(aniso::to_MAP_str(current_rule), map_id);
             if (!pass_rule::source(current_rule)) {

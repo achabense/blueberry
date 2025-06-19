@@ -155,7 +155,7 @@ void frame_main() {
         }
         ImGui::SameLine();
         {
-            static rule_snapshot snapshot;
+            static rule_snapshot snapshot{"Recent (copied rules)"};
             imgui_Str("[C]");
             if (const auto* deliv = pass_rule::dest(ImGuiKey_C, 'C').get_deliv()) {
                 copy_rule::copy(*deliv);

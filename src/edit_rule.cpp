@@ -938,7 +938,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         }
         ImGui::SameLine();
         imgui_StrWithID("[R]");
-        static rule_snapshot snapshot;
+        static rule_snapshot snapshot{"Recent ([R])"};
         if (!pass_rule::source(orderer)) {
             show_in_tooltip(config, orderer);
             rclick_popup::popup(ImGui::GetItemID(), [&] { //
@@ -1054,7 +1054,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         }
         ImGui::SameLine();
         imgui_StrWithID("[S]");
-        static rule_snapshot snapshot;
+        static rule_snapshot snapshot{"Recent ([S])"};
         if (!pass_rule::source(target)) {
             show_in_tooltip(config, target);
             rclick_popup::popup(ImGui::GetItemID(), [&] { //
@@ -1241,7 +1241,7 @@ void edit_rule(frame_main_token) {
                 target.set(working_set.rule);
             }
 
-            static rule_snapshot snapshot;
+            static rule_snapshot snapshot{"Recent ([T])"};
             ImGui::SameLine();
             imgui_StrWithID("[T]");
             if (!pass_rule::source(target)) {
