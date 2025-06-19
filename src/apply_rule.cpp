@@ -817,10 +817,10 @@ public:
             imgui_Str("Size ~");
             ImGui::SameLine(0, inner_spacing);
             ImGui::SetNextItemWidth(floor((item_width - inner_spacing) / 2));
-            const auto ix = input_x.input("##Width", std::format("Width:{}", size.x).c_str());
+            const auto ix = input_x.input(5, "##Width", std::format("Width:{}", size.x).c_str());
             ImGui::SameLine(0, inner_spacing);
             ImGui::SetNextItemWidth(ceil((item_width - inner_spacing) / 2));
-            const auto iy = input_y.input("##Height", std::format("Height:{}", size.y).c_str());
+            const auto iy = input_y.input(5, "##Height", std::format("Height:{}", size.y).c_str());
             // Bruh...
             // ImGui::SameLine();
             // imgui_StrTooltip(
@@ -1317,6 +1317,10 @@ private:
             const char* key_label;
             bool req_sel;
             void (*op)(runnerT& self);
+#ifdef YDEBUG
+            // (If inherit from `no_copy`, will have to add a {} in init list...)
+            no_copy _{};
+#endif // YDEBUG
 
             bool check_sel(const runnerT& self) const { return !req_sel || self.m_sel; }
             void apply(runnerT& self) const {
@@ -1325,10 +1329,10 @@ private:
                 }
             }
         };
-        static_assert(std::is_trivially_copyable_v<op_term>);
+        static_assert(std::is_aggregate_v<op_term>);
 
         static percentT flip_den = 50;
-        constexpr op_term op_random_flip{
+        static constexpr op_term op_random_flip{
             ImGuiKey_Equal, "+ (=)", true,
             [](runnerT& self) {
                 assert(self.m_sel);
@@ -1336,7 +1340,7 @@ private:
                 aniso::random_flip(self.m_torus.write_only(self.m_sel->to_range()), rand, flip_den.get());
             } // (Without a comment here, the clang-format result will be extremely ugly...)
         };
-        constexpr op_term op_flip{
+        static constexpr op_term op_flip{
             ImGuiKey_Minus, "- (_)", true,
             [](runnerT& self) {
                 assert(self.m_sel);
@@ -1345,7 +1349,7 @@ private:
         };
 
         static int background = 0; // TODO: -> enum.
-        constexpr op_term op_clear_inside{
+        static constexpr op_term op_clear_inside{
             ImGuiKey_Backspace, "Backspace", true,
             [](runnerT& self) {
                 assert(self.m_sel);
@@ -1360,7 +1364,7 @@ private:
                 }
             } //
         };
-        constexpr op_term op_clear_outside{
+        static constexpr op_term op_clear_outside{
             ImGuiKey_0, "0 (zero)", true,
             [](runnerT& self) {
                 assert(self.m_sel);
@@ -1379,7 +1383,7 @@ private:
             } //
         };
 
-        constexpr op_term op_select_all{
+        static constexpr op_term op_select_all{
             ImGuiKey_A, "A", false,
             [](runnerT& self) {
                 const aniso::vecT tile_size = self.m_torus.size();
@@ -1391,7 +1395,7 @@ private:
                 }
             } //
         };
-        constexpr op_term op_bounding_box{
+        static constexpr op_term op_bounding_box{
             ImGuiKey_B, "B", true,
             [](runnerT& self) {
                 assert(self.m_sel);
@@ -1413,7 +1417,7 @@ private:
         };
 
         // !!TODO: (v0.9.9) enhance to background sampling...
-        constexpr op_term op_test_bg_period{
+        static constexpr op_term op_test_bg_period{
             ImGuiKey_P, "P", true,
             [](runnerT& self) {
                 assert(self.m_sel);
@@ -1434,7 +1438,7 @@ private:
 
         // TODO: whether to support specifying this?
         static constexpr bool add_rule = true;
-        constexpr op_term op_copy{
+        static constexpr op_term op_copy{
             ImGuiKey_C, "C", true,
             [](runnerT& self) {
                 assert(self.m_sel);
@@ -1445,20 +1449,19 @@ private:
                 messenger::set_msg(std::move(rle_str)); // !!TODO: sometimes noisy...
             } //
         };
-        constexpr op_term op_cut{
+        static constexpr op_term op_cut{
             ImGuiKey_X, "X", true,
             [](runnerT& self) {
                 assert(self.m_sel);
                 const aniso::rangeT sel_range = self.m_sel->to_range();
                 const aniso::vecT p_size{2, 2};
                 if (check_border(self.m_torus.read_only(sel_range), p_size)) {
-                    // ? Why `op_copy.apply` doesn't work (should add `static`) in gcc and clang, but this can?
                     op_copy.op(self);
                     aniso::self_repeat(self.m_torus.write_only(sel_range), p_size);
                 }
             } //
         };
-        constexpr op_term op_identify{
+        static constexpr op_term op_identify{
             ImGuiKey_I, "I (i)", true,
             [](runnerT& self) {
                 assert(self.m_sel);
@@ -1467,7 +1470,7 @@ private:
             } //
         };
 
-        constexpr op_term op_paste{
+        static constexpr op_term op_paste{
             ImGuiKey_V, "V", false,
             [](runnerT& self) {
                 if (self.m_sel) {
@@ -1503,16 +1506,18 @@ private:
             } //
         };
 
-        std::optional<op_term> op = std::nullopt;
-        ImGuiKey op_highlight = ImGuiKey_None;
+        const op_term* op = nullptr;
+        const op_term* op_highlight = nullptr;
         // bool paste_by_shortcut = false;
 
         if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
-            for (const op_term& t : {op_random_flip, op_flip, op_clear_inside, op_clear_outside, op_select_all,
-                                     op_bounding_box, op_test_bg_period, op_copy, op_cut, op_identify, op_paste}) {
-                if (shortcuts::test_pressed(t.key, false)) {
-                    op_highlight = t.key;
-                    if (t.check_sel(*this)) {
+            static constexpr const op_term* op_list[]{
+                &op_random_flip,    &op_flip, &op_clear_inside, &op_clear_outside, &op_select_all, &op_bounding_box,
+                &op_test_bg_period, &op_copy, &op_cut,          &op_identify,      &op_paste};
+            for (const op_term* t : op_list) {
+                if (shortcuts::test_pressed(t->key, false)) {
+                    op_highlight = t;
+                    if (t->check_sel(*this)) {
                         op = t;
                         // if (op == _paste) {
                         //     paste_by_shortcut = true;
@@ -1537,8 +1542,8 @@ private:
                     ImGui::BeginDisabled(!valid);
                     if (imgui_SelectableStyledButton(label, false, t.key_label)) {
                         assert(valid);
-                        op = t;
-                    } else if (op_highlight == t.key) {
+                        op = &t;
+                    } else if (op_highlight == &t) {
                         shortcuts::highlight();
                     }
                     ImGui::EndDisabled();

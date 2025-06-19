@@ -1097,18 +1097,16 @@ inline bool input_text(const char* label, std::span<char> buf, const char* hint 
     return ret;
 }
 
-// TODO: the name is too casual but I cannot think of a very suitable one...
-template <int max_digit = 5>
-class input_int {
-    static_assert(1 <= max_digit && max_digit <= std::numeric_limits<int>::digits10);
-    char buf[max_digit + 1 /*'\0'*/]{};
+class input_int : no_copy {
+    static constexpr int max_digit = std::numeric_limits<int>::digits10;
+    char m_buf[max_digit + 1 /*'\0'*/]{};
 
 public:
     std::optional<int> flush() {
-        if (buf[0] != '\0') {
+        if (m_buf[0] != '\0') {
             int v = 0;
-            const bool has_val = std::from_chars(buf, std::end(buf), v).ec == std::errc{};
-            buf[0] = '\0';
+            const bool has_val = std::from_chars(m_buf, std::end(m_buf), v).ec == std::errc{};
+            m_buf[0] = '\0';
             if (has_val) {
                 return v;
             }
@@ -1116,13 +1114,14 @@ public:
         return std::nullopt;
     }
 
-    std::optional<int> input(const char* label, const char* hint = nullptr) {
+    std::optional<int> input(int digit, const char* label, const char* hint = nullptr) {
+        assert(1 <= digit && digit <= max_digit);
         constexpr auto input_flags = ImGuiInputTextFlags_CallbackCharFilter | ImGuiInputTextFlags_EnterReturnsTrue;
         constexpr auto input_filter = [](ImGuiInputTextCallbackData* data) -> int {
             return (data->EventChar >= '0' && data->EventChar <= '9') ? 0 : 1;
         };
 
-        if (input_text(label, buf, hint, input_flags, input_filter)) {
+        if (input_text(label, {m_buf, m_buf + digit + 1 /*'\0'*/}, hint, input_flags, input_filter)) {
             return flush();
         }
         return std::nullopt;

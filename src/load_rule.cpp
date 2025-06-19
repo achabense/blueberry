@@ -641,7 +641,7 @@ public:
 
     void select_line() {
         const bool window_appearing = ImGui::IsWindowAppearing();
-        static input_int<6> input_line;
+        static input_int input_line{};
         if (window_appearing) {
             (void)input_line.flush();
         }
@@ -650,7 +650,7 @@ public:
         imgui_Str("Go to line ~ ");
         ImGui::SameLine(0, 0); // TODO: show "Max:N/A" if m_lines.empty?
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("MAX:000000").x);
-        if (auto l = input_line.input("##Line", std::format("Max:{}", m_lines.size()).c_str())) {
+        if (auto l = input_line.input(6, "##Line", std::format("Max:{}", m_lines.size()).c_str())) {
             to_line(*l - 1);
         }
         if (!m_highlighted.empty()) {

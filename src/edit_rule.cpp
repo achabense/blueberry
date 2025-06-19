@@ -933,7 +933,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         imgui_Str("Go to dist ~ ");
         ImGui::SameLine(0, 0);
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
-        if (const auto dist = input_dist.input("##Seek", std::format("Max:{}", working_set->k()).c_str())) {
+        if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set->k()).c_str())) {
             reset_page(First, aniso::seq_mixed::seek_n(working_set, orderer, *dist));
         }
         ImGui::SameLine();
