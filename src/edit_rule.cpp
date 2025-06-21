@@ -753,7 +753,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
                 ImGui::BeginDisabled(!rule_01_rev.has_value());
                 if (ImGui::SmallButton("0/1##Rev") && rule_01_rev.has_value()) {
                     rule_01_rev = aniso::trans_reverse(*rule_01_rev);
-                    messenger::dot(); // TODO: whether to show dot? (Will have no effect if the rule is self-compl...)
+                    // messenger::dot(); // TODO: whether to show dot? (Will have no effect if the rule is self-compl...)
                 }
                 ImGui::EndDisabled();
             }
@@ -761,7 +761,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
             imgui_StrTooltip(
                 "(?)",
                 "Drag a rule here to get the 0/1 reversal dual for it. That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].\n\n"
-                "(If a rule is self-complementary, its 0/1 reversal dual will be itself.)");
+                "(If the rule is self-complementary, this will result in the same rule.)");
             show_rule(id, rule_01_rev);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
                 rule_01_rev = aniso::trans_reverse(*deliv);
@@ -780,7 +780,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
             imgui_Str("Approx");
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "Drag a rule here to get a similar rule in the working set.\n\n"
-                                    "(If a rule already belongs to the set, the result will be itself.)");
+                                    "(If the rule already belongs to the set, this will result in the same rule.)");
             show_rule(id, rule_approx);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
                 rule_approx = aniso::approximate_v(working_set, *deliv);
@@ -856,7 +856,7 @@ struct page_adapter {
     }
 
     static constexpr const char* resizing_policy =
-        "This window can be auto-resized by double-clicking its resize border.";
+        "Resize the window to change page size; double-click window's resize border to fit the page.";
 };
 
 // TODO: improve...
@@ -933,11 +933,13 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         static input_int input_dist{};
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
-            "(...)", // !!TODO: rewrite (should explain [R] & relation with <00.. & dist)...
-            "The sequence represents a list of all rules in the working set, in the following order: firstly [R], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (which is the number of groups in the working set).\n\n"
-            "You can traverse the entire working set with this. Some interesting examples include: inner-totalistic rules ('Tot(+s)'), self-complementary totalistic rules ('Comp' & 'Tot'), isotropic von-Neumann rules ('All' & 'Von'), and a similar set ('All' & 'w').\n\n"
-            "Even if the working set is very large, you may find this still useful sometimes.\n\n"
-            "(The page will be cleared automatically if the working set or [R] changes.)");
+            "(...)",
+            "The seq is able to iterate through all rules in the working set, in the following order: firstly [R], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in the working set).\n\n"
+            "The seq will be cleared automatically if the working set or [R] changes.\n\n"
+            "The \"dist\" in this window refers to distance to [R]. For example, 'Go to dist' will go to the first rule with specified distance to [R].\n\n"
+            "1. If the working set is small enough (i.e. having only a few groups), you can easily traverse all rules in the set, and it doesn't matter which rule serves as [R]\n"
+            "(Examples include self-complementary totalistic rules ('Comp' & 'Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All' & 'Von'), and so on.)\n"
+            "2. If the working set is large, this still works (the page is generated on demand; the rules outside of the page are never stored), but 'Random'/'Random-access' may be more suitable tools.");
         ImGui::SameLine();
         imgui_Str("Go to dist ~ ");
         ImGui::SameLine(0, 0);
@@ -1012,7 +1014,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             previewer::preview_or_dummy(j, config, j < page.size() ? &page[j] : nullptr);
             if (j == 0) {
                 if (page.empty()) {
-                    guide_mode::item_tooltip("Drag a rule here to go to where the rule belongs in the sequence.");
+                    guide_mode::item_tooltip("Drag a rule here to go to the place starting with it.");
                 }
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
                     reset_page(First, *deliv);
@@ -1048,9 +1050,11 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
-            "(...)", // !!TODO rewrite...
-            "The sequence serves as the record of generated rules - when you are at the last page ('At' ~ 'Pages' or 'N/A'), '>>>' will generate pages of random rules (in the working set) with intended distance around/exactly to [S].\n\n"
-            "For example, if [S] is the all-zero rule, and distance = 'Around' 30, when at the last page, '>>>' will generate pages of rules with around 30 groups having '1'. Also, to get some random rules close to a certain rule (in the working set), you can update [S] and '>>>' in a low distance.");
+            "(...)",
+            "The seq is able to generate random rules (in the working set) with specified distance around/exactly to [S].\n\n"
+            "When you are at the last page (or when the page is empty; 'At' ~ 'N/A'), '>>>' will generate new pages of rules; otherwise, '<</>>>' serves to iterate through generated rules. Note that nothing will happen immediately after you update [S], as [S] only affects how to generate new rules.\n\n"
+            "1. In the default settings (working set ~ isotropic set; [S] ~ all-0 rule; distance ~ 'Around' 30), '>>>' can generate random isotropic rules with around 30 groups having '1'.\n"
+            "2. To generate random rules close to a certain rule, you can update [S] and set a low distance.");
         ImGui::SameLine();
         imgui_RadioButton("Around", &exact_mode, false);
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
@@ -1204,7 +1208,7 @@ void edit_rule(frame_main_token) {
     {
         static bool show_misc = false;
         ImGui::Checkbox("Misc", &show_misc);
-        guide_mode::item_tooltip("!!TODO...");
+        guide_mode::item_tooltip("0/1 reversal dual, approximation, and temp rules.");
         if (show_misc) {
             const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
             misc_window(init_pos, working_set).reset_if_closed(show_misc);
@@ -1234,9 +1238,13 @@ void edit_rule(frame_main_token) {
     ImGui::SameLine();
     {
         ImGui::Checkbox("Random-access", &show_random_access);
-        guide_mode::item_tooltip( // !!TODO: rewrite... or add a (...) tooltip?
-            "Enable random-access editing, i.e. flipping the values of [T] by groups. This effectively presents all rules with dist = 1 to [T] in the working set.\n"
-            "(You can 'Collapse' the set table to leave more room for the preview windows.)");
+        // !!TODO: unfinished...
+        // The operation is equivalent to dragging the displayed rule to [T]...
+        guide_mode::item_tooltip(
+            "Enable random-access editing, i.e. flipping values of [T] by groups. When this is turned on, the table will display the flipping result for each group (so the table effectively displays all rules with dist = 1 to [T] in the working set). By clicking a group button, the values of [T] (in that group) will be flipped. The operation effectively swaps [T] with the rule, and can be undone by clicking the same button again.\n\n"
+            "1. Collapse the set table ('Collapse') to leave more room for preview windows.\n"
+            "2. Open menu for [T] for the record (to switch among recently tested rules).\n"
+            "3. Use 'Misc' window's temp rules to ...");
 
         if (!show_random_access) {
             if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set)) {
@@ -1275,12 +1283,17 @@ void edit_rule(frame_main_token) {
     assert_implies(show_random_access, working_set.contains(target));
 
     ImGui::Text("Groups:%d", working_set->k());
+    ImGui::SameLine();
+    imgui_StrTooltip(
+        "(?)",
+        "If 'Random-access' is not turned on, the table shows the values of the observer; if turned on, the table shows whether [T] is same or different than the observer.");
     if (show_random_access) {
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
         ImGui::Text("Dist:%d", aniso::distance(working_set, observer, target));
         ImGui::SameLine();
-        imgui_StrTooltip("(?)", "Distance between [T] and the observer, i.e. the number of diff groups.");
-        // !!TODO: improve...
+        imgui_StrTooltip(
+            "(?)",
+            "Distance between [T] and the observer, i.e. the number of groups where they have different values.");
     }
 
     // TODO: whether to add here? whether to hide when it's not needed?

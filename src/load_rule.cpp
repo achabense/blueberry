@@ -925,7 +925,7 @@ static std::string to_size(uintmax_t size) {
 
     if (!ec && size > max_size) {
         messenger::set_msg("File too large: {} > {}", to_size(size), to_size(max_size));
-    } else { // !!TODO: the error messages should be redesigned one day...
+    } else { // !!TODO: (v0.9.9) redesign error messages...
         messenger::set_msg("Cannot load this file.");
     }
     return false;
@@ -1067,6 +1067,7 @@ static void load_clipboard_impl(const bool paste) {
     if (too_much_content) {
         imgui_ItemTooltip("Too much content.");
     }
+    guide_mode::item_tooltip("Shortcut: 'Ctrl+V'. This shortcut works even if the window is not opened.");
 
     ImGui::SameLine();
     if (double_click_button_small("Clear") && messenger::dot()) {
