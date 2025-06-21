@@ -850,8 +850,7 @@ public:
                 }
             }
             ImGui::SameLine();
-            // !!TODO: rephrase...
-            if (imgui_StrTooltip("(?)", "The buttons are for resizing the space to full-screen.\n\n"
+            if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the window.\n\n"
                                         "(Scroll in the space window to zoom in/out without resizing.)")) {
                 highlight_canvas = true;
             }
@@ -1049,7 +1048,7 @@ public:
                                         "Multi: Paste multiple times.\n\n"
                                         "Copy:  Paste values directly.\n"
                                         "Or/And: Treat black/white cells as transparent background.\n\n"
-                                        "Right-click to switch between Copy/Or/And.");
+                                        "Right-click the space window to switch between Copy/Or/And.");
                 if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                     switch (m_paste->mode) {
                         case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
@@ -1483,7 +1482,6 @@ private:
                     const std::string_view header = aniso::strip_RLE_header(text);
                     aniso::from_RLE_str(text, [&](const aniso::prepareT size) -> std::optional<aniso::tile_ref> {
                         if (size.empty()) {
-                            // (void)paste_by_shortcut; // (Used to show diff vs 'Ctrl+V'.)
                             messenger::set_msg("Found no pattern (RLE-string).");
                             return std::nullopt;
                         } else if (const aniso::vecT tile_size = self.m_torus.size(); //
@@ -1508,7 +1506,6 @@ private:
 
         const op_term* op = nullptr;
         const op_term* op_highlight = nullptr;
-        // bool paste_by_shortcut = false;
 
         if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
             static constexpr const op_term* op_list[]{
@@ -1519,9 +1516,6 @@ private:
                     op_highlight = t;
                     if (t->check_sel(*this)) {
                         op = t;
-                        // if (op == _paste) {
-                        //     paste_by_shortcut = true;
-                        // }
                     } else {
                         messenger::set_msg("No selected area.");
                     }

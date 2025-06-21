@@ -976,6 +976,7 @@ static void load_file_impl() {
             if (ImGui::SmallButton("Refresh")) {
                 nav.refresh_if_valid();
             }
+            // guide_mode::item_tooltip("Reload entry list.");
             ImGui::SameLine();
             display_path(nav.current_path(), ImGui::GetContentRegionAvail().x);
         } else {
@@ -996,7 +997,7 @@ static void load_file_impl() {
             }
             // Won't reset scroll.
         }
-        guide_mode::item_tooltip("Reload from disk.");
+        // guide_mode::item_tooltip("Reload from disk.");
         ImGui::SameLine();
         ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
         menu_like_popup::small_button("Select");
@@ -1004,6 +1005,7 @@ static void load_file_impl() {
             if (ImGui::Button("Refresh")) {
                 nav.refresh_if_valid();
             }
+            // guide_mode::item_tooltip("Reload entry list.");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(floor(item_width * 0.75));
             nav.input_filter();

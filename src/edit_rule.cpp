@@ -377,18 +377,20 @@ public:
         };
 
         imgui_Str(
-            "The \"working set\" refers to the intersection of selected sets. (So if a rule belongs to the working set, it also belongs to every selected set.) It will never be empty - if no sets are selected, the working set will be the entire MAP set.\n\n"
-            "The program has access to all rules in the working set.\n\n"
-            "For each set, if clicked with 'Ctrl', only that set will be selected (and the working set will be identical to it); if clicked without 'Ctrl', the set will be toggled selected or unselected:");
+            "The \"working set\" refers to the intersection of selected sets.\n\n"
+            "1. If a rule belongs to the working set, it also belongs to every selected set.\n"
+            "2. The working set is guaranteed to be non-empty. If only one set is selected, the working set will be identical to it; if no sets are selected, the working set will be the entire MAP set.\n"
+            "3. The program has access to all rules in the working set.\n\n"
+            "If you click a set with 'Ctrl', only that set will be selected; if without 'Ctrl', the set will be toggled selected/unselected.");
 
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");
         explain(
             false, Including,
-            "Not selected, but the working set already belongs to this set (so it will behave as if this is selected too).");
-        explain(false, Disabled,
-                "Not selectable (without 'Ctrl'), as its intersection with the working set will be empty.");
-
+            "Not selected, but the working set already belongs to this set, so it behaves as if this is selected too.");
+        explain(
+            false, Disabled,
+            "Not selectable, as its intersection with the working set will be empty. (This doesn't affect 'Ctrl' mode.)");
         // explain(true, None, "The rule belongs to this set.");
         // explain(false, None, "The rule does not belong to this set.");
     }
