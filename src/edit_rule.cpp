@@ -558,8 +558,9 @@ static bool display_snapshot_if_present(rule_snapshot& snapshot, rule_with_rec& 
 }
 
 // TODO: currently called the "observer"; still not quite ideal name...
+// !!TODO: these tooltips read still problematic...
 class rule_selector : no_copy {
-    enum tagE { Zero, Identity, Known, Custom };
+    enum tagE { Zero, Identity, Default, Custom };
     tagE m_tag = Zero;
 
     struct termT {
@@ -568,24 +569,24 @@ class rule_selector : no_copy {
         std::array<char, 2> diff_chars;
     };
     static constexpr termT terms[4]{
-        //!!TODO: rewrite...
         {"Zero",
-         "The all-zero rule, i.e. the rule that maps the cell to 0 in all cases.\n\n"
-         // "For any rule in any case, being the same as this rule means the rule maps the cell to 0, and being different from this rule means the rule maps the cell to 1. Also, the distance to this rule is equal to the number of groups that map cells to 1.\n\n"
-         "For any rule in any case, compared to this rule:\n"
-         "Same ~ '0': the cell will become 0.\n"
-         "Diff ~ '1': the cell will become 1.",
+         "The all-0 rule, i.e. the rule that maps cell to 0 in all cases.\n\n"
+         "1. For any rule in any case, being same as this rule means the rule maps cell to 0, and being different means the rule maps cell to 1.\n"
+         "2. The distance to this rule equals the number of groups that map cells to 1.\n\n"
+         "Same ~ '0', diff ~ '1'.",
          {'0', '1'}},
 
         {"Identity",
          "The rule that preserves cell's value in all cases.\n\n"
-         "For any rule in any case, compared to this rule:\n"
-         "Same ~ '.': the cell will stay unchanged (0->0 or 1->1).\n"
-         "Diff ~ 'f': the cell will \"flip\" (0->1 or 1->0).",
+         "For any rule in any case, being same as this rule means the cell will stay unchanged (0->0 or 1->1), and being different means the cell will \"flip\" (0->1 or 1->0).\n\n"
+         "Same ~ '.', diff ~ 'f'.",
          {'.', 'f'}},
 
-        {"Known",
-         "A rule known to belong to the working set. Depending on what sets are selected, it may be the same as 'Zero' or 'Identity', or another rule in the working set if neither works. It will not change unless the working set is updated.\n\n"
+        {"Default",
+         "A rule known to belong to the working set. Depending on what sets are selected, it may be the same as 'Zero' or 'Identity', or another rule in the working set if neither works (for example, try 'Compl & Total(+s)').\n\n"
+         // "1. This will not change unless the working set is updated.\n"
+         "1. If the working set changes and no longer contains the selected observer, this will be selected automatically.\n"
+         "2. This is also the init/fallback rule for [R]/[S]/[T] (for 'Traverse', 'Random' and 'Random-access', respectively).\n\n"
          "Same ~ 'o', diff ~ 'i'.",
          {'o', 'i'}},
 
@@ -601,7 +602,7 @@ class rule_selector : no_copy {
     const aniso::ruleT& get_rule(tagE tag) const {
         return tag == Zero       ? aniso::rule_all_zero //
                : tag == Identity ? aniso::rule_identity
-               : tag == Known    ? rule_known_to_set
+               : tag == Default  ? rule_known_to_set
                                  : rule_custom;
     }
 
@@ -615,21 +616,27 @@ class rule_selector : no_copy {
             return Zero;
         } else if (rule == aniso::rule_identity) {
             return Identity;
-        } else if (tag == Known || rule == rule_known_to_set) {
-            return Known;
+        } else if (tag == Default || rule == rule_known_to_set) {
+            return Default;
         } else {
             return Custom;
         }
     }
 
 public:
-    // !!TODO: unfinished...
     static void about() {
         imgui_Str(
-            "The working set divides all cases into different groups. For any two rules in the set, their values must be either all-same or all-different in each group.\n\n"
-            "As a result, the \"distance\" between any two rules (in the set) can be defined as the number of groups where they have different values, and any rule in the set can serve as an \"observer\" to measure relative distance and compare (same or different) for other rules.\n\n"
-            "'Zero' and 'Identity' are special as the values compared to them have natural interpretations (actual value and flip-ness). 'Known' always belongs to the working set (and may change ...). Any other rule in the working set can serve as observer via 'Custom'.\n\n"
-            "The group table lists every group of the working set. ....");
+            "The working set divides all cases into different groups (as shown in the group table). Due to its structure, any two rules in the set must have either all-same or all-different values in each group.\n\n"
+            "Therefore:\n"
+            "1. The \"distance\" between any two rules in the set can be defined as the number of groups where they have different values.\n"
+            "2. Any rule in the set can serve as an \"observer\" to measure relative distance and compare (same or different) with other rules.\n\n"
+            "About observers:\n"
+            "1. 'Zero' and 'Identity' are special, as being same or different than them has natural interpretations (actual value and flipness).\n"
+            "2. 'Default' is dependent on (and always belongs to) the working set, and is the default rule for [R]/[S]/[T] (for 'Traverse', 'Random' and 'Random-access', respectively).\n"
+            "3. Any other rule in the working set can serve as observer via 'Custom'.\n\n"
+            "About [R]/[S]/[T]:\n"
+            "They can be arbitrary rules in the working set. Initially they are equal to 'Default'; if the working set changes and no longer contains them, they will also be reset to 'Default'. You can update them by dragging a rule to them.\n\n"
+            "The observer never affects rule generation directly.");
     }
 
     const aniso::ruleT& get() const { return get_rule(m_tag); }
@@ -638,14 +645,14 @@ public:
 
     void select(const aniso::subsetT& working_set) {
         rule_known_to_set = working_set.rule;
-        if (m_tag != Known && !working_set.contains(get_rule(m_tag))) { // Working set changes.
-            // m_tag = resolve_tag(Known);
-            m_tag = Known;
+        if (m_tag != Default && !working_set.contains(get_rule(m_tag))) { // Working set changes.
+            // m_tag = resolve_tag(Default);
+            m_tag = Default;
         }
 
         ImGui::AlignTextToFramePadding();
         imgui_Str("Observer ~");
-        for (const tagE tag : {Zero, Identity, Known, Custom}) {
+        for (const tagE tag : {Zero, Identity, Default, Custom}) {
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
 
             const aniso::ruleT& rule = get_rule(tag);
