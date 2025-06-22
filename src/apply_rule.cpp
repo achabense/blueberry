@@ -850,7 +850,7 @@ public:
                 }
             }
             ImGui::SameLine();
-            if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the window.\n\n"
+            if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the screen.\n\n"
                                         "(Scroll in the space window to zoom in/out without resizing.)")) {
                 highlight_canvas = true;
             }
@@ -859,22 +859,17 @@ public:
         ImGui::PushItemWidth(item_width);
         ImGui::BeginGroup();
         m_ctrl.set_step_interval([&](paceT& pace, int& extra_step) {
-            bool tooltip_hovered = false;
             ImGui::AlignTextToFramePadding();
-            if (imgui_StrTooltip(
-                    "(...)",
-                    "Restart : R\n"
-                    "Pause   : Space\n"
-                    "+s/+1/+!: S/D/F (repeatable)\n"
-                    "-/+ Step    : 1/2 (repeatable)\n"
-                    "-/+ Interval: 3/4 (repeatable)\n\n"
-                    "These shortcuts are available only when the space window is hovered, or when this tooltip is displayed.")) {
+            if (imgui_StrTooltip("(...)", "Restart : R\n"
+                                          "Pause   : Space\n"
+                                          "+s/+1/+!: S/D/F (repeatable)\n"
+                                          "-/+ Step    : 1/2 (repeatable)\n"
+                                          "-/+ Interval: 3/4 (repeatable)\n\n"
+                                          "These shortcuts work only when the space window is hovered.")) {
                 highlight_canvas = true;
-                tooltip_hovered = true;
             }
 
-            const bool enable_shortcuts =
-                shortcuts::no_ctrl() && (canvas_hovered_or_held || (tooltip_hovered && shortcuts::keys_avail()));
+            const bool enable_shortcuts = canvas_hovered_or_held && shortcuts::no_ctrl();
             auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
                 return enable_shortcuts && shortcuts::test_pressed(key, repeat) && shortcuts::highlight();
             };
@@ -996,7 +991,7 @@ public:
                 "Scroll in the space window to zoom in/out.\n\n"
                 "Drag with left button to move the space; 'Ctrl' and drag to \"rotate\" the space.\n\n"
                 "Drag with right button to select area; single right-click to unselect.\n\n"
-                "See 'Space ops' for more operations (e.g. 'C' to copy selected area, 'V' to load pattern). The shortcuts (including 'V') are available only when the space window is hovered.")) {
+                "See 'Space ops' for more operations (e.g. 'C' to copy selected area, 'V' to load pattern). The shortcuts (including 'V') work only when the space window is hovered.")) {
             highlight_canvas = true;
         }
         ImGui::SameLine();
@@ -1435,8 +1430,8 @@ private:
             } //
         };
 
-        // TODO: whether to support specifying this?
-        static constexpr bool add_rule = true;
+        static constexpr bool add_rule = true; // TODO: whether to support specifying this?
+        static constexpr bool show_rle = true;
         static constexpr op_term op_copy{
             ImGuiKey_C, "C", true,
             [](runnerT& self) {
@@ -1444,8 +1439,11 @@ private:
                 std::string rle_str = aniso::to_RLE_str(self.m_torus.read_only(self.m_sel->to_range()),
                                                         add_rule ? &self.current_rule.get() : nullptr);
                 ImGui::SetClipboardText(rle_str.c_str());
-
-                messenger::set_msg(std::move(rle_str)); // !!TODO: sometimes noisy...
+                if constexpr (show_rle) { // TODO: sometimes noisy...
+                    messenger::set_msg(std::move(rle_str));
+                } else { // (But this doesn't work well with 'Cut'...)
+                    messenger::set_msg("Copied.");
+                }
             } //
         };
         static constexpr op_term op_cut{
@@ -1562,10 +1560,11 @@ private:
                 imgui_RadioButton("C", &background, 2);
                 ImGui::SameLine();
                 imgui_StrTooltip("(?)", [] {
-                    imgui_Str("For 'Clear inside/outside':\n"
-                              "0/1: fill area with 0 or 1.\n"
-                              "C: !!TODO...\n\n"
-                              "... 2*2 periodic bg ...");
+                    imgui_Str(
+                        "For 'Clear inside/outside':\n"
+                        "0/1: Fill area with 0 or 1 (unconditionally).\n"
+                        "C:   If the selected area is enclosed in 2*2 periodic bg, fill area with it; otherwise do nothing.\n\n"
+                        "The \"2*2 periodic bg\" includes the following patterns:");
 
                     static constexpr std::array<aniso::cellT, 4> bg_data[]{
                         {{{0}, {0}, {0}, {0}}}, {{{1}, {1}, {1}, {1}}}, {{{0}, {1}, {1}, {0}}}, {{{1}, {0}, {0}, {0}}},
@@ -1675,18 +1674,15 @@ void previewer::configT::_set() {
     // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {3, 2});
     ImGui::PushItemWidth(item_width);
 
-    imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20);
-    imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20);
+    const auto to_tile_size = [&](int size) { return std::to_string(int(size / zoom_)); };
+    imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20, to_tile_size);
+    imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20, to_tile_size);
     ImGui::AlignTextToFramePadding();
     imgui_Str("Zoom ~"); // TODO: should this be "zoom" or "scale"?
     for (const auto& [val, str] : std::initializer_list<float_pair>{{0.5, "0.5"}, {1, "1"}, {2, "2"}}) {
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         imgui_RadioButton(str, &zoom_, val);
     }
-    ImGui::SameLine();
-    imgui_StrTooltip(
-        "(?)",
-        "Unlike space window's 'Size ~' (which refers to space size), 'Width' and 'Height' here refer to image size (in pixels) and are unrelated to 'Zoom ~'.");
 
     ImGui::Separator();
     imgui_StepSliderInt::fn("Step", &step, 1, 30);
@@ -1826,8 +1822,8 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             term.skip_run = true;
         }
 
-        if (!pause /*instead of pause_or_frozen*/ && restart) {
-            // (Unless paused, skip displaying initial state for better visual.)
+        if (!(pause && !frozen) /*instead of pause_or_frozen*/ && restart) {
+            // (Unless paused and not frozen, skip displaying initial state for better visual.)
             term.skip_run = true;
             return adjust_step(config.step, strobing(rule));
         } else if (hovered_and_shortcut_avail && pause_or_frozen && shortcuts::test_pressed(ImGuiKey_S, true)) {
