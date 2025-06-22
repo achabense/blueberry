@@ -1222,6 +1222,8 @@ public:
             const int total = m_data.size();
             ImGui::Text("Total:%d", total);
 
+            ImGui::Separator();
+
             if (to_top) {
                 ImGui::SetNextWindowScroll({0, 0});
             }
@@ -1233,7 +1235,10 @@ public:
                 std::optional<aniso::compressT> select = std::nullopt;
 
                 for (int i = 0; i < total; ++i) {
-                    ImGui::Separator();
+                    if (i != 0) {
+                        ImGui::Spacing(); // ImGui::Separator();
+                    }
+
                     previewer::preview(i, m_settings, m_data[i]);
                     if (context) {
                         ImGui::SameLine();

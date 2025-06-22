@@ -1058,6 +1058,8 @@ public:
             }
         }
 
+        // ImGui::Separator();
+
         {
             // (Values of GetContentRegionAvail() can be negative...)
             constexpr ImVec2 min_canvas_size{torusT::min_size.x * zoomT::max(), torusT::min_size.y * zoomT::max()};

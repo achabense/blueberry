@@ -738,12 +738,14 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
             ImGui::SetNextWindowScroll({0, 0});
         }
 
+        ImGui::Separator();
+
         // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Page")) {
             int id = 0;
 
-            ImGui::Separator();
+            // ImGui::Separator();
             ImGui::BeginGroup();
             clear_button(id, rule_01_rev);
             ImGui::SameLine();
@@ -791,7 +793,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
             for (int i = 0; auto& rule : rule_temp) {
                 const int this_i = ++i;
                 if (this_i & 1) {
-                    ImGui::Separator();
+                    ImGui::Spacing(); // ImGui::Separator();
                 } else {
                     ImGui::SameLine(0, group_spacing_x);
                 }
@@ -827,7 +829,7 @@ struct page_adapter {
             const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
             const int spacing_y = ImGui::GetStyle().ItemSpacing.y;
             const int xc = fit_count(avail_size.x, item_size.x, spacing_x);
-            const int yc = fit_count(avail_size.y, item_size.y + spacing_y /*separator*/, spacing_y);
+            const int yc = fit_count(avail_size.y, item_size.y, spacing_y * 2);
             perline = xc;
             return compare_update(page_size, xc * yc);
         }
@@ -842,8 +844,8 @@ struct page_adapter {
         for (int j = 0; j < page_size; ++j) {
             if (j % perline != 0) {
                 ImGui::SameLine(0, spacing_x);
-            } else {
-                ImGui::Separator();
+            } else if (j != 0) {
+                ImGui::Spacing(); // ImGui::Separator();
             }
 
             item(j);
@@ -1006,6 +1008,8 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         ImGui::SameLine();
         config.set("Settings");
 
+        ImGui::Separator();
+
         if (adapter.try_resize(config.size_imvec()) && !page.empty()) {
             reset_page(First, page.front());
         }
@@ -1130,6 +1134,8 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 
         ImGui::SameLine();
         config.set("Settings");
+
+        ImGui::Separator();
 
         // TODO: reconsider page-resized logic (seeking to the last page may still be confusing).
         if (adapter.try_resize(config.size_imvec())) {
@@ -1302,6 +1308,8 @@ void edit_rule(frame_main_token) {
     //     ImGui::SetNextWindowScroll({0, 0});
     // }
 
+    ImGui::Separator();
+
     // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
@@ -1347,8 +1355,8 @@ void edit_rule(frame_main_token) {
             const int this_n = n++;
             if (this_n % perline != 0) {
                 ImGui::SameLine(0, spacing_x);
-            } else {
-                ImGui::Separator();
+            } else if (this_n != 0) {
+                ImGui::Spacing(); // ImGui::Separator();
             }
 
             const aniso::codeT head = group[0];
