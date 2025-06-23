@@ -150,10 +150,28 @@ inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
            g.HoverItemDelayTimer >= g.Style.HoverDelayShort;
 }
 
+// !!TODO: (v0.9.9) support in release mode as well. Currently:
+// (Set table) Ctrl+C interferes with Ctrl+click...
+// (Guide mode) Cannot copy multiple begin/end-tooltip as a whole.
+inline constexpr bool debug_mode_log_aware = debug_mode;
+inline void imgui_LogRenderedText(const ImVec2& pos, std::string_view str) {
+    ImGui::LogRenderedText(&pos, str.data(), str.data() + str.size());
+}
+
 inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
     if (!GImGui->CurrentWindow->SkipItems && ImGui::BeginItemTooltip()) {
         // (Tooltips will be hidden for one extra frame before appearing.)
         const bool visible = !GImGui->CurrentWindow->Hidden;
+#ifdef YDEBUG
+        const bool ctrl = GImGui->IO.KeyCtrl;
+        const bool do_log = ctrl && ImGui::IsKeyPressed(ImGuiKey_C, false);
+        if (ctrl) {
+            ImGui::BeginGroup();
+            if (do_log) {
+                ImGui::LogToClipboard();
+            }
+        }
+#endif // YDEBUG
         if (GImGui->CurrentWindow->BeginCount > 1) {
             ImGui::Separator();
         }
@@ -161,6 +179,15 @@ inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
         desc();
         ImGui::PopTextWrapPos();
+#ifdef YDEBUG
+        if (ctrl) {
+            if (do_log) {
+                ImGui::LogFinish();
+            }
+            ImGui::EndGroup();
+            imgui_ItemRectFilled(!do_log ? IM_COL32_GREY(255, 32) : IM_COL32_GREY(255, 64));
+        }
+#endif // YDEBUG
         ImGui::EndTooltip();
         return visible;
     }

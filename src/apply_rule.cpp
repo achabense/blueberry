@@ -1589,6 +1589,11 @@ private:
                         ImGui::Image(texture, to_imvec(demo_size * demo_zoom), ImVec2(0, float(i) / total),
                                      ImVec2(1, float(i + 1) / total));
                         imgui_ItemRect(IM_COL32_GREY(160, 255));
+                        if constexpr (debug_mode_log_aware) {
+                            if (i == 0 && GImGui->LogEnabled) {
+                                imgui_LogRenderedText(ImGui::GetItemRectMin(), ".....");
+                            }
+                        }
                     }
                 });
                 term("Clear inside", op_clear_inside);
@@ -1887,5 +1892,10 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             ImGui::EndTooltip();
         }
         ImGui::PopStyleVar();
+    }
+    if constexpr (debug_mode_log_aware) {
+        if (GImGui->LogEnabled) {
+            imgui_LogRenderedText(ImGui::GetItemRectMin(), aniso::to_MAP_str(rule));
+        }
     }
 }

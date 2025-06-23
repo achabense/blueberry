@@ -669,9 +669,13 @@ public:
             const std::string str = to_str(to_v(u));
             ImGui::RenderTextClipped(rect.Min, rect.Max, str.data(), str.data() + str.size(), nullptr,
                                      ImVec2(0.5f, 0.5f));
-            imgui_ItemTooltip([&] {
+            // imgui_ItemTooltip([&] {
+            //     imgui_Str(to_str(to_v(value_if_clicked(rect.GetWidth(), u_max, ImGui::GetMousePos().x - rect.Min.x))));
+            // });
+            if (ImGui::BeginItemTooltip()) {
                 imgui_Str(to_str(to_v(value_if_clicked(rect.GetWidth(), u_max, ImGui::GetMousePos().x - rect.Min.x))));
-            });
+                ImGui::EndTooltip();
+            }
         }
 
         ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
