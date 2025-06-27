@@ -511,7 +511,7 @@ struct preview_setting {
     previewer::configT config = previewer::default_settings;
 };
 
-// !!TODO: (v0.9.9?v0.9.8) support loading pattern from text page directly.
+// !!TODO: (v0.9.9) support loading pattern from text page directly.
 
 // It is easy to locate all rules in the text via `extract_MAP_str`.
 // However there are no easy ways to locate or highlight (only) the rule across the lines.
@@ -626,6 +626,7 @@ public:
                 line.highlight = true;
                 m_highlighted.push_back(m_lines.size() - 1);
             }
+            // TODO: support extracting all rules in a line?
             if (const auto extr = aniso::extract_MAP_str(sv); extr.has_rule()) {
                 _attach_rule(line, extr.get_rule());
             }
@@ -808,7 +809,7 @@ private:
 
             const bool test_hover = (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos();
-            const float region_max_x = imgui_ContentRegionMaxAbsX();
+            const float region_max_x = imgui_GetContentRegionMaxAbsX();
             ImDrawList& drawlist = *ImGui::GetWindowDrawList();
 
             // (Inefficient, but not worth bothering.)

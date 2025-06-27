@@ -1014,15 +1014,19 @@ public:
                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse |
                                                ImGuiWindowFlags_AlwaysAutoResize)) {
                 imgui_Str("Double-click to paste.");
-                if (m_paste->rule && *(m_paste->rule) != current_rule) {
-                    // !!TODO: redesign... how to display the rule?
+                if (m_paste->rule && *(m_paste->rule) != current_rule) { // TODO: improve...
+                    ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
+                    imgui_StrWithID("[Rule]");
+                    if (!pass_rule::source(*(m_paste->rule))) {
+                        imgui_ItemTooltip([&] {
+                            imgui_Str("The pattern specified a different rule.");
+                            previewer::preview(-1, previewer::default_settings, *(m_paste->rule));
+                        });
+                    }
                     ImGui::SameLine();
-                    if (double_click_button_small("Rule")) {
+                    if (double_click_button_small("Adopt")) {
                         current_rule.set_next(*(m_paste->rule));
                     }
-                    pass_rule::source(*(m_paste->rule));
-                    ImGui::SameLine();
-                    imgui_StrTooltip("(?)", "The pattern specified a different rule.");
                 }
 
                 // ImGui::Separator();

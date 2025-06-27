@@ -35,6 +35,11 @@ inline std::optional<ImRect> imgui_GetAvailRect() {
     }
 }
 
+inline float imgui_GetContentRegionMaxAbsX() {
+    const auto& window = *GImGui->CurrentWindow;
+    return (window.DC.CurrentColumns || GImGui->CurrentTable) ? window.WorkRect.Max.x : window.ContentRegionRect.Max.x;
+}
+
 inline ImGuiID imgui_GetItemPosID() { //
     return GImGui->CurrentWindow->GetIDFromPos(ImGui::GetItemRectMin());
 }
@@ -150,7 +155,7 @@ inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
            g.HoverItemDelayTimer >= g.Style.HoverDelayShort;
 }
 
-// !!TODO: (v0.9.9) support in release mode as well. Currently:
+// !!TODO: (v0.9.9) support copying tooltips in release mode as well. Currently:
 // (Set table) Ctrl+C interferes with Ctrl+click...
 // (Guide mode) Cannot copy multiple begin/end-tooltip as a whole.
 inline constexpr bool debug_mode_log_aware = debug_mode;
@@ -250,7 +255,7 @@ inline void imgui_StrWithID(std::string_view str, const ImGuiID id) {
         return;
     }
 
-    bool hovered, held;
+    bool hovered{}, held{};
     (void)ImGui::ButtonBehavior(bb, id, &hovered, &held);
     (void)hovered, (void)held;
 
@@ -379,11 +384,6 @@ inline bool imgui_CheckboxV(const char* label, bool v) { //
 // TODO: are there public ways to do this?
 inline bool imgui_TestItemFlag(ImGuiItemFlags flag) { //
     return (GImGui->CurrentItemFlags & flag) != 0;
-}
-
-inline float imgui_ContentRegionMaxAbsX() {
-    const auto& window = *GImGui->CurrentWindow;
-    return (window.DC.CurrentColumns || GImGui->CurrentTable) ? window.WorkRect.Max.x : window.ContentRegionRect.Max.x;
 }
 
 inline float imgui_ItemSpacingX() { return ImGui::GetStyle().ItemSpacing.x; }
