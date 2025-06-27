@@ -368,7 +368,7 @@ namespace aniso {
         static ruleT next(const subsetT& subset, const ruleT& rel, const ruleT& pos) {
             return transform(subset, rel, &pos, [](bool* begin, bool* end) {
                 if (!std::next_permutation(begin, end, std::greater<>{})) {
-                    // 1100... -> 1110..., or stop at 000... (first())
+                    // 1100... -> 1110..., or stop at 111... (last())
                     bool* first_0 = std::find(begin, end, bool(0));
                     if (first_0 != end) {
                         *first_0 = 1;
@@ -380,7 +380,7 @@ namespace aniso {
         static ruleT prev(const subsetT& subset, const ruleT& rel, const ruleT& pos) {
             return transform(subset, rel, &pos, [](bool* begin, bool* end) {
                 if (!std::prev_permutation(begin, end, std::greater<>{})) {
-                    // ...0111 -> ...0011, or stop at 111... (last())
+                    // ...0111 -> ...0011, or stop at 000... (first())
                     bool* first_1 = std::find(begin, end, bool(1));
                     if (first_1 != end) {
                         *first_1 = 0;

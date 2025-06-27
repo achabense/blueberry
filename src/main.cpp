@@ -247,7 +247,6 @@ int main(int, char**) {
     assert(!(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NavEnableKeyboard));
     assert(!(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NavEnableGamepad));
 
-    // !!TODO: update readme.
     ImGui::GetIO().IniFilename = nullptr;
     ImGui::GetIO().LogFilename = nullptr;
     // if constexpr (!debug_mode) {
