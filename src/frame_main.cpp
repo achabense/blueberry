@@ -20,9 +20,8 @@ static open_state intro_window(frame_main_token) {
             imgui_Str("Press 'H' to toggle on/off additional tooltips.");
             ImGui::SameLine();
             imgui_StrTooltip(
-                "(?)", // (The shortcuts in input fields also require ctrl...)
-                "Only 'Ctrl+V' uses 'Ctrl'; all the other shortcuts require 'Ctrl' not to be pressed.\n\n"
-                "(There are two kinds of pasting in the program - 'Ctrl+V' to load text and extract rules, and 'V' to paste patterns.)");
+                "(?)",
+                "Only shortcuts for input fields use 'Ctrl'; all the other shortcuts require 'Ctrl' not to be pressed.");
 
             ImGui::Bullet();
             imgui_Str("Right-click underlined text (like this) to open menu.");
@@ -143,14 +142,9 @@ void frame_main() {
             static bool show_clipboard = false;
             ImGui::Checkbox("Clipboard", &show_clipboard);
             guide_mode::item_tooltip("Load rules from the clipboard.");
-            const bool paste = shortcuts::ctrl() && shortcuts::keys_avail_and_window_hoverable() &&
-                               shortcuts::test_pressed(ImGuiKey_V);
-            if (paste) {
-                show_clipboard = true;
-            }
             if (show_clipboard) {
                 const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
-                load_clipboard(init_pos, paste, {}).reset_if_closed(show_clipboard);
+                load_clipboard(init_pos, {}).reset_if_closed(show_clipboard);
             }
         }
         ImGui::SameLine();

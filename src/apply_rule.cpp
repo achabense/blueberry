@@ -1634,7 +1634,7 @@ private:
 
                 term("Paste", op_paste);
                 guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.\n\n"
-                                         "(To load list of rules, use 'Clipboard' window instead ('Ctrl+V').)");
+                                         "(To load list of rules, use the 'Clipboard' window instead.)");
             }
         }
 

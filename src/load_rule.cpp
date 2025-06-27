@@ -1039,7 +1039,7 @@ static void load_file_impl() {
     }
 }
 
-static void load_clipboard_impl(const bool paste) {
+static void load_clipboard_impl() {
     static textT text;
     static std::string last_str;
     static bool dedup = true;
@@ -1047,10 +1047,8 @@ static void load_clipboard_impl(const bool paste) {
     // (The page will hold roughly at most 1.5*max_size/line.)
     const bool too_much_content = text.lines() > max_line || text.length() > max_size;
     ImGui::BeginDisabled(too_much_content);
-    if (ImGui::SmallButton("Read") || (paste && shortcuts::highlight())) {
-        if (too_much_content) { // By shortcut.
-            messenger::set_msg("Too much content.");
-        } else if (const std::string_view str = read_clipboard(); !str.empty()) {
+    if (ImGui::SmallButton("Read")) {
+        if (const std::string_view str = read_clipboard(); !str.empty()) {
             if (str.size() > max_size / 2) {
                 messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
             } else if (const int l = count_line(str); l > max_line / 2) {
@@ -1068,7 +1066,6 @@ static void load_clipboard_impl(const bool paste) {
     if (too_much_content) {
         imgui_ItemTooltip("Too much content.");
     }
-    guide_mode::item_tooltip("Shortcut: 'Ctrl+V'. This shortcut works even if the window is not opened.");
 
     ImGui::SameLine();
     if (double_click_button_small("Clear") && messenger::dot()) {
@@ -1156,10 +1153,10 @@ static void load_doc_impl() {
     }
 }
 
-static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& init_pos,
-                                   bool force_uncollapse = false) {
+static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& init_pos
+                                   /*, bool force_uncollapse = false*/) {
     // assert(open);
-    ImGui::SetNextWindowCollapsed(false, force_uncollapse ? ImGuiCond_Always : ImGuiCond_Appearing);
+    ImGui::SetNextWindowCollapsed(false, /*force_uncollapse ? ImGuiCond_Always :*/ ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
@@ -1174,13 +1171,10 @@ open_state load_file(const ImVec2 init_pos, frame_main_token) {
     return {open};
 }
 
-open_state load_clipboard(const ImVec2 init_pos, bool paste, frame_main_token) {
+open_state load_clipboard(const ImVec2 init_pos, frame_main_token) {
     bool open = true;
-    if (paste) {
-        ImGui::SetNextWindowFocus();
-    }
-    if (auto window = prepare_window("Clipboard", open, init_pos, paste /*-> force-uncollapse*/)) {
-        load_clipboard_impl(paste);
+    if (auto window = prepare_window("Clipboard", open, init_pos)) {
+        load_clipboard_impl();
     }
     return {open};
 }

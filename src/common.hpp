@@ -48,7 +48,7 @@ class frame_main_token : no_copy {
 };
 
 open_state load_file(ImVec2 init_pos, frame_main_token);
-open_state load_clipboard(ImVec2, bool paste, frame_main_token);
+open_state load_clipboard(ImVec2, frame_main_token);
 open_state load_doc(ImVec2, frame_main_token);
 
 void edit_rule(frame_main_token);
