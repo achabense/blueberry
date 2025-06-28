@@ -866,6 +866,7 @@ struct page_adapter {
         "Resize the window to change page size; double-click window's resize border to fit the page.";
 };
 
+// TODO: ([R]/[S]/[T]) support window form? support binding to the observer?
 // TODO: improve...
 static void show_in_tooltip(const previewer::configT& config, const aniso::ruleT& rule) {
     // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));

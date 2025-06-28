@@ -361,6 +361,7 @@ class runnerT : no_copy {
             has_next = true;
         }
         bool update() {
+            // TODO: restart as long as `has_next`?
             if (std::exchange(has_next, false) && rule != next) {
                 rule.set(next);
                 return true;
@@ -639,7 +640,10 @@ public:
         bool highlight_canvas = false;
         {
             ImGui::AlignTextToFramePadding();
-            if (imgui_StrTooltip("(...)", "!!TODO (about space window)")) {
+            if (imgui_StrTooltip(
+                    "(...)",
+                    "The \"space window\" (as highlighted below) provides strictly wider control than preview windows, and is able to operate on patterns (like saving and pasting).\n\n"
+                    "All spaces use torus topology, i.e. information can go across boundaries directly, so the entire space can be treated as a periodic unit in an infinite space.")) {
                 highlight_canvas = true;
             }
             ImGui::SameLine();
@@ -663,8 +667,8 @@ public:
                 current_rule.set_next(*deliv);
                 messenger::dot();
             }
-            guide_mode::item_tooltip("MAP-string for the rule shown in the space window.\n\n"
-                                     "Drag to send the rule elsewhere; drag a rule here to replace.");
+            guide_mode::item_tooltip(
+                "MAP-string for the displayed rule; drag to send the rule elsewhere; drag a rule here to replace; open menu for recent rules.");
             if (snapshot) {
                 display_snapshot_if_present(snapshot, current_rule.rec(),
                                             {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
@@ -903,13 +907,13 @@ public:
             imgui_StrTooltip("(?)", [] {
                 imgui_Str("+s: ");
                 ImGui::SameLine(0, 0);
-                imgui_Str("Manual mode (firstly pause the space, then advance generation by step afterwards).");
+                imgui_Str("Run manually (firstly pause the space, then advance generation by 'Step' afterwards).");
                 imgui_Str("+1: ");
                 ImGui::SameLine(0, 0);
-                imgui_Str("Advance generation by 1 (instead of step).");
+                imgui_Str("Advance generation by 1 (instead of 'Step').");
                 imgui_Str("+!: ");
                 ImGui::SameLine(0, 0);
-                imgui_Str("Fast mode (advance generation by max(10,step) in every frame).");
+                imgui_Str("Speed up manually (advance generation by max(10,'Step') in every frame).");
             });
 
             ImGui::Separator(); // To align with the left panel.
@@ -929,11 +933,9 @@ public:
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
-                "If the current rule maps '000...' to 1 and '111...' to 0 (aka \"strobing rule\"), the step will be ceiled to 2*n (e.g. 1->2, 2->2) to avoid large spans of 0/1 areas flashing between two colors.\n\n"
-                "The adjustment also applies to '+s' and '+!', but does not affect '+1' (so '+1' can serve to change the parity of generation).\n\n"
-                "Sometimes you may also find rules that are non-strobing (so the adjustment won't take place) but can develop non-trivial flashing areas. The effect can usually be avoided by manually setting a 2*n step.");
-            // TODO: the last sec is terrible but I have no idea how to improve it...
-
+                "For auto-mode, '+s' and '+!', if the rule maps all-0 case to 1 and all-1 case to 0, the step will be ceiled to 2*n (e.g. 1->2, 2->2) to avoid large spans of 0/1 areas flashing between two colors.\n\n"
+                "('+1' is not affected, and can serve to change the parity of generation in all cases.)\n\n"
+                "Such rules are called \"strobing rules\". There also exist rules that are non-strobing (so the adjustment won't take place) but can still develop non-trivial flashing areas. To avoid flashing effect for these rules, you can manually set a suitable step (likely 2*n).");
             if (enable_shortcuts) {
                 imgui_StepSliderInt::next_shortcuts = {ImGuiKey_3, ImGuiKey_4};
             }

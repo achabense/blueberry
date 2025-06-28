@@ -314,6 +314,7 @@ public:
     }
 };
 
+// TODO: support filtering folder names as well?
 class file_nav : no_copy {
     char buf_path[200]{};
     char buf_filter[20]{}; // For files.
@@ -525,7 +526,10 @@ class textT : no_copy {
     // Won't be invalidated by reallocation.
     struct str_ref {
         int begin = 0, size = 0;
-        std::string_view get(const decltype(m_text)& text) const { //
+        std::string_view get(const decltype(m_text)& text) const {
+            // (It's safe to return `{nullptr + 0, 0}`.)
+            // https://stackoverflow.com/questions/59409034/is-it-allowed-to-add-a-zero-to-a-null-pointer
+            // https://stackoverflow.com/questions/79676156/is-string-view-nullptr-0-valid
             return {text.data() + begin, (size_t)size};
         }
     };

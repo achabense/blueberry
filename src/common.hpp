@@ -1147,7 +1147,7 @@ static_assert(std::is_trivially_copyable_v<rule_and_hash>);
 
 class rule_snapshot : no_copy {
     using dataT = std::vector<aniso::compressT>;
-    previewer::configT m_settings{previewer::default_settings};
+    previewer::configT m_settings{previewer::default_settings}; // TODO: support external settings?
 
     dataT m_data{};
     bool m_newly_updated{};
