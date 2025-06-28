@@ -263,6 +263,19 @@ public:
                                  "    |0 0 0|       |1 1 1|\n"
                                  "rule|0 0 0| = rule|1 1 1|\n"
                                  "    |0 0 0|       |1 1 1|");
+            if constexpr (debug_mode) {
+                // Checkerboard-xor invariance.
+                // (Does {mp_xor_chk_a/b (alone), rule_identity} make any sense?)
+                using namespace aniso;
+                constexpr mapperT mp_xor_chk_a("!qw!e"
+                                               "a!sd"
+                                               "!zx!c");
+                constexpr mapperT mp_xor_chk_b("q!we"
+                                               "!as!d"
+                                               "z!xc");
+                static const subsetT chk = make_subset({mp_xor_chk_a, mp_xor_chk_b}, rule_identity);
+                m_terms.emplace_back("Chk", &chk, "(Debug mode) checkerboard-xor invariance.");
+            }
         }
         {
             terms_scope scope(m_terms, terms_native);
