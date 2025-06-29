@@ -1044,18 +1044,22 @@ public:
                 imgui_RadioButton("Or##Mode", &m_paste->mode, aniso::blitE::Or);
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 imgui_RadioButton("And##Mode", &m_paste->mode, aniso::blitE::And);
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                imgui_RadioButton("Xor##Mode", &m_paste->mode, aniso::blitE::Xor);
                 ImGui::SameLine();
                 imgui_StrTooltip("(?)", "Once:  Paste once (clear automatically after pasting).\n"
                                         "Multi: Paste multiple times.\n\n"
                                         "Copy:  Paste values directly.\n"
-                                        "Or/And: Treat black/white cells as transparent background.\n\n"
-                                        "Right-click the space window to switch between Copy/Or/And.");
+                                        "Or/And/Xor: Perform binary op.\n"
+                                        "(Use Or/And to treat black/white cells as transparent bg.)\n\n"
+                                        "Right-click the space window to switch between Copy/Or/And/Xor.");
                 if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                     switch (m_paste->mode) {
                         case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
                         case aniso::blitE::Or: m_paste->mode = aniso::blitE::And; break;
-                        case aniso::blitE::And: m_paste->mode = aniso::blitE::Copy; break;
-                        default: assert(false); // -Wswitch
+                        case aniso::blitE::And: m_paste->mode = aniso::blitE::Xor; break;
+                        case aniso::blitE::Xor: m_paste->mode = aniso::blitE::Copy; break;
+                        default: assert(false);
                     }
                 }
             }

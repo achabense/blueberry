@@ -264,7 +264,10 @@ public:
                                  "rule|0 0 0| = rule|1 1 1|\n"
                                  "    |0 0 0|       |1 1 1|");
             if constexpr (debug_mode) {
-                // Checkerboard-xor invariance.
+                // Bg-xor invariance.
+                // (Self-complementary is actually all-1 xor invar.)
+
+                // Checkerboard.
                 // (Does {mp_xor_chk_a/b (alone), rule_identity} make any sense?)
                 using namespace aniso;
                 constexpr mapperT mp_xor_chk_a("!qw!e"
@@ -275,6 +278,24 @@ public:
                                                "z!xc");
                 static const subsetT chk = make_subset({mp_xor_chk_a, mp_xor_chk_b}, rule_identity);
                 m_terms.emplace_back("Chk", &chk, "(Debug mode) checkerboard-xor invariance.");
+
+                // Stripe.
+                // ({a+b/c+d, rule_identity} can represent invar in one direction.)
+                constexpr mapperT mp_xor_stp_a("!q!w!e"
+                                               "asd"
+                                               "!z!x!c");
+                constexpr mapperT mp_xor_stp_b("qwe"
+                                               "!a!s!d"
+                                               "zxc");
+                constexpr mapperT mp_xor_stp_c("!qw!e"
+                                               "!as!d"
+                                               "!zx!c");
+                constexpr mapperT mp_xor_stp_d("q!we"
+                                               "a!sd"
+                                               "z!xc");
+                static const subsetT stp =
+                    make_subset({mp_xor_stp_a, mp_xor_stp_b, mp_xor_stp_c, mp_xor_stp_d}, rule_identity);
+                m_terms.emplace_back("Stp", &stp, "(Debug mode) Stripe-xor invariance.");
             }
         }
         {

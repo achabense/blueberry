@@ -426,7 +426,7 @@ namespace aniso {
                            z(code), x(code), c(code)});
         }
 
-        consteval mapperT(const char* str) {
+        consteval explicit mapperT(const char* str) {
             for (takeT* take : {&q, &w, &e, &a, &s, &d, &z, &x, &c}) {
                 // [01], or [qweasdzxc], or ![qweasdzxc].
                 if (*str == '0') {
@@ -460,6 +460,8 @@ namespace aniso {
             }
         }
     };
+
+    // consteval mapperT operator""_mp(const char* str, size_t) { return mapperT(str); }
 
     static_assert(std::is_trivially_copyable_v<mapperT>);
 

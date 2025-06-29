@@ -98,8 +98,7 @@ namespace aniso {
             case blitE::Copy: blit<blitE::Copy>(dest, source); return;
             case blitE::Or: blit<blitE::Or>(dest, source); return;
             case blitE::And: blit<blitE::And>(dest, source); return;
-            // case blitE::Xor: blit<blitE::Xor>(dest, source); return;
-            // (Not used in the program.)
+            case blitE::Xor: blit<blitE::Xor>(dest, source); return;
             default: assert(false);
         }
     }
