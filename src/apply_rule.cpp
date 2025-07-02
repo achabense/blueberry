@@ -352,8 +352,8 @@ class runnerT : no_copy {
         bool has_next = false;
 
     public:
-        operator const aniso::ruleT&() const { return rule; }
-        const aniso::ruleT& get() const { return rule; }
+        operator const aniso::ruleT&() const { return rule.get(); }
+        const aniso::ruleT& get() const { return rule.get(); }
         const rec_for_rule& rec() const { return rule.rec(); }
 
         void set_next(const aniso::ruleT& r) {
@@ -362,7 +362,7 @@ class runnerT : no_copy {
         }
         bool update() {
             // TODO: restart as long as `has_next`?
-            if (std::exchange(has_next, false) && rule != next) {
+            if (std::exchange(has_next, false) && rule.get() != next) {
                 rule.set(next);
                 return true;
             }
@@ -648,7 +648,7 @@ public:
             }
             ImGui::SameLine();
 
-            static rule_snapshot snapshot{"Recent (space window)"}; // TODO: technically should be a class member...
+            static rule_snapshot snapshot{}; // TODO: technically should be a class member...
             const ImGuiID map_id = ImGui::GetID("MAP-str");
             imgui_StrWithID(aniso::to_MAP_str(current_rule), map_id);
             if (!pass_rule::source(current_rule)) {
@@ -670,7 +670,7 @@ public:
             guide_mode::item_tooltip(
                 "MAP-string for the displayed rule; drag to send the rule elsewhere; drag a rule here to replace; open menu for recent rules.");
             if (snapshot) {
-                display_snapshot_if_present(snapshot, current_rule.rec(),
+                display_snapshot_if_present("Recent (space window)", snapshot, current_rule.rec(),
                                             {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
                                               .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
             }

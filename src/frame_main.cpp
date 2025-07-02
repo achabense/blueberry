@@ -149,7 +149,7 @@ void frame_main() {
         }
         ImGui::SameLine();
         {
-            static rule_snapshot snapshot{"Recent (copied rules)"};
+            static rule_snapshot snapshot{};
             imgui_Str("[C]");
             if (const auto* deliv = pass_rule::dest(ImGuiKey_C, 'C').get_deliv()) {
                 copy_rule::copy(*deliv);
@@ -161,7 +161,7 @@ void frame_main() {
             guide_mode::item_tooltip("Drag a rule here to copy it (as MAP-string) to the clipboard.\n\n"
                                      "(This is useful as some rule sources have no 'Copy rule' option.)");
             if (snapshot) {
-                display_snapshot_if_present(snapshot, copy_rule::get_rec({}));
+                display_snapshot_if_present("Recent (copied rules)", snapshot, copy_rule::get_rec({}));
             }
         }
         ImGui::SameLine();

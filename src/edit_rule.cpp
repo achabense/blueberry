@@ -577,25 +577,6 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
     }
 }
 
-static bool display_snapshot_if_present(rule_snapshot& snapshot, rule_with_rec& rst,
-                                        const aniso::subsetT& working_set) {
-    if (snapshot) {
-        bool updated = false;
-        // (The function is no longer stored; preserved for reference.)
-        // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
-        const auto get = [&]() -> decltype(auto) { return rst.get(); };
-        const auto set = [&](const aniso::ruleT& r) {
-            if (get_deliv({.rule = &r, .hov = false, .deliv = true}, working_set)) {
-                rst.set(r);
-                updated = true;
-            }
-        };
-        display_snapshot_if_present(snapshot, rst.rec(), {{.get = get, .set = set}});
-        return updated;
-    }
-    return false;
-}
-
 // TODO: currently called the "observer"; still not quite ideal name...
 // !!TODO: these tooltips read still problematic...
 class rule_selector : no_copy {
@@ -673,7 +654,7 @@ public:
             "1. 'Zero' and 'Identity' are special, as being same or different than them has natural interpretations (actual value and flipness).\n"
             "2. 'Default' is dependent on (and always belongs to) the working set, and is the default rule for [R]/[S]/[T] (for 'Traverse', 'Random' and 'Random-access', respectively).\n"
             "3. Any other rule in the working set can serve as observer via 'Custom'.\n\n"
-            "About [R]/[S]/[T]:\n"
+            "About [R]/[S]/[T]:\n" // (As `sync` uses `working_set.rule`.)
             "They can be arbitrary rules in the working set. Initially they are equal to 'Default'; if the working set changes and no longer contains them, they will also be reset to 'Default'. You can update them by dragging a rule to them.\n\n"
             "The observer never affects rule generation directly.");
     }
@@ -682,13 +663,15 @@ public:
     std::array<char, 2> diff_chars() const { return terms[m_tag].diff_chars; }
     static std::array<char, 2> value_chars() { return terms[Zero].diff_chars; }
 
-    void select(const aniso::subsetT& working_set) {
+    void sync(const aniso::subsetT& working_set) {
         rule_known_to_set = working_set.rule;
-        if (m_tag != Default && !working_set.contains(get_rule(m_tag))) { // Working set changes.
+        if (m_tag != Default && !working_set.contains(get_rule(m_tag))) {
             // m_tag = resolve_tag(Default);
             m_tag = Default;
         }
+    }
 
+    void select(const aniso::subsetT& working_set) {
         ImGui::AlignTextToFramePadding();
         imgui_Str("Observer ~");
         for (const tagE tag : {Zero, Identity, Default, Custom}) {
@@ -900,13 +883,92 @@ struct page_adapter {
         "Resize the window to change page size; double-click window's resize border to fit the page.";
 };
 
-// TODO: ([R]/[S]/[T]) support window form? support binding to the observer?
-// TODO: improve...
-static void show_in_tooltip(const previewer::configT& config, const aniso::ruleT& rule) {
-    // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    imgui_ItemTooltip([&] { previewer::preview(-1, config, rule); });
-    // ImGui::PopStyleVar();
-}
+class target_rule : no_copy {
+    rule_with_rec m_rule{};
+    rule_snapshot m_snapshot{};
+    bool m_window = false;
+
+public:
+    operator const aniso::ruleT&() const { return m_rule.get(); }
+    const aniso::ruleT& get() const { return m_rule.get(); }
+    void set(const aniso::ruleT& rule) { m_rule.set(rule); }
+
+    bool sync(const aniso::subsetT& working_set) {
+        if (!m_rule.assigned() || !working_set.contains(m_rule.get())) {
+            m_rule.set(working_set.rule);
+            return true;
+        }
+        return false;
+    }
+
+    bool display(const char* label, const char* snapshot_title, const previewer::configT& settings,
+                 const aniso::subsetT& working_set) {
+        bool updated = false;
+        bool opened = false;
+        if (!m_window) {
+            imgui_StrWithID(label);
+
+            if (!pass_rule::source(m_rule.get())) {
+                // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+                imgui_ItemTooltip([&] { previewer::preview(-1, settings, m_rule.get()); });
+                // ImGui::PopStyleVar();
+
+                rclick_popup::popup(ImGui::GetItemID(), [&] {
+                    // TODO: support copying directly?
+                    // if (ImGui::Selectable("Copy rule")) { copy_rule::copy(m_rule.get()); }
+                    selectable_to_take_snapshot("Recent", m_rule.rec(), m_snapshot);
+
+                    if (ImGui::Selectable("Show in Window")) {
+                        opened = true;
+                        m_window = true;
+                    }
+                });
+            }
+            if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
+                m_rule.set(*deliv);
+                messenger::dot();
+                updated = true;
+            }
+        } else {
+            imgui_StrDisabled(label);
+        }
+
+        if (m_window) {
+            if (opened) {
+                ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
+                if (ImGui::IsMousePosValid()) {
+                    const float h = ImGui::GetFrameHeight();
+                    ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, floor(h / 2)}, ImGuiCond_Always);
+                }
+            }
+            if (auto window = imgui_Window(label, &m_window,
+                                           ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                item_to_take_snapshot(ImGui::SmallButton, "Recent", m_rule.rec(), m_snapshot);
+                previewer::preview(0, settings, m_rule.get());
+                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
+                    m_rule.set(*deliv);
+                    messenger::dot();
+                    updated = true;
+                }
+            }
+        }
+
+        if (m_snapshot) {
+            // (The function is no longer stored; preserved for reference.)
+            // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
+            const auto get = [&]() -> decltype(auto) { return m_rule.get(); };
+            const auto set = [&](const aniso::ruleT& r) {
+                if (get_deliv({.rule = &r, .hov = false, .deliv = true}, working_set)) {
+                    m_rule.set(r);
+                    updated = true;
+                }
+            };
+            display_snapshot_if_present(snapshot_title, m_snapshot, m_rule.rec(), {{.get = get, .set = set}});
+        }
+
+        return updated;
+    }
+};
 
 static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
     bool open = true;
@@ -919,8 +981,8 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
     imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
     if (auto window = imgui_Window("Traverse the working set", &open,
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
-        static rule_with_rec orderer = working_set.rule;
-        static std::deque<aniso::ruleT> page;
+        static target_rule orderer{};
+        static std::deque<aniso::ruleT> page{};
         static previewer::configT config{previewer::default_settings};
         {
             // TODO: unnecessarily expensive (can be replaced by selector.rep()).
@@ -928,8 +990,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             if (compare_update(cmp_set, working_set)) {
                 page.clear();
             }
-            if (!working_set.contains(orderer)) {
-                orderer.set(working_set.rule);
+            if (orderer.sync(working_set)) {
                 page.clear();
             }
         }
@@ -990,20 +1051,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             reset_page(First, aniso::seq_mixed::seek_n(working_set, orderer, *dist));
         }
         ImGui::SameLine();
-        imgui_StrWithID("[R]");
-        static rule_snapshot snapshot{"Recent ([R])"};
-        if (!pass_rule::source(orderer)) {
-            show_in_tooltip(config, orderer);
-            rclick_popup::popup(ImGui::GetItemID(), [&] { //
-                selectable_to_take_snapshot("Recent", orderer.rec(), snapshot);
-            });
-        }
-        if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_R, 'R'), working_set)) {
-            orderer.set(*deliv);
-            page.clear();
-            messenger::dot();
-        }
-        if (display_snapshot_if_present(snapshot, orderer, working_set)) {
+        if (orderer.display("[R]", "Recent ([R])", config, working_set)) {
             page.clear();
         }
 
@@ -1080,11 +1128,9 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
     imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
     if (auto window =
             imgui_Window("Random rules", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
-        static rule_with_rec target = working_set.rule;
+        static target_rule target{};
         static previewer::configT config{previewer::default_settings};
-        if (!working_set.contains(target)) { // Working set changes.
-            target.set(working_set.rule);
-        }
+        target.sync(working_set);
 
         static bool exact_mode = false;
         static double rate = 0.29;
@@ -1110,19 +1156,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             assert(round(rate * c_free) == free_dist);
         }
         ImGui::SameLine();
-        imgui_StrWithID("[S]");
-        static rule_snapshot snapshot{"Recent ([S])"};
-        if (!pass_rule::source(target)) {
-            show_in_tooltip(config, target);
-            rclick_popup::popup(ImGui::GetItemID(), [&] { //
-                selectable_to_take_snapshot("Recent", target.rec(), snapshot);
-            });
-        }
-        if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_S, 'S'), working_set)) {
-            target.set(*deliv);
-            messenger::dot();
-        }
-        display_snapshot_if_present(snapshot, target, working_set);
+        target.display("[S]", "Recent ([S])", config, working_set);
 
         static std::vector<aniso::compressT> rules{};
         static int page_no = 0;
@@ -1238,6 +1272,8 @@ void edit_rule(frame_main_token) {
     // Select observing rule.
     static rule_selector select_rule;
     {
+        select_rule.sync(working_set);
+
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip("(...)", rule_selector::about);
         ImGui::SameLine();
@@ -1249,7 +1285,7 @@ void edit_rule(frame_main_token) {
 
     static bool show_random_access = false;
     // TODO: whether to support dirty editing (the target doesn't have to belong to the set)?
-    static rule_with_rec target = working_set.rule; // Random-access
+    static target_rule target{}; // Random-access
     static previewer::configT config{previewer::default_settings};
     {
         static bool show_misc = false;
@@ -1300,25 +1336,10 @@ void edit_rule(frame_main_token) {
                 // (v will be skipped for this frame; that's ok.)
             }
         } else {
-            if (!working_set.contains(target)) {
-                target.set(working_set.rule);
-            }
+            target.sync(working_set);
 
-            static rule_snapshot snapshot{"Recent ([T])"};
             ImGui::SameLine();
-            imgui_StrWithID("[T]");
-            if (!pass_rule::source(target)) {
-                show_in_tooltip(config, target);
-                rclick_popup::popup(ImGui::GetItemID(), [] { //
-                    selectable_to_take_snapshot("Recent", target.rec(), snapshot);
-                });
-            }
-            if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set)) {
-                target.set(*deliv);
-                messenger::dot();
-            }
-            display_snapshot_if_present(snapshot, target, working_set);
-
+            target.display("[T]", "Recent ([T])", config, working_set);
             ImGui::SameLine();
             config.set("Settings");
         }
@@ -1355,7 +1376,9 @@ void edit_rule(frame_main_token) {
     if (auto child = imgui_ChildWindow("Groups")) {
         // set_scroll_by_up_down(preview_mode ? floor(config.height() * 0.5) : ImGui::GetFrameHeight());
 
-        const aniso::diffT diff = observer ^ target;
+        // TODO: awful...
+        // (Workaround to avoid using unassigned target; ideally should only exist in `show_random_access` scope.)
+        const auto diff = show_random_access ? std::optional{observer ^ target} : std::nullopt;
         const auto [d_0, d_1] = select_rule.diff_chars();
         const auto [v_0, v_1] = select_rule.value_chars();
         const std::string labels_diff[2]{{'-', d_0}, {'-', d_1}};
@@ -1414,7 +1437,7 @@ void edit_rule(frame_main_token) {
                     ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                     align_text(ImGui::GetItemRectSize().y);
                     if (show_random_access) {
-                        imgui_Str(labels_diff[diff[code]]);
+                        imgui_Str(labels_diff[(*diff)[code]]);
                     } else {
                         imgui_Str(labels_val[observer[code]]);
                     }
@@ -1453,7 +1476,7 @@ void edit_rule(frame_main_token) {
 
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                 align_text(ImGui::GetItemRectSize().y);
-                imgui_Str(labels_diff_from_to[diff[head]]);
+                imgui_Str(labels_diff_from_to[(*diff)[head]]);
 
                 const int preview_id = this_n;
                 previewer::preview(preview_id, config, get_adjacent_rule /*()*/);

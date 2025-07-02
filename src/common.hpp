@@ -47,6 +47,7 @@ class frame_main_token : no_copy {
     /*implicit*/ frame_main_token() = default;
 };
 
+// !!TODO: (v0.9.9) add back shortcut for 'Clipboard/Read'?
 open_state load_file(ImVec2 init_pos, frame_main_token);
 open_state load_clipboard(ImVec2, frame_main_token);
 open_state load_doc(ImVec2, frame_main_token);
@@ -1153,13 +1154,8 @@ class rule_snapshot : no_copy {
     bool m_newly_updated{};
     bool m_outdated{}; // TODO: remove this?
 
-    const char* m_title{};
-
 public:
-    explicit rule_snapshot(const char* title) {
-        assert(title);
-        m_title = title;
-    }
+    explicit rule_snapshot() = default;
 
     bool empty() const { return m_data.empty(); }
     explicit operator bool() const { return !empty(); }
@@ -1177,7 +1173,7 @@ public:
         func_ref<aniso::compressT()> get;
         func_ref<void(const aniso::compressT&)> set;
     };
-    open_state display(const dataT& data, const std::optional<contextT>& context) {
+    open_state display(const char* title, const dataT& data, const std::optional<contextT>& context) {
         assert(!m_data.empty());
         const bool updated = std::exchange(m_newly_updated, false);
         bool open = true;
@@ -1208,8 +1204,8 @@ public:
         imgui_Window::next_window_titlebar_tooltip =
             "This is a snapshot of the actual record. When it's outdated, the window title will be marked with '*', and you can update it with the 'Update' button.";
 
-        const std::string title = std::format("{}{}###{}", m_title, m_outdated ? " *" : "", m_title);
-        if (auto window = imgui_Window(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
+        const std::string title2 = std::format("{}{}###{}", title, m_outdated ? " *" : "", title);
+        if (auto window = imgui_Window(title2.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
             if (ImGui::SmallButton("Update") && messenger::dot()) {
                 assert(!data.empty()); // (As there is currently no clear method.)
                 m_data = data;
@@ -1303,11 +1299,11 @@ public:
     // void clear() { m_data.clear(); }
 };
 
-// (Used by `rclick_popup`.)
-inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& rec, rule_snapshot& snapshot) {
+inline void item_to_take_snapshot(bool (&item)(const char*), const char* label, const rec_for_rule& rec,
+                                  rule_snapshot& snapshot) {
     const bool empty = rec.empty();
     ImGui::BeginDisabled(empty);
-    if (ImGui::Selectable(std::format("{} ({})###{}", label, rec.size(), label).c_str())) {
+    if (item(std::format("{} ({})###{}", label, rec.size(), label).c_str())) {
         snapshot.update(rec.data());
         (void)rec.written_since_last_check(); // Consume written flag.
     }
@@ -1317,30 +1313,39 @@ inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& r
     }
 }
 
-inline void display_snapshot_if_present(rule_snapshot& snapshot, const rec_for_rule& rec,
+// (Used by `rclick_popup`.)
+inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& rec, rule_snapshot& snapshot) {
+    constexpr auto selectable = [](const char* label) { return ImGui::Selectable(label); };
+    return item_to_take_snapshot(*+selectable, label, rec, snapshot);
+}
+
+inline void display_snapshot_if_present(const char* title, rule_snapshot& snapshot, const rec_for_rule& rec,
                                         const std::optional<rule_snapshot::contextT>& context = std::nullopt) {
     if (snapshot) {
         if (rec.written_since_last_check()) {
             snapshot.test_outdated(rec.data());
         }
-        if (snapshot.display(rec.data(), context).closed()) {
+        if (snapshot.display(title, rec.data(), context).closed()) {
             snapshot.clear();
         }
     }
 }
 
 class rule_with_rec : no_copy {
-    aniso::ruleT m_rule;
-    rec_for_rule m_rec;
+    aniso::ruleT m_rule{};
+    rec_for_rule m_rec{};
 
 public:
-    /*implicit*/ rule_with_rec(const aniso::ruleT& r) : m_rec{} {
-        m_rule = r;
-        m_rec.add(r);
-    }
+    explicit rule_with_rec() = default;
+    /*implicit*/ rule_with_rec(const aniso::ruleT& r) : m_rule{r} { m_rec.add(r); }
 
-    operator const aniso::ruleT&() const { return m_rule; }
-    const aniso::ruleT& get() const { return m_rule; }
+    bool assigned() const { return !m_rec.empty(); }
+
+    // operator const aniso::ruleT&() const { return m_rule; }
+    const aniso::ruleT& get() const {
+        assert(assigned()); // Otherwise, it's all-0 rule and is likely a bug.
+        return m_rule;
+    }
     void set(const aniso::ruleT& r) {
         m_rule = r;
         m_rec.add(r);
