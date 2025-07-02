@@ -1355,16 +1355,17 @@ public:
 };
 
 class copy_rule : no_create {
-    inline static rec_for_rule rec{};
+    // TODO: whether to record?
+    // inline static rec_for_rule rec{};
 
     static void save(const aniso::ruleT& rule);
 
 public:
     static void copy(const aniso::ruleT& rule) {
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
-        rec.add(rule);
+        // rec.add(rule);
         save(rule);
     }
 
-    static const rec_for_rule& get_rec(frame_main_token) { return rec; }
+    // static const rec_for_rule& get_rec(frame_main_token) { return rec; }
 };
