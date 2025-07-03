@@ -192,7 +192,8 @@ public:
 
     explicit subset_selector(const aniso::subsetT* init_sel = nullptr) {
         using namespace aniso::_subsets;
-        m_terms.reserve(50);
+        constexpr int reserve_cap = 50;
+        m_terms.reserve(reserve_cap);
 
         struct terms_scope : no_copy {
             terms_data& data;
@@ -352,6 +353,7 @@ public:
             m_terms.emplace_back("C6", &hex_C6,
                                  "6-fold rotational symmetry. This is a strict subset of both 'C2' and 'C3'.");
         }
+        assert(m_terms.size() <= reserve_cap);
         assert(std::ranges::all_of(m_terms, [](const termT& t) { //
             return t.title && t.set && t.desc && !t.selected && !t.including && !t.disabled;
         }));
@@ -562,6 +564,7 @@ public:
 };
 
 // TODO: show whether belongs to the working set && dist to the observer?
+// TODO: share with `edit_rule` (`subset_selector`).
 void previewer::_show_belongs(const aniso::ruleT& rule) {
     static subset_selector dummy{};
     dummy.select({.rule = &rule, .select = false, .tooltip = false});
@@ -1392,9 +1395,9 @@ void edit_rule(frame_main_token) {
             imgui_AddCursorPosY(std::max(0.0f, (height - ImGui::GetTextLineHeight()) / 2));
         };
 
-        const int button_zoom = init_compact_mode ? 6 : 7; // Also for image-zoom.
-        const ImVec2 button_padding{2, 2};
-        const ImVec2 image_padding{1, 1};
+        constexpr int button_zoom = init_compact_mode ? 6 : 7; // Also for image-zoom.
+        constexpr ImVec2 button_padding = {2, 2};
+        constexpr ImVec2 image_padding = {1, 1};
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + (show_random_access ? 3 : 5);
         const int group_size_x = [&]() -> int {
             if (show_random_access) {
@@ -1427,8 +1430,8 @@ void edit_rule(frame_main_token) {
                 // ImGui::PushTextWrapPos(-1); // No wrapping.
                 const int group_size = group.size();
                 ImGui::Text("Members: %d", group_size);
-                const int perline = 8;
-                const int max_to_show = perline * 6;
+                constexpr int perline = 8;
+                constexpr int max_to_show = perline * 6;
                 for (int n = 0; const aniso::codeT code : group.first(std::min(group_size, max_to_show))) {
                     if (n++ % perline != 0) {
                         ImGui::SameLine();
@@ -1478,8 +1481,7 @@ void edit_rule(frame_main_token) {
                 align_text(ImGui::GetItemRectSize().y);
                 imgui_Str(labels_diff_from_to[(*diff)[head]]);
 
-                const int preview_id = this_n;
-                previewer::preview(preview_id, config, get_adjacent_rule /*()*/);
+                previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
                 ImGui::EndGroup();
             } else {
                 code_image(head, button_zoom, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
@@ -1512,10 +1514,10 @@ void edit_rule(frame_main_token) {
         imgui_ItemRect(IM_COL32_GREY(160, 255));
     };
 
-    const int r = 10; // TODO: use separate values for w and h?
+    constexpr int r = 10; // TODO: use separate values for w and h?
     static stateE board[r][r]{/* Any_background... */};
     static stateE state_lbutton = I;
-    const stateE state_rbutton = Any_background;
+    constexpr stateE state_rbutton = Any_background;
     static const auto description = [] {
         auto term = [](stateE s, const char* desc) {
             ImGui::Dummy(square_size());

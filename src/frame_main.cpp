@@ -112,12 +112,12 @@ void frame_main() {
         guide_mode::flip_enable({});
     }
 
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                                   ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoSavedSettings;
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    constexpr ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                                       ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoSavedSettings;
+    const auto& viewport = *ImGui::GetMainViewport();
 
-    ImGui::SetNextWindowPos(viewport->WorkPos);
-    ImGui::SetNextWindowSize(viewport->WorkSize);
+    ImGui::SetNextWindowPos(viewport.WorkPos);
+    ImGui::SetNextWindowSize(viewport.WorkSize);
     if (auto window = imgui_Window("Main", nullptr, flags)) {
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         {
@@ -217,10 +217,10 @@ void frame_main() {
             };
 
             static bool right_was_hidden = false;
-            const float min_w = 6;
+            constexpr float min_w = 6;
             {
                 // TODO: what can be skipped when the program is minimized? Is this check reliable for all backends?
-                const bool minimized = viewport->WorkSize.x <= 0 || viewport->WorkSize.y <= 0;
+                const bool minimized = viewport.WorkSize.x <= 0 || viewport.WorkSize.y <= 0;
                 if (!minimized && right_was_hidden) {
                     // TODO: working, but this looks very fragile...
                     // So when the program window is resized (e.g. maximized), the right panel will remain hidden.

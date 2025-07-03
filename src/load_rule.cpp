@@ -662,7 +662,7 @@ public:
             ImGui::Separator();
 
             // TODO: are there easy ways to introduce vertical scrollbar, without messing with width?
-            const int limit = 10;
+            constexpr int limit = 10;
             const float h = std::min((int)m_highlighted.size(), limit) *
                             (ImGui::GetFontSize() + 4 /*imgui_SelectableStyledButton*/);
             float w = 0;
@@ -907,8 +907,8 @@ private:
 
 // These limits are not inherent to textT's functions, but just arbitrary numbers
 // small enough to guarantee performance and large enough for normal use cases.
-static const int max_size = 1024 * 256;
-static const int max_line = 20000;
+static constexpr int max_size = 1024 * 256;
+static constexpr int max_line = 20000;
 
 // For error message.
 static std::string to_size(uintmax_t size) {

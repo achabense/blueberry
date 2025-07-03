@@ -213,7 +213,7 @@ int main(int, char**) {
     {
         constexpr const char* window_title = "Blueberry v 0.9.8 (WIP)";
 
-        const SDL_WindowFlags window_flags =
+        constexpr SDL_WindowFlags window_flags =
             (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
         window =
             SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);

@@ -24,7 +24,7 @@ static bool strobing(const aniso::ruleT& rule) {
     return rule[all_0] == 1 && rule[all_1] == 0;
 }
 
-static const int step_fast = 10;
+static constexpr int step_fast = 10;
 
 static int adjust_step(int step, bool strobing) {
     if ((step % 2) && strobing) {
@@ -117,7 +117,7 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
     // due to that `limit` is not large enough.
 
     // Loop until there has been `limit` generations without newly invoked mappings.
-    const int limit = 120;
+    constexpr int limit = 120;
     for (int g = 0; g < limit; ++g) {
         aniso::lockT next = lock;
         torus.run_torus([&](const aniso::codeT code) {
@@ -230,7 +230,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
                    .off = {0, 0}};
     aniso::tileT smallest = aniso::tileT(init_pattern);
 
-    const int limit = 4000; // Max period to deal with.
+    constexpr int limit = 4000; // Max period to deal with.
     for (int g = 1; g <= limit; ++g) {
         if (!region.run(rule)) {
             return;
@@ -1318,15 +1318,15 @@ private:
     void range_operations(const bool canvas_hovered_or_held, bool& show_op_window) {
         // TODO: disable some operations if `m_paste.has_value`?
         // TODO: set pause for some operations?
-        struct op_term {
-            ImGuiKey key;
-            const char* key_label;
-            bool req_sel;
+        struct op_term : no_copy {
             void (*op)(runnerT& self);
-#ifdef YDEBUG
-            // (If inherit from `no_copy`, will have to add a {} in init list...)
-            no_copy _{};
-#endif // YDEBUG
+            const char* key_label;
+            ImGuiKey key;
+            bool req_sel;
+
+            // (Should respect -Wreorder-ctor)
+            consteval op_term(ImGuiKey key, const char* key_label, bool req_sel, void (*op)(runnerT& self))
+                : op(op), key_label(key_label), key(key), req_sel(req_sel) {}
 
             bool check_sel(const runnerT& self) const { return !req_sel || self.m_sel; }
             void apply(runnerT& self) const {
@@ -1335,7 +1335,6 @@ private:
                 }
             }
         };
-        static_assert(std::is_aggregate_v<op_term>);
 
         static percentT flip_den = 50;
         static constexpr op_term op_random_flip{

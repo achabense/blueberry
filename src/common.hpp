@@ -91,7 +91,7 @@ inline namespace backend_fn {
     void set_frame_rate(); // Shown in popup.
 } // namespace backend_fn
 
-inline const int item_width = 220;
+inline constexpr int item_width = 220;
 
 inline ImVec2 square_size() {
     const float r = ImGui::GetFrameHeight();
@@ -111,10 +111,10 @@ inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
 }
 
 // TODO: should finally be configurable in the program.
-inline const bool init_maximize_window = false;
-inline const bool init_zero_interval = false;
-inline const bool init_show_intro = true;
-inline const bool init_compact_mode = false;
+inline constexpr bool init_maximize_window = false;
+inline constexpr bool init_zero_interval = false;
+inline constexpr bool init_show_intro = true;
+inline constexpr bool init_compact_mode = false;
 
 // TODO: consider using ImGui::Shortcut?
 // Some features cannot easily be satisfied with `ImGui::Shortcut` and `ImGui::SetNextItemShortcut`.
@@ -549,7 +549,7 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
         imgui_AddCursorPosY(-ImGui::GetStyle().ItemSpacing.y);
     }
 
-    const float frame_padding_y = 2;
+    constexpr float frame_padding_y = 2;
     const ImVec2 label_size = imgui_CalcTextSize(label); // (Not trying to hide double-hash.)
     const ImVec2 button_size = {std::max(ImGui::GetContentRegionAvail().x, label_size.x),
                                 label_size.y + 2 * frame_padding_y};
@@ -624,7 +624,7 @@ class imgui_StepSliderInt : no_create {
     // (In practice this works well, but I'm not sure whether this is 100% accurate as the original function is too complex...)
     static int value_if_clicked(const float full_slider_width, const int v_max /*v_min ~ 0*/,
                                 const float mouse_pos_rel_slider) {
-        const float grab_padding = 2.0f; // (In `SliderBehaviorT`: "FIXME: Should be part of style.")
+        constexpr float grab_padding = 2; // (In `SliderBehaviorT`: "FIXME: Should be part of style.")
         const float slider_sz = full_slider_width - grab_padding * 2.0f;
         const float grab_sz = std::max(slider_sz / (v_max + 1), GImGui->Style.GrabMinSize);
         if (grab_sz >= slider_sz) {

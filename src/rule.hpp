@@ -285,7 +285,7 @@ namespace aniso {
             }
         }
 
-        inline const int MAP_length = (512 + 5) / 6; // 86; not including "MAP" prefix.
+        inline constexpr int MAP_length = (512 + 5) / 6; // 86; not including "MAP" prefix.
 
         inline void to_MAP(std::string& str, const auto& source /* ruleT or lockT */) {
             std::array<bool, 512> MAP_data{};
