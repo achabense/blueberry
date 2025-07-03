@@ -264,24 +264,29 @@ public:
                                  "    |0 0 0|       |1 1 1|\n"
                                  "rule|0 0 0| = rule|1 1 1|\n"
                                  "    |0 0 0|       |1 1 1|");
-            if constexpr (debug_mode) {
-                // Bg-xor invariance.
-                // (Self-complementary is actually all-1 xor invar.)
 
+            // Bg-xor invariance.
+            // (Self-complementary is actually all-1 xor invar.)
+            {
                 // Checkerboard.
                 // (Does {mp_xor_chk_a/b (alone), rule_identity} make any sense?)
                 using namespace aniso;
-                constexpr mapperT mp_xor_chk_a("!qw!e"
-                                               "a!sd"
-                                               "!zx!c");
-                constexpr mapperT mp_xor_chk_b("q!we"
-                                               "!as!d"
-                                               "z!xc");
-                static const subsetT chk = make_subset({mp_xor_chk_a, mp_xor_chk_b}, rule_identity);
-                m_terms.emplace_back("Chk", &chk, "(Debug mode) checkerboard-xor invariance.");
+                constexpr mapperT mp_xor_ckbd_a("!qw!e"
+                                                "a!sd"
+                                                "!zx!c");
+                constexpr mapperT mp_xor_ckbd_b("q!we"
+                                                "!as!d"
+                                                "z!xc");
+                static const subsetT ckbd = make_subset({mp_xor_ckbd_a, mp_xor_ckbd_b}, rule_identity);
+                m_terms.emplace_back(
+                    "Ckbd", &ckbd,
+                    "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
+            }
 
-                // Stripe.
+            if constexpr (0) {
+                // Stripe; not quite interesting...
                 // ({a+b/c+d, rule_identity} can represent invar in one direction.)
+                using namespace aniso;
                 constexpr mapperT mp_xor_stp_a("!q!w!e"
                                                "asd"
                                                "!z!x!c");
@@ -501,7 +506,11 @@ public:
                     imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
                 }
                 if (mode.tooltip) {
-                    imgui_ItemTooltip(term.desc);
+                    imgui_ItemTooltip([&] {
+                        ImGui::Text("Groups:%d", term.set->p.k());
+                        ImGui::Separator();
+                        imgui_Str(term.desc);
+                    });
                 }
             };
 
@@ -1430,7 +1439,8 @@ void edit_rule(frame_main_token) {
             const auto group_details = [&] {
                 // ImGui::PushTextWrapPos(-1); // No wrapping.
                 const int group_size = group.size();
-                ImGui::Text("Members: %d", group_size);
+                ImGui::Text("Cases:%d", group_size);
+                ImGui::Separator();
                 constexpr int perline = 8;
                 constexpr int max_to_show = perline * 6;
                 for (int n = 0; const aniso::codeT code : group.first(std::min(group_size, max_to_show))) {
@@ -1472,6 +1482,7 @@ void edit_rule(frame_main_token) {
                 ImGui::PopStyleVar();
                 ImGui::PopStyleColor(3);
 
+                // !!TODO: (v0.9.9) sometimes noisy; should be able to turn off this tooltip.
                 // imgui_ItemTooltip(group_details);
                 if (ImGui::BeginItemTooltip()) {
                     group_details();

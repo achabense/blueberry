@@ -1026,7 +1026,7 @@ public:
                         });
                     }
                     ImGui::SameLine();
-                    if (double_click_button_small("Adopt")) {
+                    if (double_click_button_small("Apply")) {
                         current_rule.set_next(*(m_paste->rule));
                     }
                 }
