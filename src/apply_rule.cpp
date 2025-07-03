@@ -56,7 +56,7 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
         // And the point should belong to the hexagon with the nearest center:
         double min_dist_sqr = 100;
         int dx = 0, dy = 0;
-        auto find_nearest = [&](const double center_x2, const double center_y2 /*integral*/) {
+        const auto find_nearest = [&](const double center_x2, const double center_y2 /*integral*/) {
             const double center_x = -0.5 * center_y2 + center_x2;
             const double center_y = _sqrt3_div_2 * center_y2;
             const double dist_sqr = (x - center_x) * (x - center_x) + (y - center_y) * (y - center_y);
@@ -166,8 +166,8 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
     }
 
     // Empty-range -> invalid.
-    static constexpr auto locate_pattern_with_bg = [](const aniso::tile_const_ref tile, const aniso::vecT period_size,
-                                                      const bool for_input = false) -> aniso::rangeT {
+    static const auto locate_pattern_with_bg = [](const aniso::tile_const_ref tile, const aniso::vecT period_size,
+                                                  const bool for_input = false) -> aniso::rangeT {
         // assert(aniso::has_enclosing_period(tile, period_size));
         const aniso::rangeT range = aniso::bounding_box(tile, period_size);
         if (range.empty()) {
@@ -688,7 +688,7 @@ public:
         const bool canvas_hovered_or_held =
             ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
 
-        auto set_init_state_in_popup = [&]() {
+        const auto set_init_state_in_popup = [&] {
             const bool reset = ImGui::Button("Reset") && messenger::dot();
             ImGui::SameLine();
             const bool restart =
@@ -811,7 +811,7 @@ public:
             };
         };
 
-        auto input_size = [&] {
+        const auto input_size = [&] {
             static input_int input_x{}, input_y{};
 
             const float inner_spacing = imgui_ItemInnerSpacingX();
@@ -841,7 +841,7 @@ public:
             }
         };
 
-        auto select_zoom = [&] {
+        const auto select_zoom = [&] {
             ImGui::AlignTextToFramePadding();
             imgui_Str("Zoom ~");
             for (const zoomT& z : zoomT::list()) {
@@ -874,7 +874,7 @@ public:
             }
 
             const bool enable_shortcuts = canvas_hovered_or_held && shortcuts::no_ctrl();
-            auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
+            const auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
                 return enable_shortcuts && shortcuts::test_pressed(key, repeat) && shortcuts::highlight();
             };
 
@@ -1539,7 +1539,7 @@ private:
             }
             if (auto window = imgui_Window("Space operations", &show_op_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                auto term = [&](const char* label, const op_term& t) {
+                const auto term = [&](const char* label, const op_term& t) {
                     const bool valid = t.check_sel(*this);
                     // Was `ImGui::MenuItem(label, shortcut, nullptr, valid)`.
                     ImGui::BeginDisabled(!valid);
@@ -1743,7 +1743,7 @@ void previewer::begin_frame(frame_main_token) {
 void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
-    static auto keys_avail_and_window_hovered = [] {
+    const auto keys_avail_and_window_hovered = [] {
         // (Window-hovered should go before test-pressed to avoid messing with shortcut precedence.)
         // TODO: let this be tested by configT?
         return (shortcuts::keys_avail() || imgui_IsBgHeld()) && ImGui::IsWindowHovered();

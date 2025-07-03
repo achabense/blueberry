@@ -305,7 +305,7 @@ namespace aniso {
             assert(str.size() >= MAP_length);
 
             std::array<bool, 512> MAP_data{};
-            auto put = [&MAP_data](int i, bool b) {
+            const auto put = [&MAP_data](int i, bool b) {
                 if (i < 512) {
                     MAP_data[i] = b;
                 }

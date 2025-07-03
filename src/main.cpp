@@ -270,7 +270,7 @@ int main(int, char**) {
     ImGui::GetIO().Fonts->AddFontFromFileTTF(R"(C:\Windows\Fonts\Deng.ttf)", 13, nullptr, full_range);
 #endif
 
-    auto begin_frame = [] {
+    const auto begin_frame = [] {
         for (;;) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
@@ -305,7 +305,7 @@ int main(int, char**) {
         return true;
     };
 
-    auto end_frame = [] {
+    const auto end_frame = [] {
         ImGui::Render();
 
         // Skip rendering in the first frame for better visual.

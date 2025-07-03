@@ -224,7 +224,7 @@ namespace aniso {
 
         // Assign values according to equivalence relations, without checking for conflicts.
         codeT::map_to<bool> a_side_checked{}, b_side_checked{}; // To reduce time-complexity.
-        auto try_assign = [&](const codeT code, const cellT v, auto& self) -> void {
+        const auto try_assign = [&](const codeT code, const cellT v, const auto& self) -> void {
             assert(!assigned[code]);
             assigned[code] = true;
             common[code] = v;

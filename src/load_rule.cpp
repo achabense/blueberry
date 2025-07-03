@@ -52,7 +52,7 @@ static std::optional<pathT> cpp17_u8path(const std::string_view path) noexcept {
 // I hate this part so much...
 // (This is horribly inefficient, but there are not going to be too many calls in each frame, so let it go.)
 [[nodiscard]] static std::string clip_path(const pathT& p, const float avail_w, bool* clipped = nullptr) {
-    auto set_clipped = [&clipped](bool b) {
+    const auto set_clipped = [&clipped](bool b) {
         if (clipped) {
             *clipped = b;
         }
@@ -430,7 +430,7 @@ public:
     // Return one of file path in `m_current`.
     std::optional<pathT> display() {
         std::optional<pathT> target = std::nullopt;
-        auto set_dir = [&](const pathT& path) {
+        const auto set_dir = [&](const pathT& path) {
             if (!m_current.assign_dir(path)) {
                 messenger::set_msg("Cannot open this folder.");
             }
@@ -946,7 +946,7 @@ static void load_file_impl() {
     static file_nav nav(home_path_utf8());
     static std::optional<pathT> file_path;
     static textT text;
-    static auto try_load = [](const pathT& p) -> bool {
+    static const auto try_load = [](const pathT& p) -> bool {
         if (std::string str; load_binary(p, str)) {
             if (const int l = count_line(str); l > max_line) {
                 messenger::set_msg("The file contains too many lines: {} > {}", l, max_line);
@@ -1103,7 +1103,7 @@ static void load_doc_impl() {
 
     static textT text;
     static std::optional<int> doc_id = std::nullopt;
-    static auto select = []() {
+    static const auto select = [] {
         for (int i = 0; docs[i][0] != nullptr; ++i) {
             const auto [title, contents] = docs[i];
             // if (ImGui::Selectable(title, doc_id == i, ImGuiSelectableFlags_NoAutoClosePopups) && doc_id != i) {

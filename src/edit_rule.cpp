@@ -402,7 +402,7 @@ private:
 public:
     // TODO: improve...
     static void about() {
-        auto explain = [sqr_size = square_size()](bool contains_rule, centerE center, std::string_view desc) {
+        const auto explain = [sqr_size = square_size()](bool contains_rule, centerE center, std::string_view desc) {
             ImGui::Dummy(sqr_size);
             put_term(contains_rule, center, '\0');
             if constexpr (debug_mode_log_aware) {
@@ -466,7 +466,8 @@ public:
         if (ImGui::BeginTable("Checklists", 2,
                               ImGuiTableFlags_BordersInner | ImGuiTableFlags_SizingFixedFit |
                                   ImGuiTableFlags_NoKeepColumnsVisible)) {
-            auto check = [&, id = 0, ctrl = shortcuts::ctrl()](termT& term, const bool show_title = false) mutable {
+            int id = 0;
+            const auto check = [&, ctrl = shortcuts::ctrl()](termT& term, const bool show_title = false) {
                 const bool contains_rule = mode.rule && term.set->contains(*mode.rule);
                 const char title = show_title ? term.title[0] : '\0';
                 if (!mode.select) {
@@ -504,7 +505,7 @@ public:
                 }
             };
 
-            auto checklist = [&](const std::span<termT> terms) {
+            const auto checklist = [&](const std::span<termT> terms) {
                 for (bool first = true; termT & t : terms) {
                     if (!std::exchange(first, false)) {
                         ImGui::SameLine();
@@ -524,7 +525,7 @@ public:
                 }
             };
 
-            auto put_row = [](const char* l_str, const auto& r_logic) {
+            const auto put_row = [](const char* l_str, const auto& r_logic) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 imgui_Str(l_str);
@@ -743,14 +744,14 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
         static std::optional<aniso::ruleT> rule_approx;
         static std::optional<aniso::ruleT> rule_temp[6];
 
-        auto clear_button = [](int& id, std::optional<aniso::ruleT>& rule) {
+        const auto clear_button = [](int& id, std::optional<aniso::ruleT>& rule) {
             ImGui::PushID(id++);
             if (double_click_button_small("Clear") && messenger::dot()) {
                 rule.reset();
             }
             ImGui::PopID();
         };
-        auto show_rule = [](int& id, std::optional<aniso::ruleT>& rule) {
+        const auto show_rule = [](int& id, std::optional<aniso::ruleT>& rule) {
             // https://stackoverflow.com/questions/73817020/why-is-there-no-built-in-way-to-get-a-pointer-from-an-stdoptional
             previewer::preview_or_dummy(id++, config, rule ? &*rule : nullptr);
         };
@@ -999,8 +1000,8 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         }
 
         enum roleE { First, Last };
-        auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/) {
-            auto fill_next = [&]() {
+        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/) {
+            const auto fill_next = [&] {
                 assert(!page.empty());
                 while (page.size() < adapter.page_size) {
                     const aniso::ruleT rule = aniso::seq_mixed::next(working_set, orderer, page.back());
@@ -1011,7 +1012,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
                 }
                 return true;
             };
-            auto fill_prev = [&]() {
+            const auto fill_prev = [&] {
                 assert(!page.empty());
                 while (page.size() < adapter.page_size) {
                     const aniso::ruleT rule = aniso::seq_mixed::prev(working_set, orderer, page.front());
@@ -1164,12 +1165,12 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         static std::vector<aniso::compressT> rules{};
         static int page_no = 0;
 
-        auto calc_page = [&]() -> int { return (rules.size() + adapter.page_size - 1) / adapter.page_size; };
-        auto last_page = [&]() -> int { return rules.empty() ? 0 : calc_page() - 1; };
+        const auto calc_page = [&]() -> int { return (rules.size() + adapter.page_size - 1) / adapter.page_size; };
+        const auto last_page = [&]() -> int { return rules.empty() ? 0 : calc_page() - 1; };
         assert(0 <= page_no && page_no <= last_page());
 
-        auto set_last_page = [&] { page_no = last_page(); };
-        auto set_next_page = [&] {
+        const auto set_last_page = [&] { page_no = last_page(); };
+        const auto set_next_page = [&] {
             if (page_no < last_page()) {
                 ++page_no;
                 return;
@@ -1518,8 +1519,8 @@ void edit_rule(frame_main_token) {
     static stateE board[r][r]{/* Any_background... */};
     static stateE state_lbutton = I;
     constexpr stateE state_rbutton = Any_background;
-    static const auto description = [] {
-        auto term = [](stateE s, const char* desc) {
+    const auto description = [] {
+        const auto term = [](stateE s, const char* desc) {
             ImGui::Dummy(square_size());
             put_col(s);
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
@@ -1642,7 +1643,7 @@ void edit_rule(frame_main_token) {
                     // [Any] O   O  will result in [0]00 and [1]00 being set.
                     //  I_b  I  I_b                 111       111
                     for (const auto code : aniso::each_code) {
-                        auto imbue = [](aniso::cellT& c, stateE state) {
+                        const auto imbue = [](aniso::cellT& c, stateE state) {
                             if (state == O || state == O_background) {
                                 c = {0};
                             } else if (state == I || state == I_background) {

@@ -206,7 +206,7 @@ void frame_main() {
         ImGui::Separator();
 
         if (ImGui::BeginTable("Layout", 2, ImGuiTableFlags_Resizable)) {
-            auto try_hide = [](const float width) {
+            const auto try_hide = [](const float width) {
                 if (const ImVec2 avail = ImGui::GetContentRegionAvail(); avail.x <= width) {
                     ImGui::Dummy(avail);
                     imgui_ItemRectFilled(ImGui::GetColorU32(ImGuiCol_FrameBg, ImGui::GetStyle().DisabledAlpha));

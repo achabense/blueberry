@@ -582,7 +582,7 @@ public:
         const bool shortcut_visible =
             not_disabled && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows); // Including popup.
         assert_implies(shortcut_avail, shortcut_visible);
-        auto item_shortcut = [shortcut_avail](ImGuiKey key) {
+        const auto item_shortcut = [shortcut_avail](ImGuiKey key) {
             // (Used to require `may_scroll` to avoid previewed rule being changed by shortcut.)
             // (Perhaps no longer needed; kept as it does no harm.)
             return shortcut_avail && may_scroll() && shortcuts::no_ctrl() &&
@@ -1315,7 +1315,7 @@ inline void item_to_take_snapshot(bool (&item)(const char*), const char* label, 
 
 // (Used by `rclick_popup`.)
 inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& rec, rule_snapshot& snapshot) {
-    constexpr auto selectable = [](const char* label) { return ImGui::Selectable(label); };
+    const auto selectable = [](const char* label) { return ImGui::Selectable(label); };
     return item_to_take_snapshot(*+selectable, label, rec, snapshot);
 }
 
