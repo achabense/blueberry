@@ -259,11 +259,6 @@ public:
                 "(rule|a s d| = s) = (rule|!a!s!d| = !s)\n"
                 "     |z x c|             |!z!x!c|\n\n"
                 "(You can get the 0/1 reversal dual for any rule in the 'Misc' window.)");
-            m_terms.emplace_back("Uniq", &single_stable_state,
-                                 "Rules that map all-0 and all-1 cases to the same value.\n\n"
-                                 "    |0 0 0|       |1 1 1|\n"
-                                 "rule|0 0 0| = rule|1 1 1|\n"
-                                 "    |0 0 0|       |1 1 1|");
 
             // Bg-xor invariance.
             // (Self-complementary is actually all-1 xor invar.)
@@ -282,6 +277,12 @@ public:
                     "Ckbd", &ckbd,
                     "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
             }
+
+            m_terms.emplace_back("Uniq", &single_stable_state,
+                                 "Rules that map all-0 and all-1 cases to the same value.\n\n"
+                                 "    |0 0 0|       |1 1 1|\n"
+                                 "rule|0 0 0| = rule|1 1 1|\n"
+                                 "    |0 0 0|       |1 1 1|");
 
             if constexpr (0) {
                 // Stripe; not quite interesting...
@@ -433,7 +434,7 @@ public:
         explain(false, Selected, "Selected.");
         explain(
             false, Including,
-            "Not selected, but the working set already belongs to this set, so it behaves as if this is selected too.");
+            "Not selected, but the working set already belongs to this set (and behaves as if this is selected too).");
         explain(
             false, Disabled,
             "Not selectable, as its intersection with the working set will be empty. (This doesn't affect 'Ctrl' mode.)");
@@ -472,7 +473,7 @@ public:
                               ImGuiTableFlags_BordersInner | ImGuiTableFlags_SizingFixedFit |
                                   ImGuiTableFlags_NoKeepColumnsVisible)) {
             int id = 0;
-            const auto check = [&, ctrl = shortcuts::ctrl()](termT& term, const bool show_title = false) {
+            const auto check = [&, ctrl = shortcuts::ctrl()](termT& term, const bool show_title) {
                 const bool contains_rule = mode.rule && term.set->contains(*mode.rule);
                 const char title = show_title ? term.title[0] : '\0';
                 if (!mode.select) {
@@ -529,7 +530,7 @@ public:
                     if (button_w < title_w) {
                         imgui_AddCursorPosX((title_w - button_w) / 2);
                     }
-                    check(t);
+                    check(t, false);
                     ImGui::EndGroup();
                 }
             };
@@ -927,8 +928,6 @@ public:
                 // ImGui::PopStyleVar();
 
                 rclick_popup::popup(ImGui::GetItemID(), [&] {
-                    // TODO: support copying directly?
-                    // if (ImGui::Selectable("Copy rule")) { copy_rule::copy(m_rule.get()); }
                     selectable_to_take_snapshot("Recent", m_rule.rec(), m_snapshot);
 
                     if (ImGui::Selectable("Show in Window")) {

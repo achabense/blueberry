@@ -21,7 +21,8 @@ static open_state intro_window(frame_main_token) {
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
-                "Only shortcuts for input fields use 'Ctrl'; all the other shortcuts require 'Ctrl' not to be pressed.");
+                "Only input fields use 'Ctrl' for shortcuts (Ctrl+C/X/V etc.); all the other shortcuts (like this) require 'Ctrl' not to be pressed.");
+            // & Ctrl+C to copy tooltip (debug mode)
 
             ImGui::Bullet();
             imgui_Str("Right-click underlined text (like this) to open menu.");
@@ -44,12 +45,19 @@ static open_state intro_window(frame_main_token) {
         {
             ImGui::Bullet();
             imgui_Str("Right-click \"preview window\" (like below) to open menu.");
+            ImGui::Bullet();
+            imgui_Str("Drag to send the rule elsewhere.");
+            ImGui::SameLine();
+            imgui_StrTooltip("(?)", "These can serve as drag sources:\n"
+                                    "1. Preview windows.\n"
+                                    "2. The MAP-string for (the rule shown in) the space window.\n"
+                                    "3. Anything that displays a preview window in tooltip.");
 
             ImGui::Bullet();
             imgui_Str("Press left/right arrow keys to control 'Prev/Next' in the focused window.");
 
             ImGui::Bullet();
-            imgui_Str("Make sure you can save discoveries.");
+            imgui_Str("Make sure you can save rules and patterns.");
             ImGui::SameLine();
             imgui_StrTooltip( // !!TODO: about auto-saving...
                 "(?)",

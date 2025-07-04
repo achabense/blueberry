@@ -115,6 +115,7 @@ inline constexpr bool init_maximize_window = false;
 inline constexpr bool init_zero_interval = false;
 inline constexpr bool init_show_intro = true;
 inline constexpr bool init_compact_mode = false;
+inline constexpr bool init_auto_focus = false; // (Not quite "init" related) effects popups & drop-target
 
 // TODO: consider using ImGui::Shortcut?
 // Some features cannot easily be satisfied with `ImGui::Shortcut` and `ImGui::SetNextItemShortcut`.
@@ -253,12 +254,12 @@ public:
     static constexpr bool appear_at_same_frame = debug_mode;
 
     static void open_popup(const ImGuiID popup_id, const ImGuiPopupFlags popup_flags) {
-        if constexpr (!appear_at_same_frame) {
+        if constexpr (init_auto_focus && !appear_at_same_frame) {
             ImGui::SetWindowFocus();
         }
         ImGui::OpenPopupEx(popup_id, popup_flags);
         assert(imgui_IsPopupOpen(popup_id));
-        if constexpr (appear_at_same_frame) {
+        if constexpr (init_auto_focus && appear_at_same_frame) {
             auto& popup_ref = GImGui->OpenPopupStack.back();
             assert(popup_ref.PopupId == popup_id);
             popup_ref.RestoreNavWindow = GImGui->CurrentWindow->RootWindow;
@@ -267,7 +268,7 @@ public:
 
     // Must be called inside popup.
     static void set_focus(const ImGuiID popup_id, const ImGuiWindow* source) {
-        if constexpr (appear_at_same_frame) {
+        if constexpr (init_auto_focus && appear_at_same_frame) {
             const auto& popup_ref = GImGui->BeginPopupStack.back();
             if (popup_ref.OpenFrameCount + 1 == GImGui->FrameCount) { // Visually appearing.
                 assert(popup_ref.PopupId == popup_id);
@@ -1045,7 +1046,9 @@ public:
                 render_rect(true);
                 if (deliv) {
                     active = false;
-                    ImGui::SetWindowFocus();
+                    if constexpr (init_auto_focus) {
+                        ImGui::SetWindowFocus();
+                    }
                 }
                 return {.rule = &rule, .hov = true, .deliv = deliv};
             }

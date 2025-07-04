@@ -745,7 +745,7 @@ public:
                 const ImVec2 mouse_pos = ImGui::GetMousePos();
                 ImDrawList& drawlist = *ImGui::GetWindowDrawList();
                 const aniso::tile_ref data = init.background.data();
-                std::optional<aniso::vecT> resize{};
+                std::optional<aniso::vecT> resize = std::nullopt;
                 for (int y = 0; y < max_period.y; ++y) {
                     for (int x = 0; x < max_period.x; ++x) {
                         const bool in_range = x < data.size.x && y < data.size.y;
