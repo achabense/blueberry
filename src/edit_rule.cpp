@@ -808,6 +808,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
             ImGui::EndGroup();
 
             ImGui::SameLine(0, group_spacing_x);
+            const float cursor_pos = ImGui::GetCursorPosX();
 
             if (rule_approx && !working_set.contains(*rule_approx)) {
                 rule_approx.reset();
@@ -831,7 +832,8 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
                 if (this_i & 1) {
                     ImGui::Spacing(); // ImGui::Separator();
                 } else {
-                    ImGui::SameLine(0, group_spacing_x);
+                    // (`SameLine(0, group_spacing_x)` doesn't align well when preview windows are too small.)
+                    ImGui::SameLine(cursor_pos);
                 }
 
                 ImGui::BeginGroup();
