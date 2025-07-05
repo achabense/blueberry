@@ -366,7 +366,7 @@ public:
         }
     }
 
-    void input_filter() { input_text("Filter", buf_filter, !buf_filter[0] ? ".txt" : nullptr); }
+    void input_filter() { input_text("Filter", buf_filter, ".txt"); }
 
     void select_file(std::optional<pathT>& target, const pathT* current_file /*name*/ = nullptr, int* pid = nullptr) {
         if (auto child = imgui_ChildWindow("Files")) {
@@ -1039,6 +1039,12 @@ static void load_file_impl() {
         if (close) {
             file_path.reset();
             text.clear();
+            // (Workaround; otherwise will count as the first click for 'Local'.)
+            // (`ImGuiButtonFlags_PressedOnDoubleClick` has the same issue.)
+            ImGuiIO& io = ImGui::GetIO();
+            // io.MouseClicked[ImGuiMouseButton_Left] = false;
+            // io.MouseClickedCount[ImGuiMouseButton_Left] = 0;
+            io.MouseClickedLastCount[ImGuiMouseButton_Left] = 0;
         }
     }
 }
