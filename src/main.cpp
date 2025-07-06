@@ -178,13 +178,15 @@ bool backend_fn::code_button(aniso::codeT code, int zoom, const ImVec4& bg_col, 
     return hit;
 }
 
+// TODO: use `SDL_GetPrefPath`?
+// (Related: https://github.com/libsdl-org/SDL/issues/13322)
 std::string backend_fn::home_path_utf8() {
     if (char* base_path = SDL_GetBasePath()) {
         std::string str = base_path;
         SDL_free(base_path);
         return str;
     } else {
-        return ".";
+        return {}; // Instead of ".".
     }
 }
 

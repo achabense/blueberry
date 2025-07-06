@@ -49,26 +49,34 @@ static std::optional<pathT> cpp17_u8path(const std::string_view path) noexcept {
     }
 }
 
+static const pathT& get_home_path() /*noexcept*/ {
+    static pathT p = []() -> pathT {
+        try {
+            if (const auto p = home_path_utf8(); !p.empty()) {
+                return std::filesystem::canonical(cpp17_u8path_maythrow(p));
+            }
+        } catch (...) {
+        }
+        return {};
+    }();
+    return p;
+}
+
 // I hate this part so much...
 // (This is horribly inefficient, but there are not going to be too many calls in each frame, so let it go.)
-[[nodiscard]] static std::string clip_path(const pathT& p, const float avail_w, bool* clipped = nullptr) {
-    const auto set_clipped = [&clipped](bool b) {
-        if (clipped) {
-            *clipped = b;
-        }
-    };
+[[nodiscard]] static std::string clip_path(const pathT& p, const float avail_w, bool& clipped) {
     if (p.empty()) {
-        set_clipped(false);
-        return "";
+        clipped = false;
+        return {};
     }
 
     std::string full_str = cpp17_u8string_b(p);
     const float full_w = imgui_CalcTextSize(full_str).x;
     if (full_w <= avail_w) {
-        set_clipped(false);
+        clipped = false;
         return full_str;
     } else {
-        set_clipped(true);
+        clipped = true;
         if (!p.has_relative_path()) {
             return full_str;
         }
@@ -143,7 +151,7 @@ static bool open_folder(const pathT& p) {
 
 static void display_path(const pathT& p, const float avail_w) {
     bool clipped = false;
-    imgui_Str(clip_path(p, avail_w, &clipped));
+    imgui_Str(clip_path(p, avail_w, clipped));
     rclick_popup::popup(imgui_GetItemPosID(), [&] {
         if (ImGui::Selectable("Copy path")) {
             copy_path(p);
@@ -364,6 +372,7 @@ public:
 };
 
 // TODO: support filtering folder names as well?
+// TODO: support recording recently-opened folders/files?
 class file_nav : no_copy {
     char buf_path[200]{};
     char buf_filter[20]{}; // For files.
@@ -388,16 +397,11 @@ public:
         }
     }
 
-    explicit file_nav(const std::string& u8path) {
-        if (!u8path.empty()) {
-            std::error_code ec{};
-            const auto p = cpp17_u8path(u8path);
-            if (p && std::filesystem::is_directory(*p, ec)) {
-                if (pathT cp = std::filesystem::canonical(*p, ec); !ec) {
-                    if (m_current.assign_dir(cp)) {
-                        m_home.swap(cp);
-                    }
-                }
+    explicit file_nav(const pathT& base) {
+        if (!base.empty()) {
+            assert(base.is_absolute());
+            if (m_current.assign_dir(base)) {
+                m_home = m_current.path();
             }
         }
     }
@@ -407,7 +411,7 @@ public:
             buf_path[0] != '\0') {
             // It's impressive that path has implicit c-str ctor... why?
             const auto p = cpp17_u8path(buf_path);
-            if (!p || !m_current.assign_dir_or_file(*p, target)) {
+            if (!(p && m_current.assign_dir_or_file(*p, target))) {
                 messenger::set_msg("Cannot open this path.");
             }
 
@@ -446,35 +450,6 @@ public:
             }
         }
     }
-
-#if 0
-    // TODO: redesign, and consider supporting recently-opened files as well.
-    void select_history() {
-        // ImGui::SetNextItemWidth(item_width);
-        // imgui_StepSliderInt("Limit", &max_record, 5, 15);
-        imgui_Str("Recently opened folders");
-        if (m_record.size() > max_record) {
-            m_record.resize(max_record);
-        }
-        ImGui::Separator();
-        if (auto child = imgui_ChildWindow("Records")) {
-            if (m_record.empty()) {
-                imgui_StrDisabled("None");
-            }
-            const pathT* sel = nullptr;
-            for (bool f = true; const pathT& p : m_record) {
-                const bool is_current = std::exchange(f, false) && p == m_current;
-                // if (ImGui::Selectable(clip_path(p, ImGui::GetContentRegionAvail().x).c_str(), is_current)) {
-                if (imgui_SelectableStyledButton(clip_path(p, ImGui::GetContentRegionAvail().x).c_str(), is_current)) {
-                    sel = &p;
-                }
-            }
-            if (sel) {
-                set_current(*sel);
-            }
-        }
-    }
-#endif
 
     // Return one of file path in `m_current`.
     std::optional<pathT> display() {
@@ -992,7 +967,7 @@ static int count_line(const std::string_view str) { //
 // TODO: support opening multiple files?
 // TODO: add a mode to avoid opening files without rules?
 static void load_file_impl() {
-    static file_nav nav(home_path_utf8());
+    static file_nav nav(get_home_path());
     static std::optional<pathT> file_path;
     static textT text;
     static const auto try_load = [](const pathT& p) -> bool {
@@ -1295,16 +1270,15 @@ class rule_saver : no_copy {
     rec_for_rule_b m_rec{};
 
 public:
-    explicit rule_saver(const std::string& u8path) {
-        if (u8path.empty()) {
+    explicit rule_saver(const pathT& base) {
+        if (base.empty()) {
             return;
         }
         try {
-            const pathT p = cpp17_u8path_maythrow(u8path);
-            if (!std::filesystem::is_directory(p)) {
+            if (!std::filesystem::is_directory(base)) {
                 return;
             }
-            const pathT folder = p / "autosaved"; // !!TODO: decide the name before v0.9.8 release...
+            const pathT folder = base / "autosaved"; // !!TODO: decide the name before v0.9.8 release...
             const auto status = std::filesystem::status(folder);
             if (std::filesystem::is_directory(status) ||
                 (!std::filesystem::exists(status) && std::filesystem::create_directory(folder))) {
@@ -1343,6 +1317,6 @@ public:
 };
 
 void copy_rule::save(const aniso::ruleT& rule) {
-    static rule_saver saver(home_path_utf8());
+    static rule_saver saver(get_home_path());
     saver.save_if_valid(rule);
 }
