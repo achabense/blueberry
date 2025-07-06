@@ -133,7 +133,7 @@ public:
     static void begin() {
         assert(window && renderer && !texture);
 
-        const int width = 3, height = 3 * 512;
+        constexpr int width = 3, height = 3 * 512;
         texture = create_texture(SDL_TEXTUREACCESS_STATIC, width, height);
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
         SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);

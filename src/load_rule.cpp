@@ -164,6 +164,49 @@ static void display_filename(const pathT& p) {
     imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
 }
 
+class natural_compare : no_copy {
+    static bool is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
+
+    static std::string_view extract_num(const char*& pos, const char* const end) {
+        assert(pos < end && is_digit(*pos));
+        const char* const beg = pos++;
+        while (pos != end && is_digit(*pos)) {
+            ++pos;
+        }
+        std::string_view digits{beg, pos}; // v So finally `weak_ordering`.
+        digits.remove_prefix(std::min(digits.size(), digits.find_first_not_of('0')));
+        // if (digits.empty()) { digits = "0"; } // Empty str compares fine.
+        return digits;
+    }
+
+    static std::strong_ordering compare_num(const std::string_view a, const std::string_view b) {
+        const auto comp = a.size() <=> b.size();
+        return comp != 0 ? comp : a <=> b;
+    }
+
+public:
+    static std::weak_ordering compare(const std::string_view a, const std::string_view b) {
+        const char *a_pos = a.data(), *const a_end = a_pos + a.size();
+        const char *b_pos = b.data(), *const b_end = b_pos + b.size();
+        while (a_pos != a_end && b_pos != b_end) {
+            if (is_digit(*a_pos) && is_digit(*b_pos)) {
+                const auto comp = compare_num(extract_num(a_pos, a_end), extract_num(b_pos, b_end));
+                if (comp != 0) {
+                    return comp;
+                }
+            } else if (const char a_ch = *a_pos++, b_ch = *b_pos++; a_ch != b_ch) {
+                // (std::string_view compares by unsigned char, not affected by char's signedness.)
+                return (unsigned char)a_ch <=> (unsigned char)b_ch;
+            }
+        }
+        return (a_end - a_pos) <=> (b_end - b_pos);
+    }
+
+    static bool less(const std::string_view a, const std::string_view b) { //
+        return compare(a, b) < 0;
+    }
+};
+
 class folderT {
     struct entryT {
         pathT name;
@@ -176,12 +219,12 @@ class folderT {
 
     static void collect_maythrow(const pathT& path, std::vector<entryT>& dirs, std::vector<entryT>& files) {
         assert(dirs.empty() && files.empty());
-        int max_entry = 5000;
+        int max_entry = 3000;
         for (const auto& entry :
              std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied)) {
             if (--max_entry < 0) [[unlikely]] { // (Undocumented, but should be rare enough.)
                 messenger::set_msg("Too many entries.");
-                return; // Instead of throwing.
+                break; // Instead of throwing.
             }
 
             std::error_code ec{};
@@ -207,6 +250,12 @@ class folderT {
                     }
                 }
             }
+        }
+        if (!dirs.empty()) {
+            std::ranges::stable_sort(dirs, natural_compare::less, &entryT::str);
+        }
+        if (!files.empty()) {
+            std::ranges::stable_sort(files, natural_compare::less, &entryT::str);
         }
     }
 

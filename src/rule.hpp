@@ -46,7 +46,7 @@ namespace aniso {
 
 #ifdef ENABLE_TESTS
     namespace _tests {
-        struct testT {
+        struct testT : no_copy {
             inline static std::mt19937 rand{(uint32_t)time(0)};
             testT(const auto& fn) noexcept { fn(); }
         };
