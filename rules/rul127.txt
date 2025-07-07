@@ -1,0 +1,28 @@
+MAPBAwAFEQhBgB3DB0EnG9mAUkmBAg0/kAgTxNEiXcsAQY/xkc8RH0EAd7qesj4fsgSXT8MARNkwRR7EkgSEskSSA
+
+
+!!
+MAPhAwBFEQzBgB3DB1EjG9mJUkyBAoy/lBoTzNFiTetIQY/xEc8RH0MJd/OesjcfshaXTcNITPlwRR/EtoSEtsSSA
+->
+MAPhAwBFEQzBgB1BB1EhG9mJUkyBAoy/lBoRzNFiTetIQYvhEc8BH0MJd/OesjcfshaHTcNITPlwRR/EtoSEtsSSA
+
+
+#C Spaceship. Period:18. Offset(x,y):(2,0).
+x = 6, y = 9, rule = MAPFk0AFE0hBgB1lB0EhG92NUkiBA8w/lVox1NFiTctYUYvhEc+hn0EJ9/OeujcfuhanTcNKRtlwRx/kloyktoySA
+6b$6o$2bo$3ob2o$2bo$3ob2o$2bo$6o$6b!
+
+
+(osc) looks like spaceship when step = 3
+MAPF20FCG1pQAB91GlGts/jNVusTAvkpVFo51sBDVcdLEJvtmm5jt0cJ9/voFL9fxpIvR8BZFtHRRj/l9o4l/5iSQ
+
+
+!! wtf
+MAP3k0FDE0hRAD9lHlGln2jJUknSAo17VBox1lBDXVVLALvlmuxhm8cJd/vgNL9f5pInS8JZEsPRRB/t9oYt/5CSQ
+->{
+!! moth
+MAP3k0FHE0hRgD9lHlGln2jJUknSAo17VBox1lBjXVVLALvlmuxhm8cJd/vgNL9f5pInS8JZEsPxRB/t9oYt/5CSQ
+MAPlk0FDE0hRAB9lHlGln2jJUknSAo17VBox1lBDXVVLAJvlmuxhm8cJd/vgNL9f5pInS8JZEsPRRB/t9oYt/5CSQ
+}
+
+
+MAPsuAgkKiAgkgEggoKQCEIgKSCkgCQSAAggAEogC0ECAIECFBAkCFQgGwCAAAQEgAAgGVgQAEEgBAAEgAAEkkAAA
