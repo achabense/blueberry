@@ -873,6 +873,7 @@ public:
 };
 
 // Preview rules.
+// TODO: support pausing groups/globally?
 class previewer : no_create {
 public:
     enum { default_settings };
@@ -1322,15 +1323,14 @@ inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& r
     return item_to_take_snapshot(*+selectable, label, rec, snapshot);
 }
 
-inline void display_snapshot_if_present(const char* title, rule_snapshot& snapshot, const rec_for_rule& rec,
-                                        const std::optional<rule_snapshot::contextT>& context = std::nullopt) {
-    if (snapshot) {
-        if (rec.written_since_last_check()) {
-            snapshot.test_outdated(rec.data());
-        }
-        if (snapshot.display(title, rec.data(), context).closed()) {
-            snapshot.clear();
-        }
+inline void display_snapshot(const char* title, rule_snapshot& snapshot, const rec_for_rule& rec,
+                             const std::optional<rule_snapshot::contextT>& context = std::nullopt) {
+    assert(snapshot);
+    if (rec.written_since_last_check()) {
+        snapshot.test_outdated(rec.data());
+    }
+    if (snapshot.display(title, rec.data(), context).closed()) {
+        snapshot.clear();
     }
 }
 

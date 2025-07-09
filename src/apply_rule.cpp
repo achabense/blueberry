@@ -670,9 +670,9 @@ public:
             guide_mode::item_tooltip(
                 "MAP-string for the displayed rule; drag to send the rule elsewhere; drag a rule here to replace; open menu for recent rules.");
             if (snapshot) {
-                display_snapshot_if_present("Recent (space window)", snapshot, current_rule.rec(),
-                                            {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
-                                              .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
+                display_snapshot("Recent (space window)", snapshot, current_rule.rec(),
+                                 {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
+                                   .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
             }
 
             ImGui::Separator();

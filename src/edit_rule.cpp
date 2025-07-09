@@ -407,6 +407,7 @@ private:
 
 public:
     // TODO: improve...
+    // TODO: "working set" is inconvenient when used in tooltips; use a symbol like [W]?
     static void about() {
         const auto explain = [sqr_size = square_size()](bool contains_rule, centerE center, std::string_view desc) {
             ImGui::Dummy(sqr_size);
@@ -668,8 +669,6 @@ public:
             "1. 'Zero' and 'Identity' are special, as being same or different than them has natural interpretations (actual value and flipness).\n"
             "2. 'Default' is dependent on (and always belongs to) the working set, and is the default rule for [R]/[S]/[T] (for 'Traverse', 'Random' and 'Random-access', respectively).\n"
             "3. Any other rule in the working set can serve as observer via 'Custom'.\n\n"
-            "About [R]/[S]/[T]:\n" // (As `sync` uses `working_set.rule`.)
-            "They can be arbitrary rules in the working set. Initially they are equal to 'Default'; if the working set changes and no longer contains them, they will also be reset to 'Default'. You can update them by dragging a rule to them.\n\n"
             "The observer never affects rule generation directly.");
     }
 
@@ -709,6 +708,21 @@ public:
             }
 
             if (!pass_rule::source(rule)) {
+                // !!TODO: (v0.9.9) support measuring distance between any rule sources...
+                if constexpr (debug_mode) {
+                    const aniso::ruleT* peek = nullptr;
+                    if (belongs && (peek = pass_rule::peek()) &&
+                        imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+                        if (working_set.contains(*peek) && ImGui::BeginTooltip()) {
+                            const int dist = aniso::distance(working_set, rule, *peek);
+                            ImGui::Text("Dist:%d%s", dist, dist == 0 ? " (same rule)" : "");
+                            ImGui::EndTooltip();
+
+                            imgui_ItemRectFilled(IM_COL32_GREY(255, 16));
+                        }
+                    }
+                }
+
                 imgui_ItemTooltip([&] {
                     if (!belongs) {
                         imgui_Str("This rule does not belong to the working set.");
@@ -930,12 +944,20 @@ public:
                 // ImGui::PopStyleVar();
 
                 rclick_popup::popup(ImGui::GetItemID(), [&] {
-                    selectable_to_take_snapshot("Recent", m_rule.rec(), m_snapshot);
+                    imgui_StrTooltip(
+                        "(...)", // (As 'Default' ~ working_set.rule.)
+                        "[R]/[S]/[T] can be arbitrary rules in the working set. Initially they are equal to 'Default'; if the working set changes and no longer contains them, they will also be reset to 'Default'.\n\n"
+                        "Drag a rule to the label to replace.\n"
+                        "Drag the label to send the rule elsewhere.\n"
+                        "Use 'Show in window' to display the rule in a regular window (recommended for 'Random-access').");
+                    ImGui::Separator();
 
                     if (ImGui::Selectable("Show in Window")) {
                         opened = true;
                         m_window = true;
                     }
+
+                    selectable_to_take_snapshot("Recent", m_rule.rec(), m_snapshot);
                 });
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
@@ -977,13 +999,14 @@ public:
                     updated = true;
                 }
             };
-            display_snapshot_if_present(snapshot_title, m_snapshot, m_rule.rec(), {{.get = get, .set = set}});
+            display_snapshot(snapshot_title, m_snapshot, m_rule.rec(), {{.get = get, .set = set}});
         }
 
         return updated;
     }
 };
 
+// TODO: define as classes...
 static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
     bool open = true;
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
