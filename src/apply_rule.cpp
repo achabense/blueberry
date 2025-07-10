@@ -334,8 +334,11 @@ public:
 
     static constexpr zoomT min() { return zoomT{0}; }
     static constexpr zoomT max() { return zoomT{index_max}; }
-    static auto list() { //
-        return std::views::iota(0, index_max + 1) | std::views::transform([](int i) { return zoomT{i}; });
+    static std::span<const zoomT> list() {
+        // return std::views::iota(0, index_max + 1) | std::views::transform([](int i) { return zoomT{i}; });
+        static constexpr zoomT data[]{{0}, {1}, {2}, {3}, {4}, {5}};
+        static_assert(std::size(data) == std::size(terms));
+        return data;
     }
 
     constexpr operator float() const { return terms[m_index].val; }
@@ -618,6 +621,9 @@ class runnerT : no_copy {
         m_sel.reset();
     }
 
+    rule_snapshot m_snapshot{}; // For `current_rule`.
+    test_appearing m_appearing{};
+
 public:
     void set_rule(const aniso::ruleT& rule) { current_rule.set_next(rule); }
 
@@ -628,10 +634,12 @@ public:
         }
     }
 
-    // TODO: (wontfix?) there cannot actually be multiple instances in the program.
-    // For example, there are a lot of static variables in `display`, and the keyboard controls are not designed
-    // for per-object use.
+    // (wontfix) Not designed to support multiple instances. (For example, some settings use static variables.)
     void display() {
+        if (m_appearing.update()) {
+            reset_m_paste();
+            m_snapshot.clear();
+        }
         if (current_rule.update()) {
             m_torus.restart();
             m_ctrl.set_pause(false);
@@ -648,7 +656,6 @@ public:
             }
             ImGui::SameLine();
 
-            static rule_snapshot snapshot{}; // TODO: technically should be a class member...
             const ImGuiID map_id = ImGui::GetID("MAP-str");
             imgui_StrWithID(aniso::to_MAP_str(current_rule), map_id);
             if (!pass_rule::source(current_rule)) {
@@ -660,7 +667,7 @@ public:
                     guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
                                              "Equivalent to sending the rule to '[C]' after 'Clipboard'.");
 
-                    selectable_to_take_snapshot("Recent", current_rule.rec(), snapshot);
+                    selectable_to_take_snapshot("Recent", current_rule.rec(), m_snapshot);
                 });
             }
             if (const auto* deliv = pass_rule::dest(ImGuiKey_2, '2').get_deliv()) {
@@ -669,8 +676,8 @@ public:
             }
             guide_mode::item_tooltip(
                 "MAP-string for the displayed rule; drag to send the rule elsewhere; drag a rule here to replace; open menu for recent rules.");
-            if (snapshot) {
-                display_snapshot("Recent (space window)", snapshot, current_rule.rec(),
+            if (m_snapshot) {
+                display_snapshot("Recent (space window)", m_snapshot, current_rule.rec(),
                                  {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
                                    .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
             }
@@ -998,6 +1005,7 @@ public:
         }
         ImGui::SameLine();
         static bool show_op_window = false;
+        m_appearing.reset_if_appearing(show_op_window);
         ImGui::Checkbox("Space ops", &show_op_window);
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         ImGui::SameLine(0, wide_spacing);
@@ -1436,7 +1444,7 @@ private:
                     }
                 } else {
                     // (The too-large case is considered impossible to occur naturally.)
-                    messenger::set_msg("The selected area is too small, or not spatially periodic.");
+                    messenger::set_msg("The area is too small, or not spatially periodic.");
                 }
             } //
         };
@@ -1574,7 +1582,7 @@ private:
                     imgui_Str(
                         "For 'Clear inside/outside':\n"
                         "0/1: Fill area with 0 or 1 (unconditionally).\n"
-                        "C:   If the selected area is enclosed in 2*2 periodic bg, fill area with it; otherwise do nothing.\n\n"
+                        "C:   If the area is enclosed in 2*2 periodic bg, fill area with the bg; otherwise do nothing.\n\n"
                         "The \"2*2 periodic bg\" includes the following patterns:");
 
                     static constexpr std::array<aniso::cellT, 4> bg_data[]{
@@ -1649,21 +1657,8 @@ private:
     }
 };
 
-class activeT {
-    static_assert(std::is_same_v<int, decltype(ImGui::GetFrameCount())>);
-    int frame = 0;
-
-public:
-    void update() { frame = ImGui::GetFrameCount(); }
-
-    explicit operator bool() const {
-        const int f = ImGui::GetFrameCount();
-        return frame == f || frame + 1 == f;
-    }
-};
-
 static runnerT runner;
-static activeT runner_active;
+static test_active runner_active;
 void apply_rule(frame_main_token) {
     runner.display();
     runner_active.update();

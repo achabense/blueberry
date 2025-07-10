@@ -921,6 +921,8 @@ class target_rule : no_copy {
     rule_snapshot m_snapshot{};
     bool m_window = false;
 
+    test_appearing m_appearing{};
+
 public:
     operator const aniso::ruleT&() const { return m_rule.get(); }
     const aniso::ruleT& get() const { return m_rule.get(); }
@@ -936,6 +938,11 @@ public:
 
     bool display(const char* label, const char* snapshot_title, const previewer::configT& settings,
                  const aniso::subsetT& working_set) {
+        if (m_appearing.update()) {
+            m_snapshot.clear();
+            m_window = false;
+        }
+
         bool updated = false;
         bool opened = false;
         if (!m_window) {
@@ -955,7 +962,7 @@ public:
                         "Use 'Show in window' to display the rule in a regular window (recommended for 'Random-access').");
                     ImGui::Separator();
 
-                    if (ImGui::Selectable("Show in Window")) {
+                    if (ImGui::Selectable("Show in window")) {
                         opened = true;
                         m_window = true;
                     }
@@ -1268,6 +1275,9 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 // static open_state random_access_window(const ImVec2& init_pos, const aniso::subsetT& working_set);
 
 void edit_rule(frame_main_token) {
+    static test_appearing appearing{};
+    appearing.update();
+
     // Select working set.
     static subset_selector select_working{&aniso::subsets.native_isotropic};
     {
@@ -1324,11 +1334,12 @@ void edit_rule(frame_main_token) {
     ImGui::Separator();
 
     static bool show_random_access = false;
-    // TODO: whether to support dirty editing (the target doesn't have to belong to the set)?
+    // appearing.reset_if_appearing(show_random_access);
     static target_rule target{}; // Random-access
     static previewer::configT config{previewer::default_settings};
     {
         static bool show_misc = false;
+        appearing.reset_if_appearing(show_misc);
         ImGui::Checkbox("Misc", &show_misc);
         guide_mode::item_tooltip("0/1 reversal dual, approximation, and temp rules.");
         if (show_misc) {
@@ -1339,6 +1350,7 @@ void edit_rule(frame_main_token) {
     ImGui::SameLine();
     {
         static bool show_trav = false;
+        appearing.reset_if_appearing(show_trav);
         ImGui::Checkbox("Traverse", &show_trav);
         guide_mode::item_tooltip("Iterate through all rules in the working set.\n\n"
                                  "(This is mainly useful for small sets.)");
@@ -1350,6 +1362,7 @@ void edit_rule(frame_main_token) {
     ImGui::SameLine();
     {
         static bool show_rand = false;
+        appearing.reset_if_appearing(show_rand);
         ImGui::Checkbox("Random", &show_rand);
         guide_mode::item_tooltip("Get random rules in the working set.");
         if (show_rand) {

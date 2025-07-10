@@ -127,6 +127,7 @@ void frame_main() {
     ImGui::SetNextWindowPos(viewport.WorkPos);
     ImGui::SetNextWindowSize(viewport.WorkSize);
     if (auto window = imgui_Window("Main", nullptr, flags)) {
+        // static test_appearing appearing{}; // Not needed.
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         {
             static bool show_intro = init_show_intro;
@@ -138,6 +139,7 @@ void frame_main() {
         ImGui::SameLine(0, wide_spacing);
         {
             static bool show_file = false;
+            // appearing.reset_if_appearing(show_file);
             ImGui::Checkbox("Files", &show_file);
             guide_mode::item_tooltip("Load rules from files.");
             if (show_file) {

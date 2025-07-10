@@ -1372,3 +1372,38 @@ public:
 
     // static const rec_for_rule& get_rec(frame_main_token) { return rec; }
 };
+
+static_assert(std::is_same_v<int, decltype(ImGui::GetFrameCount())>);
+
+class test_active {
+    int m_frame = -2;
+
+public:
+    void update() { m_frame = ImGui::GetFrameCount(); }
+
+    explicit operator bool() const {
+        const int frame = ImGui::GetFrameCount();
+        return m_frame == frame || m_frame + 1 == frame;
+    }
+};
+
+// `ImGui::IsWindowAppearing()` is usually not enough. (For example, appearing when the window is uncollapsed.)
+class test_appearing {
+    int m_frame = -2;
+    bool m_appearing = false;
+
+public:
+    bool update() {
+        const int frame = ImGui::GetFrameCount();
+        m_appearing = m_frame + 1 != frame;
+        m_frame = frame;
+        return m_appearing;
+    }
+
+    explicit operator bool() const { return m_appearing; }
+    void reset_if_appearing(bool& flag) const {
+        if (m_appearing) {
+            flag = false;
+        }
+    }
+};
