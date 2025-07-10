@@ -6,63 +6,59 @@
 
 namespace aniso {
     // !!TODO: (v0.9.9) when partialT is supported, add strobing-set (01 10) and the other 3 non-strobing cases (01 11, 00 10, 11 00).
-    namespace _subsets {
-        static const subsetT ignore_q = make_subset({mp_ignore_q});
-        static const subsetT ignore_w = make_subset({mp_ignore_w});
-        static const subsetT ignore_e = make_subset({mp_ignore_e});
-        static const subsetT ignore_a = make_subset({mp_ignore_a});
-        static const subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero);
-        static const subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity);
-        static const subsetT ignore_d = make_subset({mp_ignore_d});
-        static const subsetT ignore_z = make_subset({mp_ignore_z});
-        static const subsetT ignore_x = make_subset({mp_ignore_x});
-        static const subsetT ignore_c = make_subset({mp_ignore_c});
+    static const struct : no_copy {
+        subsetT ignore_q = make_subset({mp_ignore_q});
+        subsetT ignore_w = make_subset({mp_ignore_w});
+        subsetT ignore_e = make_subset({mp_ignore_e});
+        subsetT ignore_a = make_subset({mp_ignore_a});
+        subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero);
+        subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity);
+        subsetT ignore_d = make_subset({mp_ignore_d});
+        subsetT ignore_z = make_subset({mp_ignore_z});
+        subsetT ignore_x = make_subset({mp_ignore_x});
+        subsetT ignore_c = make_subset({mp_ignore_c});
 
-        static const subsetT ignore_hex = make_subset({mp_hex_ignore});
-        static const subsetT ignore_jvn = make_subset({mp_jvn_ignore});
-        static const subsetT ignore_wadx = make_subset({mp_ignore_wadx});
+        subsetT ignore_hex = make_subset({mp_hex_ignore});
+        subsetT ignore_jvn = make_subset({mp_jvn_ignore});
+        subsetT ignore_wadx = make_subset({mp_ignore_wadx});
 
         // rule[{0}] == rule[{511}].
-        static const subsetT single_stable_state{.rule = rule_all_zero, .p = [] {
-                                                     equivT eq{};
-                                                     eq.add_eq({0}, {511});
-                                                     return eq;
-                                                 }()};
-        static const subsetT self_complementary = make_subset({mp_reverse}, rule_identity);
+        subsetT single_stable_state{.rule = rule_all_zero, .p = [] {
+                                        equivT eq{};
+                                        eq.add_eq({0}, {511});
+                                        return eq;
+                                    }()};
+        subsetT self_complementary = make_subset({mp_reverse}, rule_identity);
 
-        static const subsetT native_isotropic = make_subset({mp_refl_wsx, mp_refl_qsc});
-        static const subsetT native_refl_wsx = make_subset({mp_refl_wsx});
-        static const subsetT native_refl_asd = make_subset({mp_refl_asd});
-        static const subsetT native_refl_qsc = make_subset({mp_refl_qsc});
-        static const subsetT native_refl_esz = make_subset({mp_refl_esz});
-        static const subsetT native_C2 = make_subset({mp_C2});
-        static const subsetT native_C4 = make_subset({mp_C4});
+        subsetT native_isotropic = make_subset({mp_refl_wsx, mp_refl_qsc});
+        subsetT native_refl_wsx = make_subset({mp_refl_wsx});
+        subsetT native_refl_asd = make_subset({mp_refl_asd});
+        subsetT native_refl_qsc = make_subset({mp_refl_qsc});
+        subsetT native_refl_esz = make_subset({mp_refl_esz});
+        subsetT native_C2 = make_subset({mp_C2});
+        subsetT native_C4 = make_subset({mp_C4});
 
-        static const subsetT native_tot_exc_s = make_subset({mp_C8, mp_tot_exc_s});
-        static const subsetT native_tot_inc_s = make_subset({mp_C8, mp_tot_inc_s});
+        subsetT native_tot_exc_s = make_subset({mp_C8, mp_tot_exc_s});
+        subsetT native_tot_inc_s = make_subset({mp_C8, mp_tot_inc_s});
 
-        static const subsetT hex_isotropic = make_subset({mp_hex_refl_asd, mp_hex_refl_aq});
-        static const subsetT hex_refl_asd = make_subset({mp_hex_refl_asd});
-        static const subsetT hex_refl_qsc = make_subset({mp_hex_refl_qsc});
-        static const subsetT hex_refl_wsx = make_subset({mp_hex_refl_wsx});
-        static const subsetT hex_refl_aq = make_subset({mp_hex_refl_aq});
-        static const subsetT hex_refl_qw = make_subset({mp_hex_refl_qw});
-        static const subsetT hex_refl_wd = make_subset({mp_hex_refl_wd});
-        static const subsetT hex_C2 = make_subset({mp_hex_C2});
-        static const subsetT hex_C3 = make_subset({mp_hex_C3});
-        static const subsetT hex_C6 = make_subset({mp_hex_C6});
+        subsetT hex_isotropic = make_subset({mp_hex_refl_asd, mp_hex_refl_aq});
+        subsetT hex_refl_asd = make_subset({mp_hex_refl_asd});
+        subsetT hex_refl_qsc = make_subset({mp_hex_refl_qsc});
+        subsetT hex_refl_wsx = make_subset({mp_hex_refl_wsx});
+        subsetT hex_refl_aq = make_subset({mp_hex_refl_aq});
+        subsetT hex_refl_qw = make_subset({mp_hex_refl_qw});
+        subsetT hex_refl_wd = make_subset({mp_hex_refl_wd});
+        subsetT hex_C2 = make_subset({mp_hex_C2});
+        subsetT hex_C3 = make_subset({mp_hex_C3});
+        subsetT hex_C6 = make_subset({mp_hex_C6});
 
-        static const subsetT hex_tot_exc_s = make_subset({mp_hex_C6, mp_hex_tot_exc_s});
-        static const subsetT hex_tot_inc_s = make_subset({mp_hex_C6, mp_hex_tot_inc_s});
+        subsetT hex_tot_exc_s = make_subset({mp_hex_C6, mp_hex_tot_exc_s});
+        subsetT hex_tot_inc_s = make_subset({mp_hex_C6, mp_hex_tot_inc_s});
 
-        static const subsetT jvn_tot_exc_s = make_subset({mp_jvn_ignore, mp_C4, mp_jvn_tot_exc_s});
-        static const subsetT jvn_tot_inc_s = make_subset({mp_jvn_ignore, mp_C4, mp_jvn_tot_inc_s});
-    } // namespace _subsets
+        subsetT jvn_tot_exc_s = make_subset({mp_jvn_ignore, mp_C4, mp_jvn_tot_exc_s});
+        subsetT jvn_tot_inc_s = make_subset({mp_jvn_ignore, mp_C4, mp_jvn_tot_inc_s});
 
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        static const testT test_subsets = [] {
-            using namespace _subsets;
+        void test() const {
             assert(ignore_e.includes(ignore_hex));
             assert(ignore_z.includes(ignore_hex));
             assert(ignore_q.includes(ignore_jvn));
@@ -108,7 +104,12 @@ namespace aniso {
             assert(native_isotropic.contains(gol));
             assert(native_tot_exc_s.contains(gol));
             assert(!native_tot_inc_s.contains(gol));
-        };
+        }
+    } subsets;
+
+#ifdef ENABLE_TESTS
+    namespace _tests {
+        static const testT test_subsets = [] { subsets.test(); };
     } // namespace _tests
 #endif // ENABLE_TESTS
 
@@ -121,7 +122,7 @@ namespace aniso {
 // }
 
 bool rule_algo::is_hexagonal_rule(const aniso::ruleT& rule) { //
-    return aniso::_subsets::ignore_hex.contains(rule);
+    return aniso::subsets.ignore_hex.contains(rule);
 }
 
 static int fit_count(int avail, int size, int spacing) { //
@@ -179,7 +180,7 @@ class subset_selector : no_copy {
     }
 
 public:
-    // `sel` should be either nullptr or address of one of members in `aniso::_subsets`.
+    // `sel` should be either nullptr or address of one of members in `aniso::subsets`.
     void select_single(const aniso::subsetT* const sel) {
         assert_implies(sel, std::ranges::find(m_terms, sel, &termT::set) != m_terms.end());
 
@@ -191,7 +192,7 @@ public:
     }
 
     explicit subset_selector(const aniso::subsetT* init_sel = nullptr) {
-        using namespace aniso::_subsets;
+        using aniso::subsets;
         constexpr int reserve_cap = 50;
         m_terms.reserve(reserve_cap);
 
@@ -204,34 +205,34 @@ public:
         {
             terms_scope scope(m_terms, terms_ignore);
             m_terms.emplace_back(
-                "q", &ignore_q,
+                "q", &subsets.ignore_q,
                 "Rules whose values are independent of 'q'. That is, for any two cases where only 'q' differs, the rule will map center cell to the same value.\n\n"
                 "    |0 w e|       |1 w e|\n"
                 "rule|a s d| = rule|a s d|\n"
                 "    |z x c|       |z x c|\n\n"
                 "Therefore, these rules will behave as if the neighborhood does not include 'q'. The same applies to 'w/e/a/d/z/x/c', except for 's'.\n\n"
                 "('q/w/e/a/s/d/z/x/c' are named after keys in the 'qwerty' keyboard.)");
-            m_terms.emplace_back("w", &ignore_w, "Independent of 'w'. (See 'q' for details.)");
-            m_terms.emplace_back("e", &ignore_e, "Independent of 'e'. (See 'q' for details.)");
-            m_terms.emplace_back("a", &ignore_a, "Independent of 'a'. (See 'q' for details.)");
+            m_terms.emplace_back("w", &subsets.ignore_w, "Independent of 'w'. (See 'q' for details.)");
+            m_terms.emplace_back("e", &subsets.ignore_e, "Independent of 'e'. (See 'q' for details.)");
+            m_terms.emplace_back("a", &subsets.ignore_a, "Independent of 'a'. (See 'q' for details.)");
             m_terms.emplace_back(
-                "s", &ignore_s_z,
+                "s", &subsets.ignore_s_z,
                 "For any two cases where only 's' (the center cell itself) differs, the rule will map center cell to the same value.\n\n"
                 "    |q w e|       |q w e|\n"
                 "rule|a 0 d| = rule|a 1 d|\n"
                 "    |z x c|       |z x c|\n\n"
                 "So when the surrounding cells are the same, there must be: either s:0->1, s:1->1 or s:0->0, s:1->0.\n\n"
                 "(It's not obvious what's special about this set; though this is defined in the same way as other independence sets, it's not suitable to treat this as \"independent of 's'\".)");
-            m_terms.emplace_back("d", &ignore_d, "Independent of 'd'. (See 'q' for details.)");
-            m_terms.emplace_back("z", &ignore_z, "Independent of 'z'. (See 'q' for details.)");
-            m_terms.emplace_back("x", &ignore_x, "Independent of 'x'. (See 'q' for details.)");
-            m_terms.emplace_back("c", &ignore_c, "Independent of 'c'. (See 'q' for details.)");
+            m_terms.emplace_back("d", &subsets.ignore_d, "Independent of 'd'. (See 'q' for details.)");
+            m_terms.emplace_back("z", &subsets.ignore_z, "Independent of 'z'. (See 'q' for details.)");
+            m_terms.emplace_back("x", &subsets.ignore_x, "Independent of 'x'. (See 'q' for details.)");
+            m_terms.emplace_back("c", &subsets.ignore_c, "Independent of 'c'. (See 'q' for details.)");
         }
         {
             terms_scope scope(m_terms, terms_misc);
             if (0) {
                 m_terms.emplace_back(
-                    "s(*)", &ignore_s_i,
+                    "s(*)", &subsets.ignore_s_i,
                     "Similar to 's' - for any two cases where only 's' differs, the rule will map the center cell to values so that the resulting \"flip-ness\" will be the same. That is:\n\n"
                     "     |q w e|             |q w e|\n"
                     "(rule|a 0 d| = 0) = (rule|a 1 d| = 1)\n"
@@ -240,19 +241,19 @@ public:
                     "(This is provided for completeness; it's not obvious what's special about this set.)");
             }
             m_terms.emplace_back(
-                "Hex", &ignore_hex,
+                "Hex", &subsets.ignore_hex,
                 "Rules whose values are independent of 'e' and 'z'. As a result, they can emulate range-1 hexagonal neighborhood - for any rule in this set, there exists an actual rule in the hexagonal tiling with the same behavior.\n\n"
                 "To be exact, for any pattern, if evolved under such a rule, the dynamics will correspond to a projected version evolved under an actual rule in the hexagonal space. See the last line for illustration.\n\n"
                 "(For windows displaying such rules, you can hover and press '6' to see the projected view.)");
             m_terms.emplace_back(
-                "Jvn", &ignore_jvn,
+                "Jvn", &subsets.ignore_jvn,
                 "Rules whose values are independent of 'q', 'e', 'z' and 'c'. As a result, they can emulate range-1 von Neumann neighborhood directly.\n\n"
                 "(This can work naturally with native-symmetry sets.)");
-            m_terms.emplace_back("Wadx", &ignore_wadx,
+            m_terms.emplace_back("Wadx", &subsets.ignore_wadx,
                                  "Rules whose values are independent of 'w', 'a', 'd' and 'x'.\n\n"
                                  "(This can work naturally with native-symmetry sets.)");
             m_terms.emplace_back(
-                "Compl", &self_complementary,
+                "Compl", &subsets.self_complementary,
                 "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].\n\n"
                 "To achieve this, for any case and its complement, the rule will map center cell to values so that the resulting \"flip-ness\" are the same.\n\n"
                 "     |q w e|             |!q!w!e|\n"
@@ -260,6 +261,7 @@ public:
                 "     |z x c|             |!z!x!c|\n\n"
                 "(You can get the 0/1 reversal dual for any rule in the 'Misc' window.)");
 
+            // TODO: define into `subsets`.
             // Bg-xor invariance.
             // (Self-complementary is actually all-1 xor invar.)
             {
@@ -278,7 +280,7 @@ public:
                     "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
             }
 
-            m_terms.emplace_back("Uniq", &single_stable_state,
+            m_terms.emplace_back("Uniq", &subsets.single_stable_state,
                                  "Rules that map all-0 and all-1 cases to the same value.\n\n"
                                  "    |0 0 0|       |1 1 1|\n"
                                  "rule|0 0 0| = rule|1 1 1|\n"
@@ -307,33 +309,34 @@ public:
         }
         {
             terms_scope scope(m_terms, terms_native);
-            m_terms.emplace_back("Iso", &native_isotropic,
+            m_terms.emplace_back("Iso", &subsets.native_isotropic,
                                  "Isotropic MAP rules, i.e. rules that preserve all symmetries.\n\n"
                                  "(This is equal to the intersection of the following sets in this line.)");
             m_terms.emplace_back(
-                "|", &native_refl_wsx,
+                "|", &subsets.native_refl_wsx,
                 "Rules that preserve reflection symmetry, taking '|' as the axis.\n\n"
                 "For any pattern and its leftside-right mirror image, if evolved under such a rule they will remain in mirror.\n\n"
                 "For any leftside-right symmetric pattern, if evolved under such a rule it will remain leftside-right symmetric.");
-            m_terms.emplace_back("-", &native_refl_asd, "Similar to '|'; the axis is '-'.");
-            m_terms.emplace_back("\\", &native_refl_qsc, "Similar to '|'; the axis is '\\'.");
-            m_terms.emplace_back("/", &native_refl_esz, "Similar to '|'; the axis is '/'.");
-            m_terms.emplace_back("C2", &native_C2, "Rules that preserve 2-fold rotational symmetry.");
-            m_terms.emplace_back("C4", &native_C4, "4-fold rotational symmetry. This is a strict subset of 'C2'.");
+            m_terms.emplace_back("-", &subsets.native_refl_asd, "Similar to '|'; the axis is '-'.");
+            m_terms.emplace_back("\\", &subsets.native_refl_qsc, "Similar to '|'; the axis is '\\'.");
+            m_terms.emplace_back("/", &subsets.native_refl_esz, "Similar to '|'; the axis is '/'.");
+            m_terms.emplace_back("C2", &subsets.native_C2, "Rules that preserve 2-fold rotational symmetry.");
+            m_terms.emplace_back("C4", &subsets.native_C4,
+                                 "4-fold rotational symmetry. This is a strict subset of 'C2'.");
         }
         {
             terms_scope scope(m_terms, terms_totalistic);
             m_terms.emplace_back(
-                "Tot", &native_tot_exc_s,
+                "Tot", &subsets.native_tot_exc_s,
                 "Outer-totalistic MAP rules, i.e. rules whose values are only dependent on 's' and the sum of other cells. This is a strict subset of isotropic rules ('Iso').\n\n"
                 "(This is also known as life-like rules, and is where the B/S notation applies.)");
             m_terms.emplace_back(
-                "Tot(+s)", &native_tot_inc_s,
+                "Tot(+s)", &subsets.native_tot_inc_s,
                 "Inner-totalistic MAP rules, i.e. rules whose values are only dependent on the sum of all cells (including 's'). This is a strict subset of outer-totalistic rules ('Tot').");
-            m_terms.emplace_back("Hex", &hex_tot_exc_s, "Outer-totalistic hexagonal rules.");
-            m_terms.emplace_back("Hex(+s)", &hex_tot_inc_s, "Inner-totalistic hexagonal rules.");
-            m_terms.emplace_back("Jvn", &jvn_tot_exc_s, "Outer-totalistic von Neumann rules.");
-            m_terms.emplace_back("Jvn(+s)", &jvn_tot_inc_s, "Inner-totalistic von Neumann rules.");
+            m_terms.emplace_back("Hex", &subsets.hex_tot_exc_s, "Outer-totalistic hexagonal rules.");
+            m_terms.emplace_back("Hex(+s)", &subsets.hex_tot_inc_s, "Inner-totalistic hexagonal rules.");
+            m_terms.emplace_back("Jvn", &subsets.jvn_tot_exc_s, "Outer-totalistic von Neumann rules.");
+            m_terms.emplace_back("Jvn(+s)", &subsets.jvn_tot_inc_s, "Inner-totalistic von Neumann rules.");
         }
         {
             // q w -    q w
@@ -341,22 +344,22 @@ public:
             // - x c    x c
             terms_scope scope(m_terms, terms_hex);
             m_terms.emplace_back(
-                "Iso", &hex_isotropic,
+                "Iso", &subsets.hex_isotropic,
                 "Rules that emulate isotropic hexagonal rules.\n\n"
                 "All sets in this line are strict subsets of 'Hex'; for windows displaying such rules, you can hover and press '6' to better view the symmetries in the hexagonal space.\n\n"
                 "(Some of these sets behave like subsets of native-symmetry sets; however, they are not conceptually related.)");
             m_terms.emplace_back(
-                "a-d", &hex_refl_asd,
+                "a-d", &subsets.hex_refl_asd,
                 "Rules that emulate reflection symmetry in the hexagonal tiling, taking the axis from 'a' to 'd' (a-to-d).");
-            m_terms.emplace_back("q-c", &hex_refl_qsc, "Similar to 'a-d'; the axis is q-to-c.");
-            m_terms.emplace_back("w-x", &hex_refl_wsx, "Similar to 'a-d'; the axis is w-to-x.");
-            m_terms.emplace_back("a|q", &hex_refl_aq, "Similar to 'a-d'; the axis is vertical to a-to-q.");
-            m_terms.emplace_back("q|w", &hex_refl_qw, "Similar to 'a-d'; the axis is vertical to q-to-w.");
-            m_terms.emplace_back("w|d", &hex_refl_wd, "Similar to 'a-d'; the axis is vertical to w-to-d.");
-            m_terms.emplace_back("C2", &hex_C2,
+            m_terms.emplace_back("q-c", &subsets.hex_refl_qsc, "Similar to 'a-d'; the axis is q-to-c.");
+            m_terms.emplace_back("w-x", &subsets.hex_refl_wsx, "Similar to 'a-d'; the axis is w-to-x.");
+            m_terms.emplace_back("a|q", &subsets.hex_refl_aq, "Similar to 'a-d'; the axis is vertical to a-to-q.");
+            m_terms.emplace_back("q|w", &subsets.hex_refl_qw, "Similar to 'a-d'; the axis is vertical to q-to-w.");
+            m_terms.emplace_back("w|d", &subsets.hex_refl_wd, "Similar to 'a-d'; the axis is vertical to w-to-d.");
+            m_terms.emplace_back("C2", &subsets.hex_C2,
                                  "Rules that emulate 2-fold rotational symmetry in the hexagonal tiling.");
-            m_terms.emplace_back("C3", &hex_C3, "3-fold rotational symmetry.");
-            m_terms.emplace_back("C6", &hex_C6,
+            m_terms.emplace_back("C3", &subsets.hex_C3, "3-fold rotational symmetry.");
+            m_terms.emplace_back("C6", &subsets.hex_C6,
                                  "6-fold rotational symmetry. This is a strict subset of both 'C2' and 'C3'.");
         }
         assert(m_terms.size() <= reserve_cap);
@@ -1037,7 +1040,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             const auto fill_next = [&] {
                 assert(!page.empty());
                 while (page.size() < adapter.page_size) {
-                    const aniso::ruleT rule = aniso::seq_mixed::next(working_set, orderer, page.back());
+                    const aniso::ruleT rule = aniso::flatten::next(working_set, orderer, page.back());
                     if (rule == page.back()) {
                         return false; // Reaches the end of the sequence.
                     }
@@ -1048,7 +1051,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             const auto fill_prev = [&] {
                 assert(!page.empty());
                 while (page.size() < adapter.page_size) {
-                    const aniso::ruleT rule = aniso::seq_mixed::prev(working_set, orderer, page.front());
+                    const aniso::ruleT rule = aniso::flatten::prev(working_set, orderer, page.front());
                     if (rule == page.front()) {
                         return false;
                     }
@@ -1085,7 +1088,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         ImGui::SameLine(0, 0);
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
         if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set->k()).c_str())) {
-            reset_page(First, aniso::seq_mixed::seek_n(working_set, orderer, *dist));
+            reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
         }
         ImGui::SameLine();
         if (orderer.display("[R]", "Recent ([R])", config, working_set)) {
@@ -1093,22 +1096,22 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         }
 
         switch (sequence::seq("<|", "Prev", "Next", "|>")) {
-            case 0: reset_page(First, aniso::seq_mixed::first(working_set, orderer)); break;
+            case 0: reset_page(First, aniso::flatten::first(working_set, orderer)); break;
             case 1:
                 if (page.empty()) {
-                    reset_page(First, aniso::seq_mixed::first(working_set, orderer));
+                    reset_page(First, aniso::flatten::first(working_set, orderer));
                 } else {
-                    reset_page(Last, aniso::seq_mixed::prev(working_set, orderer, page.front()));
+                    reset_page(Last, aniso::flatten::prev(working_set, orderer, page.front()));
                 }
                 break;
             case 2:
                 if (page.empty()) {
-                    reset_page(First, aniso::seq_mixed::first(working_set, orderer));
+                    reset_page(First, aniso::flatten::first(working_set, orderer));
                 } else {
-                    reset_page(First, aniso::seq_mixed::next(working_set, orderer, page.back()));
+                    reset_page(First, aniso::flatten::next(working_set, orderer, page.back()));
                 }
                 break;
-            case 3: reset_page(Last, aniso::seq_mixed::last(working_set, orderer)); break;
+            case 3: reset_page(Last, aniso::flatten::last(working_set, orderer)); break;
         }
 
         ImGui::SameLine();
@@ -1214,8 +1217,8 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             static std::mt19937 rand = rand_source::create();
             rand_source::perturb(rand); // Additional entropy.
             for (int i = 0; i < count; ++i) {
-                rules.push_back(exact_mode ? aniso::randomize_c(working_set, target, rand, free_dist)
-                                           : aniso::randomize_p(working_set, target, rand, rate));
+                rules.push_back(exact_mode ? aniso::random_rule_c(working_set, target, rand, free_dist)
+                                           : aniso::random_rule_p(working_set, target, rand, rate));
             }
             assert((rules.size() % adapter.page_size) == 0);
             page_no = (rules.size() / adapter.page_size) - 1; // == last_page().
@@ -1266,7 +1269,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 
 void edit_rule(frame_main_token) {
     // Select working set.
-    static subset_selector select_working{&aniso::_subsets::native_isotropic};
+    static subset_selector select_working{&aniso::subsets.native_isotropic};
     {
         static bool collapse = false;
         ImGui::AlignTextToFramePadding();
@@ -1292,7 +1295,7 @@ void edit_rule(frame_main_token) {
             // (Superseded by ctrl mode.)
             // ImGui::SameLine();
             // if (ImGui::Button("Reset##Sets")) {
-            //     select_working.select_single(&aniso::_subsets::native_isotropic);
+            //     select_working.select_single(&aniso::subsets.native_isotropic);
             // }
             ImGui::Separator();
             select_working.select({.rule = pass_rule::peek(), .select = true, .tooltip = true});

@@ -331,7 +331,7 @@ namespace aniso {
         return rule;
     }
 
-    inline ruleT randomize_c(const subsetT& subset, const ruleT& rel, std::mt19937& rand, int count) {
+    inline ruleT random_rule_c(const subsetT& subset, const ruleT& rel, std::mt19937& rand, int count) {
         return transform(subset, rel, nullptr, [&rand, count](bool* begin, bool* end) {
             const int c = std::clamp(count, 0, int(end - begin));
             std::fill_n(begin, c, bool(1));
@@ -340,14 +340,14 @@ namespace aniso {
         });
     }
 
-    inline ruleT randomize_p(const subsetT& subset, const ruleT& rel, std::mt19937& rand, double p) {
+    inline ruleT random_rule_p(const subsetT& subset, const ruleT& rel, std::mt19937& rand, double p) {
         return transform(subset, rel, nullptr, [&rand, p](bool* begin, bool* end) {
             std::bernoulli_distribution dist(std::clamp(p, 0.0, 1.0));
             std::generate(begin, end, [&] { return dist(rand); });
         });
     }
 
-    struct seq_mixed : no_create {
+    struct flatten : no_create {
         static ruleT first(const subsetT& subset, const ruleT& rel) {
             return transform(subset, rel, nullptr, [](bool* begin, bool* end) { std::fill(begin, end, bool(0)); });
         }
@@ -356,10 +356,10 @@ namespace aniso {
             return transform(subset, rel, nullptr, [](bool* begin, bool* end) { std::fill(begin, end, bool(1)); });
         }
 
-        // The result will be the first rule with distance = n to `rel` in the sequence.
-        static ruleT seek_n(const subsetT& subset, const ruleT& rel, int n) {
-            return transform(subset, rel, nullptr, [n](bool* begin, bool* end) {
-                const int c = std::clamp(n, 0, int(end - begin));
+        // First rule with distance = d to `rel` in the sequence.
+        static ruleT first_d(const subsetT& subset, const ruleT& rel, int d) {
+            return transform(subset, rel, nullptr, [d](bool* begin, bool* end) {
+                const int c = std::clamp(d, 0, int(end - begin));
                 std::fill_n(begin, c, bool(1));
                 std::fill(begin + c, end, bool(0));
             });
