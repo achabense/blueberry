@@ -156,7 +156,6 @@ inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
 }
 
 // !!TODO: (v0.9.9) support copying tooltips in release mode as well. Currently:
-// (Set table) Ctrl+C interferes with Ctrl+click...
 // (Guide mode) Cannot copy multiple begin/end-tooltip as a whole.
 inline constexpr bool debug_mode_log_aware = debug_mode;
 inline void imgui_LogRenderedText(const ImVec2& pos, std::string_view str) {

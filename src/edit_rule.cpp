@@ -477,7 +477,8 @@ public:
                               ImGuiTableFlags_BordersInner | ImGuiTableFlags_SizingFixedFit |
                                   ImGuiTableFlags_NoKeepColumnsVisible)) {
             int id = 0;
-            const auto check = [&, ctrl = shortcuts::ctrl()](termT& term, const bool show_title) {
+            const auto check = [&, r_down = ImGui::IsMouseDown(ImGuiMouseButton_Right)](termT& term,
+                                                                                        const bool show_title) {
                 const bool contains_rule = mode.rule && term.set->contains(*mode.rule);
                 const char title = show_title ? term.title[0] : '\0';
                 if (!mode.select) {
@@ -487,12 +488,12 @@ public:
                 }
 
                 assert_implies(term.disabled, !term.selected);
-                const bool selectable = ctrl || !term.disabled;
+                const bool selectable = r_down || !term.disabled;
 
                 ImGui::PushID(id++);
                 ImGui::BeginDisabled(!selectable);
                 if (ImGui::InvisibleButton("##Invisible", square_size())) {
-                    if (ctrl) {
+                    if (r_down) {
                         select_single(term.set);
                     } else if (!term.disabled) {
                         term.selected = !term.selected;
