@@ -624,7 +624,7 @@ class rule_selector : no_copy {
          "A rule known to belong to the working set. Depending on what sets are selected, it may be the same as 'Zero' or 'Identity', or another rule in the working set if neither works (for example, try 'Compl & Total(+s)').\n\n"
          // "1. This will not change unless the working set is updated.\n"
          "1. If the working set changes and no longer contains the selected observer, this will be selected automatically.\n"
-         "2. This is also the init/fallback rule for [R]/[S]/[T] (for 'Traverse', 'Random' and 'Random-access', respectively).\n\n"
+         "2. This is also the init/fallback rule for [X]/[Y]/[Z] (for 'Traverse', 'Random' and 'Random-access', respectively).\n\n"
          "Same ~ 'o', diff ~ 'i'.",
          {'o', 'i'}},
 
@@ -670,7 +670,7 @@ public:
             "2. Any rule in the set can serve as an \"observer\" to measure relative distance and compare (same or different) with other rules.\n\n"
             "About observers:\n"
             "1. 'Zero' and 'Identity' are special, as being same or different than them has natural interpretations (actual value and flipness).\n"
-            "2. 'Default' is dependent on (and always belongs to) the working set, and is the default rule for [R]/[S]/[T] (for 'Traverse', 'Random' and 'Random-access', respectively).\n"
+            "2. 'Default' is dependent on (and always belongs to) the working set, and is the default rule for [X]/[Y]/[Z] (for 'Traverse', 'Random' and 'Random-access', respectively).\n"
             "3. Any other rule in the working set can serve as observer via 'Custom'.\n\n"
             "The observer never affects rule generation directly.");
     }
@@ -956,7 +956,7 @@ public:
                 rclick_popup::popup(ImGui::GetItemID(), [&] {
                     imgui_StrTooltip(
                         "(...)", // (As 'Default' ~ working_set.rule.)
-                        "[R]/[S]/[T] can be arbitrary rules in the working set. Initially they are equal to 'Default'; if the working set changes and no longer contains them, they will also be reset to 'Default'.\n\n"
+                        "[X]/[Y]/[Z] can be arbitrary rules in the working set. Initially they are equal to 'Default'; if the working set changes and no longer contains them, they will also be reset to 'Default'.\n\n"
                         "Drag a rule to the label to replace.\n"
                         "Drag the label to send the rule elsewhere.\n"
                         "Use 'Show in window' to display the rule in a regular window (recommended for 'Random-access').");
@@ -1084,10 +1084,10 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)",
-            "The seq is able to iterate through all rules in the working set, in the following order: firstly [R], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in the working set).\n\n"
-            "The seq will be cleared automatically if the working set or [R] changes.\n\n"
-            "The \"dist\" in this window refers to distance to [R]. For example, 'Go to dist' will go to the first rule with specified distance to [R].\n\n"
-            "1. If the working set is small enough (i.e. having only a few groups), you can easily traverse all rules in the set, and it doesn't matter which rule serves as [R]\n"
+            "The seq is able to iterate through all rules in the working set, in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in the working set).\n\n"
+            "The seq will be cleared automatically if the working set or [X] changes.\n\n"
+            "The \"dist\" in this window refers to distance to [X]. For example, 'Go to dist' will go to the first rule with specified distance to [X].\n\n"
+            "1. If the working set is small enough (i.e. having only a few groups), you can easily traverse all rules in the set, and it doesn't matter which rule serves as [X]\n"
             "(Examples include self-complementary totalistic rules ('Comp' & 'Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All' & 'Von'), and so on.)\n"
             "2. If the working set is large, this still works (the page is generated on demand; the rules outside of the page are never stored), but 'Random'/'Random-access' may be more suitable tools.");
         ImGui::SameLine();
@@ -1098,7 +1098,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
         }
         ImGui::SameLine();
-        if (orderer.display("[R]", "Recent ([R])", config, working_set)) {
+        if (orderer.display("[X]", "Recent ([X])", config, working_set)) {
             page.clear();
         }
 
@@ -1188,10 +1188,10 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)",
-            "The seq is able to generate random rules (in the working set) with specified distance around/exactly to [S].\n\n"
-            "When you are at the last page (or when the page is empty; 'At' ~ 'N/A'), '>>>' will generate new pages of rules; otherwise, '<</>>>' serves to iterate through generated rules. Note that nothing will happen immediately after you update [S], as [S] only affects how to generate new rules.\n\n"
-            "1. In the default settings (working set ~ isotropic set; [S] ~ all-0 rule; distance ~ 'Around' 30), '>>>' can generate random isotropic rules with around 30 groups having '1'.\n"
-            "2. To generate random rules close to a certain rule, you can update [S] and set a low distance.");
+            "The seq is able to generate random rules (in the working set) with specified distance around/exactly to [Y].\n\n"
+            "When you are at the last page (or when the page is empty; 'At' ~ 'N/A'), '>>>' will generate new pages of rules; otherwise, '<</>>>' serves to iterate through generated rules. Note that nothing will happen immediately after you update [Y], as [Y] only affects how to generate new rules.\n\n"
+            "1. In the default settings (working set ~ isotropic set; [Y] ~ all-0 rule; distance ~ 'Around' 30), '>>>' can generate random isotropic rules with around 30 groups having '1'.\n"
+            "2. To generate random rules close to a certain rule, you can update [Y] and set a low distance.");
         ImGui::SameLine();
         imgui_RadioButton("Around", &exact_mode, false);
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
@@ -1203,7 +1203,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             assert(round(rate * c_free) == free_dist);
         }
         ImGui::SameLine();
-        target.display("[S]", "Recent ([S])", config, working_set);
+        target.display("[Y]", "Recent ([Y])", config, working_set);
 
         static std::vector<aniso::compressT> rules{};
         static int page_no = 0;
@@ -1374,11 +1374,11 @@ void edit_rule(frame_main_token) {
     {
         ImGui::Checkbox("Random-access", &show_random_access);
         // !!TODO: unfinished...
-        // The operation is equivalent to dragging the displayed rule to [T]...
+        // The operation is equivalent to dragging the displayed rule to [Z]...
         guide_mode::item_tooltip(
-            "Enable random-access editing, i.e. flipping values of [T] by groups. When this is turned on, the table will display the flipping result for each group (so the table effectively displays all rules with dist = 1 to [T] in the working set). By clicking a group button, the values of [T] (in that group) will be flipped. The operation effectively swaps [T] with the rule, and can be undone by clicking the same button again.\n\n"
+            "Enable random-access editing, i.e. flipping values of [Z] by groups. When this is turned on, the table will display the flipping result for each group (so the table effectively displays all rules with dist = 1 to [Z] in the working set). By clicking a group button, the values of [Z] (in that group) will be flipped. The operation effectively swaps [Z] with the rule, and can be undone by clicking the same button again.\n\n"
             "1. Collapse the set table ('Collapse') to leave more room for preview windows.\n"
-            "2. Open menu for [T] for the record (to switch among recently tested rules).\n"
+            "2. Open menu for [Z] for the record (to switch among recently tested rules).\n"
             "3. Use 'Misc' window's temp rules to ...");
 
         if (!show_random_access) {
@@ -1392,7 +1392,7 @@ void edit_rule(frame_main_token) {
             target.sync(working_set);
 
             ImGui::SameLine();
-            target.display("[T]", "Recent ([T])", config, working_set);
+            target.display("[Z]", "Recent ([Z])", config, working_set);
             ImGui::SameLine();
             config.set("Settings");
         }
@@ -1406,14 +1406,14 @@ void edit_rule(frame_main_token) {
     ImGui::SameLine();
     imgui_StrTooltip(
         "(?)",
-        "If 'Random-access' is not turned on, the table shows the values of the observer; if turned on, the table shows whether [T] is same or different than the observer.");
+        "If 'Random-access' is not turned on, the table shows the values of the observer; if turned on, the table shows whether [Z] is same or different than the observer.");
     if (show_random_access) {
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
         ImGui::Text("Dist:%d", aniso::distance(working_set, observer, target));
         ImGui::SameLine();
         imgui_StrTooltip(
             "(?)",
-            "Distance between [T] and the observer, i.e. the number of groups where they have different values.");
+            "Distance between [Z] and the observer, i.e. the number of groups where they have different values.");
     }
 
     // TODO: whether to add here? whether to hide when it's not needed?
