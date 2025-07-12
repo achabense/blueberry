@@ -967,8 +967,15 @@ class pass_rule : no_create {
     }
 
 public:
+    static constexpr bool right_click_to_cancel = debug_mode; // (Undocumented.)
+
     static void begin_frame(frame_main_token) {
         if (!std::exchange(keep_active, false)) {
+            if constexpr (right_click_to_cancel) {
+                if (active && active == ImGui::GetActiveID()) {
+                    ImGui::ClearActiveID();
+                }
+            }
             active = 0;
         }
     }
@@ -979,7 +986,7 @@ public:
         const ImGuiID id = ImGui::GetItemID();
         assert(id != 0);
 
-        if ((active == id) || (ImGui::IsItemActive() && !ImGui::IsItemHovered())) {
+        if ((active == id) || (!active && ImGui::IsItemActive() && !ImGui::IsItemHovered())) {
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers |
                                            ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
                 static char dummy = 0;
@@ -989,7 +996,13 @@ public:
 
                 lock_scroll();
                 active = id;
-                keep_active = true;
+                if constexpr (right_click_to_cancel) {
+                    keep_active = !ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+                    // Delayed to `begin_frame` to avoid immediately triggering something e.g. popups.
+                    // if (keep_active) { ImGui::ClearActiveID(); }
+                } else {
+                    keep_active = true;
+                }
                 rule = r;
                 return true;
             }
