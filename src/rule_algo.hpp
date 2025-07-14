@@ -5,16 +5,6 @@
 #include "rule.hpp"
 
 namespace aniso {
-    using diffT = codeT::map_to<bool, 3>;
-
-    inline diffT operator^(const ruleT& a, const ruleT& b) {
-        diffT diff;
-        for (const codeT code : each_code) {
-            diff[code] = a[code] != b[code];
-        }
-        return diff;
-    }
-
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
     class equivT {
         mutable codeT::map_to<codeT> m_par;

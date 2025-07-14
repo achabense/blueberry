@@ -54,6 +54,7 @@ namespace aniso {
 #endif // ENABLE_TESTS
 
 #if 1
+    // TODO: -> uint8_t?
     struct cellT {
         bool val{};
         /*implicit*/ ALWAYS_INLINE operator int() const { return val; }

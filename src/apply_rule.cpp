@@ -912,15 +912,10 @@ public:
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
             ImGui::SameLine();
             imgui_StrTooltip("(?)", [] {
-                imgui_Str("+s: ");
-                ImGui::SameLine(0, 0);
-                imgui_Str("Run manually (firstly pause the space, then advance generation by 'Step' afterwards).");
-                imgui_Str("+1: ");
-                ImGui::SameLine(0, 0);
-                imgui_Str("Advance generation by 1 (instead of 'Step').");
-                imgui_Str("+!: ");
-                ImGui::SameLine(0, 0);
-                imgui_Str("Speed up manually (advance generation by max(10,'Step') in every frame).");
+                imgui_StrPair("+s: ",
+                              "Run manually (firstly pause the space, then advance generation by 'Step' afterwards).");
+                imgui_StrPair("+1: ", "Advance generation by 1 (instead of 'Step').");
+                imgui_StrPair("+!: ", "Speed up manually (advance generation by max(10,'Step') in every frame).");
             });
 
             ImGui::Separator(); // To align with the left panel.

@@ -219,6 +219,12 @@ inline void imgui_Str(std::string_view str) { //
     ImGui::TextUnformatted(str.data(), str.data() + str.size());
 }
 
+inline void imgui_StrPair(std::string_view left, std::string_view right) {
+    imgui_Str(left);
+    ImGui::SameLine(0, 0);
+    imgui_Str(right);
+}
+
 inline void imgui_StrWrapped(std::string_view str, float min_len) {
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + std::max(min_len, ImGui::GetContentRegionAvail().x));
     imgui_Str(str);
