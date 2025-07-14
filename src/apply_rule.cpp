@@ -171,7 +171,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
         // assert(aniso::has_enclosing_period(tile, period_size));
         const aniso::rangeT range = aniso::bounding_box(tile, period_size);
         if (range.empty()) {
-            messenger::set_msg(for_input ? "The area contains nothing." : "The pattern dies out.");
+            messenger::set_msg(for_input ? "The area contains no pattern." : "The pattern dies out.");
             return {};
         } else if (const auto size = range.size(); size.x > 3000 || size.y > 3000 || size.xy() > 400 * 400) {
             // For example, this can happen when the initial area contains a still life and a spaceship.
@@ -955,8 +955,6 @@ public:
             if (imgui_SelectableStyledButtonEx(id++, "Pos") && messenger::dot()) {
                 reset_pos();
             }
-            guide_mode::item_tooltip(
-                "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
             static_assert(torusT::init_size == aniso::vecT{600, 400});
             if (imgui_SelectableStyledButtonEx(id++, "Size (600*400)") && messenger::dot()) {
                 reset_pos();
@@ -977,7 +975,11 @@ public:
             }
         });
         ImGui::SameLine();
-        ImGui::Text("Generation:%d", m_torus.gen());
+        if (ImGui::Button("Reset pos") && messenger::dot()) {
+            reset_pos();
+        }
+        guide_mode::item_tooltip(
+            "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
 
         ImGui::Spacing(); // To align with the separator.
 
@@ -1009,6 +1011,9 @@ public:
         } else {
             imgui_Str("Area:N/A");
         }
+        // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
+        ImGui::SameLine(floor(1.5 * item_width));
+        ImGui::Text("Generation:%d", m_torus.gen());
 
         if (m_paste) {
             bool open = true;
@@ -1418,7 +1423,7 @@ private:
                                       .end = sel_range.begin + bound.end.minus(1, 1) + p_size};
                     } else {
                         // m_sel.reset();
-                        messenger::set_msg("The area contains nothing.");
+                        messenger::set_msg("The area contains no pattern.");
                     }
                 }
             } //
