@@ -1035,13 +1035,15 @@ public:
         }
     };
 
-    [[nodiscard]] static passT dest(const ImGuiKey /*shortcut*/ = ImGuiKey_None, const char /*label*/ = '\0') {
+    [[nodiscard]] static passT dest(/*const ImGuiKey shortcut = ImGuiKey_None, const char label = '\0'*/) {
         if (active && ImGui::IsItemVisible()) {
             render_rect(false);
 #if 0
             static item_timer timer{};
             render_rect(timer.test());
-            if (label) { // TODO: should render at the foreground of individual windows...
+            if (label) {
+                // TODO: should render at the foreground of individual windows...
+                // Related: https://github.com/ocornut/imgui/issues/8776
                 const char str[]{'^', ' ', label, '\0'};
                 const ImVec2 pos = imgui_GetItemRect().GetBL() + ImVec2(-4, 5);
                 const ImVec2 padding = ImGui::GetStyle().FramePadding;

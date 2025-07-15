@@ -161,7 +161,7 @@ void frame_main() {
         {
             // static rule_snapshot snapshot{};
             imgui_Str("[C]");
-            if (const auto* deliv = pass_rule::dest(ImGuiKey_C, 'C').get_deliv()) {
+            if (const auto* deliv = pass_rule::dest().get_deliv()) {
                 copy_rule::copy(*deliv);
             }
             // rclick_popup::popup(imgui_GetItemPosID(), [] {

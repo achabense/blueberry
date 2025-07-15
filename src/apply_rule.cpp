@@ -670,7 +670,7 @@ public:
                     selectable_to_take_snapshot("Recent", current_rule.rec(), m_snapshot);
                 });
             }
-            if (const auto* deliv = pass_rule::dest(ImGuiKey_2, '2').get_deliv()) {
+            if (const auto* deliv = pass_rule::dest().get_deliv()) {
                 current_rule.set_next(*deliv);
                 messenger::dot();
             }

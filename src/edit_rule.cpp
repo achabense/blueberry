@@ -1265,7 +1265,7 @@ void edit_rule(frame_main_token) {
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
         imgui_Str("[S]");
-        if (const auto pass = pass_rule::dest(ImGuiKey_1, '1'); pass.rule) {
+        if (const auto pass = pass_rule::dest(); pass.rule) {
             if (collapse && pass.hov_for_tooltip() && ImGui::BeginTooltip()) {
                 select_working.select({.rule = pass.rule, .select = true, .tooltip = false});
                 ImGui::EndTooltip();
@@ -1363,7 +1363,7 @@ void edit_rule(frame_main_token) {
             "3. Use 'Misc' window's temp rules to ...");
 
         if (!show_random_access) {
-            if (const auto* deliv = get_deliv(pass_rule::dest(ImGuiKey_T, 'T'), working_set)) {
+            if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
                 target.set(*deliv);
                 show_random_access = true;
                 messenger::dot();
