@@ -117,6 +117,9 @@ inline constexpr bool init_show_intro = true;
 inline constexpr bool init_compact_mode = false;
 inline constexpr bool init_auto_focus = false; // (Not quite "init" related) effects popups & drop-target
 
+inline void highlight_item() { ImGui::NavHighlightActivated(ImGui::GetItemID()); }
+inline void highlight_item(ImGuiID id) { ImGui::NavHighlightActivated(id); }
+
 // TODO: consider using ImGui::Shortcut?
 // Some features cannot easily be satisfied with `ImGui::Shortcut` and `ImGui::SetNextItemShortcut`.
 class shortcuts : no_create {
@@ -156,18 +159,34 @@ private:
 public:
     static void begin_frame(frame_main_token) { occupied = ImGuiKey_None; }
 
+    template <bool highlight = false>
     static bool test_pressed(ImGuiKey key, bool repeat = false) { //
-        return filter(key) && ImGui::IsKeyPressed(key, repeat);
+        const bool pressed = filter(key) && ImGui::IsKeyPressed(key, repeat);
+        if constexpr (highlight) {
+            if (pressed) {
+                highlight_item();
+            }
+        }
+        return pressed;
     }
 
+    static bool test_pressed_and_highlight(ImGuiKey key, bool repeat = false) { //
+        return test_pressed<true>(key, repeat);
+    }
+
+    template <bool highlight = false>
     static bool test_down(ImGuiKey key) { //
-        return filter(key) && ImGui::IsKeyDown(key);
+        const bool down = filter(key) && ImGui::IsKeyDown(key);
+        if constexpr (highlight) {
+            if (down) {
+                highlight_item();
+            }
+        }
+        return down;
     }
 
-    // TODO: should not belong to `shortcuts`...
-    static bool highlight(ImGuiID id = 0) {
-        ImGui::NavHighlightActivated(id ? id : ImGui::GetItemID());
-        return true;
+    static bool test_down_and_highlight(ImGuiKey key) { //
+        return test_down<true>(key);
     }
 };
 
@@ -206,10 +225,10 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
     if (shortcuts::no_ctrl() && may_scroll() && shortcuts::keys_avail() && imgui_IsWindowFocused()) {
         if (shortcuts::test_pressed(ImGuiKey_DownArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() + dy);
-            shortcuts::highlight(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
+            highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
         } else if (shortcuts::test_pressed(ImGuiKey_UpArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() - dy);
-            shortcuts::highlight(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
+            highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
         }
     }
 }
@@ -441,7 +460,7 @@ public:
         assert(id);
         const hoverE hov = popup_no_highlight(id, fn);
         if (hov == PopupInvisible || hov == PopupVisible) {
-            shortcuts::highlight(id);
+            highlight_item(id);
         }
         return hov;
     }
@@ -588,8 +607,7 @@ public:
             // (Used to require `may_scroll` to avoid previewed rule being changed by shortcut.)
             // (Perhaps no longer needed; kept as it does no harm.)
             return shortcut_avail && may_scroll() && shortcuts::no_ctrl() &&
-                   shortcuts::keys_avail_and_window_hoverable() && shortcuts::test_pressed(key) &&
-                   shortcuts::highlight();
+                   shortcuts::keys_avail_and_window_hoverable() && shortcuts::test_pressed_and_highlight(key);
         };
 
         if (ImGui::Button(label_first)) {
@@ -685,13 +703,13 @@ public:
         ImGui::SameLine(0, s);
         // (`InputScalar` makes .FramePadding.x = y for these buttons, not added here.)
         if (ImGui::Button("-", ImVec2(r, r)) ||
-            (minus != ImGuiKey_None && shortcuts::test_pressed(minus, true) && shortcuts::highlight())) {
+            (minus != ImGuiKey_None && shortcuts::test_pressed_and_highlight(minus, true))) {
             --u;
         }
         // imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init - 1))); }); // (too noisy)
         ImGui::SameLine(0, s);
         if (ImGui::Button("+", ImVec2(r, r)) ||
-            (plus != ImGuiKey_None && shortcuts::test_pressed(plus, true) && shortcuts::highlight())) {
+            (plus != ImGuiKey_None && shortcuts::test_pressed_and_highlight(plus, true))) {
             ++u;
         }
         // imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init + 1))); });

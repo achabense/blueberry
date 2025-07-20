@@ -698,13 +698,11 @@ public:
         const auto set_init_state_in_popup = [&] {
             const bool reset = ImGui::Button("Reset") && messenger::dot();
             ImGui::SameLine();
-            const bool restart =
-                ImGui::Button("Restart") ||
-                (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_R) && shortcuts::highlight());
+            const bool restart = ImGui::Button("Restart") || (shortcuts::keys_avail_and_no_ctrl() &&
+                                                              shortcuts::test_pressed_and_highlight(ImGuiKey_R));
             ImGui::SameLine();
             if (imgui_CheckboxV("Pause", m_ctrl.get_pause()) ||
-                (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_Space) &&
-                 shortcuts::highlight())) {
+                (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed_and_highlight(ImGuiKey_Space))) {
                 m_ctrl.flip_pause();
             }
             ImGui::SameLine();
@@ -882,7 +880,7 @@ public:
 
             const bool enable_shortcuts = canvas_hovered_or_held && shortcuts::no_ctrl();
             const auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
-                return enable_shortcuts && shortcuts::test_pressed(key, repeat) && shortcuts::highlight();
+                return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, repeat);
             };
 
             ImGui::SameLine();
@@ -906,7 +904,7 @@ public:
             ImGui::SameLine();
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
-                (enable_shortcuts && shortcuts::test_down(ImGuiKey_F) && shortcuts::highlight())) {
+                (enable_shortcuts && shortcuts::test_down_and_highlight(ImGuiKey_F))) {
                 extra_step = adjust_step(std::max(pace.step, step_fast), strobing(current_rule));
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
@@ -1555,7 +1553,7 @@ private:
                         assert(valid);
                         op = &t;
                     } else if (op_highlight == &t) {
-                        shortcuts::highlight();
+                        highlight_item();
                     }
                     ImGui::EndDisabled();
                     if (!valid) {

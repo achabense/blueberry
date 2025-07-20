@@ -608,27 +608,28 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
 
 // !!TODO: these tooltips read still problematic...
 class rule_selector : no_copy {
-    enum tagE { Zero, Identity, Other };
+    enum tagE { Zero, Identity, Other, None };
     tagE m_tag = Zero;
 
     aniso::ruleT m_other = aniso::game_of_life(); // (!= 'Zero' or 'Identity'.)
 
     struct termT {
+        tagE tag;
         const char* label;
         const char* desc;
     };
     static constexpr termT terms[3]{
-        {"Zero",
+        {Zero, "Zero",
          "The all-0 rule, i.e. the rule that maps cell to 0 in all cases.\n\n"
          "1. For any rule in any case, being same as this rule means the rule maps cell to 0, and being different means the rule maps cell to 1.\n"
          "2. The distance to this rule equals the number of groups that map cells to 1."},
 
-        {"Identity",
+        {Identity, "Identity",
          "The rule that preserves cell's value in all cases.\n\n"
          "For any rule in any case, being same as this rule means the cell will stay unchanged (0->0 or 1->1), and being different means the cell will \"flip\" (0->1 or 1->0)."},
 
         // !!TODO: unfinished...
-        {"Other",
+        {Other, "Other",
          "Another rule that's neither 'Zero' nor 'Identity'. This is initially the Game of Life rule.\n\n"
          "[S] will be updated when you drag a rule to it, or when [R] changes and no longer contains [S] (in this case, [S] will be updated to an unspecified rule in [S]).\n"
          "If the rule equals 'Zero' or 'Identity' ... will select directly without updating 'Other'; otherwise, will update and select 'Other'...\n"
@@ -683,27 +684,29 @@ public:
                     const int dist = aniso::distance(working_set, rule, *peek);
                     ImGui::Text("Dist:%d%s", dist, dist == 0 ? " (same rule)" : "");
                     ImGui::EndTooltip();
-                    shortcuts::highlight();
+                    highlight_item();
                 }
             }
         };
 
+        tagE highlight = None;
         ImGui::AlignTextToFramePadding();
         imgui_StrWithID("[R]");
         guide_mode::item_tooltip("Drag a rule here to replace.");
         // pass_rule::source(get());
         if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-            set(*deliv); // TODO: highlight radio button?
+            set(*deliv);
             messenger::dot();
+            highlight = m_tag;
         }
         peek_dist(get());
 
         ImGui::SameLine(0, 0);
         imgui_Str(" ~");
-        for (const tagE tag : {Zero, Identity, Other}) {
+        for (const auto& term : terms) {
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
 
-            const aniso::ruleT& rule = get_rule(tag);
+            const aniso::ruleT& rule = get_rule(term.tag);
             const bool belongs = working_set.contains(rule);
             if (!belongs) { // In disabled-style, but won't affect dragging.
                 const float disabled_alpha = ImGui::GetStyle().DisabledAlpha;
@@ -713,8 +716,11 @@ public:
                 }
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetColorU32(ImGuiCol_Text, disabled_alpha));
             }
-            if (ImGui::RadioButton(terms[tag].label, m_tag == tag) && belongs) {
-                m_tag = tag;
+            if (ImGui::RadioButton(term.label, m_tag == term.tag) && belongs) {
+                m_tag = term.tag;
+            }
+            if (highlight == term.tag) {
+                highlight_item();
             }
             if (!belongs) {
                 ImGui::PopStyleColor(4);
@@ -726,7 +732,7 @@ public:
                         imgui_Str("This rule does not belong to [S].");
                         ImGui::Separator();
                     }
-                    imgui_Str(terms[tag].desc);
+                    imgui_Str(term.desc);
                     previewer::preview(-1, previewer::default_settings, rule);
                 });
 
