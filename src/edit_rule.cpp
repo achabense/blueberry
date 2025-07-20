@@ -926,10 +926,11 @@ public:
     const aniso::ruleT& get() const { return m_rule.get(); }
     void set(const aniso::ruleT& rule) { m_rule.set(rule); }
 
-    bool sync(const aniso::subsetT& working_set) {
+    bool sync(const aniso::subsetT& working_set, const aniso::ruleT& defl) {
         if (!m_rule.assigned() || !working_set.contains(m_rule.get())) {
-            // !!TODO: or require manually specifying a rule?
-            m_rule.set(working_set.rule);
+            // TODO: or require manually specifying a rule?
+            assert(working_set.contains(defl));
+            m_rule.set(defl);
             return true;
         }
         return false;
@@ -955,7 +956,7 @@ public:
                 rclick_popup::popup(ImGui::GetItemID(), [&] {
                     imgui_StrTooltip(
                         "(...)",
-                        "[X]/[Y]/[Z] can be arbitrary rules in [S]. When [S] changes and no longer contains them (& initially), they will be reset to an unspecified rule in [S].\n\n"
+                        "[X]/[Y]/[Z] can be arbitrary rules in [S]. When [S] changes and no longer contains them (& initially), they will be reset to an unspecified rule in [S].\n\n" // !!TODO: update...
                         "Drag a rule to the label to replace.\n"
                         "Drag the label to send the rule elsewhere.\n"
                         "Use 'Show in window' to display the rule in a regular window (recommended for 'Random-access').");
@@ -1019,7 +1020,7 @@ public:
 
 // TODO: define as classes...
 // TODO: support separate context? e.g. random ~ totalistic & random-access ~ isotropic
-static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
+static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set, const aniso::ruleT& defl) {
     bool open = true;
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
@@ -1039,7 +1040,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             if (compare_update(cmp_set, working_set)) {
                 page.clear();
             }
-            if (orderer.sync(working_set)) {
+            if (orderer.sync(working_set, defl)) {
                 page.clear();
             }
         }
@@ -1167,7 +1168,8 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
     return {open};
 }
 
-static open_state random_rule_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
+static open_state random_rule_window(const ImVec2& init_pos, const aniso::subsetT& working_set,
+                                     const aniso::ruleT& defl) {
     bool open = true;
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
@@ -1179,7 +1181,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             imgui_Window("Random rules", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static target_rule target{};
         static previewer::configT config{previewer::default_settings};
-        target.sync(working_set);
+        target.sync(working_set, defl);
 
         static bool exact_mode = false;
         static double rate = 0.29;
@@ -1360,7 +1362,7 @@ void edit_rule(frame_main_token) {
                                  "(This is mainly useful for small sets.)");
         if (show_trav) {
             const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-            traverse_window(init_pos, working_set).reset_if_closed(show_trav);
+            traverse_window(init_pos, working_set, observer).reset_if_closed(show_trav);
         }
     }
     ImGui::SameLine();
@@ -1371,7 +1373,7 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Get random rules in [S].");
         if (show_rand) {
             const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-            random_rule_window(init_pos, working_set).reset_if_closed(show_rand);
+            random_rule_window(init_pos, working_set, observer).reset_if_closed(show_rand);
         }
     }
     ImGui::SameLine();
@@ -1393,7 +1395,7 @@ void edit_rule(frame_main_token) {
                 // (v will be skipped for this frame; that's ok.)
             }
         } else {
-            target.sync(working_set);
+            target.sync(working_set, observer);
 
             ImGui::SameLine();
             target.display("[Z]", "Recent ([Z])", config, working_set);
