@@ -110,7 +110,7 @@ inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
     return (min.x < max.x && min.y < max.y) ? ImClamp(pos, min, max) : pos;
 }
 
-// TODO: should finally be configurable in the program.
+// !!TODO: (v0.9.9) support configs.
 inline constexpr bool init_maximize_window = false;
 inline constexpr bool init_zero_interval = false;
 inline constexpr bool init_show_intro = true;
@@ -164,6 +164,7 @@ public:
         return filter(key) && ImGui::IsKeyDown(key);
     }
 
+    // TODO: should not belong to `shortcuts`...
     static bool highlight(ImGuiID id = 0) {
         ImGui::NavHighlightActivated(id ? id : ImGui::GetItemID());
         return true;
@@ -967,7 +968,7 @@ class pass_rule : no_create {
     }
 
 public:
-    static constexpr bool right_click_to_cancel = debug_mode; // (Undocumented.)
+    static constexpr bool right_click_to_cancel = true;
 
     static void begin_frame(frame_main_token) {
         if (!std::exchange(keep_active, false)) {
@@ -1021,17 +1022,6 @@ public:
         bool hov_for_tooltip() const {
             assert_implies(hov, rule);
             return hov && imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-        }
-
-        void tooltip_or_message(const std::string_view str) const {
-            if (hov_for_tooltip() && ImGui::BeginTooltip()) {
-                ImGui::PushTextWrapPos(wrap_len());
-                imgui_Str(str);
-                ImGui::PopTextWrapPos();
-                ImGui::EndTooltip();
-            } else if (deliv) {
-                messenger::set_msg(std::string(str));
-            }
         }
     };
 
@@ -1359,7 +1349,7 @@ public:
 
     bool assigned() const { return !m_rec.empty(); }
 
-    // operator const aniso::ruleT&() const { return m_rule; }
+    operator const aniso::ruleT&() const = delete; // -> get()
     const aniso::ruleT& get() const {
         assert(assigned()); // Otherwise, it's all-0 rule and is likely a bug.
         return m_rule;

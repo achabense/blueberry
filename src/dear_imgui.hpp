@@ -107,6 +107,10 @@ inline bool imgui_IsWindowFocused() {
     return false;
 }
 
+inline bool imgui_IsWindowFirstBegin() { //
+    return GImGui->CurrentWindow->BeginCount == 1;
+}
+
 // ImGui::IsPopupOpen(id, 0), i.e. open at the current BeginPopup() level.
 inline bool imgui_IsPopupOpen(const ImGuiID id) {
     const auto& g = *GImGui;
@@ -124,12 +128,22 @@ inline bool imgui_BeginPopupRecycled(const ImGuiID id, const ImGuiWindowFlags wi
                                              ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings;
     const std::string name = "PopupEx_" + std::to_string(GImGui->BeginPopupStack.Size);
     if (ImGui::Begin(name.c_str(), nullptr, window_flags | extra_flags)) {
-        assert(GImGui->CurrentWindow->BeginCount == 1); // Otherwise, likely due to id collision.
-        if (GImGui->CurrentWindow->BeginCount == 1) [[likely]] {
+        assert(imgui_IsWindowFirstBegin()); // Otherwise, likely due to id collision.
+        if (imgui_IsWindowFirstBegin()) [[likely]] {
             return true;
         }
     }
     ImGui::EndPopup();
+    return false;
+}
+
+inline bool imgui_BeginTooltipFirstOnly() {
+    if (ImGui::BeginTooltip()) {
+        if (imgui_IsWindowFirstBegin()) [[likely]] {
+            return true;
+        }
+        ImGui::EndTooltip();
+    }
     return false;
 }
 
@@ -176,7 +190,7 @@ inline bool imgui_ItemTooltip(const func_ref<void()> desc) {
             }
         }
 #endif // YDEBUG
-        if (GImGui->CurrentWindow->BeginCount > 1) {
+        if (!imgui_IsWindowFirstBegin()) {
             ImGui::Separator();
         }
         // The same as the one in `HelpMarker` in "imgui_demo.cpp".

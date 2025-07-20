@@ -583,10 +583,23 @@ void previewer::_show_belongs(const aniso::ruleT& rule) {
     dummy.select({.rule = &rule, .select = false, .tooltip = false});
 }
 
+static const char* check_contains(const aniso::ruleT& rule, const aniso::subsetT& working_set) {
+    return working_set.contains(rule) ? nullptr
+                                      : "The rule does not belong to [S].\n\n"
+                                        "(To get a similar rule in [S], try using 'Approx' in the 'Misc' window.)";
+}
+
+// (Should appear after regular tooltip.)
 static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
-    if (pass.rule && !working_set.contains(*pass.rule)) {
-        pass.tooltip_or_message("The rule does not belong to [S].\n\n"
-                                "(To get a similar rule in [S], try using 'Approx' in the 'Misc' window.)");
+    if (!pass.rule) {
+        return nullptr;
+    } else if (const char* msg = check_contains(*pass.rule, working_set)) {
+        if (pass.hov_for_tooltip() && imgui_BeginTooltipFirstOnly()) {
+            ImGui::PushTextWrapPos(wrap_len());
+            imgui_Str(msg);
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
         return nullptr;
     } else {
         return pass.get_deliv();
@@ -663,15 +676,27 @@ public:
 
     void select(const aniso::subsetT& working_set) {
         assert(working_set.contains(get()));
+        const auto peek_dist = [&](const aniso::ruleT& rule) { // (Should appear after regular tooltip.)
+            if (const aniso::ruleT* peek = pass_rule::peek()) {
+                if (imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
+                    working_set.contains(*peek) && imgui_BeginTooltipFirstOnly()) {
+                    const int dist = aniso::distance(working_set, rule, *peek);
+                    ImGui::Text("Dist:%d%s", dist, dist == 0 ? " (same rule)" : "");
+                    ImGui::EndTooltip();
+                    shortcuts::highlight();
+                }
+            }
+        };
 
         ImGui::AlignTextToFramePadding();
         imgui_StrWithID("[R]");
+        guide_mode::item_tooltip("Drag a rule here to replace.");
         // pass_rule::source(get());
         if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-            set(*deliv);
+            set(*deliv); // TODO: highlight radio button?
             messenger::dot();
         }
-        guide_mode::item_tooltip("Drag a rule here to replace.");
+        peek_dist(get());
 
         ImGui::SameLine(0, 0);
         imgui_Str(" ~");
@@ -696,21 +721,6 @@ public:
             }
 
             if (!pass_rule::source(rule)) {
-                // !!TODO: (v0.9.9) support measuring distance between any rule sources...
-                if constexpr (debug_mode) {
-                    const aniso::ruleT* peek = nullptr;
-                    if (belongs && (peek = pass_rule::peek()) &&
-                        imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
-                        if (working_set.contains(*peek) && ImGui::BeginTooltip()) {
-                            const int dist = aniso::distance(working_set, rule, *peek);
-                            ImGui::Text("Dist:%d%s", dist, dist == 0 ? " (same rule)" : "");
-                            ImGui::EndTooltip();
-
-                            imgui_ItemRectFilled(IM_COL32_GREY(255, 16));
-                        }
-                    }
-                }
-
                 imgui_ItemTooltip([&] {
                     if (!belongs) {
                         imgui_Str("This rule does not belong to [S].");
@@ -719,6 +729,10 @@ public:
                     imgui_Str(terms[tag].desc);
                     previewer::preview(-1, previewer::default_settings, rule);
                 });
+
+                if (belongs) {
+                    peek_dist(rule);
+                }
             }
         }
 
@@ -983,7 +997,9 @@ public:
             // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
             const auto get = [&]() -> decltype(auto) { return m_rule.get(); };
             const auto set = [&](const aniso::ruleT& r) {
-                if (get_deliv({.rule = &r, .hov = false, .deliv = true}, working_set)) {
+                if (const char* msg = check_contains(r, working_set)) {
+                    messenger::set_msg(msg);
+                } else {
                     m_rule.set(r);
                     updated = true;
                 }
@@ -996,6 +1012,7 @@ public:
 };
 
 // TODO: define as classes...
+// TODO: support separate context? e.g. random ~ totalistic & random-access ~ isotropic
 static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
     bool open = true;
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
@@ -1265,8 +1282,9 @@ void edit_rule(frame_main_token) {
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
         imgui_Str("[S]");
+        guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
         if (const auto pass = pass_rule::dest(); pass.rule) {
-            if (collapse && pass.hov_for_tooltip() && ImGui::BeginTooltip()) {
+            if (collapse && pass.hov_for_tooltip() && imgui_BeginTooltipFirstOnly()) {
                 select_working.select({.rule = pass.rule, .select = true, .tooltip = false});
                 ImGui::EndTooltip();
             }
@@ -1275,7 +1293,6 @@ void edit_rule(frame_main_token) {
                 messenger::dot();
             }
         }
-        guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
         // ImGui::SameLine(0, 0);
         // imgui_Str(" ~");
 
@@ -1399,12 +1416,15 @@ void edit_rule(frame_main_token) {
         static constexpr std::pair<displayE, const char*> terms[]{
             {Observer, "[R]##disp"}, {Target, "[Z]##disp"}, {Comp, "Comp##disp"}};
         float spacing = imgui_ItemSpacingX() * 3;
-        for (const auto [mode, label] : terms) {
+        for (const auto& [mode, label] : terms) {
             ImGui::SameLine(0, std::exchange(spacing, imgui_ItemInnerSpacingX()));
             const bool selectable = !show_random_access ? mode == Observer : mode != Observer;
             ImGui::BeginDisabled(!selectable);
             imgui_RadioButton(label, &disp_mode, mode);
             ImGui::EndDisabled();
+            if (!selectable) {
+                imgui_ItemTooltip(show_random_access ? "!!TODO" : "...");
+            }
         }
         ImGui::SameLine();
         imgui_StrTooltip("(?)", [] {

@@ -46,7 +46,7 @@ static open_state intro_window(frame_main_token) {
             ImGui::Bullet();
             imgui_Str("Right-click \"preview window\" (like below) to open menu.");
             ImGui::Bullet();
-            imgui_Str("Drag to send the rule elsewhere.");
+            imgui_Str("Drag to send the rule elsewhere (right-click to cancel).");
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "These can serve as drag sources:\n"
                                     "1. Preview windows.\n"

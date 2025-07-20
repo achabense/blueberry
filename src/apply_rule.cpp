@@ -1690,7 +1690,8 @@ void previewer::configT::_set() {
     imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20, to_tile_size);
     ImGui::AlignTextToFramePadding();
     imgui_Str("Zoom ~"); // TODO: should this be "zoom" or "scale"?
-    for (const auto& [val, str] : std::initializer_list<float_pair>{{0.5, "0.5"}, {1, "1"}, {2, "2"}}) {
+    static constexpr float_pair terms[]{{0.5, "0.5"}, {1, "1"}, {2, "2"}};
+    for (const auto& [val, str] : terms) {
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         imgui_RadioButton(str, &zoom_, val);
     }
