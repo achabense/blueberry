@@ -1808,7 +1808,6 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     }
     assert_implies(passing, hov == rclick_popup::None);
 
-    const bool frozen = !imgui_IsItemPartiallyVisible(0.15f);
     const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
     const bool shortcut_avail =
@@ -1827,16 +1826,15 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
 
     const int step = [&] {
         const bool pause = passing || active;
-        const bool pause_or_frozen = pause || frozen;
-        if (pause_or_frozen) {
+        if (pause) {
             term.skip_run = true;
         }
 
-        if (!(pause && !frozen) /*instead of pause_or_frozen*/ && restart) {
-            // (Unless paused and not frozen, skip displaying initial state for better visual.)
+        if (!pause && restart) {
+            // (Unless paused, skip displaying initial state for better visual.)
             term.skip_run = true;
             return adjust_step(config.step, strobing(rule));
-        } else if (hovered_and_shortcut_avail && pause_or_frozen && shortcuts::test_pressed(ImGuiKey_S, true)) {
+        } else if (hovered_and_shortcut_avail && pause && shortcuts::test_pressed(ImGuiKey_S, true)) {
             term.skip_run = true;
             return adjust_step(config.step, strobing(rule));
         } else if (hovered_and_shortcut_avail && shortcuts::test_pressed(ImGuiKey_D, true)) {
@@ -1846,7 +1844,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             // (Using unfiltered version for smoother inter with seq op (<</>>).)
             term.skip_run = true;
             return adjust_step(std::max(config.step, step_fast), strobing(rule));
-        } else if (!pause_or_frozen && config.interval.test() && !std::exchange(term.skip_run, false)) {
+        } else if (!pause && config.interval.test() && !std::exchange(term.skip_run, false)) {
             return adjust_step(config.step, strobing(rule));
         } else {
             return 0;
@@ -1861,9 +1859,6 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const scaleE scale_mode = config.zoom_ >= 1 ? scaleE::Nearest : scaleE::Linear;
     const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-    if (frozen) {
-        imgui_ItemRectFilled(IM_COL32_GREY(128, 48));
-    }
     imgui_ItemRect(hov == rclick_popup::None ? default_border_color()
                                              : rclick_popup::highlight_col(hov == rclick_popup::PopupVisible));
 
@@ -1888,9 +1883,6 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
                              to_imvec(clamped.end) / to_imvec(tile_size));
             } else {
                 ImGui::Image(to_texture(term.tile.data().clip(clamped), scaleE::Nearest), to_imvec(clamped.size() * 3));
-            }
-            if (frozen) {
-                imgui_ItemRectFilled(IM_COL32_GREY(128, 48));
             }
             ImGui::EndTooltip();
         }

@@ -924,7 +924,7 @@ public:
     static void dummy(const configT& config, const char* str = "--") {
         ImGui::Dummy(config.size_imvec());
         if (ImGui::IsItemVisible()) {
-            imgui_ItemRectFilled(IM_COL32_BLACK);
+            // imgui_ItemRectFilled(IM_COL32_BLACK);
             imgui_ItemRect(default_border_color());
 
             if (str && *str != '\0') {
@@ -939,7 +939,12 @@ public:
         ImGui::PushID(id);
         ImGui::InvisibleButton("Preview", config.size_imvec());
         ImGui::PopID();
-        if (ImGui::IsItemVisible()) {
+        if (!ImGui::IsItemVisible()) {
+            return;
+        } else if (!imgui_IsItemPartiallyVisible(0.15f)) {
+            // imgui_ItemRectFilled(IM_COL32_BLACK);
+            imgui_ItemRect(default_border_color());
+        } else {
             const uint64_t id2 = (uint64_t(ImGui::GetItemID()) << 32) | id;
             if constexpr (implicitly_convertible_to<decltype(rule_or_get_rule), const aniso::ruleT&>) {
                 _preview(id2, config, rule_or_get_rule);
