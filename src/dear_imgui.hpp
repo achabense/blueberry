@@ -10,6 +10,8 @@
 
 #include "utils.hpp"
 
+static_assert(std::is_same_v<int, decltype(ImGui::GetFrameCount())>);
+
 // Follows `IM_COL32_XX`; note that `constexpr` cannot guarantee `fn(100, 255)` be
 // calculated at compile time, especially in debug mode.
 consteval ImU32 IM_COL32_GREY(ImU8 v, ImU8 alpha) { return IM_COL32(v, v, v, alpha); }

@@ -1737,11 +1737,8 @@ void previewer::begin_frame(frame_main_token) {
 void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
-    const auto keys_avail_and_window_hovered = [] {
-        // (Window-hovered should go before test-pressed to avoid messing with shortcut precedence.)
-        // TODO: let this be tested by configT?
-        return (shortcuts::keys_avail() || imgui_IsBgHeld()) && ImGui::IsWindowHovered();
-    };
+    const int frame = ImGui::GetFrameCount();
+    config.update_op(frame);
 
     previewer_data::termT& term = previewer_data::terms[id];
     if (term.active) [[unlikely]] { // ID conflict
@@ -1759,6 +1756,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     if (!passing) {
         const id_pair popup_id{ImGui::GetItemID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
         hov = rclick_popup::popup_no_highlight(popup_id, [&] {
+            // !!TODO: rewrite...
             imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n"
                                       "Hold to pause.\n\n"
                                       "Similar to space window's 'Restart' and '+s/+1/+!':\n"
@@ -1810,22 +1808,31 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
 
     const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
-    const bool shortcut_avail =
-        shortcuts::no_ctrl() && (shortcuts::global_flag(ImGuiKey_A) ? keys_avail_and_window_hovered()
-                                                                    : (hovered && (active || shortcuts::keys_avail())));
-    const bool hovered_and_shortcut_avail = hovered && shortcut_avail;
-    assert_implies(passing, !shortcut_avail);
+    configT::opT op = config.op_curr;
+    if (hovered && shortcuts::no_ctrl() && (active || shortcuts::keys_avail())) {
+        // (Using unfiltered shortcut for `p_f` for smoother inter with seq op (<</>>).)
+        const configT::opT op2 = {.frame = frame + 1,
+                                  .pause = active,
+                                  .restart = shortcuts::test_pressed(ImGuiKey_R),
+                                  .p_s = shortcuts::test_pressed(ImGuiKey_S, true),
+                                  .p_1 = shortcuts::test_pressed(ImGuiKey_D, true),
+                                  .p_f = shortcuts::global_flag(ImGuiKey_F)};
+        if (shortcuts::global_flag(ImGuiKey_A)) {
+            config.op_next = op2;
+        } else {
+            op |= op2;
+        }
+    }
 
-    const bool restart =
-        (restart_from_menu || (shortcut_avail && shortcuts::test_pressed(ImGuiKey_R))) + // No short-circuiting.
-        term.tile.resize(tile_size) + compare_update(term.init, previewer_data::global_init) +
-        compare_update(term.rule, rule);
+    const bool restart = restart_from_menu + op.restart + // No short-circuiting.
+                         term.tile.resize(tile_size) + compare_update(term.init, previewer_data::global_init) +
+                         compare_update(term.rule, rule);
     if (restart) {
         term.init.initialize(term.tile);
     }
 
     const int step = [&] {
-        const bool pause = passing || active;
+        const bool pause = op.pause || passing;
         if (pause) {
             term.skip_run = true;
         }
@@ -1834,14 +1841,13 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             // (Unless paused, skip displaying initial state for better visual.)
             term.skip_run = true;
             return adjust_step(config.step, strobing(rule));
-        } else if (hovered_and_shortcut_avail && pause && shortcuts::test_pressed(ImGuiKey_S, true)) {
+        } else if (pause && op.p_s) {
             term.skip_run = true;
             return adjust_step(config.step, strobing(rule));
-        } else if (hovered_and_shortcut_avail && shortcuts::test_pressed(ImGuiKey_D, true)) {
+        } else if (op.p_1) {
             term.skip_run = true;
             return 1;
-        } else if (shortcut_avail && shortcuts::global_flag(ImGuiKey_F)) {
-            // (Using unfiltered version for smoother inter with seq op (<</>>).)
+        } else if (op.p_f) {
             term.skip_run = true;
             return adjust_step(std::max(config.step, step_fast), strobing(rule));
         } else if (!pause && config.interval.test() && !std::exchange(term.skip_run, false)) {
@@ -1859,11 +1865,13 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const scaleE scale_mode = config.zoom_ >= 1 ? scaleE::Nearest : scaleE::Linear;
     const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+    // TODO: highlight the entire group when pressing 'A'?
     imgui_ItemRect(hov == rclick_popup::None ? default_border_color()
                                              : rclick_popup::highlight_col(hov == rclick_popup::PopupVisible));
 
+    // TODO: whether to hide tooltip when pressing 'A'?
     const bool popup_invisible = hov == rclick_popup::PopupInvisible;
-    const bool tooltip = (hovered || popup_invisible) &&
+    const bool tooltip = (hovered || popup_invisible) && !shortcuts::global_flag(ImGuiKey_A) &&
                          imgui_IsItemHoveredForTooltip(popup_invisible ? ImGuiHoveredFlags_AllowWhenBlockedByPopup
                                                                        : ImGuiHoveredFlags_None);
     bool hex_mode = false;
