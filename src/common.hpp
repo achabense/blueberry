@@ -906,25 +906,20 @@ public:
         int step = 1;
         global_timer::intervalT interval = init_zero_interval ? 0 : global_timer::min_nonzero_interval;
 
+        // (Workaround to support group op.)
         struct opT {
-            int frame = -1;
             bool pause = false, restart = false, p_s = false, p_1 = false, p_f = false;
-            void operator|=(const opT& other) {
-                pause |= other.pause;
-                restart |= other.restart;
-                p_s |= other.p_s;
-                p_1 |= other.p_1;
-                p_f |= other.p_f;
-            }
         };
-        // (^v Workaround to support group op.)
-        mutable opT op_curr{}, op_next{};
+        mutable int sync_frame = -1;
+        mutable std::optional<opT> group_op{};
+        mutable opT group_op_next{};
+        mutable int group_op_next_frame = -1;
         void update_op(const int frame) const {
-            if (op_curr.frame != frame) {
-                if (op_next.frame == frame) {
-                    op_curr = op_next;
+            if (compare_update(sync_frame, frame)) {
+                if (group_op_next_frame == frame) {
+                    group_op = group_op_next;
                 } else {
-                    op_curr = {.frame = frame /*other = false*/};
+                    group_op.reset();
                 }
             }
         }

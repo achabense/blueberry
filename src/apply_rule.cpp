@@ -1808,19 +1808,21 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
 
     const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
-    configT::opT op = config.op_curr;
-    if (hovered && shortcuts::no_ctrl() && (active || shortcuts::keys_avail())) {
+    const bool has_group_op = config.group_op.has_value();
+    configT::opT op = has_group_op ? *config.group_op : configT::opT{};
+    if (hovered && (active || shortcuts::keys_avail())) {
         // (Using unfiltered shortcut for `p_f` for smoother inter with seq op (<</>>).)
-        const configT::opT op2 = {.frame = frame + 1,
-                                  .pause = active,
-                                  .restart = shortcuts::test_pressed(ImGuiKey_R),
-                                  .p_s = shortcuts::test_pressed(ImGuiKey_S, true),
-                                  .p_1 = shortcuts::test_pressed(ImGuiKey_D, true),
-                                  .p_f = shortcuts::global_flag(ImGuiKey_F)};
-        if (shortcuts::global_flag(ImGuiKey_A)) {
-            config.op_next = op2;
-        } else {
-            op |= op2;
+        const bool no_ctrl = shortcuts::no_ctrl();
+        const configT::opT op2 = {.pause = active,
+                                  .restart = no_ctrl && shortcuts::test_pressed(ImGuiKey_R),
+                                  .p_s = no_ctrl && shortcuts::test_pressed(ImGuiKey_S, true),
+                                  .p_1 = no_ctrl && shortcuts::test_pressed(ImGuiKey_D, true),
+                                  .p_f = no_ctrl && shortcuts::global_flag(ImGuiKey_F)};
+        if (no_ctrl && shortcuts::global_flag(ImGuiKey_A)) {
+            config.group_op_next = op2;
+            config.group_op_next_frame = frame + 1;
+        } else if (!has_group_op) {
+            op = op2;
         }
     }
 
@@ -1865,13 +1867,12 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
     const scaleE scale_mode = config.zoom_ >= 1 ? scaleE::Nearest : scaleE::Linear;
     const ImTextureID texture = to_texture(term.tile.data(), scale_mode);
     ImGui::GetWindowDrawList()->AddImage(texture, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-    // TODO: highlight the entire group when pressing 'A'?
-    imgui_ItemRect(hov == rclick_popup::None ? default_border_color()
-                                             : rclick_popup::highlight_col(hov == rclick_popup::PopupVisible));
+    imgui_ItemRect(has_group_op                ? rclick_popup::highlight_col(false)
+                   : hov == rclick_popup::None ? default_border_color()
+                                               : rclick_popup::highlight_col(hov == rclick_popup::PopupVisible));
 
-    // TODO: whether to hide tooltip when pressing 'A'?
     const bool popup_invisible = hov == rclick_popup::PopupInvisible;
-    const bool tooltip = (hovered || popup_invisible) && !shortcuts::global_flag(ImGuiKey_A) &&
+    const bool tooltip = !has_group_op && (hovered || popup_invisible) &&
                          imgui_IsItemHoveredForTooltip(popup_invisible ? ImGuiHoveredFlags_AllowWhenBlockedByPopup
                                                                        : ImGuiHoveredFlags_None);
     bool hex_mode = false;
