@@ -664,8 +664,6 @@ public:
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(current_rule);
                     }
-                    guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
-                                             "Equivalent to sending the rule to '[C]' after 'Clipboard'.");
 
                     selectable_to_take_snapshot("Recent", current_rule.rec(), m_snapshot);
                 });
@@ -905,16 +903,18 @@ public:
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
                 (enable_shortcuts && shortcuts::test_down_and_highlight(ImGuiKey_F))) {
-                extra_step = adjust_step(std::max(pace.step, step_fast), strobing(current_rule));
+                extra_step = adjust_step(step_fast, strobing(current_rule));
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
             ImGui::SameLine();
             imgui_StrTooltip("(?)", [] {
-                imgui_StrPair("+s: ",
-                              "Run manually (firstly pause the space, then advance generation by 'Step' afterwards).");
+                imgui_StrPair(
+                    "+s: ",
+                    "Run manually, i.e. firstly pause the space, then advance generation by 'Step' afterwards.");
                 imgui_StrPair("+1: ", "Advance generation by 1 (instead of 'Step').");
-                imgui_StrPair("+!: ", "Speed up manually (advance generation by max(10,'Step') in every frame).");
+                imgui_StrPair("+!: ", "Speed up manually, i.e. advance generation by 10 in every frame.");
             });
+            static_assert(step_fast == 10); // Used in tooltip.
 
             ImGui::Separator(); // To align with the left panel.
 
@@ -932,7 +932,7 @@ public:
             imgui_StepSliderInt::fn("Step", &pace.step, 1, 100, 1, to_str);
             ImGui::SameLine();
             imgui_StrTooltip(
-                "(?)",
+                "(?)", // !!TODO: rewrite...
                 "For auto-mode, '+s' and '+!', if the rule maps all-0 case to 1 and all-1 case to 0, the step will be ceiled to 2*n (e.g. 1->2, 2->2) to avoid large spans of 0/1 areas flashing between two colors.\n\n"
                 "('+1' is not affected, and can serve to change the parity of generation in all cases.)\n\n"
                 "Such rules are called \"strobing rules\". There also exist rules that are non-strobing (so the adjustment won't take place) but can still develop non-trivial flashing areas. To avoid flashing effect for these rules, you can manually set a suitable step (likely 2*n).");
@@ -1734,7 +1734,7 @@ void previewer::begin_frame(frame_main_token) {
 }
 
 // TODO: allow setting the step and interval with shortcuts when the window is hovered?
-void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT& rule) {
+void previewer::_preview(const uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
     const int frame = ImGui::GetFrameCount();
@@ -1851,7 +1851,7 @@ void previewer::_preview(uint64_t id, const configT& config, const aniso::ruleT&
             return 1;
         } else if (op.p_f) {
             term.skip_run = true;
-            return adjust_step(std::max(config.step, step_fast), strobing(rule));
+            return adjust_step(step_fast, strobing(rule));
         } else if (!pause && config.interval.test() && !std::exchange(term.skip_run, false)) {
             return adjust_step(config.step, strobing(rule));
         } else {

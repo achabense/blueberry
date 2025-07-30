@@ -156,17 +156,30 @@ static void display_path(const pathT& p, const float avail_w) {
         if (ImGui::Selectable("Copy path")) {
             copy_path(p);
         }
+        if (has_open_url_fn()) {
+            if (ImGui::Selectable("Open in system")) {
+                open_folder(p);
+            }
+        }
     });
     if (clipped) {
         imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
     }
 }
 static void display_filename(const pathT& p) {
-    const char prefix[]{'.', '.', '.', char(pathT::preferred_separator), '\0'};
+    constexpr char prefix[]{'.', '.', '.', char(pathT::preferred_separator), '\0'};
     imgui_Str(prefix + cpp17_u8string_b(p.filename()));
     rclick_popup::popup(imgui_GetItemPosID(), [&] {
         if (ImGui::Selectable("Copy path")) {
             copy_path(p);
+        }
+        if constexpr (debug_mode) {
+            // TODO: useful but it's hard to decide the label...
+            if (has_open_url_fn()) {
+                if (ImGui::Selectable("Open parent path")) {
+                    open_folder(p.parent_path());
+                }
+            }
         }
     });
     imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
@@ -988,20 +1001,7 @@ static void load_file_impl() {
     };
 
     if (!file_path) {
-#if 0
-        // `BeginPopup` will consume the settings, even if not opened.
-        ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
-        menu_like_popup::small_button("Recent");
-        menu_like_popup::popup([] { nav.selet_history(); });
-#endif
         if (nav.valid()) {
-            if (has_open_url_fn()) {
-                if (double_click_button_small("Local")) {
-                    open_folder(nav.current_path());
-                }
-                guide_mode::item_tooltip("Open in file manager.");
-                ImGui::SameLine();
-            }
             if (ImGui::SmallButton("Refresh")) {
                 nav.refresh_if_valid();
             }
@@ -1063,12 +1063,6 @@ static void load_file_impl() {
         if (close) {
             file_path.reset();
             text.clear();
-            // (Workaround; otherwise will count as the first click for 'Local'.)
-            // (`ImGuiButtonFlags_PressedOnDoubleClick` has the same issue.)
-            ImGuiIO& io = ImGui::GetIO();
-            // io.MouseClicked[ImGuiMouseButton_Left] = false;
-            // io.MouseClickedCount[ImGuiMouseButton_Left] = 0;
-            io.MouseClickedLastCount[ImGuiMouseButton_Left] = 0;
         }
     }
 }
@@ -1081,7 +1075,7 @@ static void load_clipboard_impl() {
     // (The page will hold roughly at most 1.5*max_size/line.)
     const bool too_much_content = text.lines() > max_line || text.length() > max_size;
     ImGui::BeginDisabled(too_much_content);
-    if (ImGui::SmallButton("Read")) {
+    if (ImGui::SmallButton("Paste")) {
         if (const std::string_view str = read_clipboard(); !str.empty()) {
             if (str.size() > max_size / 2) {
                 messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));

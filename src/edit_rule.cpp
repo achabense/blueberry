@@ -230,7 +230,7 @@ public:
         }
         {
             terms_scope scope(m_terms, terms_misc);
-            if (0) {
+            if constexpr (0) {
                 m_terms.emplace_back(
                     "s(*)", &subsets.ignore_s_i,
                     "Similar to 's' - for any two cases where only 's' differs, the rule will map the center cell to values so that the resulting \"flip-ness\" will be the same. That is:\n\n"
@@ -966,6 +966,9 @@ public:
                         opened = true;
                         m_window = true;
                     }
+                    // if (ImGui::Selectable("Copy rule")) {
+                    //     copy_rule::copy(m_rule.get());
+                    // }
 
                     selectable_to_take_snapshot("Recent", m_rule.rec(), m_snapshot);
                 });
