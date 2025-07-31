@@ -966,9 +966,9 @@ public:
                         opened = true;
                         m_window = true;
                     }
-                    // if (ImGui::Selectable("Copy rule")) {
-                    //     copy_rule::copy(m_rule.get());
-                    // }
+                    if (ImGui::Selectable("Copy rule")) {
+                        copy_rule::copy(m_rule.get());
+                    }
 
                     selectable_to_take_snapshot("Recent", m_rule.rec(), m_snapshot);
                 });

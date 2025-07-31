@@ -6,6 +6,8 @@
 
 #include "common.hpp"
 
+// !!TODO: rename "space window"...
+
 static ImVec2 to_imvec(const aniso::vecT& vec) { return ImVec2(vec.x, vec.y); }
 
 template <float (&fn)(float) = floor>
@@ -502,6 +504,8 @@ class runnerT : no_copy {
         }
 
         int gen() const { return m_gen; }
+        double density() const { return double(aniso::count(m_tile.data())) / m_tile.size().xy(); }
+
         aniso::vecT size() const {
             assert(m_tile.size() == calc_size(m_tile.size()));
             return m_tile.size();
@@ -1005,13 +1009,17 @@ public:
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         ImGui::SameLine(0, wide_spacing);
         if (m_sel) {
-            ImGui::Text("Area:%d*%d", m_sel->width(), m_sel->height());
+            ImGui::Text("Selected:%d*%d", m_sel->width(), m_sel->height());
         } else {
-            imgui_Str("Area:N/A");
+            imgui_Str("Selected:N/A");
         }
         // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
         ImGui::SameLine(floor(1.5 * item_width));
-        ImGui::Text("Generation:%d", m_torus.gen());
+        if constexpr (debug_mode) { // TODO: whether to show density?
+            ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(), m_torus.density());
+        } else {
+            ImGui::Text("Generation:%d", m_torus.gen());
+        }
 
         if (m_paste) {
             bool open = true;

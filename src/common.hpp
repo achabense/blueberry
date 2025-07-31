@@ -115,7 +115,7 @@ inline constexpr bool init_maximize_window = false;
 inline constexpr bool init_zero_interval = false;
 inline constexpr bool init_show_intro = true;
 inline constexpr bool init_compact_mode = false;
-inline constexpr bool init_auto_focus = false; // (Not quite "init" related) effects popups & drop-target
+inline constexpr bool init_auto_focus = false; // (Not quite "init" related) affects popups & drop-target
 
 inline void highlight_item() { ImGui::NavHighlightActivated(ImGui::GetItemID()); }
 inline void highlight_item(ImGuiID id) { ImGui::NavHighlightActivated(id); }
