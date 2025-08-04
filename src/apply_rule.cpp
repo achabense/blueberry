@@ -6,8 +6,6 @@
 
 #include "common.hpp"
 
-// !!TODO: rename "space window"...
-
 static ImVec2 to_imvec(const aniso::vecT& vec) { return ImVec2(vec.x, vec.y); }
 
 template <float (&fn)(float) = floor>
@@ -651,10 +649,11 @@ public:
 
         bool highlight_canvas = false;
         {
+            // !!TODO: 'Space ops' is also a bad name...
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip(
                     "(...)",
-                    "The \"space window\" (as highlighted below) provides strictly wider control than preview windows, and is able to operate on patterns (like saving and pasting).\n\n"
+                    "The \"main window\" (as highlighted below) provides strictly wider control than preview windows, and is able to operate on patterns (like saving and pasting; open 'Space ops' for details).\n\n"
                     "All spaces use torus topology, i.e. information can go across boundaries directly, so the entire space can be treated as a periodic unit in an infinite space.")) {
                 highlight_canvas = true;
             }
@@ -679,7 +678,7 @@ public:
             guide_mode::item_tooltip(
                 "MAP-string for the displayed rule; drag to send the rule elsewhere; drag a rule here to replace; open menu for recent rules.");
             if (m_snapshot) {
-                display_snapshot("Recent (space window)", m_snapshot, current_rule.rec(),
+                display_snapshot("Recent (main window)", m_snapshot, current_rule.rec(),
                                  {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
                                    .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
             }
@@ -862,7 +861,7 @@ public:
             }
             ImGui::SameLine();
             if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the screen.\n\n"
-                                        "(Scroll in the space window to zoom in/out without resizing.)")) {
+                                        "(Scroll in the main window to zoom in/out without resizing.)")) {
                 highlight_canvas = true;
             }
         };
@@ -876,7 +875,7 @@ public:
                                           "+s/+1/+!: S/D/F (repeatable)\n"
                                           "-/+ Step    : 1/2 (repeatable)\n"
                                           "-/+ Interval: 3/4 (repeatable)\n\n"
-                                          "These shortcuts work only when the space window is hovered.")) {
+                                          "These shortcuts work only when the main window is hovered.")) {
                 highlight_canvas = true;
             }
 
@@ -996,10 +995,10 @@ public:
         ImGui::AlignTextToFramePadding();
         if (imgui_StrTooltip(
                 "(...)",
-                "Scroll in the space window to zoom in/out.\n\n"
+                "Scroll in the main window to zoom in/out.\n\n"
                 "Drag with left button to move the space; 'Ctrl' and drag to \"rotate\" the space.\n\n"
                 "Drag with right button to select area; single right-click to unselect.\n\n"
-                "See 'Space ops' for more operations (e.g. 'C' to copy selected area, 'V' to load pattern). The shortcuts (including 'V') work only when the space window is hovered.")) {
+                "See 'Space ops' for more operations (e.g. 'C' to copy selected area, 'V' to load pattern). The shortcuts (including 'V') work only when the main window is hovered.")) {
             highlight_canvas = true;
         }
         ImGui::SameLine();
@@ -1066,7 +1065,7 @@ public:
                                         "Copy:  Paste values directly.\n"
                                         "Or/And/Xor: Perform binary op.\n"
                                         "(Use Or/And to treat black/white cells as transparent bg.)\n\n"
-                                        "Right-click the space window to switch between Copy/Or/And/Xor.");
+                                        "Right-click the main window to switch between Copy/Or/And/Xor.");
                 if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                     switch (m_paste->mode) {
                         case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
@@ -1794,22 +1793,20 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             }
             guide_mode::item_tooltip("Equivalent to the shortcut ('R').");
 
-            if (!runner_active) {
-                return;
+            if (runner_active) {
+                // if (ImGui::Selectable("Apply (rule)") && messenger::dot()) {
+                //     runner.set_rule(rule);
+                // }
+                // I really want to use "Copy state", but that can be misleading...
+                if (ImGui::Selectable("Apply") && messenger::dot()) {
+                    runner.set_rule(rule);
+                    runner.set_state(tile_size, previewer_data::global_init);
+                    // runner.set_state(term.tile.size(), term.init);
+                }
+                guide_mode::item_tooltip(
+                    "Apply rule and space state to the main window, so you can operate on the same patterns (seen in this window).\n\n"
+                    "(Send rule to the MAP-string ('MAP...') to apply only the rule.)");
             }
-
-            if (ImGui::Selectable("Explore") && messenger::dot()) {
-                runner.set_rule(rule);
-            }
-            guide_mode::item_tooltip("Explore in the space window. "
-                                     "Equivalent to sending the rule to the MAP-string ('MAP...') in the right panel.");
-            if (ImGui::Selectable("Explore (& state)") && messenger::dot()) {
-                runner.set_rule(rule);
-                runner.set_state(tile_size, previewer_data::global_init);
-                // runner.set_state(term.tile.size(), term.init);
-            }
-            guide_mode::item_tooltip(
-                "Explore in the space window, using the same space size and init state (so you can operate on the same patterns).");
         });
     }
     assert_implies(passing, hov == rclick_popup::None);

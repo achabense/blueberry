@@ -1424,8 +1424,11 @@ void edit_rule(frame_main_token) {
             disp_mode = Target;
         }
 
+        // !!TODO: (v0.9.9) use 'Cmp' if possible (need to mess with fonts)...
+        // 'Cmp' is fine, but in the default font settings there is no spacing between C and m...
+        // Related: https://github.com/ocornut/imgui/issues/8854
         static constexpr std::pair<displayE, const char*> terms[]{
-            {Observer, "[R]##disp"}, {Target, "[Z]##disp"}, {Comp, "Comp##disp"}};
+            {Observer, "[R]##disp"}, {Target, "[Z]##disp"}, {Comp, "Xor##disp"}};
         float spacing = imgui_ItemSpacingX() * 3;
         for (const auto& [mode, label] : terms) {
             ImGui::SameLine(0, std::exchange(spacing, imgui_ItemInnerSpacingX()));
@@ -1433,15 +1436,14 @@ void edit_rule(frame_main_token) {
             ImGui::BeginDisabled(!selectable);
             imgui_RadioButton(label, &disp_mode, mode);
             ImGui::EndDisabled();
-            if (!selectable) {
-                imgui_ItemTooltip(show_random_access ? "!!TODO" : "...");
-            }
+            // !!TODO: no idea what to say...
+            // if (!selectable) { imgui_ItemTooltip("..."); }
         }
         ImGui::SameLine();
         imgui_StrTooltip("(?)", [] {
-            imgui_StrPair("[R]:  ", "Display values of [R] (0/1).");
-            imgui_StrPair("[Z]:  ", "Display values of [Z] (for 'Random-access').");
-            imgui_StrPair("Comp: ", "Compare whether [Z] is same (O) or different (I) than [R].");
+            imgui_StrPair("[R]: ", "Display values of [R] (0/1).");
+            imgui_StrPair("[Z]: ", "Display values of [Z] (for 'Random-access').");
+            imgui_StrPair("Xor: ", "Compare whether [Z] is same (O) or different (I) than [R].");
         });
     }
     if (show_random_access) {

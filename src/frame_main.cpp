@@ -50,7 +50,7 @@ static open_state intro_window(frame_main_token) {
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "These can serve as drag sources:\n"
                                     "1. Preview windows.\n"
-                                    "2. The MAP-string for (the rule shown in) the space window.\n"
+                                    "2. The MAP-string for (the rule shown in) the main window.\n"
                                     "3. Anything that displays a preview window in tooltip.");
 
             ImGui::Bullet();
