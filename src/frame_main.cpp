@@ -12,9 +12,11 @@ static open_state intro_window(frame_main_token) {
         ImGui::PushTextWrapPos(wrap_len());
 
         {
-            ImGui::Bullet();
-            // ImGui::SameLine(); // Not needed.
-            imgui_Str("Double-press 'Esc' to close the focused window (or popup).");
+            if constexpr (debug_mode_double_esc_to_close) {
+                ImGui::Bullet();
+                // ImGui::SameLine(); // Not needed.
+                imgui_Str("Double-press 'Esc' to close the focused window (or popup).");
+            }
 
             ImGui::Bullet();
             imgui_Str("Press 'H' to toggle on/off additional tooltips.");

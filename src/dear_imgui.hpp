@@ -328,6 +328,8 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
     window.SkipItems = old_skip;
 }
 
+inline constexpr bool debug_mode_double_esc_to_close = debug_mode;
+
 // (Not general enough to add 'imgui' prefix...)
 inline bool test_esc_single_hit() {
     static int frame = 0; // Avoid closing multiple windows within one frame.
@@ -360,8 +362,10 @@ public:
         if (const char* tooltip = std::exchange(next_window_titlebar_tooltip, nullptr)) {
             imgui_StrTooltipForTitleBar("(?)", tooltip, name);
         }
-        if (p_open && test_esc()) {
-            *p_open = false;
+        if constexpr (debug_mode_double_esc_to_close) {
+            if (p_open && test_esc()) {
+                *p_open = false;
+            }
         }
     }
     ~imgui_Window() {

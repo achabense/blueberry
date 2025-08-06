@@ -359,8 +359,10 @@ public:
                                                              !item_rect.ContainsWithPad(mouse_pos, pad * 1.5) &&
                                                              !window_rect.ContainsWithPad(mouse_pos, pad * 2.5)) {
                     ImGui::CloseCurrentPopup();
-                } else if (!item_rect.Contains(mouse_pos) && test_esc()) {
-                    ImGui::CloseCurrentPopup();
+                } else if constexpr (debug_mode_double_esc_to_close) {
+                    if (!item_rect.Contains(mouse_pos) && test_esc()) {
+                        ImGui::CloseCurrentPopup();
+                    }
                 }
             }
 
@@ -429,8 +431,10 @@ public:
                 in_popup = true;
                 fn();
                 in_popup = false;
-                if (test_esc()) {
-                    ImGui::CloseCurrentPopup();
+                if constexpr (debug_mode_double_esc_to_close) {
+                    if (test_esc()) {
+                        ImGui::CloseCurrentPopup();
+                    }
                 }
                 ImGui::EndPopup();
             }
