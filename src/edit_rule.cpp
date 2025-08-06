@@ -1104,7 +1104,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
         }
         ImGui::SameLine();
-        if (orderer.display("[X]", "Recent ([X])", config, working_set)) {
+        if (orderer.display("[X]", "Recent - [X]", config, working_set)) {
             page.clear();
         }
 
@@ -1210,7 +1210,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             assert(round(rate * c_free) == free_dist);
         }
         ImGui::SameLine();
-        target.display("[Y]", "Recent ([Y])", config, working_set);
+        target.display("[Y]", "Recent - [Y]", config, working_set);
 
         static std::vector<aniso::compressT> rules{};
         static int page_no = 0;
@@ -1401,7 +1401,7 @@ void edit_rule(frame_main_token) {
             target.sync(working_set, observer);
 
             ImGui::SameLine();
-            target.display("[Z]", "Recent ([Z])", config, working_set);
+            target.display("[Z]", "Recent - [Z]", config, working_set);
             ImGui::SameLine();
             config.set("Settings");
         }

@@ -161,20 +161,20 @@ void frame_main() {
         }
         ImGui::SameLine();
         {
-            // static rule_snapshot snapshot{};
+            static rule_snapshot snapshot{};
             imgui_Str("[C]");
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
                 copy_rule::copy(*deliv);
             }
-            // rclick_popup::popup(imgui_GetItemPosID(), [] {
-            //     selectable_to_take_snapshot("Recent", copy_rule::get_rec({}), snapshot);
-            //     guide_mode::item_tooltip("Recently copied rules, including those copied via 'Copy rule'.");
-            // });
+            rclick_popup::popup(imgui_GetItemPosID(), [] {
+                selectable_to_take_snapshot("Recent", copy_rule::get_rec({}), snapshot);
+                guide_mode::item_tooltip("Recently copied rules, including those copied via 'Copy rule'.");
+            });
             guide_mode::item_tooltip("Drag a rule here to copy it (as MAP-string) to the clipboard.\n\n"
                                      "(This is useful as some rule sources have no 'Copy rule' option.)");
-            // if (snapshot) {
-            //     display_snapshot("Recent (copied rules)", snapshot, copy_rule::get_rec({}));
-            // }
+            if (snapshot) {
+                display_snapshot("Recent - copied rules", snapshot, copy_rule::get_rec({}));
+            }
         }
         ImGui::SameLine();
         {

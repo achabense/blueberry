@@ -313,7 +313,10 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
     const auto [min, max] = window.TitleBarRect();
     ImGui::PushClipRect(min, max, false);
     {
-        const bool has_collapse_button = !(window.Flags & ImGuiWindowFlags_NoCollapse);
+        // (Not considering all cases; see `RenderWindowTitleBarContents`.)
+        assert(!(window.Flags & ImGuiWindowFlags_UnsavedDocument));
+        const bool has_collapse_button =
+            !(window.Flags & ImGuiWindowFlags_NoCollapse) && (GImGui->Style.WindowMenuButtonPosition == ImGuiDir_Left);
         const ImVec2 old_pos = ImGui::GetCursorScreenPos();
         ImGui::SetCursorPos({ImGui::CalcTextSize(window_name, nullptr, true).x +
                                  ImGui::GetFrameHeight() * (has_collapse_button ? 2 : 1),

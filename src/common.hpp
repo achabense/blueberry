@@ -1200,6 +1200,7 @@ struct rule_and_hash {
 static_assert(std::is_trivially_copyable_v<rule_and_hash>);
 #endif
 
+// !!TODO: (v0.9.9?) horrible, should redesign one day...
 class rule_snapshot : no_copy {
     using dataT = std::vector<aniso::compressT>;
     previewer::configT m_settings{previewer::default_settings}; // TODO: support external settings?
@@ -1256,7 +1257,7 @@ public:
         }
 
         imgui_Window::next_window_titlebar_tooltip =
-            "This is a snapshot of the actual record. When it's outdated, the window title will be marked with '*', and you can update it with the 'Update' button.";
+            "This is a snapshot of the actual record. When it's outdated, the window title will be marked with '*', and you can update it with 'Update'.";
 
         const std::string title2 = std::format("{}{}###{}", title, m_outdated ? " *" : "", title);
         if (auto window = imgui_Window(title2.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
@@ -1408,19 +1409,18 @@ public:
 };
 
 class copy_rule : no_create {
-    // TODO: whether to record?
-    // inline static rec_for_rule rec{};
+    inline static rec_for_rule rec{};
 
     static void save(const aniso::ruleT& rule);
 
 public:
     static void copy(const aniso::ruleT& rule) {
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
-        // rec.add(rule);
+        rec.add(rule);
         save(rule);
     }
 
-    // static const rec_for_rule& get_rec(frame_main_token) { return rec; }
+    static const rec_for_rule& get_rec(frame_main_token) { return rec; }
 };
 
 class test_active {

@@ -678,7 +678,7 @@ public:
             guide_mode::item_tooltip(
                 "MAP-string for the displayed rule; drag to send the rule elsewhere; drag a rule here to replace; open menu for recent rules.");
             if (m_snapshot) {
-                display_snapshot("Recent (main window)", m_snapshot, current_rule.rec(),
+                display_snapshot("Recent - main window", m_snapshot, current_rule.rec(),
                                  {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
                                    .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
             }
