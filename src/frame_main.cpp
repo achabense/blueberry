@@ -1,5 +1,8 @@
 #include "common.hpp"
 
+// TODO: when to use '? ('Ctrl' vs Ctrl, 'Clipboard' vs Clipboard, '0' vs 0 etc.)
+// TODO: whether to require no-ctrl for shortcuts?
+
 static open_state intro_window(frame_main_token) {
     bool open = true;
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);

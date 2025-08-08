@@ -268,9 +268,9 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
 
 // It's enough to focus the source window by calling `SetWindowFocus` before `OpenPopup`.
 // However, the parent window will be brought to foreground immediately, while the popup will appear at next frame due to auto-resize...
-// !!TODO: too tricky... maybe it's a good idea just to accept it...
 class popup_with_focus : no_create {
 public:
+    static_assert(!init_auto_focus); // TODO: whether to focus at all? The impl is too tricky...
     static constexpr bool appear_at_same_frame = debug_mode;
 
     static void open_popup(const ImGuiID popup_id, const ImGuiPopupFlags popup_flags) {
@@ -995,6 +995,8 @@ public:
     static void begin_frame(frame_main_token);
 
 private:
+    struct _global_data;
+
     static void _preview(uint64_t id, const configT& config, const aniso::ruleT& rule);
 
     static void _show_belongs(const aniso::ruleT& rule);

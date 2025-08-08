@@ -1669,11 +1669,9 @@ void apply_rule(frame_main_token) {
     runner_active.update();
 }
 
-class previewer_data : no_create {
-    friend class previewer;
-
+struct previewer::_global_data : no_create {
     static constexpr initT init_init{.seed = 0, .density = 50, .area = 100, .background = aniso::cellT{0}};
-    inline static initT global_init = init_init; // Globally shared.
+    inline static initT init = init_init; // Globally shared.
 
     struct termT {
         bool active = false;
@@ -1684,6 +1682,16 @@ class previewer_data : no_create {
     };
 
     inline static std::unordered_map<uint64_t, termT> terms;
+
+    static void begin_frame() {
+        if (!terms.empty()) {
+            // According to https://en.cppreference.com/w/cpp/container/unordered_map/erase_if
+            // There seems no requirement on the predicate.
+            std::erase_if(terms, [](std::pair<const uint64_t, termT>& pair) {
+                return !std::exchange(pair.second.active, false);
+            });
+        }
+    }
 };
 
 void previewer::configT::_set() {
@@ -1708,9 +1716,13 @@ void previewer::configT::_set() {
     ImGui::Separator();
     menu_like_popup::button("Init state");
     menu_like_popup::popup([] {
-        initT& init = previewer_data::global_init;
+        // !!TODO: (v0.9.9) support both global and per-group setting mode?
+        imgui_Str("(These are shared by all groups.)");
+        ImGui::Separator();
+
+        initT& init = _global_data::init;
         if (ImGui::Button("Reset") && messenger::dot()) {
-            init = previewer_data::init_init;
+            init = _global_data::init_init;
         }
         ImGui::SameLine();
         imgui_Str("Background ~ ");
@@ -1723,22 +1735,12 @@ void previewer::configT::_set() {
         init.density.step_slide("Density", 10, 100, 10);
         init.area.step_slide("Area", 10, 100, 10);
     });
-    ImGui::SameLine();
-    imgui_StrTooltip("(?)", "Shared by all groups.");
 
     ImGui::PopItemWidth();
     // ImGui::PopStyleVar();
 }
 
-void previewer::begin_frame(frame_main_token) {
-    if (!previewer_data::terms.empty()) {
-        // According to https://en.cppreference.com/w/cpp/container/unordered_map/erase_if
-        // There seems no requirement on the predicate.
-        std::erase_if(previewer_data::terms, [](std::pair<const uint64_t, previewer_data::termT>& pair) {
-            return !std::exchange(pair.second.active, false);
-        });
-    }
-}
+void previewer::begin_frame(frame_main_token) { _global_data::begin_frame(); }
 
 // TODO: allow setting the step and interval with shortcuts when the window is hovered?
 void previewer::_preview(const uint64_t id, const configT& config, const aniso::ruleT& rule) {
@@ -1747,7 +1749,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     const int frame = ImGui::GetFrameCount();
     config.update_op(frame);
 
-    previewer_data::termT& term = previewer_data::terms[id];
+    _global_data::termT& term = _global_data::terms[id];
     if (term.active) [[unlikely]] { // ID conflict
         assert(false);
         return;
@@ -1800,7 +1802,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 // I really want to use "Copy state", but that can be misleading...
                 if (ImGui::Selectable("Apply") && messenger::dot()) {
                     runner.set_rule(rule);
-                    runner.set_state(tile_size, previewer_data::global_init);
+                    runner.set_state(tile_size, _global_data::init);
                     // runner.set_state(term.tile.size(), term.init);
                 }
                 guide_mode::item_tooltip(
@@ -1832,7 +1834,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     }
 
     const bool restart = restart_from_menu + op.restart + // No short-circuiting.
-                         term.tile.resize(tile_size) + compare_update(term.init, previewer_data::global_init) +
+                         term.tile.resize(tile_size) + compare_update(term.init, _global_data::init) +
                          compare_update(term.rule, rule);
     if (restart) {
         term.init.initialize(term.tile);

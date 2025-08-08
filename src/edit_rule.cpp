@@ -253,7 +253,8 @@ public:
                                  "Rules whose values are independent of 'w', 'a', 'd' and 'x'.\n\n"
                                  "(This can work naturally with native-symmetry sets.)");
             m_terms.emplace_back(
-                "Compl", &subsets.self_complementary,
+                "Compl", // TODO: needs better name...
+                &subsets.self_complementary,
                 "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].\n\n"
                 "To achieve this, for any case and its complement, the rule will map center cell to values so that the resulting \"flip-ness\" are the same.\n\n"
                 "     |q w e|             |!q!w!e|\n"
@@ -280,7 +281,8 @@ public:
                     "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
             }
 
-            m_terms.emplace_back("Uniq", &subsets.single_stable_state,
+            m_terms.emplace_back("Uniq", // TODO: needs better name...
+                                 &subsets.single_stable_state,
                                  "Rules that map all-0 and all-1 cases to the same value.\n\n"
                                  "    |0 0 0|       |1 1 1|\n"
                                  "rule|0 0 0| = rule|1 1 1|\n"
