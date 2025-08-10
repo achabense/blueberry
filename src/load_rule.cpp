@@ -194,7 +194,7 @@ class natural_compare : no_copy {
         while (pos != end && is_digit(*pos)) {
             ++pos;
         }
-        std::string_view digits{beg, pos}; // v So finally `weak_ordering`.
+        std::string_view digits{beg, pos}; // (v So finally weak-ordering.)
         digits.remove_prefix(std::min(digits.size(), digits.find_first_not_of('0')));
         // if (digits.empty()) { digits = "0"; } // Empty str compares fine.
         return digits;
@@ -204,6 +204,9 @@ class natural_compare : no_copy {
         const auto comp = a.size() <=> b.size();
         return comp != 0 ? comp : a <=> b;
     }
+
+    // (So finally weak-ordering.)
+    static char to_lower(const char ch) { return ch >= 'A' && ch <= 'Z' ? 'a' + (ch - 'A') : ch; }
 
 public:
     static std::weak_ordering compare(const std::string_view a, const std::string_view b) {
@@ -215,7 +218,7 @@ public:
                 if (comp != 0) {
                     return comp;
                 }
-            } else if (const char a_ch = *a_pos++, b_ch = *b_pos++; a_ch != b_ch) {
+            } else if (const char a_ch = to_lower(*a_pos++), b_ch = to_lower(*b_pos++); a_ch != b_ch) {
                 // (std::string_view compares by unsigned char, not affected by char's signedness.)
                 return (unsigned char)a_ch <=> (unsigned char)b_ch;
             }

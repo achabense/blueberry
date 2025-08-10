@@ -4,6 +4,8 @@
 
 #include "common.hpp"
 
+// TODO: support toggling tooltips (subsets & rule tags & groups)?
+
 namespace aniso {
     // !!TODO: (v0.9.9) when partialT is supported, add strobing-set (01 10) and the other 3 non-strobing cases (01 11, 00 10, 11 00).
     static const struct : no_copy {
