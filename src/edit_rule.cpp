@@ -431,7 +431,8 @@ public:
         };
 
         imgui_Str(
-            "[S] refers to the intersection of selected sets. A rule belongs to [S] iff it belongs to every selected set.\n\n"
+            "[S] stands for the intersection of selected sets.\n"
+            "(A rule belongs to [S] iff it belongs to every selected set.)\n\n"
             "1. [S] is guaranteed to be non-empty. If only one set is selected, [S] will be identical to it; if no sets are selected, [S] will be the entire MAP set.\n"
             "2. The program has access to all rules in [S].\n\n"
             "Click a set to toggle selection; hold right button and click to select only that set.");
@@ -440,9 +441,9 @@ public:
         explain(false, Selected, "Selected.");
         explain(false, Including,
                 "Not selected, but [S] already belongs to this set. (So [S] behaves as if this is selected too.)");
-        explain(
-            false, Disabled,
-            "Not selectable, as its intersection with [S] will be empty. (This doesn't affect single-set selection.)");
+        explain(false, Disabled,
+                "Not selectable, as its intersection with [S] is empty.\n"
+                "(This doesn't affect single-set selection.)");
         // explain(true, None, "The rule belongs to this set.");
         // explain(false, None, "The rule does not belong to this set.");
     }
@@ -662,11 +663,11 @@ public:
     // !!TODO: unfinished...
     static void about() {
         imgui_Str(
-            "[S] divides all cases into different groups, and any two rules in [S] must have either all-same or all-different values in each group.\n\n"
+            "[S] divides all cases into disjoint groups, and any two rules in [S] must have either all-same or all-different values in each group.\n\n"
             "Due to this structure:\n"
             "1. The \"distance\" between any two rules in [S] can be defined as the number of groups where they have different values.\n"
             "2. Any rule in [S] can serve as an \"observer\" to measure relative distance and compare (same or different) with other rules.\n\n"
-            "[R] refers to an arbitrary rule in [S] to serve this role. It doesn't affect rule generation.\n\n"
+            "[R] stands for an arbitrary rule in [S] to serve this role. It doesn't affect rule generation.\n\n"
             "1. Being same or different than 'Zero' / 'Identity' has natural interpretations (actual value / flipness).\n"
             "2. 'Other' represents an arbitrary rule that's neither 'Zero' nor 'Identity'...");
     }
@@ -914,8 +915,8 @@ struct page_adapter {
         }
     }
 
-    static constexpr const char* resizing_policy =
-        "Resize the window to change page size; double-click window's resize border to fit the page.";
+    static constexpr const char* about_resizing =
+        "Resize this window to adjust the number of preview windows; (after resizing) double-click window's resize border to fit the contents.";
 };
 
 class target_rule : no_copy {
@@ -1035,7 +1036,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     // !!TODO: better title...
-    imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
+    imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
     if (auto window =
             imgui_Window("Traverse [S]", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static target_rule orderer{};
@@ -1163,7 +1164,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             previewer::preview_or_dummy(j, config, j < page.size() ? &page[j] : nullptr);
             if (j == 0) {
                 if (page.empty()) {
-                    guide_mode::item_tooltip("Drag a rule here to go to the place starting with it.");
+                    guide_mode::item_tooltip("Drag a rule here to get to its position.");
                 }
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
                     reset_page(First, *deliv);
@@ -1183,7 +1184,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
-    imgui_Window::next_window_titlebar_tooltip = page_adapter::resizing_policy;
+    imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
     if (auto window =
             imgui_Window("Random rules", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static target_rule target{};
@@ -1386,7 +1387,7 @@ void edit_rule(frame_main_token) {
     ImGui::SameLine();
     {
         ImGui::Checkbox("Random-access", &show_random_access);
-        // !!TODO: unfinished...
+        // !!TODO: unfinished; -> regular tooltip.
         guide_mode::item_tooltip(
             "Enable random-access editing, i.e. flipping values of [Z] by groups. When this is turned on, the table will display the flipping result for each group, i.e. all rules with dist = 1 to [Z] (in [S]).\n\n"
             "By clicking a group button, the values of [Z] (in that group) will be flipped (equivalent to dragging the rule to [Z]). The operation effectively swaps [Z] and the rule (this will be obvious if you turn on the window for [Z]), and can be undone by clicking the same button again.\n\n"
@@ -1432,7 +1433,7 @@ void edit_rule(frame_main_token) {
         // 'Cmp' is fine, but in the default font settings there is no spacing between C and m...
         // Related: https://github.com/ocornut/imgui/issues/8854
         static constexpr std::pair<displayE, const char*> terms[]{
-            {Observer, "[R]##disp"}, {Target, "[Z]##disp"}, {Comp, "Xor##disp"}};
+            {Observer, "R##disp"}, {Target, "Z##disp"}, {Comp, "Xor##disp"}};
         float spacing = imgui_ItemSpacingX() * 3;
         for (const auto& [mode, label] : terms) {
             ImGui::SameLine(0, std::exchange(spacing, imgui_ItemInnerSpacingX()));
@@ -1440,13 +1441,14 @@ void edit_rule(frame_main_token) {
             ImGui::BeginDisabled(!selectable);
             imgui_RadioButton(label, &disp_mode, mode);
             ImGui::EndDisabled();
-            // !!TODO: no idea what to say...
-            // if (!selectable) { imgui_ItemTooltip("..."); }
+            if (!selectable && mode != Observer) {
+                imgui_ItemTooltip("Used in random-access mode.");
+            }
         }
         ImGui::SameLine();
         imgui_StrTooltip("(?)", [] {
-            imgui_StrPair("[R]: ", "Display values of [R] (0/1).");
-            imgui_StrPair("[Z]: ", "Display values of [Z] (for 'Random-access').");
+            imgui_StrPair("R: ", "Display values of [R] (0/1).");
+            imgui_StrPair("Z: ", "Display values of [Z] (for random-access mode).");
             imgui_StrPair("Xor: ", "Compare whether [Z] is same (O) or different (I) than [R].");
         });
     }
