@@ -510,7 +510,7 @@ public:
                          : term.disabled  ? Disabled
                                           : None,
                          title);
-                if (selectable && ImGui::IsItemHovered() && imgui_IsItemOrNoneActive()) {
+                if (selectable && imgui_IsItemHoveredForRendering()) {
                     imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
                 }
                 if (mode.tooltip) {

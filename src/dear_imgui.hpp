@@ -149,6 +149,13 @@ inline bool imgui_BeginTooltipFirstOnly() {
     return false;
 }
 
+// Emulate `hover` gotten by `ImGui::ButtonBehavior()`.
+// Related: https://github.com/ocornut/imgui/issues/8877
+// !!TODO: check all `ImGui::IsItemHovered()` usage...
+inline bool imgui_IsItemHoveredForRendering() { //
+    return ImGui::IsItemHovered() && GImGui->ActiveId != GImGui->CurrentWindow->MoveId;
+}
+
 inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
     return ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | flags);
 }
