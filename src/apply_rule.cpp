@@ -1159,7 +1159,7 @@ public:
             bool hex_mode = false;
 
             if (hovered) {
-                const ImGuiIO& io = ImGui::GetIO();
+                const auto& io = ImGui::GetIO();
                 assert(ImGui::IsMousePosValid(&io.MousePos));
                 const ImVec2 mouse_pos = io.MousePos - canvas_min;
 

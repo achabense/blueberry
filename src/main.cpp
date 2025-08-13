@@ -265,12 +265,13 @@ int main(int, char**) {
         return SDL_OpenURL(u8path) == 0;
     };
 
-#if 0
-    // Test-only.
-    ImGui::GetIO().Fonts->AddFontDefault();
-    static const ImWchar full_range[]{0x0001, 0xFFFD, 0};
-    ImGui::GetIO().Fonts->AddFontFromFileTTF(R"(C:\Windows\Fonts\Deng.ttf)", 13, nullptr, full_range);
-#endif
+    if constexpr (0) {
+        // TODO: working, but how to support fonts in release mode...
+        ImGui::GetIO().Fonts->AddFontDefault();
+        ImFontConfig config{};
+        config.MergeMode = true;
+        ImGui::GetIO().Fonts->AddFontFromFileTTF(R"(C:\Windows\Fonts\Deng.ttf)", 0.0f, &config);
+    }
 
     const auto begin_frame = [] {
         for (;;) {
@@ -313,7 +314,7 @@ int main(int, char**) {
         // Skip rendering in the first frame for better visual.
         // (The intro window is hidden in the first frame due to auto-resize.)
         if (ImGui::GetFrameCount() >= 2) {
-            const ImGuiIO& io = ImGui::GetIO();
+            const auto& io = ImGui::GetIO();
             SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
             // `SDL_RenderClear` seems not necessary, as the program uses full-screen window.

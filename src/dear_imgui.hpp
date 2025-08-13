@@ -424,7 +424,6 @@ inline bool imgui_MouseScrollingDown() { return ImGui::GetIO().MouseWheel < 0; }
 
 inline bool imgui_MouseScrollingUp() { return ImGui::GetIO().MouseWheel > 0; }
 
-// !!TODO: recheck...
 inline float imgui_CalcCharWidth(unsigned char ch) { //
     return ceil(ImGui::GetFontBaked()->GetCharAdvance(ch));
 }
