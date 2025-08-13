@@ -161,19 +161,19 @@ public:
     static ImTextureID get() { return (ImTextureID)(intptr_t)texture; }
 };
 
-void backend_fn::code_image(aniso::codeT code, int zoom, const ImVec4& tint_col, const ImVec4& border_col) {
+void backend_fn::code_image(aniso::codeT code, int zoom) {
     const ImVec2 size(3 * zoom, 3 * zoom);
     const ImVec2 uv0(0, code * (1.0f / 512));
     const ImVec2 uv1(1, (code + 1) * (1.0f / 512));
-    ImGui::Image(code_atlas::get(), size, uv0, uv1, tint_col, border_col);
+    ImGui::Image(code_atlas::get(), size, uv0, uv1);
 }
 
-bool backend_fn::code_button(aniso::codeT code, int zoom, const ImVec4& bg_col, const ImVec4& tint_col) {
+bool backend_fn::code_button(aniso::codeT code, int zoom) {
     const ImVec2 size(3 * zoom, 3 * zoom);
     const ImVec2 uv0(0, code * (1.0f / 512));
     const ImVec2 uv1(1, (code + 1) * (1.0f / 512));
     ImGui::PushID(code);
-    const bool hit = ImGui::ImageButton("Code", code_atlas::get(), size, uv0, uv1, bg_col, tint_col);
+    const bool hit = ImGui::ImageButton("Code", code_atlas::get(), size, uv0, uv1);
     ImGui::PopID();
     return hit;
 }

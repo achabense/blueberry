@@ -510,7 +510,7 @@ public:
                          : term.disabled  ? Disabled
                                           : None,
                          title);
-                if (selectable && imgui_IsItemHoveredForRendering()) {
+                if (selectable && ImGui::IsItemHovered()) {
                     imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
                 }
                 if (mode.tooltip) {
@@ -1504,7 +1504,7 @@ void edit_rule(frame_main_token) {
 
         constexpr int button_zoom = init_compact_mode ? 6 : 7; // Also for image-zoom.
         constexpr ImVec2 button_padding = {2, 2};
-        constexpr ImVec2 image_padding = {1, 1};
+        constexpr float image_padding = 1;
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + (show_random_access ? 3 : 5);
         const int group_size_x = [&]() -> int {
             if (show_random_access) {
@@ -1512,7 +1512,7 @@ void edit_rule(frame_main_token) {
                 size += imgui_ItemInnerSpacingX() + imgui_CalcTextSize(labels_disp_from_to[0]).x;
                 return std::max(size, config.width());
             } else {
-                return image_padding.x * 2 + 3 * button_zoom + imgui_ItemInnerSpacingX() +
+                return image_padding * 2 + 3 * button_zoom + imgui_ItemInnerSpacingX() +
                        imgui_CalcTextSize(labels_disp[0]).x;
             }
         }();
@@ -1544,7 +1544,12 @@ void edit_rule(frame_main_token) {
                     if (n++ % perline != 0) {
                         ImGui::SameLine();
                     }
-                    code_image(code, button_zoom, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
+                    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5, 0.5, 0.5, 1));
+                    ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, image_padding);
+                    code_image(code, button_zoom);
+                    ImGui::PopStyleVar();
+                    ImGui::PopStyleColor();
+
                     ImGui::SameLine(0, imgui_ItemInnerSpacingX());
                     align_text(ImGui::GetItemRectSize().y);
                     imgui_Str(labels_disp[disp[code]]);
@@ -1589,7 +1594,12 @@ void edit_rule(frame_main_token) {
                 previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
                 ImGui::EndGroup();
             } else {
-                code_image(head, button_zoom, ImVec4(1, 1, 1, 1), ImVec4(0.5, 0.5, 0.5, 1));
+                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5, 0.5, 0.5, 1));
+                ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, image_padding);
+                code_image(head, button_zoom);
+                ImGui::PopStyleVar();
+                ImGui::PopStyleColor();
+
                 // imgui_ItemTooltip(group_details);
                 if (ImGui::BeginItemTooltip()) {
                     group_details();

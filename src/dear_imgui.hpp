@@ -91,7 +91,7 @@ inline bool imgui_IsItemOrNoneActive() { //
     return GImGui->ActiveId == 0 || GImGui->ActiveId == GImGui->LastItemData.ID;
 }
 
-inline bool imgui_IsBgHeld() { //
+[[deprecated]] inline bool imgui_IsBgHeld() { //
     return !ImGui::GetHoveredID() && GImGui->ActiveId == GImGui->CurrentWindow->MoveId;
 }
 
@@ -147,13 +147,6 @@ inline bool imgui_BeginTooltipFirstOnly() {
         ImGui::EndTooltip();
     }
     return false;
-}
-
-// Emulate `hover` gotten by `ImGui::ButtonBehavior()`.
-// Related: https://github.com/ocornut/imgui/issues/8877
-// !!TODO: check all `ImGui::IsItemHovered()` usage...
-inline bool imgui_IsItemHoveredForRendering() { //
-    return ImGui::IsItemHovered() && GImGui->ActiveId != GImGui->CurrentWindow->MoveId;
 }
 
 inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
@@ -431,8 +424,9 @@ inline bool imgui_MouseScrollingDown() { return ImGui::GetIO().MouseWheel < 0; }
 
 inline bool imgui_MouseScrollingUp() { return ImGui::GetIO().MouseWheel > 0; }
 
+// !!TODO: recheck...
 inline float imgui_CalcCharWidth(unsigned char ch) { //
-    return ceil(ImGui::GetFont()->GetCharAdvance(ch));
+    return ceil(ImGui::GetFontBaked()->GetCharAdvance(ch));
 }
 
 inline ImVec2 imgui_CalcTextSize(std::string_view text) { //

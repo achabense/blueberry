@@ -81,10 +81,8 @@ inline namespace backend_fn {
     ImTextureID to_texture(aniso::_misc::tile_ref_<const aniso::cellT> tile, scaleE scale);
 
     // ImGui::Image and ImGui::ImageButton for `codeT`.
-    void code_image(aniso::codeT code, int zoom, const ImVec4& tint_col = ImVec4(1, 1, 1, 1),
-                    const ImVec4& border_col = ImVec4(0, 0, 0, 0));
-    bool code_button(aniso::codeT code, int zoom, const ImVec4& bg_col = ImVec4(0, 0, 0, 0),
-                     const ImVec4& tint_col = ImVec4(1, 1, 1, 1));
+    void code_image(aniso::codeT code, int zoom);
+    bool code_button(aniso::codeT code, int zoom);
 
     std::string home_path_utf8(); // "." ~ current path, empty ~ unavailable.
 
