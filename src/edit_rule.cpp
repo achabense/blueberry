@@ -142,8 +142,8 @@ class subset_selector : no_copy {
         const char* const desc;
 
         bool selected = false;
-        bool including = false; // set.includes(m_current).
-        bool disabled = false;  // m_current & set -> empty.
+        bool includes = false;   // set->includes(m_current).
+        bool has_common = true; // has_common(*set, m_current).
     };
 
     using terms_data = std::vector<termT>;
@@ -164,20 +164,18 @@ class subset_selector : no_copy {
 
     void update_current() {
         m_current = aniso::subsetT::universal();
-
         for (const termT& t : m_terms) {
-            assert_implies(t.disabled, !t.selected);
             if (t.selected) {
                 m_current = m_current & *t.set;
             }
         }
 
         for (termT& t : m_terms) {
-            t.including = t.set->includes(m_current);
-            t.disabled = !aniso::has_common(*t.set, m_current);
+            t.includes = t.set->includes(m_current);
+            t.has_common = aniso::has_common(*t.set, m_current);
 
-            assert_implies(t.selected, t.including);
-            assert_implies(t.disabled, !t.selected);
+            assert_implies(t.selected, t.includes);
+            assert_implies(!t.has_common, !t.selected);
         }
     }
 
@@ -187,7 +185,6 @@ public:
         assert_implies(sel, std::ranges::find(m_terms, sel, &termT::set) != m_terms.end());
 
         for (termT& t : m_terms) {
-            t.disabled = false; // Will be updated by `update_current`.
             t.selected = t.set == sel;
         }
         update_current();
@@ -368,7 +365,7 @@ public:
         }
         assert(m_terms.size() <= reserve_cap);
         assert(std::ranges::all_of(m_terms, [](const termT& t) { //
-            return t.title && t.set && t.desc && !t.selected && !t.including && !t.disabled;
+            return t.title && t.set && t.desc && !t.selected && !t.includes && t.has_common;
         }));
 
         select_single(init_sel);
@@ -379,20 +376,20 @@ public:
 
         uint64_t val = 0;
         for (int i = 0; const termT& t : m_terms) {
-            val |= uint64_t(t.selected || t.including) << i;
+            val |= uint64_t(t.selected || t.includes) << i;
             ++i;
         }
         return val;
     }
 
 private:
-    enum centerE { Selected, Including, Disabled, None };
+    enum centerE { Selected, Includes, Disabled /*no-common*/, None };
 
     // (Follows `ImGui::Dummy` or `ImGui::InvisibleButton`.)
     static void put_term(bool contains_rule, centerE center, char title /* '\0' ~ no title */) {
-        const ImU32 cent_col = center == Selected    ? IM_COL32(65, 150, 255, 255) // Roughly _ButtonHovered
-                               : center == Including ? IM_COL32(25, 60, 100, 255)  // Roughly _Button
-                                                     : IM_COL32_BLACK_TRANS;
+        const ImU32 cent_col = center == Selected   ? IM_COL32(65, 150, 255, 255) // Roughly _ButtonHovered
+                               : center == Includes ? IM_COL32(25, 60, 100, 255)  // Roughly _Button
+                                                    : IM_COL32_BLACK_TRANS;
         const ImU32 ring_col = contains_rule ? IM_COL32(0, 255, 0, 255)  // Light green
                                              : IM_COL32(0, 100, 0, 255); // Dull green
         ImU32 title_col = IM_COL32_WHITE;
@@ -439,7 +436,7 @@ public:
 
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");
-        explain(false, Including,
+        explain(false, Includes,
                 "Not selected, but [S] already belongs to this set. (So [S] behaves as if this is selected too.)");
         explain(false, Disabled,
                 "Not selectable, as its intersection with [S] is empty.\n"
@@ -459,7 +456,6 @@ public:
 
     void match(const aniso::ruleT& rule) {
         for (termT& t : m_terms) {
-            t.disabled = false; // Will be updated by `update_current`.
             t.selected = t.set->contains(rule);
         }
         update_current();
@@ -489,15 +485,15 @@ public:
                     return;
                 }
 
-                assert_implies(term.disabled, !term.selected);
-                const bool selectable = r_down || !term.disabled;
+                assert_implies(!term.has_common, !term.selected);
+                const bool selectable = r_down || term.has_common;
 
                 ImGui::PushID(id++);
                 ImGui::BeginDisabled(!selectable);
                 if (ImGui::InvisibleButton("##Invisible", square_size())) {
                     if (r_down) {
                         select_single(term.set);
-                    } else if (!term.disabled) {
+                    } else if (term.has_common) {
                         term.selected = !term.selected;
                         update_current();
                     }
@@ -505,10 +501,10 @@ public:
                 ImGui::EndDisabled();
                 ImGui::PopID();
                 put_term(contains_rule,
-                         term.selected    ? Selected
-                         : term.including ? Including
-                         : term.disabled  ? Disabled
-                                          : None,
+                         term.selected      ? Selected
+                         : term.includes    ? Includes
+                         : !term.has_common ? Disabled
+                                            : None,
                          title);
                 if (selectable && ImGui::IsItemHovered()) {
                     imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
@@ -1502,7 +1498,8 @@ void edit_rule(frame_main_token) {
             imgui_AddCursorPosY(std::max(0.0f, (height - ImGui::GetTextLineHeight()) / 2));
         };
 
-        constexpr int button_zoom = init_compact_mode ? 6 : 7; // Also for image-zoom.
+        constexpr int button_zoom = init_compact_mode ? 6 : 7;
+        constexpr int image_zoom = button_zoom;
         constexpr ImVec2 button_padding = {2, 2};
         constexpr float image_padding = 1;
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + (show_random_access ? 3 : 5);
@@ -1512,7 +1509,7 @@ void edit_rule(frame_main_token) {
                 size += imgui_ItemInnerSpacingX() + imgui_CalcTextSize(labels_disp_from_to[0]).x;
                 return std::max(size, config.width());
             } else {
-                return image_padding * 2 + 3 * button_zoom + imgui_ItemInnerSpacingX() +
+                return image_padding * 2 + 3 * image_zoom + imgui_ItemInnerSpacingX() +
                        imgui_CalcTextSize(labels_disp[0]).x;
             }
         }();
@@ -1546,7 +1543,7 @@ void edit_rule(frame_main_token) {
                     }
                     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5, 0.5, 0.5, 1));
                     ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, image_padding);
-                    code_image(code, button_zoom);
+                    code_image(code, image_zoom);
                     ImGui::PopStyleVar();
                     ImGui::PopStyleColor();
 
@@ -1596,7 +1593,7 @@ void edit_rule(frame_main_token) {
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5, 0.5, 0.5, 1));
                 ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, image_padding);
-                code_image(head, button_zoom);
+                code_image(head, image_zoom);
                 ImGui::PopStyleVar();
                 ImGui::PopStyleColor();
 
