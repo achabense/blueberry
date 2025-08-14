@@ -188,6 +188,7 @@ public:
     }
 };
 
+// !!TODO: (v0.9.9) should redesign...
 class guide_mode : no_create {
     inline static bool enable_tooltip = false;
 

@@ -1716,11 +1716,10 @@ void previewer::configT::_set() {
     ImGui::Separator();
     menu_like_popup::button("Init state");
     menu_like_popup::popup([] {
-        // !!TODO: (v0.9.9) support both global and per-group setting mode?
-        imgui_Str("(These are shared by all groups.)");
-        ImGui::Separator();
-
         initT& init = _global_data::init;
+        ImGui::AlignTextToFramePadding();
+        imgui_StrTooltip("(?)", "These are shared by all groups.");
+        ImGui::SameLine();
         if (ImGui::Button("Reset") && messenger::dot()) {
             init = _global_data::init_init;
         }

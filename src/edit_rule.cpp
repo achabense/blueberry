@@ -24,6 +24,7 @@ namespace aniso {
         subsetT ignore_jvn = make_subset({mp_jvn_ignore});
         subsetT ignore_wadx = make_subset({mp_ignore_wadx});
 
+        // !!TODO: (v0.9.9) remove this when partialT is supported?
         // rule[{0}] == rule[{511}].
         subsetT single_stable_state{.rule = rule_all_zero, .p = [] {
                                         equivT eq{};
@@ -142,7 +143,7 @@ class subset_selector : no_copy {
         const char* const desc;
 
         bool selected = false;
-        bool includes = false;   // set->includes(m_current).
+        bool includes = false;  // set->includes(m_current).
         bool has_common = true; // has_common(*set, m_current).
     };
 
@@ -252,8 +253,7 @@ public:
                                  "Rules whose values are independent of 'w', 'a', 'd' and 'x'.\n\n"
                                  "(This can work naturally with native-symmetry sets.)");
             m_terms.emplace_back(
-                "Compl", // TODO: needs better name...
-                &subsets.self_complementary,
+                "0<>1", &subsets.self_complementary,
                 "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].\n\n"
                 "To achieve this, for any case and its complement, the rule will map center cell to values so that the resulting \"flip-ness\" are the same.\n\n"
                 "     |q w e|             |!q!w!e|\n"
@@ -280,8 +280,7 @@ public:
                     "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
             }
 
-            m_terms.emplace_back("Uniq", // TODO: needs better name...
-                                 &subsets.single_stable_state,
+            m_terms.emplace_back("00=11", &subsets.single_stable_state,
                                  "Rules that map all-0 and all-1 cases to the same value.\n\n"
                                  "    |0 0 0|       |1 1 1|\n"
                                  "rule|0 0 0| = rule|1 1 1|\n"
@@ -635,7 +634,7 @@ class rule_selector : no_copy {
          "[S] will be updated when you drag a rule to it, or when [R] changes and no longer contains [S] (in this case, [S] will be updated to an unspecified rule in [S]).\n"
          "If the rule equals 'Zero' or 'Identity' ... will select directly without updating 'Other'; otherwise, will update and select 'Other'...\n"
          "When you select with the radio buttons, 'Other' will not be changed...\n"
-         "... (... 'Compl & Total(+s)'.)"},
+         "... (... '0<>1 & Total(+s)'.)"},
     };
 
     const aniso::ruleT& get_rule(tagE tag) const {
@@ -927,9 +926,10 @@ public:
     const aniso::ruleT& get() const { return m_rule.get(); }
     void set(const aniso::ruleT& rule) { m_rule.set(rule); }
 
+    // !!TODO: (v0.9.9) reconsider this design (resetting rules silently)...
+    // -> require manually specifying a rule?
     bool sync(const aniso::subsetT& working_set, const aniso::ruleT& defl) {
         if (!m_rule.assigned() || !working_set.contains(m_rule.get())) {
-            // TODO: or require manually specifying a rule?
             assert(working_set.contains(defl));
             m_rule.set(defl);
             return true;
@@ -957,7 +957,7 @@ public:
                 rclick_popup::popup(ImGui::GetItemID(), [&] {
                     imgui_StrTooltip(
                         "(...)",
-                        "[X]/[Y]/[Z] can be arbitrary rules in [S]. When [S] changes and no longer contains them (& initially), they will be reset to an unspecified rule in [S].\n\n" // !!TODO: update...
+                        "[X]/[Y]/[Z] can be arbitrary rules in [S]. When [S] changes and no longer contains them (or when they appear initially), they will be reset to [R].\n\n"
                         "Drag a rule to the label to replace.\n"
                         "Drag the label to send the rule elsewhere.\n"
                         "Use 'Show in window' to display the rule in a regular window (recommended for 'Random-access').");
@@ -1031,7 +1031,6 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
 
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
-    // !!TODO: better title...
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
     if (auto window =
             imgui_Window("Traverse [S]", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
@@ -1095,7 +1094,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             "The seq will be cleared automatically if [S] or [X] changes.\n\n"
             "The \"dist\" in this window refers to distance to [X]. For example, 'Go to dist' will go to the first rule with specified distance to [X].\n\n"
             "1. If [S] is small enough (i.e. having only a few groups), you can easily traverse all rules, and it doesn't matter which rule serves as [X].\n"
-            "(Examples include self-complementary totalistic rules ('Comp' & 'Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All' & 'Von'), and so on.)\n"
+            "(Examples include self-complementary totalistic rules ('0<>1' & 'Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All' & 'Von'), and so on.)\n"
             "2. If [S] is large, this still works (the page is generated on demand; rules outside of the page are never stored), but 'Random'/'Random-access' may be more suitable tools.");
         ImGui::SameLine();
         imgui_Str("Go to dist ~ ");
@@ -1374,7 +1373,8 @@ void edit_rule(frame_main_token) {
         static bool show_rand = false;
         appearing.reset_if_appearing(show_rand);
         ImGui::Checkbox("Random", &show_rand);
-        guide_mode::item_tooltip("Get random rules in [S].");
+        guide_mode::item_tooltip("Get random rules in [S].\n\n"
+                                 "(Mainly useful for large sets.)");
         if (show_rand) {
             const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
             random_rule_window(init_pos, working_set, observer).reset_if_closed(show_rand);
@@ -1383,23 +1383,29 @@ void edit_rule(frame_main_token) {
     ImGui::SameLine();
     {
         ImGui::Checkbox("Random-access", &show_random_access);
-        // !!TODO: unfinished; -> regular tooltip.
-        guide_mode::item_tooltip(
-            "Enable random-access editing, i.e. flipping values of [Z] by groups. When this is turned on, the table will display the flipping result for each group, i.e. all rules with dist = 1 to [Z] (in [S]).\n\n"
-            "By clicking a group button, the values of [Z] (in that group) will be flipped (equivalent to dragging the rule to [Z]). The operation effectively swaps [Z] and the rule (this will be obvious if you turn on the window for [Z]), and can be undone by clicking the same button again.\n\n"
-            "1. Collapse the set table ('Collapse') to leave more room for preview windows.\n"
-            "2. Open menu for [Z] for the record (to switch among recently tested rules).\n"
-            "3. Use 'Misc' window's temp rules to ...");
-
+        guide_mode::item_tooltip("Flip values of rules (in [S]) by groups.\n\n"
+                                 "(Mainly useful for large sets.)");
         if (!show_random_access) {
             if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
                 target.set(*deliv);
                 show_random_access = true;
                 messenger::dot();
-                // (v will be skipped for this frame; that's ok.)
             }
-        } else {
+        }
+        if (show_random_access) {
             target.sync(working_set, observer);
+
+            // TODO: use (?) or (...)? (It's getting unclear which is for which...)
+            ImGui::SameLine();
+            imgui_StrTooltip(
+                "(?)",
+                "[Z] stands for an arbitrary rule in [S].\n\n"
+                "The preview windows display the flipping result for each group. In other words, the table displays all rules with dist = 1 to [Z].\n\n"
+                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip the values of [Z] in that group. (So it effectively swaps [Z] and the previewed rule, and can be undone by clicking the same button again.)"
+                /*"1. Collapse the set table ('Collapse') to leave more room for preview windows.\n"
+                "2. Open menu for [Z] for the record (to switch among recently tested rules).\n"
+                "3. Use the 'Misc' window to temporarily store the rule.\n"
+                "4. Turn on 'Show in window' for better control. (The swapping effect will be obvious.)"*/);
 
             ImGui::SameLine();
             target.display("[Z]", "Recent - [Z]", config, working_set);
