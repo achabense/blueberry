@@ -6,13 +6,15 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 FetchContent_Declare(
-    SDL2
+    SDL3
     GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-    GIT_TAG        98d1f3a45aae568ccd6ed5fec179330f47d4d356 #release-2.32.8
+    GIT_TAG        96292a5b464258a2b926e0a3d72f8b98c2a81aa6 #release-3.2.20
     GIT_PROGRESS   TRUE
     GIT_SHALLOW    TRUE
 )
-FetchContent_MakeAvailable(SDL2)
+set(SDL_SHARED FALSE CACHE BOOL "" FORCE)
+set(SDL_STATIC TRUE CACHE BOOL "" FORCE) # Necessary for SDL3-static.
+FetchContent_MakeAvailable(SDL3)
 
 project(Blueberry LANGUAGES CXX)
 
@@ -39,4 +41,4 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_include_directories(${PROJECT_NAME} PRIVATE src imgui imgui/backends)
-target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2-static SDL2::SDL2main)
+target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3-static)

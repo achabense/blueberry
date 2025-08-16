@@ -6,8 +6,8 @@
       "description": "Target Windows with the Visual Studio development environment.",
       "hidden": true,
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "installDir": "${sourceDir}/out/install/${presetName}",
+      "binaryDir": "${sourceDir}/out/build-SDL3/${presetName}",
+      "installDir": "${sourceDir}/out/install-SDL3/${presetName}",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe"
@@ -46,12 +46,6 @@
         "CMAKE_C_COMPILER": "clang.exe",
         "CMAKE_CXX_COMPILER": "clang++.exe"
       }
-      // This is not set automatically, and the intellisense will behave as if picking an older standard...
-      // "vendor": {
-      //   "microsoft.com/VisualStudioSettings/CMake/1.0": {
-      //     "intelliSenseMode": "windows-clang-x64"
-      //   }
-      // }
     },
     {
       "name": "x64-debug-gcc",
