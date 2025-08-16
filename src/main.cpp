@@ -196,6 +196,11 @@ void backend_fn::set_frame_rate() { //
 int main(int, char**) {
     assert(!window && !renderer);
 
+    // Workaround to setup DPI unawareness (to let the system (Windows) do the scaling).
+    // Without this the program will appear small by default, and users need to fix DPI settings manually (Compatibility/Change high DPI settings/Override high DPI scaling behavior->System).
+    // (The `SDL_HINT_WINDOWS_DPI_AWARENESS` macro has been removed in the new SDL3 version, but the string still works.)
+    SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "unaware");
+
     // Setup SDL
     if (!SDL_Init(SDL_INIT_VIDEO /*| SDL_INIT_GAMEPAD*/)) {
         resource_failure();
@@ -205,8 +210,7 @@ int main(int, char**) {
     // SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "1");
 
     // Create window with SDL_Renderer graphics context
-    // 1. There seems no simple way to "scale everything" (as performed by the system) using ImGui & SDL3.
-    // (And horribly, SDL3 seems to have removed DPI-unaware mode...)
+    // 1. There seems no simple way to "scale everything" within program using ImGui & SDL3.
     // 2. Even if the UI size is scaled accordingly, the pattern textures (which requires nearest/rounded scale-mode) will appear broken if the scale is not integral (e.g. 1.5).
     [[maybe_unused]] const float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     {
@@ -214,7 +218,6 @@ int main(int, char**) {
         constexpr SDL_WindowFlags window_flags =
             (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
         if constexpr (1) {
-            // Will appear small; needs manual setting (Compatibility/Change high DPI settings/Override high DPI scaling behavior->System)
             window = SDL_CreateWindow(window_title, 1280, 720, window_flags);
         } else {
             window = SDL_CreateWindow(window_title, (int)(1280 * main_scale), (int)(720 * main_scale), window_flags);
