@@ -730,4 +730,24 @@ namespace aniso {
             });
         }
     };
+
+    // !!TODO: (v0.9.9) implement intersection between subsetT and partialT...
+    bool has_common(const partialT& a, const partialT& b) = delete;
+    partialT operator&(const partialT& a, const partialT& b) = delete;
+
+    struct subsetT_v2 {
+        ruleT rule;
+        partitionT p;
+        lockT lock;
+        bool contains(const ruleT& r) const = delete;
+    };
+
+    bool has_common(const subsetT& a, const partialT& b) = delete;
+    subsetT_v2 operator&(const subsetT& a, const partialT& b) = delete;
+
+    bool includes(const subsetT& a, const subsetT_v2& b) = delete;
+    bool includes(const partialT& a, const subsetT_v2& b) = delete;
+    bool has_common(const subsetT& a, const subsetT_v2& b) = delete;
+    bool has_common(const partialT& a, const subsetT_v2& b) = delete;
+
 } //  namespace aniso

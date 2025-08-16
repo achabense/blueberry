@@ -46,12 +46,6 @@
         "CMAKE_C_COMPILER": "clang.exe",
         "CMAKE_CXX_COMPILER": "clang++.exe"
       }
-      // This is not set automatically, and the intellisense will behave as if picking an older standard...
-      // "vendor": {
-      //   "microsoft.com/VisualStudioSettings/CMake/1.0": {
-      //     "intelliSenseMode": "windows-clang-x64"
-      //   }
-      // }
     },
     {
       "name": "x64-debug-gcc",
