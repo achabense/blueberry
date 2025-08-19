@@ -180,6 +180,13 @@ class subset_selector : no_copy {
         }
     }
 
+    void toggle(termT& t) {
+        assert(t.selected || t.has_common);
+
+        t.selected = !t.selected;
+        update_current();
+    }
+
 public:
     // `sel` should be either nullptr or address of one of members in `aniso::subsets`.
     void select_single(const aniso::subsetT* const sel) {
@@ -493,8 +500,7 @@ public:
                     if (r_down) {
                         select_single(term.set);
                     } else if (term.has_common) {
-                        term.selected = !term.selected;
-                        update_current();
+                        toggle(term);
                     }
                 }
                 ImGui::EndDisabled();
