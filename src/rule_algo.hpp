@@ -61,6 +61,21 @@ namespace aniso {
         return rule;
     }
 
+    inline const codeT* find_locked(const groupT& group, const lockT& l) {
+        for (const codeT& c : group) {
+            if (l[c]) {
+                return &c;
+            }
+        }
+        return nullptr;
+    }
+
+    inline bool all_same(const groupT& group, const ruleT& a, const ruleT& b) {
+        return std::ranges::all_of(group, [&](const codeT code) { //
+            return a[code] == b[code];
+        });
+    }
+
     inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b) {
         const bool v = a[group[0]] == b[group[0]];
         return std::ranges::all_of(group.subspan(1), [&, v](const codeT code) { //
@@ -68,8 +83,7 @@ namespace aniso {
         });
     }
 
-    [[deprecated]] inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b,
-                                                     const lockT& l) {
+    inline bool all_same_or_different_locked(const groupT& group, const ruleT& a, const ruleT& b, const lockT& l) {
         for (int v = -1; const codeT c : group) {
             if (l[c]) {
                 if (v == -1) {
@@ -599,7 +613,10 @@ namespace aniso {
     inline subsetT make_subset(std::initializer_list<mapperT> mappers, const ruleT& rule = rule_all_zero) {
         equivT eq{};
         for (const mapperT& m : mappers) {
-            add_eq(eq, m, mp_identity);
+            // add_eq(eq, m, mp_identity);
+            for (const codeT code : each_code) {
+                eq.add_eq(m(code), code);
+            }
         }
         return subsetT{.rule = rule, .p = eq};
     }
@@ -713,21 +730,83 @@ namespace aniso {
                 return !lock[code] || rule[code] == r[code];
             });
         }
-
-        // Less restrictive than `other`.
         bool includes(const partialT& other) const {
-            return for_each_code_all_of([&](codeT code) { //
+            return for_each_code_all_of([&](codeT code) { // Less restrictive.
                 return !lock[code] || (other.lock[code] && rule[code] == other.rule[code]);
             });
         }
 
         friend bool operator==(const partialT& a, const partialT& b) {
-            return for_each_code_all_of([&](codeT code) {
-                if (a.lock[code] != b.lock[code]) {
-                    return false;
-                }
-                return !a.lock[code] || a.rule[code] == b.rule[code];
+            return for_each_code_all_of([&](codeT code) { //
+                return a.lock[code] == b.lock[code] && (!a.lock[code] || a.rule[code] == b.rule[code]);
             });
         }
+
+        static partialT universal() { return {.rule{}, .lock{}}; }
     };
+
+    inline bool has_common(const partialT& a, const partialT& b) {
+        return for_each_code_all_of([&](codeT code) { // No conflicts.
+            return !(a.lock[code] && b.lock[code] && a.rule[code] != b.rule[code]);
+        });
+    }
+    inline partialT operator&(const partialT& a, const partialT& b) {
+        partialT p = a;
+        for (const codeT code : each_code) {
+            if (b.lock[code]) {
+                // <-> `assert(has_common(a, b))`:
+                assert(!p.lock[code] || p.rule[code] == b.rule[code]);
+                p.set(code, b.rule[code]);
+            }
+        }
+        return p;
+    }
+
+    // !!TODO: (v0.9.9) implement intersection between subsetT and partialT...
+    struct subsetT_v2 {
+        ruleT rule;
+        partitionT p;
+        lockT lock; // All-true/false in each group.
+
+        bool contains(const ruleT& r) const {
+            return std::ranges::all_of(p.groups(), [&](const groupT& group) { //
+                return lock[group[0]] ? all_same(group, rule, r) : all_same_or_different(group, rule, r);
+            });
+        }
+        bool includes(const subsetT_v2&) = delete;
+
+        friend bool operator==(const subsetT_v2& a, const subsetT_v2& b) = delete;
+
+        static subsetT_v2 universal() { return {.rule{}, .p{equivT{}}, .lock{}}; }
+    };
+
+    inline bool has_common(const subsetT& a, const partialT& b) {
+        return std::ranges::all_of(a->groups(), [&](const groupT& group) { //
+            return all_same_or_different_locked(group, a.rule, b.rule, b.lock);
+        });
+    }
+    inline subsetT_v2 operator&(const subsetT& a, const partialT& b) {
+        assert(has_common(a, b));
+        ruleT rule = a.rule;
+        lockT lock = {};
+        for (const groupT& group : a->groups()) {
+            if (const codeT* pos = find_locked(group, b.lock)) {
+                if (rule[*pos] != b.rule[*pos]) {
+                    flip_values_r(group, rule);
+                }
+                for (const codeT code : group) {
+                    lock[code] = true;
+                }
+            }
+        }
+        return {.rule = rule, .p = a.p, .lock = lock};
+    }
+
+    bool includes(const subsetT& a, const subsetT_v2& b) = delete;
+    bool includes(const partialT& a, const subsetT_v2& b) = delete;
+    bool has_common(const subsetT& a, const subsetT_v2& b) = delete;
+    bool has_common(const partialT& a, const subsetT_v2& b) = delete;
+    subsetT_v2 operator&(const subsetT& a, const subsetT_v2& b) = delete;
+    subsetT_v2 operator&(const partialT& a, const subsetT_v2& b) = delete;
+
 } //  namespace aniso
