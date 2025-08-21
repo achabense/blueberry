@@ -626,6 +626,7 @@ class textT : no_copy {
         std::pair<int, int> minmax() const { return std::minmax(beg, end); }
     };
     std::optional<selT> m_sel = std::nullopt;
+    bool menu_opened = false;
 
     preview_setting m_preview{}; // TODO: move out of class?
 
@@ -648,6 +649,7 @@ public:
 
         m_pos.reset();
         m_sel.reset();
+        menu_opened = false;
 
         do_rewind = false;
         go_line = -1;
@@ -733,22 +735,43 @@ public:
                 // when there are selected lines.
                 assert(false);
                 m_sel.reset(); // Defensive.
-            } else if (!ImGui::IsMouseDown(ImGuiMouseButton_Right) /* From anywhere */) {
-                // Note: `IsMouseReleased` may fail to catch release event in rare cases. For example:
-                // [right-down] -> left-click the program-window's title bar [both-down] ->
-                // release right mouse [left-down], then a menu will appear -> minimize and restore the program.
-                m_sel.reset();
-            } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) /* From anywhere */) {
-                const auto [min, max] = m_sel->minmax();
-                std::string str;
-                for (int i = min; i <= max; ++i) {
-                    if (i != min) {
-                        str += '\n';
-                    }
-                    str += m_lines[i].str.get(m_text);
+                menu_opened = false;
+            } else {
+                const ImGuiID popup_id = ImGui::GetID("Menu");
+                if (!menu_opened && !ImGui::IsMouseDown(ImGuiMouseButton_Right) /* Released from anywhere */) {
+                    // Note: `IsMouseReleased` may fail to catch release event in rare cases. For example:
+                    // [right-down] -> left-click the program-window's title bar [both-down] ->
+                    // release right mouse [left-down], then a menu will appear -> minimize and restore the program.
+                    ImGui::OpenPopup(popup_id);
+                    menu_opened = true;
                 }
-                // (wontfix) Won't copy if `str` contains '\0' (not expected to appear in utf8 text files).
-                set_clipboard_and_notify(str);
+                if (menu_opened) {
+                    if (imgui_BeginPopupRecycled(popup_id)) {
+                        lock_scroll();
+                        if (ImGui::Selectable("Copy text")) {
+                            const auto [min, max] = m_sel->minmax();
+                            std::string str;
+                            for (int i = min; i <= max; ++i) {
+                                if (i != min) {
+                                    str += '\n';
+                                }
+                                str += m_lines[i].str.get(m_text);
+                            }
+                            // (wontfix) Won't copy if `str` contains '\0' (not expected to appear in utf8 text files).
+                            set_clipboard_and_notify(str);
+                        }
+                        // TODO: support more operations (e.g. pattern extraction)
+                        if constexpr (debug_mode_double_esc_to_close) {
+                            if (test_esc()) {
+                                ImGui::CloseCurrentPopup();
+                            }
+                        }
+                        ImGui::EndPopup();
+                    } else {
+                        menu_opened = false;
+                        m_sel.reset();
+                    }
+                }
             }
         }
 
@@ -797,7 +820,7 @@ public:
 
         // Prevent interaction with other widgets, so that for example, the parent window cannot be
         // closed when there are selected lines.
-        if (m_sel) {
+        if (!menu_opened && m_sel) {
             const ImGuiID claim = ImGui::GetID("Claim");
             ImGuiWindow* const window = ImGui::GetCurrentWindow();
 
@@ -851,7 +874,7 @@ private:
         if (auto child = imgui_ChildWindow("Content")) {
             // set_scroll_by_up_down(ImGui::GetTextLineHeight() * 2);
 
-            const bool test_hover = (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
+            const bool test_hover = !menu_opened && (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos();
             const float region_max_x = imgui_GetContentRegionMaxAbsX();
             ImDrawList& drawlist = *ImGui::GetWindowDrawList();
