@@ -726,6 +726,8 @@ public:
         }
     }
 
+    static constexpr const char* about_selection = "Drag with right button to select lines.";
+
     void display() {
         assert_implies(m_lines.empty(), m_text.empty() && m_rules.empty());
 
@@ -781,9 +783,13 @@ public:
             std::optional<int> iter_pos = std::nullopt;
             if (!m_rules.empty()) {
                 iter_pos = display_seq(m_rules.size(), m_pos);
-                // ImGui::SameLine();
-                // ImGui::Checkbox("Preview", &m_preview.enabled); // TODO: whether to support hiding preview windows?
-                assert(m_preview.enabled);
+                if constexpr (0) {
+                    // TODO: whether to support hiding preview windows?
+                    ImGui::SameLine();
+                    ImGui::Checkbox("Preview", &m_preview.enabled);
+                } else {
+                    assert(m_preview.enabled);
+                }
                 if (m_preview.enabled) {
                     ImGui::SameLine();
                     m_preview.config.set("Settings");
@@ -840,7 +846,7 @@ public:
     }
 
 private:
-    static std::optional<int> display_seq(const int total, const std::optional<int> m_pos) {
+    static std::optional<int> display_seq(const int total, std::optional<int>& m_pos) {
         std::optional<int> pos = std::nullopt;
         assert(total > 0);
         switch (sequence::seq("<|", "Prev", "Next", "|>")) {
@@ -855,6 +861,14 @@ private:
             ImGui::Text("Total:%d At:%d", total, *m_pos + 1);
         } else {
             ImGui::Text("Total:%d At:N/A", total);
+        }
+        if constexpr (debug_mode) {
+            // TODO: whether to support clearing?
+            rclick_popup::popup(imgui_GetItemPosID(), [&] {
+                if (ImGui::Selectable("Clear cursor") && messenger::dot()) {
+                    m_pos.reset();
+                }
+            });
         }
         return pos;
     }
@@ -1098,6 +1112,10 @@ public:
             }
         }
     }
+
+    const char* window_tooltip() const { //
+        return file_path.has_value() && !text.empty() ? textT::about_selection : nullptr;
+    }
 };
 
 class load_clipboard_impl : no_copy {
@@ -1155,6 +1173,8 @@ public:
         ImGui::Separator();
         text.display();
     }
+
+    const char* window_tooltip() const { return nullptr; }
 };
 
 // Defined in "docs.cpp". [0]:title [1]:contents, null-terminated.
@@ -1219,40 +1239,47 @@ public:
             }
         }
     }
+
+    const char* window_tooltip() const { //
+        return doc_id.has_value() ? textT::about_selection : nullptr;
+    }
 };
 
-static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& init_pos
-                                   /*, bool force_uncollapse = false*/) {
+static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& init_pos, const char* tooltip) {
     // assert(open);
-    ImGui::SetNextWindowCollapsed(false, /*force_uncollapse ? ImGuiCond_Always :*/ ImGuiCond_Appearing);
+    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
+    if constexpr (debug_mode) {
+        // !!TODO: whether to document this way?
+        imgui_Window::next_window_titlebar_tooltip = tooltip;
+    }
     return imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings);
 }
 
 open_state load_file(const ImVec2 init_pos, frame_main_token) {
+    static load_file_impl loader(get_home_path());
     bool open = true;
-    if (auto window = prepare_window("Files", open, init_pos)) {
-        static load_file_impl loader(get_home_path());
+    if (auto window = prepare_window("Files", open, init_pos, loader.window_tooltip())) {
         loader.display();
     }
     return {open};
 }
 
 open_state load_clipboard(const ImVec2 init_pos, frame_main_token) {
+    static load_clipboard_impl loader;
     bool open = true;
-    if (auto window = prepare_window("Clipboard", open, init_pos)) {
-        static load_clipboard_impl loader;
+    if (auto window = prepare_window("Clipboard", open, init_pos, loader.window_tooltip())) {
         loader.display();
     }
     return {open};
 }
 
 open_state load_doc(const ImVec2 init_pos, frame_main_token) {
+    static load_doc_impl loader;
     bool open = true;
-    if (auto window = prepare_window("Documents", open, init_pos)) {
-        static load_doc_impl loader;
+    if (auto window = prepare_window("Documents", open, init_pos, loader.window_tooltip())) {
         loader.display();
     }
     return {open};
