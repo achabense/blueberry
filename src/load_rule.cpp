@@ -1003,13 +1003,15 @@ static int count_line(const std::string_view str) { //
     return str.empty() ? 0 : std::ranges::count(str, '\n') + 1;
 }
 
+// TODO: -> m_.
 // TODO: support opening multiple files?
 // TODO: add a mode to avoid opening files without rules?
-static void load_file_impl() {
-    static file_nav nav(get_home_path());
-    static std::optional<pathT> file_path;
-    static textT text;
-    static const auto try_load = [](const pathT& p) -> bool {
+class load_file_impl : no_copy {
+    file_nav nav;
+    textT text;
+    std::optional<pathT> file_path = std::nullopt;
+
+    bool try_load(const pathT& p) {
         if (std::string str; load_binary(p, str)) {
             if (const int l = count_line(str); l > max_line) {
                 messenger::set_msg("The file contains too many lines: {} > {}", l, max_line);
@@ -1026,59 +1028,125 @@ static void load_file_impl() {
         return false;
     };
 
-    if (!file_path) {
-        if (nav.valid()) {
-            if (ImGui::SmallButton("Refresh")) {
-                nav.refresh_if_valid();
-            }
-            // guide_mode::item_tooltip("Reload entry list.");
-            ImGui::SameLine();
-            display_path(nav.current_path(), ImGui::GetContentRegionAvail().x);
-        } else {
-            imgui_StrDisabled("N/A");
-        }
+public:
+    load_file_impl(const pathT& base) : nav(base) {}
 
-        ImGui::Separator();
-        if (auto sel = nav.display(); sel && try_load(*sel)) {
-            text.reset_scroll();
-            file_path = std::move(*sel);
-        }
-    } else {
-        const bool close = ImGui::SmallButton("Close");
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Reload")) {
-            if (try_load(*file_path)) {
-                messenger::dot();
+    void display() {
+        if (!file_path) {
+            if (nav.valid()) {
+                if (ImGui::SmallButton("Refresh")) {
+                    nav.refresh_if_valid();
+                }
+                // guide_mode::item_tooltip("Reload entry list.");
+                ImGui::SameLine();
+                display_path(nav.current_path(), ImGui::GetContentRegionAvail().x);
+            } else {
+                imgui_StrDisabled("N/A");
             }
-            // Won't reset scroll.
-        }
-        // guide_mode::item_tooltip("Reload from disk.");
-        ImGui::SameLine();
-        ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
-        menu_like_popup::small_button("Select");
-        menu_like_popup::popup([] {
-            if (ImGui::Button("Refresh")) {
-                nav.refresh_if_valid();
-            }
-            // guide_mode::item_tooltip("Reload entry list.");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(floor(item_width * 0.75));
-            nav.input_filter();
+
             ImGui::Separator();
-
-            std::optional<pathT> sel = std::nullopt;
-            const pathT name = file_path->filename();
-            nav.select_file(sel, &name);
-            if (sel && try_load(*sel)) {
-                text.reset_scroll(); // Even if the new path is the same as the old one.
+            if (auto sel = nav.display(); sel && try_load(*sel)) {
+                text.reset_scroll();
                 file_path = std::move(*sel);
             }
-        });
+        } else {
+            const bool close = ImGui::SmallButton("Close");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Reload")) {
+                if (try_load(*file_path)) {
+                    messenger::dot();
+                }
+                // Won't reset scroll.
+            }
+            // guide_mode::item_tooltip("Reload from disk.");
+            ImGui::SameLine();
+            ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
+            menu_like_popup::small_button("Select");
+            menu_like_popup::popup([&] {
+                if (ImGui::Button("Refresh")) {
+                    nav.refresh_if_valid();
+                }
+                // guide_mode::item_tooltip("Reload entry list.");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(floor(item_width * 0.75));
+                nav.input_filter();
+                ImGui::Separator();
+
+                std::optional<pathT> sel = std::nullopt;
+                const pathT name = file_path->filename();
+                nav.select_file(sel, &name);
+                if (sel && try_load(*sel)) {
+                    text.reset_scroll(); // Even if the new path is the same as the old one.
+                    file_path = std::move(*sel);
+                }
+            });
+            ImGui::SameLine();
+            display_filename(*file_path);
+            ImGui::SameLine();
+            menu_like_popup::small_button(">");
+            menu_like_popup::popup([&] { text.select_line(); });
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Top") && messenger::dot()) {
+                text.reset_scroll();
+            }
+
+            ImGui::Separator();
+            text.display();
+            if (close) {
+                file_path.reset();
+                text.clear();
+            }
+        }
+    }
+};
+
+class load_clipboard_impl : no_copy {
+    textT text;
+    std::string last_str;
+    bool dedup = true;
+
+public:
+    void display() {
+        // (The page will hold roughly at most 1.5*max_size/line.)
+        const bool too_much_content = text.lines() > max_line || text.length() > max_size;
+        ImGui::BeginDisabled(too_much_content);
+        if (ImGui::SmallButton("Paste")) {
+            if (const std::string_view str = read_clipboard(); !str.empty()) {
+                if (str.size() > max_size / 2) {
+                    messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
+                } else if (const int l = count_line(str); l > max_line / 2) {
+                    messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
+                } else if (!compare_update(last_str, str) && dedup) {
+                    messenger::set_msg("Identical.");
+                } else {
+                    const int to = text.lines();
+                    text.append(str);
+                    text.to_line(to);
+                }
+            }
+        }
+        ImGui::EndDisabled();
+        if (too_much_content) {
+            imgui_ItemTooltip("Too much content.");
+        }
+
         ImGui::SameLine();
-        display_filename(*file_path);
+        if (double_click_button_small("Clear") && messenger::dot()) {
+            text.clear();
+            last_str.clear();
+            // last_str.shrink_to_fit(); // TODO: whether to release memory?
+        }
+        if constexpr (debug_mode) {
+            ImGui::SameLine();
+            ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
+            ImGui::Checkbox("Dedup", &dedup);
+            ImGui::PopStyleVar();
+        }
+        // ImGui::SameLine();
+        // imgui_Str("Clipboard");
         ImGui::SameLine();
         menu_like_popup::small_button(">");
-        menu_like_popup::popup([] { text.select_line(); });
+        menu_like_popup::popup([&] { text.select_line(); });
         ImGui::SameLine();
         if (ImGui::SmallButton("Top") && messenger::dot()) {
             text.reset_scroll();
@@ -1086,74 +1154,17 @@ static void load_file_impl() {
 
         ImGui::Separator();
         text.display();
-        if (close) {
-            file_path.reset();
-            text.clear();
-        }
     }
-}
+};
 
-static void load_clipboard_impl() {
-    static textT text;
-    static std::string last_str;
-    static bool dedup = true;
+// Defined in "docs.cpp". [0]:title [1]:contents, null-terminated.
+extern const char* const docs[][2];
 
-    // (The page will hold roughly at most 1.5*max_size/line.)
-    const bool too_much_content = text.lines() > max_line || text.length() > max_size;
-    ImGui::BeginDisabled(too_much_content);
-    if (ImGui::SmallButton("Paste")) {
-        if (const std::string_view str = read_clipboard(); !str.empty()) {
-            if (str.size() > max_size / 2) {
-                messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
-            } else if (const int l = count_line(str); l > max_line / 2) {
-                messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
-            } else if (!compare_update(last_str, str) && dedup) {
-                messenger::set_msg("Identical.");
-            } else {
-                const int to = text.lines();
-                text.append(str);
-                text.to_line(to);
-            }
-        }
-    }
-    ImGui::EndDisabled();
-    if (too_much_content) {
-        imgui_ItemTooltip("Too much content.");
-    }
+class load_doc_impl : no_copy {
+    textT text;
+    std::optional<int> doc_id = std::nullopt;
 
-    ImGui::SameLine();
-    if (double_click_button_small("Clear") && messenger::dot()) {
-        text.clear();
-        last_str.clear();
-        // last_str.shrink_to_fit(); // TODO: whether to release memory?
-    }
-    if constexpr (debug_mode) {
-        ImGui::SameLine();
-        ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
-        ImGui::Checkbox("Dedup", &dedup);
-        ImGui::PopStyleVar();
-    }
-    // ImGui::SameLine();
-    // imgui_Str("Clipboard");
-    ImGui::SameLine();
-    menu_like_popup::small_button(">");
-    menu_like_popup::popup([] { text.select_line(); });
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Top") && messenger::dot()) {
-        text.reset_scroll();
-    }
-
-    ImGui::Separator();
-    text.display();
-}
-
-static void load_doc_impl() {
-    // Defined in "docs.cpp". [0]:title [1]:contents, null-terminated.
-    extern const char* const docs[][2];
-
-    static textT text;
-    static std::optional<int> doc_id = std::nullopt;
-    static const auto select = [] {
+    void select() {
         for (int i = 0; docs[i][0] != nullptr; ++i) {
             const auto [title, contents] = docs[i];
             // if (ImGui::Selectable(title, doc_id == i, ImGuiSelectableFlags_NoAutoClosePopups) && doc_id != i) {
@@ -1165,47 +1176,50 @@ static void load_doc_impl() {
         }
     };
 
-    if (!doc_id) {
-        imgui_Str("A toy for exploring MAP rules, by GitHub user 'achabense'.");
-        imgui_Str("The latest version is available at: ");
-        ImGui::SameLine(0, 0);
-        constexpr const char* url = "https://github.com/achabense/blueberry";
-        // ImGui::TextLinkOpenURL(url);
-        imgui_Str(url);
-        rclick_popup::popup(imgui_GetItemPosID(), [] {
-            if (ImGui::Selectable("Copy link")) {
-                set_clipboard_and_notify(url);
-            }
-            if (has_open_url_fn() && ImGui::Selectable("Open in browser")) {
-                open_url(url);
-            }
-        });
+public:
+    void display() {
+        if (!doc_id) {
+            imgui_Str("A toy for exploring MAP rules, by GitHub user 'achabense'.");
+            imgui_Str("The latest version is available at: ");
+            ImGui::SameLine(0, 0);
+            constexpr const char* url = "https://github.com/achabense/blueberry";
+            // ImGui::TextLinkOpenURL(url);
+            imgui_Str(url);
+            rclick_popup::popup(imgui_GetItemPosID(), [] {
+                if (ImGui::Selectable("Copy link")) {
+                    set_clipboard_and_notify(url);
+                }
+                if (has_open_url_fn() && ImGui::Selectable("Open in browser")) {
+                    open_url(url);
+                }
+            });
 
-        ImGui::Separator();
-        select();
-    } else {
-        const bool close = ImGui::SmallButton("Close");
-        ImGui::SameLine();
-        menu_like_popup::small_button("Select");
-        menu_like_popup::popup(select);
-        ImGui::SameLine();
-        imgui_Str(docs[*doc_id][0]);
-        ImGui::SameLine();
-        menu_like_popup::small_button(">");
-        menu_like_popup::popup([] { text.select_line(); });
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Top") && messenger::dot()) {
-            text.reset_scroll();
-        }
+            ImGui::Separator();
+            select();
+        } else {
+            const bool close = ImGui::SmallButton("Close");
+            ImGui::SameLine();
+            menu_like_popup::small_button("Select");
+            menu_like_popup::popup([&] { select(); });
+            ImGui::SameLine();
+            imgui_Str(docs[*doc_id][0]);
+            ImGui::SameLine();
+            menu_like_popup::small_button(">");
+            menu_like_popup::popup([&] { text.select_line(); });
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Top") && messenger::dot()) {
+                text.reset_scroll();
+            }
 
-        ImGui::Separator();
-        text.display();
-        if (close) {
-            text.clear();
-            doc_id.reset();
+            ImGui::Separator();
+            text.display();
+            if (close) {
+                text.clear();
+                doc_id.reset();
+            }
         }
     }
-}
+};
 
 static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& init_pos
                                    /*, bool force_uncollapse = false*/) {
@@ -1220,7 +1234,8 @@ static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& 
 open_state load_file(const ImVec2 init_pos, frame_main_token) {
     bool open = true;
     if (auto window = prepare_window("Files", open, init_pos)) {
-        load_file_impl();
+        static load_file_impl loader(get_home_path());
+        loader.display();
     }
     return {open};
 }
@@ -1228,7 +1243,8 @@ open_state load_file(const ImVec2 init_pos, frame_main_token) {
 open_state load_clipboard(const ImVec2 init_pos, frame_main_token) {
     bool open = true;
     if (auto window = prepare_window("Clipboard", open, init_pos)) {
-        load_clipboard_impl();
+        static load_clipboard_impl loader;
+        loader.display();
     }
     return {open};
 }
@@ -1236,7 +1252,8 @@ open_state load_clipboard(const ImVec2 init_pos, frame_main_token) {
 open_state load_doc(const ImVec2 init_pos, frame_main_token) {
     bool open = true;
     if (auto window = prepare_window("Documents", open, init_pos)) {
-        load_doc_impl();
+        static load_doc_impl loader;
+        loader.display();
     }
     return {open};
 }
