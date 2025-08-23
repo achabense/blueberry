@@ -108,7 +108,9 @@ namespace aniso {
             const T& operator[](codeT code) const { return m_map[code]; }
             T& operator[](codeT code) { return m_map[code]; }
 
-            void fill(const T& v) { std::fill_n(std::data(m_map), 512, v); }
+            void fill(const T& v) { std::ranges::fill(m_map, v); }
+            void reset() { fill(T{}); }
+
             friend bool operator==(const map_to&, const map_to&) = default;
 
             ALWAYS_INLINE T operator()(codeT code) const

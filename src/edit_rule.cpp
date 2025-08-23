@@ -135,7 +135,7 @@ static int fit_count(int avail, int size, int spacing) { //
 // `subsetT` (and `mapperT` pair) are highly customizable. However, for sanity there is no plan to
 // support user-defined subsets in the gui part.
 class subset_selector : no_copy {
-    aniso::subsetT m_current = aniso::subsetT::universal();
+    aniso::subsetT m_current{};
 
     struct termT {
         const char* const title;
@@ -164,10 +164,10 @@ class subset_selector : no_copy {
     terms_ref terms_hex{};
 
     void update_current() {
-        m_current = aniso::subsetT::universal();
+        m_current.reset();
         for (const termT& t : m_terms) {
             if (t.selected) {
-                m_current = m_current & *t.set;
+                m_current &= *t.set;
             }
         }
 
