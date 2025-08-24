@@ -173,7 +173,8 @@ class subset_selector : no_copy {
 
         for (termT& t : m_terms) {
             t.includes = t.set->includes(m_current);
-            t.has_common = aniso::has_common(*t.set, m_current);
+            assert_implies(t.includes, aniso::has_common(*t.set, m_current));
+            t.has_common = t.includes /*perf*/ || aniso::has_common(*t.set, m_current);
 
             assert_implies(t.selected, t.includes);
             assert_implies(!t.has_common, !t.selected);
