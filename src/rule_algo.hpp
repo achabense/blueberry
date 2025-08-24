@@ -16,7 +16,7 @@ namespace aniso {
             }
         }
 
-        codeT head_for(codeT c) const {
+        codeT head_for(const codeT c) const {
             if (m_par[c] == c) {
                 return c;
             } else {
@@ -24,14 +24,14 @@ namespace aniso {
             }
         }
 
-        bool has_eq(codeT a, codeT b) const { return head_for(a) == head_for(b); }
+        bool has_eq(const codeT a, const codeT b) const { return head_for(a) == head_for(b); }
         bool has_eq(const equivT& other) const {
-            return for_each_code_all_of([&](codeT code) { //
+            return for_each_code_all_of([&](const codeT code) { //
                 return has_eq(code, other.m_par[code]);
             });
         }
 
-        void add_eq(codeT a, codeT b) { m_par[head_for(a)] = head_for(b); }
+        void add_eq(const codeT a, const codeT b) { m_par[head_for(a)] = head_for(b); }
         void add_eq(const equivT& other) {
             for (const codeT code : each_code) {
                 add_eq(code, other.m_par[code]);
@@ -50,6 +50,16 @@ namespace aniso {
     }
 
     using groupT = std::span<const codeT>;
+
+    // <-> `std::ranges::all_of(group, pred)`:
+    inline bool for_each_code_all_of(const groupT& group, const auto& pred) {
+        for (const codeT c : group) {
+            if (!pred(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     inline void flip_values_r(const groupT& group, ruleT& r) {
         for (const codeT c : group) {
@@ -83,14 +93,14 @@ namespace aniso {
     }
 
     inline bool all_same(const groupT& group, const ruleT& a, const ruleT& b) {
-        return std::ranges::all_of(group, [&](const codeT code) { //
+        return for_each_code_all_of(group, [&](const codeT code) { //
             return a[code] == b[code];
         });
     }
 
     inline bool all_same_or_different(const groupT& group, const ruleT& a, const ruleT& b) {
         const bool v = a[group[0]] == b[group[0]];
-        return std::ranges::all_of(group.subspan(1), [&, v](const codeT code) { //
+        return for_each_code_all_of(group.subspan(1), [&, v](const codeT code) { //
             return v == (a[code] == b[code]);
         });
     }
@@ -133,9 +143,9 @@ namespace aniso {
         /*implicit*/ partitionT(const equivT& eq) { assign(eq); }
         partitionT& operator=(const equivT& eq) = delete; // -> `assign(eq)`
 
-        groupT group_for(codeT code) const { return m_groups[m_map[code]].get(m_data); }
+        groupT group_for(const codeT code) const { return m_groups[m_map[code]].get(m_data); }
         // <-> `group_for(code)[0]`:
-        codeT head_for(codeT code) const { return m_data[m_groups[m_map[code]].pos]; }
+        codeT head_for(const codeT code) const { return m_data[m_groups[m_map[code]].pos]; }
 
         int k() const { return m_k; }
         auto groups() const { //
@@ -157,7 +167,7 @@ namespace aniso {
 
         bool has_group(const groupT& group) const {
             const int v = m_map[group[0]];
-            return std::ranges::all_of(group.subspan(1), [&, v](const codeT code) { //
+            return for_each_code_all_of(group.subspan(1), [&, v](const codeT code) { //
                 return v == m_map[code];
             });
         }
@@ -214,6 +224,14 @@ namespace aniso {
         }
     };
 
+#ifdef ENABLE_TESTS
+    namespace _tests {
+        inline const testT test_partition_defl = [] { //
+            assert(partitionT{} == partitionT{equivT{}});
+        };
+    } // namespace _tests
+#endif // ENABLE_TESTS
+
     inline void add_eq(equivT& eq, const groupT& group) {
         const codeT head = group[0];
         for (const codeT code : group.subspan(1)) {
@@ -250,8 +268,11 @@ namespace aniso {
             return p.for_each_group_all_of([&](const groupT& group) { return all_same_or_different(group, rule, r); });
         }
         bool includes(const subsetT& other) const {
-            return contains(other.rule) && // this.p is refinement of other.p ~>
-                   p.for_each_group_all_of([&](const groupT& group) { return other.p.has_group(group); });
+            // return contains(other.rule) && // this.p is refinement of other.p ~>
+            //        p.for_each_group_all_of([&](const groupT& group) { return other.p.has_group(group); });
+            return p.for_each_group_all_of([&](const groupT& group) { //
+                return all_same_or_different(group, rule, other.rule) && other.p.has_group(group);
+            });
         }
 
         // <-> `a.includes(b) && b.includes(a)`:
@@ -295,7 +316,7 @@ namespace aniso {
             }
         };
 
-        for_assertion(const partitionT par_both = a.p | b.p);
+        for_assertion(const partitionT p_ab = a.p | b.p);
         if (a_lock) {
             for (const codeT code : each_code) {
                 if ((*a_lock)[code] && !assigned[code]) {
@@ -314,13 +335,13 @@ namespace aniso {
             if (!assigned[code]) {
                 // Suppose there really exists r (that belongs to both a and b), then by flipping all its values in any group of (a.p | b.p), the result must still belong to both a and b, as any group of (a.p | b.p) corresponds to one or multiple (entire) groups of (a.p) or (b.p).
                 // So there doesn't exist a case where only one value is possible in the intersection - when no cases in a group are assigned, for any specific case there is no restriction for the value (either {0} or {1} will be ok; always using {0} here), and by deciding the value, the values for other cases in the group (of (a.p | b.p)) are decided transitively.
-                assert(std::ranges::none_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
+                assert(for_each_code_all_of(p_ab.group_for(code), [&](const codeT c) { return !assigned[c]; }));
                 try_assign(code, {0}, try_assign);
-                assert(std::ranges::all_of(par_both.group_for(code), [&](codeT c) { return assigned[c]; }));
+                assert(for_each_code_all_of(p_ab.group_for(code), [&](const codeT c) { return assigned[c]; }));
             }
         }
 
-        assert(for_each_code_all_of([&](codeT code) { return assigned[code]; }));
+        assert(for_each_code_all_of([&](const codeT code) { return assigned[code]; }));
         return common;
     }
 
@@ -466,7 +487,7 @@ namespace aniso {
     // Any-rule ^ rule_all_zero -> diff shows the rule's actual values.
     inline const ruleT rule_all_zero{};
     // Any-rule ^ rule_identity -> diff shows whether the cell will "flip" in each case.
-    inline const ruleT rule_identity{make_rule([](codeT c) { return c.get(codeT::bpos_s); })};
+    inline const ruleT rule_identity{make_rule([](const codeT c) { return c.get(codeT::bpos_s); })};
 
     // A mapperT maps each codeT to another codeT.
     // Especially, mapperT{"qweasdzxc"} maps any codeT to the same value.
@@ -475,7 +496,7 @@ namespace aniso {
             enum tagE : int8_t { O, I, Get, NGet };
             tagE tag;
             codeT::bposE bpos;
-            cellT operator()(codeT code) const {
+            cellT operator()(const codeT code) const {
                 switch (tag) {
                     case O: return {0};
                     case I: return {1};
@@ -493,7 +514,7 @@ namespace aniso {
         static void wrong_format() {}
 
     public:
-        codeT operator()(codeT code) const {
+        codeT operator()(const codeT code) const {
             return encode({q(code), w(code), e(code), //
                            a(code), s(code), d(code), //
                            z(code), x(code), c(code)});
@@ -789,24 +810,24 @@ namespace aniso {
         ruleT rule{};
         lockT lock{};
 
-        void set(codeT code, cellT v) {
+        void set(const codeT code, const cellT v) {
             rule[code] = v;
             lock[code] = true;
         }
 
         bool contains(const ruleT& r) const {
-            return for_each_code_all_of([&](codeT code) { //
+            return for_each_code_all_of([&](const codeT code) { //
                 return !lock[code] || rule[code] == r[code];
             });
         }
         bool includes(const partialT& other) const {
-            return for_each_code_all_of([&](codeT code) { // Less restrictive.
+            return for_each_code_all_of([&](const codeT code) { // Less restrictive.
                 return !lock[code] || (other.lock[code] && rule[code] == other.rule[code]);
             });
         }
 
         friend bool operator==(const partialT& a, const partialT& b) {
-            return for_each_code_all_of([&](codeT code) { //
+            return for_each_code_all_of([&](const codeT code) { //
                 return a.lock[code] == b.lock[code] && (!a.lock[code] || a.rule[code] == b.rule[code]);
             });
         }
@@ -818,7 +839,7 @@ namespace aniso {
     };
 
     inline bool has_common(const partialT& a, const partialT& b) {
-        return for_each_code_all_of([&](codeT code) { // No conflicts.
+        return for_each_code_all_of([&](const codeT code) { // No conflicts.
             return !(a.lock[code] && b.lock[code] && a.rule[code] != b.rule[code]);
         });
     }
@@ -892,7 +913,7 @@ namespace aniso {
 
     // TODO: equivalent to `a.includes({b.rule, b.lock})`...
     inline bool includes(const partialT& a, const subsetT_v2& b) {
-        return for_each_code_all_of([&](codeT code) { // Less restrictive.
+        return for_each_code_all_of([&](const codeT code) { // Less restrictive.
             return !a.lock[code] || (b.lock[code] && a.rule[code] == b.s.rule[code]);
         });
     }
@@ -902,7 +923,7 @@ namespace aniso {
             if (!b.lock[group[0]]) {
                 return all_same_or_different_locked(group, b.s.rule, a.rule, a.lock);
             } else {
-                return std::ranges::all_of(group, [&](const codeT code) { // No conflicts.
+                return for_each_code_all_of(group, [&](const codeT code) { // No conflicts.
                     return !a.lock[code] || a.rule[code] == b.s.rule[code];
                 });
             }
