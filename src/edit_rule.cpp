@@ -699,7 +699,7 @@ public:
         tagE highlight = None;
         ImGui::AlignTextToFramePadding();
         imgui_StrWithID("[R]");
-        guide_mode::item_tooltip("Drag a rule here to replace.");
+        guide_mode::item_tooltip("Drag a rule here to update [R] (will also update 'Other' if necessary).");
         // pass_rule::source(get());
         if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
             set(*deliv);
@@ -967,7 +967,7 @@ public:
                         "[X]/[Y]/[Z] can be arbitrary rules in [S]. When [S] changes and no longer contains them (or when they appear initially), they will be reset to [R].\n\n"
                         "Drag a rule to the label to replace.\n"
                         "Drag the label to send the rule elsewhere.\n"
-                        "Use 'Show in window' to display the rule in a regular window (recommended for 'Random-access').");
+                        "Use 'Show in window' to display the rule in a regular window.");
                     ImGui::Separator();
 
                     if (ImGui::Selectable("Show in window")) {

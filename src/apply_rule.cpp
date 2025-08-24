@@ -94,6 +94,7 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
 
 static bool want_hex_mode(const aniso::ruleT& rule) {
     if (shortcuts::no_ctrl() && shortcuts::global_flag(ImGuiKey_6)) {
+        // TODO: feels strange, but no idea how to improve...
         if (!rule_algo::is_hexagonal_rule(rule)) {
             // (But actually, the projection still corresponds to a range-2 hex rule.)
             messenger::set_msg("This rule does not belong to 'Hex' set.");
@@ -577,6 +578,7 @@ class runnerT : no_copy {
     coordT m_coord{};
     ImVec2 to_rotate = {0, 0};
 
+    // !!TODO: (v0.9.9) enhance to pattern list (& support more sources like text-page & sel op).
     struct pasteT {
         std::optional<aniso::ruleT> rule = std::nullopt;
         aniso::tileT tile{};
@@ -1639,7 +1641,7 @@ private:
                 //     "(?)", "Whether to include rule info ('rule = ...') in the header for the patterns.\n\n"
                 //            "(This applies to 'Copy' and 'Cut'. 'Identify' will always include rule info.)");
                 term("Copy", op_copy);
-                guide_mode::item_tooltip("Copy selected area (as RLE-string) to the clipboard.");
+                guide_mode::item_tooltip("Copy selected area to the clipboard (as RLE-string).");
                 term("Cut", op_cut);
                 guide_mode::item_tooltip("The area should be enclosed in 2*2 periodic background.\n\n"
                                          "Copy selected area and clear area with the background.");
@@ -1743,6 +1745,8 @@ void previewer::configT::_set() {
 void previewer::begin_frame(frame_main_token) { _global_data::begin_frame(); }
 
 // TODO: allow setting the step and interval with shortcuts when the window is hovered?
+// TODO: support send-to menu ops...
+// TODO: support pause mode?
 void previewer::_preview(const uint64_t id, const configT& config, const aniso::ruleT& rule) {
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
@@ -1788,8 +1792,8 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             if (ImGui::Selectable("Copy rule")) {
                 copy_rule::copy(rule);
             }
-            guide_mode::item_tooltip("Copy (as MAP-string) to the clipboard. "
-                                     "Equivalent to sending the rule to '[C]' after 'Clipboard'.");
+            guide_mode::item_tooltip("Copy to the clipboard (as MAP-string).\n\n"
+                                     "(Equivalent to sending the rule to '[C]' after 'Clipboard'.)");
             if (ImGui::Selectable("Restart")) {
                 restart_from_menu = true;
             }

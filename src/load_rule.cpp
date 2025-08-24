@@ -865,7 +865,7 @@ private:
         if constexpr (debug_mode) {
             // TODO: whether to support clearing?
             rclick_popup::popup(imgui_GetItemPosID(), [&] {
-                if (ImGui::Selectable("Clear cursor") && messenger::dot()) {
+                if (ImGui::Selectable("Reset cursor") && messenger::dot()) {
                     m_pos.reset();
                 }
             });

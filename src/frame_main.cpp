@@ -146,7 +146,7 @@ void frame_main() {
             static bool show_file = false;
             // appearing.reset_if_appearing(show_file);
             ImGui::Checkbox("Files", &show_file);
-            guide_mode::item_tooltip("Load rules from files.");
+            guide_mode::item_tooltip("Load text/rules from files.");
             if (show_file) {
                 const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
                 load_file(init_pos, {}).reset_if_closed(show_file);
@@ -156,7 +156,7 @@ void frame_main() {
         {
             static bool show_clipboard = false;
             ImGui::Checkbox("Clipboard", &show_clipboard);
-            guide_mode::item_tooltip("Load rules from the clipboard.");
+            guide_mode::item_tooltip("Load text/rules from the clipboard.");
             if (show_clipboard) {
                 const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
                 load_clipboard(init_pos, {}).reset_if_closed(show_clipboard);
@@ -173,8 +173,8 @@ void frame_main() {
                 selectable_to_take_snapshot("Recent", copy_rule::get_rec({}), snapshot);
                 guide_mode::item_tooltip("Recently copied rules, including those copied via 'Copy rule'.");
             });
-            guide_mode::item_tooltip("Drag a rule here to copy it (as MAP-string) to the clipboard.\n\n"
-                                     "(This is useful as some rule sources have no 'Copy rule' option.)");
+            guide_mode::item_tooltip("Drag a rule here to copy it to the clipboard (as MAP-string).\n\n"
+                                     "(Equivalent to the 'Copy rule' menu option for preview windows etc.)");
             if (snapshot) {
                 display_snapshot("Recent - copied rules", snapshot, copy_rule::get_rec({}));
             }
