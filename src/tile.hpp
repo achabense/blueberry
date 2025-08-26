@@ -914,6 +914,9 @@ namespace aniso {
             return {m_data, m_size}; // continuous
         }
 
+        tile_ref data(const rangeT& range) { return data().clip(range); }
+        tile_const_ref data(const rangeT& range) const { return data().clip(range); }
+
         void run_torus(const rule_like auto& rule) { //
             apply_rule_torus(rule, data());
         }

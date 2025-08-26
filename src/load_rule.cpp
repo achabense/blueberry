@@ -641,7 +641,7 @@ public:
     int lines() const { return m_lines.size(); }
     int length() const { return m_lines.empty() ? 0 : m_text.size() + m_lines.size() - 1; }
 
-    void clear() {
+    void clear(const bool rewind = true) {
         m_lines.clear();
         m_rules.clear();
         m_text.clear();
@@ -651,7 +651,7 @@ public:
         m_sel.reset();
         menu_opened = false;
 
-        do_rewind = false;
+        do_rewind = rewind;
         go_line = -1;
     }
 
@@ -677,6 +677,11 @@ public:
                 _attach_rule(line, extr.get_rule());
             }
         }
+    }
+
+    void assign(const bool rewind, const std::string_view str, const std::string_view prefix = {}) {
+        clear(rewind);
+        append(str, prefix);
     }
 
     void reset_scroll() { do_rewind = true; }
@@ -1025,17 +1030,16 @@ class load_file_impl : no_copy {
     textT text;
     std::optional<pathT> file_path = std::nullopt;
 
-    bool try_load(const pathT& p) {
+    bool try_load(const pathT& p, const bool reset_scroll) {
         if (std::string str; load_binary(p, str)) {
             if (const int l = count_line(str); l > max_line) {
                 messenger::set_msg("The file contains too many lines: {} > {}", l, max_line);
                 return false;
             }
-            text.clear();
             if constexpr (debug_mode) {
-                text.append(str, "@@");
+                text.assign(reset_scroll, str, "@@");
             } else {
-                text.append(str);
+                text.assign(reset_scroll, str);
             }
             return true;
         }
@@ -1059,18 +1063,16 @@ public:
             }
 
             ImGui::Separator();
-            if (auto sel = nav.display(); sel && try_load(*sel)) {
-                text.reset_scroll();
+            if (auto sel = nav.display(); sel && try_load(*sel, /*reset-scroll*/ true)) {
                 file_path = std::move(*sel);
             }
         } else {
             const bool close = ImGui::SmallButton("Close");
             ImGui::SameLine();
             if (ImGui::SmallButton("Reload")) {
-                if (try_load(*file_path)) {
+                if (try_load(*file_path, /*reset-scroll*/ false)) {
                     messenger::dot();
                 }
-                // Won't reset scroll.
             }
             // guide_mode::item_tooltip("Reload from disk.");
             ImGui::SameLine();
@@ -1089,8 +1091,7 @@ public:
                 std::optional<pathT> sel = std::nullopt;
                 const pathT name = file_path->filename();
                 nav.select_file(sel, &name);
-                if (sel && try_load(*sel)) {
-                    text.reset_scroll(); // Even if the new path is the same as the old one.
+                if (sel && try_load(*sel, /*reset-scroll*/ true)) {
                     file_path = std::move(*sel);
                 }
             });
@@ -1189,9 +1190,7 @@ class load_doc_impl : no_copy {
             const auto [title, contents] = docs[i];
             // if (ImGui::Selectable(title, doc_id == i, ImGuiSelectableFlags_NoAutoClosePopups) && doc_id != i) {
             if (imgui_SelectableStyledButtonEx(i, title, doc_id == i) && compare_update(doc_id, i)) {
-                text.clear();
-                text.append(contents, "@@");
-                text.reset_scroll();
+                text.assign(/*reset-scroll*/ true, contents, "@@");
             }
         }
     };

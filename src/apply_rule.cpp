@@ -192,7 +192,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
         aniso::rangeT range; // Range of pattern (including a layer of bg), relative to `tile`.
         aniso::vecT off;     // Pattern's begin pos, relative to the initial pattern.
 
-        aniso::tile_const_ref get_pattern() const { return tile.data().clip(range); }
+        aniso::tile_const_ref get_pattern() const { return tile.data(range); }
 
         bool run(const aniso::ruleT& rule) {
             const aniso::tile_const_ref pattern = get_pattern();
@@ -205,7 +205,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
             const aniso::rangeT relocate{.begin = padding, .end = padding + pattern.size};
             aniso::fill_outside(next.data(), relocate,
                                 aniso::realign_from_to(background, padding, {0, 0}) /*relative to `next`*/);
-            aniso::copy(next.data().clip(relocate), pattern);
+            aniso::copy(next.data(relocate), pattern);
             next.run_torus(rule);
 
             tile.swap(next);
@@ -301,9 +301,9 @@ struct initT {
             // (Not caring about how the area is aligned with the background.)
             std::mt19937 rand{(uint32_t)seed};
             if (aniso::is_pure_0(background)) {
-                aniso::random_fill(tile.data().clip(range), rand, density.get());
+                aniso::random_fill(tile.data(range), rand, density.get());
             } else {
-                aniso::random_flip(tile.data().clip(range), rand, density.get());
+                aniso::random_flip(tile.data(range), rand, density.get());
             }
         }
     }
@@ -472,7 +472,7 @@ class runnerT : no_copy {
         // }
 
         aniso::tile_const_ref read_only() const { return m_tile.data(); }
-        aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_tile.data().clip(range); }
+        aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_tile.data(range); }
 
         aniso::tile_ref write_only() {
             m_newly_restarted = false;
@@ -482,7 +482,7 @@ class runnerT : no_copy {
         aniso::tile_ref write_only(const aniso::rangeT& range) {
             m_newly_restarted = false;
             m_written = true;
-            return m_tile.data().clip(range);
+            return m_tile.data(range);
         }
 
         void read_and_maybe_write(const func_ref<bool(aniso::tile_ref)> fn) {
@@ -1603,7 +1603,7 @@ private:
                     aniso::tileT demo_tile({.x = demo_size.x, .y = demo_size.y * total});
                     for (int i = 0; i < total; ++i) {
                         const aniso::vecT pos{.x = 0, .y = demo_size.y * i};
-                        aniso::fill(demo_tile.data().clip({pos, pos + demo_size}), {{bg_data[i].data(), {2, 2}}});
+                        aniso::fill(demo_tile.data({pos, pos + demo_size}), {{bg_data[i].data(), {2, 2}}});
                     }
                     const ImTextureID texture = to_texture(demo_tile.data(), scaleE::Nearest);
                     for (int i = 0; i < total; ++i) {
@@ -1902,7 +1902,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 ImGui::Image(texture, to_imvec(clamped.size() * 3), to_imvec(clamped.begin) / to_imvec(tile_size),
                              to_imvec(clamped.end) / to_imvec(tile_size));
             } else {
-                ImGui::Image(to_texture(term.tile.data().clip(clamped), scaleE::Nearest), to_imvec(clamped.size() * 3));
+                ImGui::Image(to_texture(term.tile.data(clamped), scaleE::Nearest), to_imvec(clamped.size() * 3));
             }
             ImGui::EndTooltip();
         }
