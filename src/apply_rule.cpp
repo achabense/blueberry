@@ -651,12 +651,11 @@ public:
 
         bool highlight_canvas = false;
         {
-            // !!TODO: 'Space ops' is also a bad name...
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip(
                     "(...)",
-                    "The \"main window\" (as highlighted below) provides strictly wider control than preview windows, and is able to operate on patterns (like saving and pasting; open 'Space ops' for details).\n\n"
-                    "All spaces use torus topology, i.e. information can go across boundaries directly, so the entire space can be treated as a periodic unit in an infinite space.")) {
+                    "The \"main window\" (as highlighted) has strictly wider control than preview windows, and is able to operate on patterns (e.g. saving and pasting; see 'Op-settings' for details).\n\n"
+                    "All spaces use torus topology, i.e. information can go across boundaries directly, so the entire space can be imagined as a periodic unit in an infinite space.")) {
                 highlight_canvas = true;
             }
             ImGui::SameLine();
@@ -677,8 +676,10 @@ public:
                 current_rule.set_next(*deliv);
                 messenger::dot();
             }
-            guide_mode::item_tooltip(
-                "MAP-string for the displayed rule; drag to send the rule elsewhere; drag a rule here to replace; open menu for recent rules.");
+            guide_mode::item_tooltip("This is the MAP-string for the displayed rule.\n\n"
+                                     "Drag a rule here to apply the rule.\n"
+                                     "Drag to send the rule elsewhere.\n"
+                                     "Right-click to open menu (copy the rule/select recent rules).");
             if (m_snapshot) {
                 display_snapshot("Recent - main window", m_snapshot, current_rule.rec(),
                                  {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
@@ -724,8 +725,8 @@ public:
 
             ImGui::AlignTextToFramePadding();
             imgui_StrTooltip("(...)", "Left-click a cell to set it to 1 (white).\n"
-                                      "Right-click to set to 0 (black).\n\n"
-                                      "'Ctrl' and left-click a cell to resize to that position.");
+                                      "Right-click to set to 0 (black).\n"
+                                      "Ctrl + left-click a cell to resize to that position.");
             ImGui::SameLine();
             imgui_Str("Background");
             ImGui::SameLine();
@@ -871,6 +872,7 @@ public:
         ImGui::PushItemWidth(item_width);
         ImGui::BeginGroup();
         m_ctrl.set_step_interval([&](paceT& pace, int& extra_step) {
+            // !!TODO: (v0.9.9) support keeping tooltips open?
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip("(...)", "Restart : R\n"
                                           "Pause   : Space\n"
@@ -995,18 +997,18 @@ public:
         ImGui::Separator();
 
         ImGui::AlignTextToFramePadding();
-        if (imgui_StrTooltip(
-                "(...)",
-                "Scroll in the main window to zoom in/out.\n\n"
-                "Drag with left button to move the space; 'Ctrl' and drag to \"rotate\" the space.\n\n"
-                "Drag with right button to select area; single right-click to unselect.\n\n"
-                "See 'Space ops' for more operations (e.g. 'C' to copy selected area, 'V' to load pattern). The shortcuts (including 'V') work only when the main window is hovered.")) {
+        if (imgui_StrTooltip("(...)", "Scroll in the main window to zoom in/out.\n\n"
+                                      "Drag with left button to move the space.\n"
+                                      "Ctrl + drag to rotate the space.\n\n"
+                                      "Drag with right button to select area.\n"
+                                      "Single right-click to unselect.\n\n"
+                                      "See 'Op-settings' for more operations.")) {
             highlight_canvas = true;
         }
         ImGui::SameLine();
         static bool show_op_window = false;
         m_appearing.reset_if_appearing(show_op_window);
-        ImGui::Checkbox("Space ops", &show_op_window);
+        ImGui::Checkbox("Op-settings", &show_op_window);
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         ImGui::SameLine(0, wide_spacing);
         if (m_sel) {
@@ -1067,7 +1069,7 @@ public:
                                         "Copy:  Paste values directly.\n"
                                         "Or/And/Xor: Perform binary op.\n"
                                         "(Use Or/And to treat black/white cells as transparent bg.)\n\n"
-                                        "Right-click the main window to switch between Copy/Or/And/Xor.");
+                                        "Right-click in the main window to switch between Copy/Or/And/Xor.");
                 if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                     switch (m_paste->mode) {
                         case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
@@ -1552,7 +1554,9 @@ private:
             if (ImGui::IsMousePosValid()) {
                 ImGui::SetNextWindowPos(ImGui::GetMousePos() + ImVec2(2, 2), ImGuiCond_Appearing);
             }
-            if (auto window = imgui_Window("Space operations", &show_op_window,
+            imgui_Window::next_window_titlebar_tooltip =
+                "The shortcuts work when the main window is hovered, and this window don't have to stay open.";
+            if (auto window = imgui_Window("Op (settings)", &show_op_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 const auto term = [&](const char* label, const op_term& t) {
                     const bool valid = t.check_sel(*this);
@@ -1612,6 +1616,7 @@ private:
                         }
                         ImGui::Image(texture, to_imvec(demo_size * demo_zoom), ImVec2(0, float(i) / total),
                                      ImVec2(1, float(i + 1) / total));
+                        // TODO: use image border (ImGuiStyleVar_ImageBorderSize) instead?
                         imgui_ItemRect(IM_COL32_GREY(160, 255));
                         if constexpr (debug_mode_log_aware) {
                             if (i == 0 && GImGui->LogEnabled) {
