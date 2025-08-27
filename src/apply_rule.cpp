@@ -1701,14 +1701,20 @@ struct previewer::_global_data : no_create {
     }
 };
 
-void previewer::configT::_set() {
+void previewer::configT::_set(const bool can_resize) {
     // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {3, 2});
     ImGui::PushItemWidth(item_width);
 
-    const auto to_tile_size = [&](int size) { return std::to_string(int(size / zoom_)); };
-    imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20, to_tile_size);
-    imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20, to_tile_size);
+    if (can_resize) {
+        const auto to_tile_size = [&](int size) { return std::to_string(int(size / zoom_)); };
+        imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20, to_tile_size);
+        imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20, to_tile_size);
+    }
     ImGui::AlignTextToFramePadding();
+    // if (!can_resize) {
+    //     imgui_StrTooltip("(?)", "Cannot resize here.");
+    //     ImGui::SameLine();
+    // }
     imgui_Str("Zoom ~"); // TODO: should this be "zoom" or "scale"?
     static constexpr float_pair terms[]{{0.5, "0.5"}, {1, "1"}, {2, "2"}};
     for (const auto& [val, str] : terms) {
@@ -1803,6 +1809,21 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 restart_from_menu = true;
             }
             guide_mode::item_tooltip("Equivalent to the shortcut ('R').");
+
+            if constexpr (0) {
+                // TODO: very convenient, but cannot decide how to expose (be menu-like, or another rclick-popup mode)...
+                // (If it's a group-wise popup, may support resizing as well...)
+                // (& Whether to defer the change to the end of the frame?)
+                ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+                ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
+                const bool begun = ImGui::BeginMenu("Settings");
+                ImGui::PopItemFlag();
+                ImGui::PopStyleColor();
+                if (begun) {
+                    const_cast<configT&>(config)._set(false); // bleh...
+                    ImGui::EndMenu();
+                }
+            }
 
             const bool runner_avail = (bool)runner_active;
             const bool rand_access_avail = random_access_status::available();

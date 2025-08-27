@@ -960,7 +960,7 @@ public:
             }
         }
 
-        void _set();
+        void _set(bool can_resize);
 
     public:
         /*implicit*/ configT(decltype(default_settings)) {}
@@ -971,7 +971,7 @@ public:
 
         void set(const char* label, bool small = false) {
             menu_like_popup::button(label, small);
-            menu_like_popup::popup([&] { _set(); });
+            menu_like_popup::popup([&] { _set(true); });
         }
     };
 
