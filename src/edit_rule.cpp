@@ -590,22 +590,23 @@ void previewer::_show_belongs(const aniso::ruleT& rule) {
     dummy.select({.rule = &rule, .select = false, .tooltip = false});
 }
 
-static const char* check_contains(const aniso::ruleT& rule, const aniso::subsetT& working_set) {
-    return working_set.contains(rule) ? nullptr
-                                      : "The rule does not belong to [S].\n\n"
-                                        "(To get a similar rule in [S], try using 'Approx' in the 'Misc' window.)";
-}
-
 // (Should appear after regular tooltip.)
 static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
     if (!pass.rule) {
         return nullptr;
-    } else if (const char* msg = check_contains(*pass.rule, working_set)) {
+    } else if (!working_set.contains(*pass.rule)) {
+        constexpr const char* msg = "The rule does not belong to [S].\n\n"
+                                    "(To get a similar rule in [S], try using 'Approx' in the 'Misc' window.)";
+        // if (pass.hov_for_tooltip() || pass.deliv) {
+        //     messenger::set_msg(msg);
+        // }
         if (pass.hov_for_tooltip() && imgui_BeginTooltipFirstOnly()) {
             ImGui::PushTextWrapPos(wrap_len());
             imgui_Str(msg);
             ImGui::PopTextWrapPos();
             ImGui::EndTooltip();
+        } else if (pass.deliv) {
+            messenger::set_msg(msg);
         }
         return nullptr;
     } else {
@@ -1015,10 +1016,8 @@ public:
             // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
             const auto get = [&]() -> decltype(auto) { return m_rule.get(); };
             const auto set = [&](const aniso::ruleT& r) {
-                if (const char* msg = check_contains(r, working_set)) {
-                    messenger::set_msg(msg);
-                } else {
-                    m_rule.set(r);
+                if (const auto* deliv = get_deliv(&r, working_set)) {
+                    m_rule.set(*deliv);
                     updated = true;
                 }
             };
@@ -1392,12 +1391,12 @@ void edit_rule(frame_main_token) {
         ImGui::Checkbox("Random-access", &show_random_access);
         guide_mode::item_tooltip("Flip values of rules (in [S]) by groups.\n\n"
                                  "(Mainly useful for large sets.)");
-        if (!show_random_access) {
-            if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-                target.set(*deliv);
-                show_random_access = true;
-                messenger::dot();
-            }
+        random_access_status::update();
+        if (const auto* deliv = get_deliv(
+                pass_rule::dest(/*accept drop if*/ !show_random_access, random_access_status::rule_id), working_set)) {
+            target.set(*deliv);
+            show_random_access = true;
+            messenger::dot();
         }
         if (show_random_access) {
             target.sync(working_set, observer);
@@ -1415,7 +1414,9 @@ void edit_rule(frame_main_token) {
                 "4. Turn on 'Show in window' for better control. (The swapping effect will be obvious.)"*/);
 
             ImGui::SameLine();
+            random_access_status::begin_disabled();
             target.display("[Z]", "Recent - [Z]", config, working_set);
+            random_access_status::end_disabled();
             ImGui::SameLine();
             config.set("Settings");
         }
@@ -1601,7 +1602,9 @@ void edit_rule(frame_main_token) {
                 align_text(ImGui::GetItemRectSize().y);
                 imgui_Str(labels_disp_from_to[disp[head]]);
 
+                random_access_status::begin_disabled();
                 previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
+                random_access_status::end_disabled();
                 ImGui::EndGroup();
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5, 0.5, 0.5, 1));

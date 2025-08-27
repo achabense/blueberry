@@ -1804,19 +1804,42 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             }
             guide_mode::item_tooltip("Equivalent to the shortcut ('R').");
 
-            if (runner_active) {
-                // if (ImGui::Selectable("Apply (rule)") && messenger::dot()) {
-                //     runner.set_rule(rule);
-                // }
-                // I really want to use "Copy state", but that can be misleading...
-                if (ImGui::Selectable("Apply") && messenger::dot()) {
+            const bool runner_avail = (bool)runner_active;
+            const bool rand_access_avail = random_access_status::available();
+
+            // Workaround to avoid breaking z-order.
+            // Related: https://github.com/ocornut/imgui/issues/8903
+            ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+            ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
+            const bool begun = ImGui::BeginMenu("Send to", runner_avail || rand_access_avail);
+            ImGui::PopItemFlag();
+            ImGui::PopStyleColor();
+            if (begun) {
+                if (runner_avail) {
+                    if (ImGui::Selectable("Main window") && messenger::dot()) {
+                        runner.set_rule(rule);
+                    }
+                    guide_mode::item_tooltip("Equivalent to sending the rule to the MAP-string ('MAP...').\n\n"
+                                             "(Unlike 'Mirror', this will not duplicate space state.)");
+                }
+                if (rand_access_avail) {
+                    // !!TODO: (v0.9.9) recheck calling convention; only handlers are responsible for showing the dot...
+                    if (ImGui::Selectable("Random-access") /*XX messenger::dot()*/) {
+                        pass_rule::set_extra(rule, random_access_status::rule_id);
+                    }
+                    guide_mode::item_tooltip(
+                        "Equivalent to sending the rule to the 'Random-access' checkbox (or '[Z]' if it's turned on).");
+                }
+                ImGui::EndMenu();
+            }
+            if (runner_avail) {
+                if (ImGui::Selectable("Mirror") && messenger::dot()) {
                     runner.set_rule(rule);
                     runner.set_state(tile_size, _global_data::init);
                     // runner.set_state(term.tile.size(), term.init);
                 }
                 guide_mode::item_tooltip(
-                    "Apply rule and space state to the main window, so you can operate on the same patterns (seen in this window).\n\n"
-                    "(Send rule to the MAP-string ('MAP...') to apply only the rule.)");
+                    "Send rule to the main window and duplicate the space state (so you can operate on the same patterns).");
             }
         });
     }

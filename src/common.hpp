@@ -325,6 +325,18 @@ public:
 
     static void small_button(const char* label) { button(label, true); }
 
+#if 0
+    // Not working well...
+    static void selectable(const char* label) {
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+        const bool is_open = imgui_IsPopupOpen(expected_id = ImGui::GetID(label));
+        ImGui::Selectable(label, false,
+                          ImGuiSelectableFlags_NoAutoClosePopups /*necessary*/ |
+                              (is_open ? ImGuiSelectableFlags_Highlight : ImGuiSelectableFlags_None));
+        ImGui::PopStyleColor();
+    }
+#endif
+
     static void popup(const func_ref<void()> fn) {
         const ImRect item_rect = imgui_GetItemRect();
         const ImGuiID item_id = ImGui::GetItemID();
@@ -469,6 +481,7 @@ public:
     }
 };
 
+#if 0
 class item_timer {
     ImGuiID id = 0;
     double due = 0;
@@ -491,6 +504,7 @@ public:
         }
     }
 };
+#endif
 
 inline bool double_click_button_small(const char* label) {
     for (const auto col : {ImGuiCol_Button, ImGuiCol_ButtonActive, ImGuiCol_ButtonHovered}) {
@@ -1076,9 +1090,19 @@ public:
         return false;
     }
 
+private:
+    // TODO: experimental (only used by random-access); should finally be enum-based...
+    inline static int extra_rule_id{};
+    inline static aniso::ruleT extra_rule{};
+
+public:
     struct passT {
         const aniso::ruleT* rule = nullptr;
         bool hov = false, deliv = false;
+
+        passT() = default;
+        passT(const aniso::ruleT* r, bool hov, bool deliv) : rule{r}, hov{hov}, deliv{deliv} { assert(r); }
+        passT(const aniso::ruleT* r) : rule{r}, hov{false}, deliv{true} { assert(r); }
 
         const aniso::ruleT* get_hov() const { return hov ? rule : nullptr; }
         const aniso::ruleT* get_deliv() const { return deliv ? rule : nullptr; }
@@ -1090,26 +1114,28 @@ public:
         }
     };
 
-    [[nodiscard]] static passT dest(/*const ImGuiKey shortcut = ImGuiKey_None, const char label = '\0'*/) {
-        if (active && ImGui::IsItemVisible()) {
+    static void set_extra(const aniso::ruleT& r, const int rule_id) {
+        assert(rule_id != 0);
+        extra_rule = r;
+        extra_rule_id = rule_id;
+    }
+
+    static passT get_extra(const int rule_id) {
+        assert(rule_id != 0);
+        if (rule_id == extra_rule_id) {
+            extra_rule_id = 0;
+            return &extra_rule;
+        }
+        return {};
+    }
+
+    [[nodiscard]] static passT dest(const bool accept_drop = true, const int rule_id = 0) {
+        assert(accept_drop || rule_id != 0);
+        if (rule_id != 0 && rule_id == extra_rule_id) {
+            extra_rule_id = 0;
+            return &extra_rule;
+        } else if (accept_drop && active && ImGui::IsItemVisible()) {
             render_rect(false);
-#if 0
-            static item_timer timer{};
-            render_rect(timer.test());
-            if (label) {
-                // TODO: should render at the foreground of individual windows...
-                // Related: https://github.com/ocornut/imgui/issues/8776
-                const char str[]{'^', ' ', label, '\0'};
-                const ImVec2 pos = imgui_GetItemRect().GetBL() + ImVec2(-4, 5);
-                const ImVec2 padding = ImGui::GetStyle().FramePadding;
-                const ImVec2 size = imgui_CalcTextSize(str) + padding * 2;
-                const float alpha = 1;
-                ImDrawList& drawlist = *ImGui::GetForegroundDrawList();
-                drawlist.AddRectFilled(pos, pos + size, ImGui::GetColorU32(ImGuiCol_PopupBg, alpha));
-                drawlist.AddText(pos + padding, ImGui::GetColorU32(ImGuiCol_Text, alpha), str);
-                drawlist.AddRect(pos, pos + size, ImGui::GetColorU32(ImGuiCol_Border, alpha));
-            }
-#endif
             if (ImGui::BeginDragDropTarget()) {
                 const bool deliv = ImGui::AcceptDragDropPayload(
                     "#Rule", ImGuiDragDropFlags_AcceptNoPreviewTooltip | ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
@@ -1121,18 +1147,10 @@ public:
                         ImGui::SetWindowFocus();
                     }
                 }
-                return {.rule = &rule, .hov = true, .deliv = deliv};
+                return {&rule, /*hov=*/true, deliv};
             }
-#if 0
-            if (shortcut != ImGuiKey_None && shortcuts::no_ctrl() &&
-                GImGui->DragDropPayload.SourceId != ImGui::GetItemID() && shortcuts::test_pressed(shortcut)) {
-                timer.bind();
-                render_rect(true);
-                return {.rule = &rule, .hov = false, .deliv = true};
-            }
-#endif
         }
-        return {.rule = nullptr, .hov = false, .deliv = false};
+        return {};
     }
 };
 
@@ -1474,4 +1492,19 @@ public:
             flag = false;
         }
     }
+};
+
+// (Horrible workaround for send-to operation...)
+// TODO: should refactor away...
+class random_access_status : no_create {
+    inline static test_active active;
+    inline static bool disabled = false;
+
+public:
+    static void update() { active.update(); }
+    static void begin_disabled() { disabled = true; }
+    static void end_disabled() { disabled = false; }
+
+    static bool available() { return active && !disabled; }
+    static constexpr int rule_id = 1; // For pass_rule::set_extra
 };
