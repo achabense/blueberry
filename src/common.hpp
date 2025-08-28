@@ -428,6 +428,8 @@ public:
         const ImGuiWindow* source_window = GImGui->CurrentWindow;
         if (!bound_id && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
             popup_with_focus::open_popup(popup_id, ImGuiPopupFlags_NoReopen);
+            // TODO: whether to do this?
+            // ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2(1, 1)); // Won't be closed by repeated clicks.
             bound_id = id;
         }
 
@@ -1156,8 +1158,7 @@ public:
 
 inline void set_clipboard_and_notify(const std::string& str) {
     if (str.empty()) {
-        // Ignore silently...
-        // messenger::set_msg("Ignored empty str.");
+        messenger::set_msg("Empty.");
     } else if (str.find('\0') == str.npos) {
         ImGui::SetClipboardText(str.c_str());
         // messenger::dot();

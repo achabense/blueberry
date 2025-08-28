@@ -126,7 +126,7 @@ static void copy_path(const pathT& p) {
     if (const auto str = cpp17_u8string(p)) {
         set_clipboard_and_notify(*str);
     } else {
-        messenger::set_msg("Cannot convert path to utf-8.");
+        messenger::set_msg("Cannot convert to utf-8 text.");
     }
 }
 static bool has_open_url_fn() { return GImGui->PlatformIO.Platform_OpenInShellFn; }
@@ -144,7 +144,7 @@ static bool open_folder(const pathT& p) {
     } else if (const auto str = cpp17_u8string(p)) {
         return open_url(str->c_str());
     } else {
-        messenger::set_msg("Cannot convert path to utf-8.");
+        messenger::set_msg("Cannot convert to utf-8 text.");
         return false;
     }
 }
@@ -153,8 +153,11 @@ static void display_path(const pathT& p, const float avail_w) {
     bool clipped = false;
     imgui_Str(clip_path(p, avail_w, clipped));
     rclick_popup::popup(imgui_GetItemPosID(), [&] {
-        if (ImGui::Selectable("Copy path")) {
+        if (ImGui::Selectable("Copy full path")) {
             copy_path(p);
+        }
+        if (ImGui::Selectable("Copy name")) {
+            copy_path(p.filename());
         }
         if (has_open_url_fn()) {
             if (ImGui::Selectable("Open in system")) {
@@ -170,8 +173,11 @@ static void display_filename(const pathT& p) {
     constexpr char prefix[]{'.', '.', '.', char(pathT::preferred_separator), '\0'};
     imgui_Str(prefix + cpp17_u8string_b(p.filename()));
     rclick_popup::popup(imgui_GetItemPosID(), [&] {
-        if (ImGui::Selectable("Copy path")) {
+        if (ImGui::Selectable("Copy full path")) {
             copy_path(p);
+        }
+        if (ImGui::Selectable("Copy name")) {
+            copy_path(p.filename());
         }
         if constexpr (debug_mode) {
             // TODO: useful but it's hard to decide the label...
@@ -441,7 +447,7 @@ public:
         if (auto child = imgui_ChildWindow("Files")) {
             int id = pid ? *pid : 0;
             bool any = false;
-            for (const auto& [file, str] : m_current.files()) {
+            for (const auto& [file /*name*/, str] : m_current.files()) {
                 if (!buf_filter[0] || str.find(buf_filter) != str.npos) {
                     any = true;
                     const bool selected = current_file && file == *current_file;
@@ -452,8 +458,11 @@ public:
                         ImGui::SetScrollHereY();
                     }
                     rclick_popup::popup2([&] { // (Undocumented.)
-                        if (ImGui::Selectable("Copy path")) {
+                        if (ImGui::Selectable("Copy full path")) {
                             copy_path(m_current / file);
+                        }
+                        if (ImGui::Selectable("Copy name")) {
+                            copy_path(file);
                         }
                     });
                 }
@@ -494,12 +503,13 @@ public:
                             set_dir(m_home);
                         }
                         rclick_popup::popup2([&] { // (Undocumented.)
-                            if (ImGui::Selectable("Copy path")) {
+                            if (ImGui::Selectable("Copy full path")) {
                                 copy_path(m_home);
                             }
-                            // if (has_open_url_fn() && ImGui::Selectable("Open locally")) {
-                            //     open_folder(m_home);
-                            // }
+                            if (ImGui::Selectable("Copy name")) {
+                                // m_home ~ canonical ~ won't have trailing sep unless it's root path (nearly impossible).
+                                copy_path(m_home.filename());
+                            }
                         });
                     }
                     if (m_current.valid()) {
@@ -517,17 +527,17 @@ public:
                         imgui_StrDisabled("None");
                     }
                     const pathT* sel = nullptr;
-                    for (const auto& [dir, str] : m_current.dirs()) {
+                    for (const auto& [dir /*name*/, str] : m_current.dirs()) {
                         if (imgui_SelectableStyledButtonEx(id++, str)) {
                             sel = &dir;
                         }
                         rclick_popup::popup2([&] { // (Undocumented.)
-                            if (ImGui::Selectable("Copy path")) {
+                            if (ImGui::Selectable("Copy full path")) {
                                 copy_path(m_current / dir);
                             }
-                            // if (has_open_url_fn() && ImGui::Selectable("Open locally")) {
-                            //     open_folder(m_current / dir);
-                            // }
+                            if (ImGui::Selectable("Copy name")) {
+                                copy_path(dir);
+                            }
                         });
                     }
                     if (sel) {
