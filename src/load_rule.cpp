@@ -998,40 +998,38 @@ private:
     }
 };
 
-// These limits are not inherent to textT's functions, but just arbitrary numbers
-// small enough to guarantee performance and large enough for normal use cases.
-static constexpr int max_size = 1024 * 256;
-static constexpr int max_line = 20000;
-
 // For error message.
 static std::string to_size(uintmax_t size) {
     const bool use_mb = size >= 1024 * 1024;
     return std::format("{:.2f}{}", size / (use_mb ? (1024 * 1024.0) : 1024.0), use_mb ? "MB" : "KB");
 }
 
-[[nodiscard]] static bool load_binary(const pathT& path, std::string& str) /*noexcept*/ {
+// <= max_size ~ successful; > ~ too large; -1 ~ other errors.
+[[nodiscard]] static std::uintmax_t load_binary(const pathT& path, std::string& str, const int max_size) /*noexcept*/ {
     std::error_code ec{};
     const auto size = std::filesystem::file_size(path, ec);
-    if (!ec && size <= max_size) {
+    assert_implies(ec, size == uintmax_t(-1) && size > max_size);
+    if (size > max_size) {
+        return size;
+    } else {
         if (std::ifstream file(path, std::ios::in | std::ios::binary); file) {
             str.resize(size);
             if (file.read(str.data(), size) && file.gcount() == size) {
-                return true;
+                return size;
             }
         }
+        return uintmax_t(-1);
     }
-
-    if (!ec && size > max_size) {
-        messenger::set_msg("File too large: {} > {}", to_size(size), to_size(max_size));
-    } else {
-        messenger::set_msg("Cannot open.");
-    }
-    return false;
 }
 
 static int count_line(const std::string_view str) { //
     return str.empty() ? 0 : std::ranges::count(str, '\n') + 1;
 }
+
+// These limits are not inherent to textT's functions, but just arbitrary numbers
+// small enough to guarantee performance and large enough for normal use cases.
+static constexpr int max_size = 1024 * 256;
+static constexpr int max_line = 20000;
 
 // TODO: -> m_.
 // TODO: support opening multiple files?
@@ -1042,11 +1040,18 @@ class load_file_impl : no_copy {
     std::optional<pathT> file_path = std::nullopt;
 
     bool try_load(const pathT& p, const bool reset_scroll) {
-        if (std::string str; load_binary(p, str)) {
-            if (const int l = count_line(str); l > max_line) {
-                messenger::set_msg("Too many lines: {} > {}", l, max_line);
-                return false;
+        std::string str;
+        if (const uintmax_t size = load_binary(p, str, max_size); size > max_size) {
+            if (size != uintmax_t(-1)) {
+                messenger::set_msg("File too large: {} > {}", to_size(size), to_size(max_size));
+            } else {
+                messenger::set_msg("Cannot open.");
             }
+            return false;
+        } else if (const int l = count_line(str); l > max_line) {
+            messenger::set_msg("Too many lines: {} > {}", l, max_line);
+            return false;
+        } else {
             if constexpr (debug_mode) {
                 text.assign(reset_scroll, str, "@@");
             } else {
@@ -1054,7 +1059,6 @@ class load_file_impl : no_copy {
             }
             return true;
         }
-        return false;
     };
 
 public:
@@ -1364,7 +1368,8 @@ public:
                 if (m_file) {
                     bool empty = true;
                     std::string line;
-                    while (std::getline(m_file, line)) {
+                    int max_line = 3000;
+                    while (--max_line >= 0 && std::getline(m_file, line)) {
                         empty = false;
                         if (const auto rule = aniso::extract_one_rule(line)) {
                             m_rec.add(*rule);

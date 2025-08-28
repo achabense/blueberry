@@ -30,7 +30,8 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-finput-charset=utf-8 -fexec-charset=utf-8>
     $<$<CXX_COMPILER_ID:GNU>:-finput-charset=utf-8 -fexec-charset=utf-8>
 
-    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof -Wshadow> # -Wconversion
+    # -Wreturn-type is neither enabled by default nor implied by -Wall or -Wextra... That's ridiculous...
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof -Wshadow -Werror=return-type> # -Wconversion
 
 #   $<$<CXX_COMPILER_ID:MSVC>:/WX>
 #   $<$<CXX_COMPILER_ID:Clang>:-Werror>
