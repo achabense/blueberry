@@ -412,7 +412,7 @@ public:
     void refresh_if_valid() {
         if (m_current.valid()) {
             if (!m_current.refresh()) {
-                messenger::set_msg("Cannot refresh the current folder.");
+                messenger::set_msg("Cannot refresh.");
             } else {
                 messenger::dot();
             }
@@ -434,7 +434,8 @@ public:
             // It's impressive that path has implicit c-str ctor... why?
             const auto p = cpp17_u8path(buf_path);
             if (!(p && m_current.assign_dir_or_file(*p, target))) {
-                messenger::set_msg("Cannot open this path.");
+                // TODO: ideally should distinguish path-not-exist from other errors.
+                messenger::set_msg("Cannot open.");
             }
 
             buf_path[0] = '\0';
@@ -481,7 +482,7 @@ public:
         std::optional<pathT> target = std::nullopt;
         const auto set_dir = [&](const pathT& path) {
             if (!m_current.assign_dir(path)) {
-                messenger::set_msg("Cannot open this folder.");
+                messenger::set_msg("Cannot open.");
             }
         };
 
@@ -1022,8 +1023,8 @@ static std::string to_size(uintmax_t size) {
 
     if (!ec && size > max_size) {
         messenger::set_msg("File too large: {} > {}", to_size(size), to_size(max_size));
-    } else { // !!TODO: (v0.9.9) redesign error messages...
-        messenger::set_msg("Cannot load this file.");
+    } else {
+        messenger::set_msg("Cannot open.");
     }
     return false;
 }
@@ -1043,7 +1044,7 @@ class load_file_impl : no_copy {
     bool try_load(const pathT& p, const bool reset_scroll) {
         if (std::string str; load_binary(p, str)) {
             if (const int l = count_line(str); l > max_line) {
-                messenger::set_msg("The file contains too many lines: {} > {}", l, max_line);
+                messenger::set_msg("Too many lines: {} > {}", l, max_line);
                 return false;
             }
             if constexpr (debug_mode) {
@@ -1142,11 +1143,11 @@ public:
         if (ImGui::SmallButton("Paste")) {
             if (const std::string_view str = read_clipboard(); !str.empty()) {
                 if (str.size() > max_size / 2) {
-                    messenger::set_msg("Text too long: {} > {}", to_size(str.size()), to_size(max_size / 2));
+                    messenger::set_msg("Too much content: {} > {}", to_size(str.size()), to_size(max_size / 2));
                 } else if (const int l = count_line(str); l > max_line / 2) {
-                    messenger::set_msg("The text contains too many lines: {} > {}", l, max_line / 2);
+                    messenger::set_msg("Too many lines: {} > {}", l, max_line / 2);
                 } else if (!compare_update(last_str, str) && dedup) {
-                    messenger::set_msg("Identical.");
+                    messenger::set_msg("Ignored. (Identical text.)");
                 } else {
                     const int to = text.lines();
                     text.append(str);

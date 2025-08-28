@@ -1166,7 +1166,7 @@ inline void set_clipboard_and_notify(const std::string& str) {
     } else {
         // This can happen when the user tries to copy lines in a data file.
         // If copied, the result will be incomplete, and nothing in worst case (if starts with '\0').
-        messenger::set_msg("The text contains null characters.");
+        messenger::set_msg("Cannot copy. (The text contains null characters.)");
     }
 }
 
