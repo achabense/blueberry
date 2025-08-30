@@ -436,18 +436,14 @@ public:
 
         imgui_Str(
             "[S] stands for the intersection of selected sets.\n"
-            "(A rule belongs to [S] iff it belongs to every selected set.)\n\n"
-            "1. [S] is guaranteed to be non-empty. If only one set is selected, [S] will be identical to it; if no sets are selected, [S] will be the entire MAP set.\n"
-            "2. The program has access to all rules in [S].\n\n"
-            "Click a set to toggle selection; hold right button and click to select only that set.");
+            "A rule belongs to [S] iff it belongs to every selected set.\n\n"
+            "Click a set to toggle selection. Multiple sets can be selected as long as their intersection is not empty. If no sets are selected, [S] will be the entire MAP set.\n\n"
+            "Hold right mouse button + click to select only one set.\n\n"); // TODO: or just right-click?
 
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");
-        explain(false, Includes,
-                "Not selected, but [S] already belongs to this set. (So [S] behaves as if this is selected too.)");
-        explain(false, Disabled,
-                "Not selectable, as its intersection with [S] is empty.\n"
-                "(This doesn't affect single-set selection.)");
+        explain(false, Includes, "Not selected, but [S] already belongs to this set.");
+        explain(false, Disabled, "Not selectable, as its intersection with [S] is empty.");
         // explain(true, None, "The rule belongs to this set.");
         // explain(false, None, "The rule does not belong to this set.");
     }

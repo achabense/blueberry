@@ -395,6 +395,7 @@ public:
 
 // TODO: support filtering folder names as well?
 // TODO: support recording recently-opened folders/files?
+// TODO: support reading symlink?
 class file_nav : no_copy {
     char buf_path[200]{};
     char buf_filter[20]{}; // For files.
@@ -434,8 +435,8 @@ public:
             // It's impressive that path has implicit c-str ctor... why?
             const auto p = cpp17_u8path(buf_path);
             if (!(p && m_current.assign_dir_or_file(*p, target))) {
-                // TODO: ideally should distinguish path-not-exist from other errors.
-                messenger::set_msg("Cannot open.");
+                std::error_code ec{};
+                messenger::set_msg(p && !std::filesystem::exists(*p, ec) ? "Path doesn't exist." : "Cannot open.");
             }
 
             buf_path[0] = '\0';
@@ -1266,7 +1267,7 @@ static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& 
     ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
     if constexpr (debug_mode) {
-        // !!TODO: whether to document this way?
+        // TODO: whether to document this way?
         imgui_Window::next_window_titlebar_tooltip = tooltip;
     }
     return imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings);

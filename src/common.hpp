@@ -47,7 +47,6 @@ class frame_main_token : no_copy {
     /*implicit*/ frame_main_token() = default;
 };
 
-// !!TODO: (v0.9.9) add back shortcut for 'Clipboard/Read'?
 open_state load_file(ImVec2 init_pos, frame_main_token);
 open_state load_clipboard(ImVec2, frame_main_token);
 open_state load_doc(ImVec2, frame_main_token);
@@ -1365,8 +1364,8 @@ class rec_for_rule : no_copy {
     mutable bool m_written = false; // (Workaround to notify snapshot.)
 
 public:
-    explicit rec_for_rule(/*const int cap = 40*/) : m_capacity(40) {
-        // assert(cap > 0 && cap < 100);
+    explicit rec_for_rule(const int cap = 20) : m_capacity(cap) {
+        assert(cap > 0 && cap < 100);
         m_data.reserve(m_capacity);
     }
 

@@ -254,13 +254,13 @@ void frame_main() {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             // The child window is required here (for stable scrolling).
-            if (auto child = imgui_ChildWindow("Edit", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
+            if (auto child = imgui_ChildWindow("Rule", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
                 if (!try_hide(min_w)) {
                     edit_rule({});
                 }
             }
             ImGui::TableNextColumn();
-            if (auto child = imgui_ChildWindow("Apply", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
+            if (auto child = imgui_ChildWindow("Pattern", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
                 if (!(right_was_hidden = try_hide(min_w))) {
                     apply_rule({});
                 }

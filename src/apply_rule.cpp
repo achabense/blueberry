@@ -939,10 +939,10 @@ public:
             imgui_StepSliderInt::fn("Step", &pace.step, 1, 100, 1, to_str);
             ImGui::SameLine();
             imgui_StrTooltip(
-                "(?)", // !!TODO: rewrite...
+                "(?)",
                 "For auto-mode, '+s' and '+!', if the rule maps all-0 case to 1 and all-1 case to 0, the step will be ceiled to 2*n (e.g. 1->2, 2->2) to avoid large spans of 0/1 areas flashing between two colors.\n\n"
-                "('+1' is not affected, and can serve to change the parity of generation in all cases.)\n\n"
-                "Such rules are called \"strobing rules\". There also exist rules that are non-strobing (so the adjustment won't take place) but can still develop non-trivial flashing areas. To avoid flashing effect for these rules, you can manually set a suitable step (likely 2*n).");
+                "Such rules are called \"strobing rules\". There also exist rules that are non-strobing (so the adjustment won't take place) but can develop non-trivial flashing areas. If you encounter such rules, to avoid the flashing effect you can manually try some different steps.\n\n"
+                "('+1' is not affected by the adjustment, and can serve to change the parity of generation in all cases.)");
             if (enable_shortcuts) {
                 imgui_StepSliderInt::next_shortcuts = {ImGuiKey_3, ImGuiKey_4};
             }
@@ -1001,8 +1001,7 @@ public:
                                       "Drag with left button to move the space.\n"
                                       "Ctrl + drag to rotate the space.\n\n"
                                       "Drag with right button to select area.\n"
-                                      "Single right-click to unselect.\n\n"
-                                      "See 'Op-settings' for more operations.")) {
+                                      "Single right-click to unselect.")) {
             highlight_canvas = true;
         }
         ImGui::SameLine();
