@@ -710,8 +710,9 @@ public:
                 m_ctrl.flip_pause();
             }
             ImGui::SameLine();
-            imgui_StrTooltip("(?)", "The space will pause and restart if you 'Restart' or change init settings.\n\n"
-                                    "The shortcuts for 'Restart' ('R') and 'Pause' ('Space') also work here.");
+            imgui_StrTooltip("(?)",
+                             "The space will pause and restart if you click 'Restart' or change init settings.\n\n"
+                             "Shortcuts in this window: 'R' to restart, 'Space' to toggle pause state.");
 
             initT init = reset ? torusT::init_init : m_torus.get_init();
 
@@ -723,91 +724,94 @@ public:
 
             ImGui::Separator();
 
-            ImGui::AlignTextToFramePadding();
-            imgui_StrTooltip("(...)", "Left-click a cell to set it to 1 (white).\n"
-                                      "Right-click to set to 0 (black).\n"
-                                      "Ctrl + left-click a cell to resize to that position.");
-            ImGui::SameLine();
-            imgui_Str("Background");
-            ImGui::SameLine();
-            if (ImGui::SmallButton("0/1")) {
-                aniso::flip(init.background.data());
-            }
+            if (ImGui::TreeNodeEx("Background", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap |
+                                                    ImGuiTreeNodeFlags_NoAutoOpenOnLog)) {
+                ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
+                imgui_StrTooltip("(?)", "Left-click a cell to set it to 1 (white).\n"
+                                        "Right-click to set to 0 (black).\n"
+                                        "Ctrl + left-click a cell to resize to that position.");
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Flip")) {
+                    aniso::flip(init.background.data());
+                }
 
-            // There are:
-            // demo_size.z is a multiple of any i <= max_period.z, and
-            // cell_button_size.z * max_period.z == demo_size.z * demo_zoom (so the images have the same
-            // size as the board)
-            constexpr aniso::vecT max_period{.x = 4, .y = 4};
-            constexpr aniso::vecT demo_size{.x = 24, .y = 24};
-            constexpr int demo_zoom = 3;
-            constexpr ImVec2 cell_button_size{18, 18};
-            // static_assert(max_period.x * max_period.y == init.background.capacity()); This works, but why?
-            static_assert(max_period.x * max_period.y == aniso::tile_buf::capacity());
+                // There are:
+                // demo_size.z is a multiple of any i <= max_period.z, and
+                // cell_button_size.z * max_period.z == demo_size.z * demo_zoom (so the images have the same
+                // size as the board)
+                constexpr aniso::vecT max_period{.x = 4, .y = 4};
+                constexpr aniso::vecT demo_size{.x = 24, .y = 24};
+                constexpr int demo_zoom = 3;
+                constexpr ImVec2 cell_button_size{18, 18};
+                // static_assert(max_period.x * max_period.y == init.background.capacity()); This works, but why?
+                static_assert(max_period.x * max_period.y == aniso::tile_buf::capacity());
 
-            ImGui::InvisibleButton("##Board", cell_button_size * to_imvec(max_period),
-                                   ImGuiButtonFlags_MouseButtonLeft |
-                                       ImGuiButtonFlags_MouseButtonRight); // So right-click can activate the button.
-            {
-                const ImVec2 button_beg = ImGui::GetItemRectMin();
-                const bool button_hovered = ImGui::IsItemHovered();
-                const ImVec2 mouse_pos = ImGui::GetMousePos();
-                ImDrawList& drawlist = *ImGui::GetWindowDrawList();
-                const aniso::tile_ref data = init.background.data();
-                std::optional<aniso::vecT> resize = std::nullopt;
-                for (int y = 0; y < max_period.y; ++y) {
-                    for (int x = 0; x < max_period.x; ++x) {
-                        const bool in_range = x < data.size.x && y < data.size.y;
+                ImGui::InvisibleButton(
+                    "##Board", cell_button_size * to_imvec(max_period),
+                    ImGuiButtonFlags_MouseButtonLeft |
+                        ImGuiButtonFlags_MouseButtonRight); // So right-click can activate the button.
+                {
+                    const ImVec2 button_beg = ImGui::GetItemRectMin();
+                    const bool button_hovered = ImGui::IsItemHovered();
+                    const ImVec2 mouse_pos = ImGui::GetMousePos();
+                    ImDrawList& drawlist = *ImGui::GetWindowDrawList();
+                    const aniso::tile_ref data = init.background.data();
+                    std::optional<aniso::vecT> resize = std::nullopt;
+                    for (int y = 0; y < max_period.y; ++y) {
+                        for (int x = 0; x < max_period.x; ++x) {
+                            const bool in_range = x < data.size.x && y < data.size.y;
 
-                        const ImVec2 cell_beg = button_beg + cell_button_size * ImVec2(x, y);
-                        const ImVec2 cell_end = cell_beg + cell_button_size;
-                        drawlist.AddRectFilled(cell_beg, cell_end,
-                                               in_range ? (data.at(x, y) ? IM_COL32_WHITE : IM_COL32_BLACK)
-                                                        : IM_COL32_GREY(60, 255));
-                        drawlist.AddRect(cell_beg, cell_end, IM_COL32_GREY(160, 255));
-                        if (button_hovered && ImRect(cell_beg, cell_end).Contains(mouse_pos) /*[)*/) {
-                            if (shortcuts::ctrl()) {
-                                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                                    resize = {.x = x + 1, .y = y + 1};
-                                }
-                            } else if (in_range) {
-                                if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                                    data.at(x, y) = {0};
-                                } else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                                    data.at(x, y) = {1};
+                            const ImVec2 cell_beg = button_beg + cell_button_size * ImVec2(x, y);
+                            const ImVec2 cell_end = cell_beg + cell_button_size;
+                            drawlist.AddRectFilled(cell_beg, cell_end,
+                                                   in_range ? (data.at(x, y) ? IM_COL32_WHITE : IM_COL32_BLACK)
+                                                            : IM_COL32_GREY(60, 255));
+                            drawlist.AddRect(cell_beg, cell_end, IM_COL32_GREY(160, 255));
+                            if (button_hovered && ImRect(cell_beg, cell_end).Contains(mouse_pos) /*[)*/) {
+                                if (shortcuts::ctrl()) {
+                                    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                                        resize = {.x = x + 1, .y = y + 1};
+                                    }
+                                } else if (in_range) {
+                                    if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                                        data.at(x, y) = {0};
+                                    } else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                                        data.at(x, y) = {1};
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                if (resize && init.background.size() != *resize) {
-                    init.background.resize(*resize);
-                }
-            }
-
-            {
-                aniso::tileT demo(demo_size);
-                aniso::fill(demo.data(), init.background);
-                static aniso::tileT curr;
-                static bool skip_run = true;
-                if (ImGui::IsWindowAppearing() || curr.empty() || init.background != m_torus.get_init().background) {
-                    curr = aniso::tileT(demo);
-                    skip_run = true;
+                    if (resize && init.background.size() != *resize) {
+                        init.background.resize(*resize);
+                    }
                 }
 
-                ImGui::SameLine(0, 0);
-                imgui_Str(" ~ ");
-                ImGui::SameLine(0, 0);
-                ImGui::Image(to_texture(demo.data(), scaleE::Nearest), to_imvec(demo.size() * demo_zoom));
-                imgui_ItemRect(IM_COL32_GREY(160, 255));
-                ImGui::SameLine(0, 0);
-                imgui_Str(" ~ ");
-                ImGui::SameLine(0, 0);
-                ImGui::Image(to_texture(curr.data(), scaleE::Nearest), to_imvec(curr.size() * demo_zoom));
-                imgui_ItemRect(IM_COL32_GREY(160, 255));
+                {
+                    aniso::tileT demo(demo_size);
+                    aniso::fill(demo.data(), init.background);
+                    static aniso::tileT curr;
+                    static bool skip_run = true;
+                    static test_appearing appearing;
+                    if (appearing.update() || curr.empty() || init.background != m_torus.get_init().background) {
+                        curr = aniso::tileT(demo);
+                        skip_run = true;
+                    }
 
-                if (global_timer::test(200) && !std::exchange(skip_run, false)) {
-                    curr.run_torus(current_rule.get());
+                    ImGui::SameLine(0, 0);
+                    imgui_Str(" ~ ");
+                    ImGui::SameLine(0, 0);
+                    ImGui::Image(to_texture(demo.data(), scaleE::Nearest), to_imvec(demo.size() * demo_zoom));
+                    imgui_ItemRect(IM_COL32_GREY(160, 255));
+                    ImGui::SameLine(0, 0);
+                    imgui_Str(" ~ ");
+                    ImGui::SameLine(0, 0);
+                    ImGui::Image(to_texture(curr.data(), scaleE::Nearest), to_imvec(curr.size() * demo_zoom));
+                    imgui_ItemRect(IM_COL32_GREY(160, 255));
+
+                    if (global_timer::test(200) && !std::exchange(skip_run, false)) {
+                        curr.run_torus(current_rule.get());
+                    }
                 }
             }
 
@@ -1726,27 +1730,29 @@ void previewer::configT::_set(const bool can_resize) {
     interval.step_slide("Interval", 0, 400);
 
     ImGui::Separator();
-    menu_like_popup::button("Init state");
-    menu_like_popup::popup([] {
+    if (ImGui::TreeNodeEx("Init state", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap |
+                                            ImGuiTreeNodeFlags_NoAutoOpenOnLog)) {
+        ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
+        imgui_StrTooltip("(?)", "These settings are shared by all preview windows.");
+
         // !!TODO: (v0.9.9) support both global and per-group setting mode?
         initT& init = _global_data::init;
-        ImGui::AlignTextToFramePadding();
-        imgui_StrTooltip("(?)", "These are shared by all groups.");
         ImGui::SameLine();
-        if (ImGui::Button("Reset") && messenger::dot()) {
+        if (ImGui::SmallButton("Reset") && messenger::dot()) {
             init = _global_data::init_init;
         }
-        ImGui::SameLine();
+
+        imgui_StepSliderInt::fn("Seed", &init.seed, 0, 9);
+        init.density.step_slide("Density", 10, 100, 10);
+        init.area.step_slide("Area", 10, 100, 10);
+
+        ImGui::AlignTextToFramePadding();
         imgui_Str("Background ~ ");
         ImGui::SameLine(0, 0);
         ImGui::Dummy(square_size());
         imgui_ItemRectFilled(IM_COL32_BLACK);
         imgui_ItemRect(IM_COL32_GREY(160, 255));
-
-        imgui_StepSliderInt::fn("Seed", &init.seed, 0, 9);
-        init.density.step_slide("Density", 10, 100, 10);
-        init.area.step_slide("Area", 10, 100, 10);
-    });
+    }
 
     ImGui::PopItemWidth();
     // ImGui::PopStyleVar();
