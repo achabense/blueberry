@@ -257,6 +257,9 @@ class folderT {
                 break; // Instead of throwing.
             }
 
+            // About symlinks:
+            // 1. Real symlinks seems to be resolved automatically (directory_iterator & fstream)...
+            // 2. Windows shortcuts are not symlinks (they are regular files) and cannot be resolved using filesystem functions...
             std::error_code ec{};
             if (const auto status = entry.status(ec); !ec) {
                 const bool is_dir = std::filesystem::is_directory(status);
@@ -395,7 +398,6 @@ public:
 
 // TODO: support filtering folder names as well?
 // TODO: support recording recently-opened folders/files?
-// TODO: support reading symlink?
 class file_nav : no_copy {
     char buf_path[200]{};
     char buf_filter[20]{}; // For files.
