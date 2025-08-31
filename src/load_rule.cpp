@@ -599,7 +599,6 @@ class textT : no_copy {
         str_ref str = {};   // -> `m_text`
         rule_ref rule = {}; // -> `m_rules`
         bool highlight = false;
-        bool eq_last = false; // TODO: remove this?
         bool seg_start = false;
     };
 
@@ -623,7 +622,6 @@ class textT : no_copy {
         m_rules.emplace_back(rule);
         const int pos = m_rules.size() - 1;
         line.rule.pos = pos;
-        line.eq_last = pos > 0 ? m_rules[pos] == m_rules[pos - 1] : false;
     }
 
     std::optional<int> m_pos = std::nullopt; // `display` iterated to `m_pos` last time.
@@ -916,12 +914,12 @@ private:
             const int digit_width = m_lines.size() < 100 ? 2 : std::to_string(m_lines.size()).size();
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
             for (int l = 0; const auto& line : m_lines) {
+                const int this_l = l++;
                 const auto& rule = line.rule;
-                if (l != 0 && line.seg_start) {
+                if (this_l != 0 && line.seg_start) {
                     ImGui::SeparatorText("");
                 }
 
-                const int this_l = l++;
                 ImGui::TextDisabled("%*d ", digit_width, this_l + 1);
                 if (locate_line == this_l) {
                     ImGui::SetScrollHereY(0);
@@ -958,8 +956,7 @@ private:
                 }
 
                 if (rule.has_value()) {
-                    // TODO: temporarily preserved.
-                    constexpr bool has_lock = false;
+                    constexpr bool has_lock = false; // TODO: temporarily preserved.
 
                     if (rule.pos == m_pos) {
                         drawlist.AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 60));
@@ -975,14 +972,11 @@ private:
                     if (m_preview.enabled) {
                         imgui_StrDisabled("-: ");
                         ImGui::SameLine();
-                        if (line.eq_last) {
-                            imgui_StrDisabled("The same as the last rule.");
-                        } else {
-                            // Workaround to avoid affecting popup & tooltip.
-                            ImGui::PopStyleVar();
-                            previewer::preview(rule.pos, m_preview.config, rule.get(m_rules) /*cheap call*/);
-                            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-                        }
+
+                        ImGui::PopStyleVar(); // (Workaround to avoid affecting popup & tooltip.)
+                        previewer::preview(rule.pos, m_preview.config, rule.get(m_rules) /*cheap call*/);
+                        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+
                         ImGui::EndGroup();
                     }
 
