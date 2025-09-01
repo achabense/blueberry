@@ -962,15 +962,15 @@ public:
                     imgui_StrTooltip(
                         "(...)",
                         "[X]/[Y]/[Z] can be arbitrary rules in [S]. When [S] changes and no longer contains them (or when they appear initially), they will be reset to [R].\n\n"
-                        "Drag a rule to the label to replace.\n"
-                        "Drag the label to send the rule elsewhere.\n"
-                        "Use 'Show in window' to display the rule in a regular window.");
+                        "Drag a rule to the label to apply the rule.\n"
+                        "Drag the label to send the rule elsewhere.");
                     ImGui::Separator();
 
                     if (ImGui::Selectable("Show in window")) {
                         opened = true;
                         m_window = true;
                     }
+                    guide_mode::item_tooltip("Display the rule in a regular window.");
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(m_rule.get());
                     }
@@ -1092,12 +1092,10 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)",
-            "The seq is able to iterate through all rules in [S] in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
-            "The seq will be cleared automatically if [S] or [X] changes.\n\n"
-            "The \"dist\" in this window refers to distance to [X]. For example, 'Go to dist' will go to the first rule with specified distance to [X].\n\n"
-            "1. If [S] is small enough (i.e. having only a few groups), you can easily traverse all rules, and it doesn't matter which rule serves as [X].\n"
-            "(Examples include self-complementary totalistic rules ('0<>1' & 'Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All' & 'Von'), and so on.)\n"
-            "2. If [S] is large, this still works (the page is generated on demand; rules outside of the page are never stored), but 'Random'/'Random-access' may be more suitable tools.");
+            "The seq can iterate through all rules in [S] in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
+            "The \"dist\" in this window refers to distance to [X]. For example, 'Go to dist' can get to the first rule with specified distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
+            "(This is mainly useful for small sets (having only a few groups). For large sets, 'Random' and 'Random-access' may be more suitable tools.)");
+        //"(Some small subsets include self-complementary totalistic rules ('0<>1 & Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All & Jvn') and so on.)"
         ImGui::SameLine();
         imgui_Str("Go to dist ~ ");
         ImGui::SameLine(0, 0);
@@ -1197,10 +1195,9 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)",
-            "The seq is able to generate random rules in [S] with specified distance around/exactly to [Y].\n\n"
-            "When you are at the last page (or when the page is empty; 'At' ~ 'N/A'), '>>>' will generate new pages of rules; otherwise, '<</>>>' serves to iterate through generated rules. Note that nothing will happen immediately after you update [Y], as [Y] only affects how to generate new rules.\n\n"
-            "1. In the default settings ([S] ~ isotropic set; [Y] ~ all-0 rule; distance ~ 'Around' 30), '>>>' can generate random isotropic rules with around 30 groups having '1'.\n"
-            "2. To generate random rules close to a certain rule, you can update [Y] and set a low distance.");
+            "The seq can generate random rules in [S] with specified distance around/exactly to [Y].\n\n"
+            "When you are at the last page (or when the page is empty; 'At' ~ N/A), '>>>' can generate new pages of rules. The generated rules can be accessed using '<</>>>'. (They won't be cleared automatically.)\n\n"
+            "(Note that nothing will happen immediately after you update [S] or [Y], as they only affect how to generate new rules.)");
         ImGui::SameLine();
         imgui_RadioButton("Around", &exact_mode, false);
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
@@ -1398,16 +1395,16 @@ void edit_rule(frame_main_token) {
             target.sync(working_set, observer);
 
             // TODO: use (?) or (...)? (It's getting unclear which is for which...)
+            // TODO: the group button op seems unnecessary now...
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
-                "[Z] stands for an arbitrary rule in [S].\n\n"
-                "The preview windows display the flipping result for each group. In other words, the table displays all rules with dist = 1 to [Z].\n\n"
-                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip the values of [Z] in that group. (So it effectively swaps [Z] and the previewed rule, and can be undone by clicking the same button again.)"
-                /*"1. Collapse the set table ('Collapse') to leave more room for preview windows.\n"
-                "2. Open menu for [Z] for the record (to switch among recently tested rules).\n"
+                "The preview windows display the rules gotten by flipping [Z]'s values for each group. In other words, the table displays all rules with distance = 1 to [Z] in [S].\n\n"
+                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group.\n\n"
+                "1. Click the same button again to undo the change.\n"
+                "2. Collapse the set table ('Collapse') to leave more room.\n"
                 "3. Use the 'Misc' window to temporarily store the rule.\n"
-                "4. Turn on 'Show in window' for better control. (The swapping effect will be obvious.)"*/);
+                "4. Right-click [Z] to open menu (display [Z] in regular window, select recent rules, etc.).");
 
             ImGui::SameLine();
             random_access_status::begin_disabled();
@@ -1435,6 +1432,7 @@ void edit_rule(frame_main_token) {
             disp_mode = Target;
         }
 
+        // !!TODO: still messy...
         // !!TODO: (v0.9.9) use 'Cmp' if possible (need to mess with fonts)...
         // 'Cmp' is fine, but in the default font settings there is no spacing between C and m...
         // Related: https://github.com/ocornut/imgui/issues/8854
