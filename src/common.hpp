@@ -358,7 +358,9 @@ public:
                     lock_scroll();
                 }
 
-                if (!window_rect.Contains(mouse_pos) && item_rect.Contains(mouse_pos)) {
+                // Used to be `!window_rect.Contains(mouse_pos)`, but if the item overlaps with another window's title bar
+                // and it's double-clicked, the window will be collapsed without closing the popup...
+                if (GImGui->HoveredWindow == source_window && item_rect.Contains(mouse_pos)) {
                     // Avoid closing the popup when the item is clicked; relying on the impl details of this function:
                     (void)&ImGui::UpdateMouseMovingWindowEndFrame;
                     // Initially I tried to use modal popup to avoid the closing behavior, but that caused much more
