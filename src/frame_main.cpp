@@ -9,12 +9,27 @@ static open_state intro_window(frame_main_token) {
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
 
     imgui_Window::next_window_titlebar_tooltip =
-        "Click collapse button, or double click title bar to collapse/uncollapse.";
+        "Click the collapse button, or double click the title bar to collapse/uncollapse.";
     if (auto window =
             imgui_Window("Introduction", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        const bool begun = ImGui::BeginTabBar("Bar");
+        assert(begun);
         ImGui::PushTextWrapPos(wrap_len());
+        if (ImGui::BeginTabItem("Overview")) {
+            ImGui::Bullet();
+            imgui_Str("Use 'Files' and 'Clipboard' windows to load rules.");
+            ImGui::Bullet();
+            imgui_Str("Use the left panel to generate rules.");
+            ImGui::SameLine();
+            imgui_StrTooltip("(?)",
+                             "It's recommended to try the 'Random' window first (press '>>>' to generate rules).");
+            ImGui::Bullet();
+            imgui_Str("Use the right panel to operate on patterns.");
+            ImGui::Bullet();
+            imgui_Str("See 'Documents' for more information.");
 
-        {
+            ImGui::SeparatorText("Controls");
+
             if constexpr (debug_mode_double_esc_to_close) {
                 ImGui::Bullet();
                 // ImGui::SameLine(); // Not needed.
@@ -24,9 +39,8 @@ static open_state intro_window(frame_main_token) {
             ImGui::Bullet();
             imgui_Str("Press 'H' to toggle on/off additional tooltips.");
             ImGui::SameLine();
-            imgui_StrTooltip(
-                "(?)",
-                "Only input fields use 'Ctrl' for shortcuts (Ctrl+C/X/V etc.); all the other shortcuts (like this) require 'Ctrl' not to be pressed.");
+            imgui_StrTooltip("(?)", "Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
+                                    "All the other shortcuts (like this) require Ctrl not to be pressed.");
             // & Ctrl+C to copy tooltip (debug mode)
 
             ImGui::Bullet();
@@ -45,30 +59,31 @@ static open_state intro_window(frame_main_token) {
             }
             ImGui::SameLine(0, 0);
             imgui_Str(" require double-clicking.");
+            ImGui::EndTabItem();
         }
-        ImGui::Separator();
-        {
+        if (ImGui::BeginTabItem("Preview windows")) {
             ImGui::Bullet();
-            imgui_Str("Right-click \"preview window\" (like below) to open menu.");
+            imgui_Str("Right-click to open menu.");
             ImGui::Bullet();
             imgui_Str("Drag to send the rule elsewhere (right-click to cancel).");
             ImGui::SameLine();
-            imgui_StrTooltip("(?)", "These can serve as drag sources:\n"
+            imgui_StrTooltip("(?)", "The following can serve as rule sources:\n"
                                     "1. Preview windows.\n"
                                     "2. The MAP-string for (the rule shown in) the main window.\n"
-                                    "3. Anything that displays a preview window in tooltip.");
-
+                                    "3. Other items that display a preview window in tooltip.");
             ImGui::Bullet();
             imgui_Str("Press left/right arrow keys to control 'Prev/Next' in the focused window.");
 
             ImGui::Bullet();
-            imgui_Str("Make sure you can save rules and patterns.");
+            imgui_Str("Make sure you can save discoveries (rules and patterns).");
             ImGui::SameLine();
             imgui_StrTooltip( // !!TODO: about auto-saving...
                 "(?)",
-                "The program relies on clipboard to save rules and patterns, so make sure the clipboard works.\n\n"
-                "Take preview windows for example, there are two equivalent ways to copy rule to the clipboard: open menu -> 'Copy rule', or send the rule to '[C]' (after 'Clipboard').\n\n"
-                "Some functions will record recently accepted rules. For example, the copied rules are accessible from the menu for '[C]'.\n\n"
+                "The program relies on the clipboard to save rules and patterns.\n\n"
+                "To copy rule to the clipboard: open menu -> 'Copy rule', or equivalently, send the rule to '[C]' (after 'Clipboard').\n\n"
+                "The method will:\n"
+                "1. Copy rule to the clipboard.\n"
+                "2. Save rule to the \"autosaved\" folder (if possible). However, it's recommended you deal with the copied rules yourselves.\n\n"
                 "For more details, see !!TODO...");
 
             // (Selected from "Documents/Rules in different sets")
@@ -99,8 +114,9 @@ static open_state intro_window(frame_main_token) {
 
             previewer::preview(at, config, rules[at]);
             ImGui::EndGroup();
+            ImGui::EndTabItem();
         }
-
+        ImGui::EndTabBar();
         ImGui::PopTextWrapPos();
     }
     return {open};
