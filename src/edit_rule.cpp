@@ -610,7 +610,7 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
     }
 }
 
-// !!TODO: these tooltips read still problematic...
+// TODO: simplify if possible...
 class rule_selector : no_copy {
     enum tagE { Zero, Identity, Other, None };
     tagE m_tag = Zero;
@@ -623,22 +623,17 @@ class rule_selector : no_copy {
         const char* desc;
     };
     static constexpr termT terms[3]{
-        {Zero, "Zero",
+        {Zero, "Zero", // TODO: about distance to 'Zero'...
          "The all-0 rule, i.e. the rule that maps cell to 0 in all cases.\n\n"
-         "1. For any rule in any case, being same as this rule means the rule maps cell to 0, and being different means the rule maps cell to 1.\n"
-         "2. The distance to this rule equals the number of groups that map cells to 1."},
+         "For any rule in any case, being same as this rule means the rule maps cell to 0, and being different means the rule maps cell to 1."},
 
         {Identity, "Identity",
          "The rule that preserves cell's value in all cases.\n\n"
          "For any rule in any case, being same as this rule means the cell will stay unchanged (0->0 or 1->1), and being different means the cell will \"flip\" (0->1 or 1->0)."},
 
-        // !!TODO: unfinished...
         {Other, "Other",
-         "Another rule that's neither 'Zero' nor 'Identity'. This is initially the Game of Life rule.\n\n"
-         "[S] will be updated when you drag a rule to it, or when [R] changes and no longer contains [S] (in this case, [S] will be updated to an unspecified rule in [S]).\n"
-         "If the rule equals 'Zero' or 'Identity' ... will select directly without updating 'Other'; otherwise, will update and select 'Other'...\n"
-         "When you select with the radio buttons, 'Other' will not be changed...\n"
-         "... (... '0<>1 & Total(+s)'.)"},
+         "Another rule that's neither 'Zero' nor 'Identity'. (Initially it's the Game of Life rule.)\n\n"
+         "Sometimes neither 'Zero' nor 'Identity' belongs to [S] (for example, try '0<>1 & Total(+s)'), and this will be updated to guarantee there is at least one rule available in [S]."},
     };
 
     const aniso::ruleT& get_rule(tagE tag) const {
@@ -659,16 +654,13 @@ class rule_selector : no_copy {
     }
 
 public:
-    // !!TODO: unfinished...
     static void about() {
         imgui_Str(
-            "[S] divides all cases into disjoint groups, and any two rules in [S] must have either all-same or all-different values in each group.\n\n"
-            "Due to this structure:\n"
-            "1. The \"distance\" between any two rules in [S] can be defined as the number of groups where they have different values.\n"
-            "2. Any rule in [S] can serve as an \"observer\" to measure relative distance and compare (same or different) with other rules.\n\n"
-            "[R] stands for an arbitrary rule in [S] to serve this role. It doesn't affect rule generation.\n\n"
-            "1. Being same or different than 'Zero' / 'Identity' has natural interpretations (actual value / flipness).\n"
-            "2. 'Other' represents an arbitrary rule that's neither 'Zero' nor 'Identity'...");
+            "[S] divides all cases into disjoint groups, and any two rules in [S] must have either all-same or all-different values in each group. Due to this structure, the \"distance\" between rules can be defined as the number of groups where they have different values.\n\n"
+            "[R] stands for an arbitrary rule in [S] to measure relative distance and compare with other rules (same or different). It doesn't affect rule generation directly, but serves as the default rule for [X]/[Y]/[Z] (for 'Traverse', 'Random' and 'Random-access' respectively).\n\n"
+            // "(If you select 'Zero' or 'Identity', being same or different than [R] has natural interpretations.)"
+            // "('Other' won't be updated when you switch with the radio buttons.)"
+            "You can update [R] by dragging a rule to it. If [S] changes and no longer contains [R], [R] will be updated to an unspecified rule. In both cases, the updating logic is: if the rule equals 'Zero' or 'Identity', select directly without updating 'Other'; otherwise, update and select 'Other'.");
     }
 
     const aniso::ruleT& get() const { return get_rule(m_tag); }
@@ -995,6 +987,7 @@ public:
                     ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, floor(h / 2)}, ImGuiCond_Always);
                 }
             }
+            // TODO: ideally, should always appear above the source window.
             if (auto window = imgui_Window(label, &m_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 item_to_take_snapshot(ImGui::SmallButton, "Recent", m_rule.rec(), m_snapshot);
@@ -1432,7 +1425,7 @@ void edit_rule(frame_main_token) {
             disp_mode = Target;
         }
 
-        // !!TODO: still messy...
+        // TODO: simplify if possible...
         // !!TODO: (v0.9.9) use 'Cmp' if possible (need to mess with fonts)...
         // 'Cmp' is fine, but in the default font settings there is no spacing between C and m...
         // Related: https://github.com/ocornut/imgui/issues/8854
