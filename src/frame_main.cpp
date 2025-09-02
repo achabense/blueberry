@@ -3,6 +3,7 @@
 // TODO: when to use '? ('Ctrl' vs Ctrl, 'Clipboard' vs Clipboard, '0' vs 0 etc.)
 // TODO: whether to require no-ctrl for shortcuts?
 
+// !!TODO: unfinished...
 static open_state intro_window(frame_main_token) {
     bool open = true;
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
@@ -12,10 +13,14 @@ static open_state intro_window(frame_main_token) {
         "Click the collapse button, or double click the title bar to collapse/uncollapse.";
     if (auto window =
             imgui_Window("Introduction", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-        const bool begun = ImGui::BeginTabBar("Bar");
-        assert(begun);
+        static int page = 0;
+        imgui_RadioButton("Overview", &page, 0);
+        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+        imgui_RadioButton("Preview windows", &page, 1);
+        ImGui::Separator();
+
         ImGui::PushTextWrapPos(wrap_len());
-        if (ImGui::BeginTabItem("Overview")) {
+        if (page == 0) {
             ImGui::Bullet();
             imgui_Str("Use 'Files' and 'Clipboard' windows to load rules.");
             ImGui::Bullet();
@@ -28,7 +33,7 @@ static open_state intro_window(frame_main_token) {
             ImGui::Bullet();
             imgui_Str("See 'Documents' for more information.");
 
-            ImGui::SeparatorText("Controls");
+            ImGui::SeparatorText("Misc controls");
 
             if constexpr (debug_mode_double_esc_to_close) {
                 ImGui::Bullet();
@@ -59,9 +64,7 @@ static open_state intro_window(frame_main_token) {
             }
             ImGui::SameLine(0, 0);
             imgui_Str(" require double-clicking.");
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Preview windows")) {
+        } else if (page == 1) {
             ImGui::Bullet();
             imgui_Str("Right-click to open menu.");
             ImGui::Bullet();
@@ -114,9 +117,7 @@ static open_state intro_window(frame_main_token) {
 
             previewer::preview(at, config, rules[at]);
             ImGui::EndGroup();
-            ImGui::EndTabItem();
         }
-        ImGui::EndTabBar();
         ImGui::PopTextWrapPos();
     }
     return {open};

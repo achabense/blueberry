@@ -1562,21 +1562,11 @@ void edit_rule(frame_main_token) {
                 const auto get_adjacent_rule = [&] { return aniso::flip_values_v(group, target); };
 
                 ImGui::BeginGroup();
-                // _ButtonHovered: ImVec4(0.26f, 0.59f, 0.98f, 1.00f)
-                // [0]:Button, [1]:Hover, [2]:Active
-                static constexpr ImVec4 button_color[3]{
-                    {0.26f, 0.59f, 0.98f, 0.70f}, {0.26f, 0.59f, 0.98f, 0.85f}, {0.26f, 0.59f, 0.98f, 1.00f}};
-                // static constexpr ImVec4 button_col_impure[3]{
-                //     {0.26f, 0.59f, 0.98f, 0.30f}, {0.26f, 0.59f, 0.98f, 0.40f}, {0.26f, 0.59f, 0.98f, 0.50f}};
-                ImGui::PushStyleColor(ImGuiCol_Button, button_color[0]);
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color[1]);
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, button_color[2]);
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
                 if (code_button(head, button_zoom)) {
                     target.set(get_adjacent_rule());
                 }
                 ImGui::PopStyleVar();
-                ImGui::PopStyleColor(3);
 
                 // !!TODO: (v0.9.9) sometimes noisy; should be able to turn off this tooltip.
                 // imgui_ItemTooltip(group_details);
