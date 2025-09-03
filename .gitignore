@@ -364,3 +364,5 @@ FodyWeavers.xsd
 
 # :O
 [Bb]uild/
+
+.xmake/

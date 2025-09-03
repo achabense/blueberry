@@ -1,19 +1,20 @@
-// For reference see "example_sdl2_sdlrenderer2/main.cpp":
-// https://github.com/ocornut/imgui/blob/master/examples/example_sdl2_sdlrenderer2/main.cpp
+// For reference see "example_sdl3_sdlrenderer3/main.cpp":
+// https://github.com/ocornut/imgui/blob/master/examples/example_sdl3_sdlrenderer3/main.cpp
 
 // Unfortunately, SDL2-renderer backend doesn't support docking features...
 // https://github.com/ocornut/imgui/issues/5835
 
-// TODO: (?v0.9.9) switch to SDL3...
-#include <SDL.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_sdlrenderer2.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_sdlrenderer3.h"
 
 #include "common.hpp"
 #include "tile_base.hpp"
 
 [[noreturn]] static void resource_failure() {
+    assert(false);
     SDL_Log("Error: %s", SDL_GetError());
     exit(EXIT_FAILURE);
 }
@@ -93,15 +94,15 @@ ImTextureID backend_fn::to_texture(const aniso::_misc::tile_ref_<const aniso::ce
     SDL_Texture* texture = texture_pool::get(tile.size.x, tile.size.y);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
     if (scale == scaleE::Nearest) {
-        SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
+        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
     } else {
         assert(scale == scaleE::Linear);
-        SDL_SetTextureScaleMode(texture, SDL_ScaleModeLinear);
+        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
     }
 
     void* pixels = nullptr;
     int pitch = 0;
-    if (SDL_LockTexture(texture, nullptr, &pixels, &pitch) != 0) {
+    if (!SDL_LockTexture(texture, nullptr, &pixels, &pitch)) {
         resource_failure();
     }
 
@@ -136,7 +137,7 @@ public:
         constexpr int width = 3, height = 3 * 512;
         texture = create_texture(SDL_TEXTUREACCESS_STATIC, width, height);
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
-        SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
+        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
 
         // Using heap allocation to avoid "Function uses XXX bytes of stack" warning.
         std::unique_ptr<Uint32[][3][3]> pixels(new Uint32[512][3][3]);
@@ -181,13 +182,8 @@ bool backend_fn::code_button(aniso::codeT code, int zoom) {
 // TODO: use `SDL_GetPrefPath`?
 // (Related: https://github.com/libsdl-org/SDL/issues/13322)
 std::string backend_fn::home_path_utf8() {
-    if (char* base_path = SDL_GetBasePath()) {
-        std::string str = base_path;
-        SDL_free(base_path);
-        return str;
-    } else {
-        return {}; // Instead of ".".
-    }
+    const char* base_path = SDL_GetBasePath();
+    return base_path ? base_path : ""; // No "." fallback.
 }
 
 static int frame_per_sec = 100;
@@ -200,42 +196,53 @@ void backend_fn::set_frame_rate() { //
 int main(int, char**) {
     assert(!window && !renderer);
 
+    // Workaround to setup DPI unawareness (to let the system (Windows) do the scaling).
+    // Without this the program will appear small by default, and users need to fix DPI settings manually (Compatibility/Change high DPI settings/Override high DPI scaling behavior->System).
+    // (The `SDL_HINT_WINDOWS_DPI_AWARENESS` macro has been removed in the new SDL3 version, but the string still works.)
+    SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "unaware");
+
     // Setup SDL
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
+    if (!SDL_Init(SDL_INIT_VIDEO /*| SDL_INIT_GAMEPAD*/)) {
         resource_failure();
     }
 
-    // IME: "Input Method Editor"
-    // From 2.0.18: Enable native IME.
-#ifdef SDL_HINT_IME_SHOW_UI
-    SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
-#endif
+    // IME is enabled by default in SDL3.
+    // SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "1");
 
     // Create window with SDL_Renderer graphics context
+    // 1. There seems no simple way to "scale everything" within program using ImGui & SDL3.
+    // 2. Even if the UI size is scaled accordingly, the pattern textures (which requires nearest/rounded scale-mode) will appear broken if the scale is not integral (e.g. 1.5).
+    [[maybe_unused]] const float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     {
         constexpr const char* window_title = "Blueberry v 0.9.8 (WIP)";
-
         constexpr SDL_WindowFlags window_flags =
-            (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
-        window =
-            SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
+            (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
+        if constexpr (1) {
+            window = SDL_CreateWindow(window_title, 1280, 720, window_flags);
+        } else {
+            window = SDL_CreateWindow(window_title, (int)(1280 * main_scale), (int)(720 * main_scale), window_flags);
+        }
         if (!window) {
             resource_failure();
         }
+
         if constexpr (1) {
-            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+            // (The memory usage has been reduced in SDL3.)
+            renderer = SDL_CreateRenderer(window, nullptr);
         } else {
-            // The high memory usage is mostly due to GPU rendering.
-            // However, software rendering has a lot of visual flaws (off-by-1-pixel etc)...
-            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+            // This can reduce memory & GPU usage, but has a lot of visual flaws (off-by-1-pixel etc).
+            renderer = SDL_CreateRenderer(window, SDL_SOFTWARE_RENDERER);
         }
         if (!renderer) {
             resource_failure();
         }
 
+        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
         if constexpr (init_maximize_window) {
             SDL_MaximizeWindow(window);
         }
+
+        SDL_SetRenderVSync(renderer, 1);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         SDL_RenderPresent(renderer);
@@ -251,16 +258,21 @@ int main(int, char**) {
 
     ImGui::GetIO().IniFilename = nullptr;
     ImGui::GetIO().LogFilename = nullptr;
-    // if constexpr (!debug_mode) {
-    //     ImGui::GetIO().ConfigDebugHighlightIdConflicts = false;
-    // }
+    ImGui::GetIO().ConfigDebugHighlightIdConflicts = true;
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
 
+    // Setup scaling
+    if constexpr (0) {
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.ScaleAllSizes(main_scale);
+        style.FontScaleDpi = main_scale;
+    }
+
     // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-    ImGui_ImplSDLRenderer2_Init(renderer);
+    ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
+    ImGui_ImplSDLRenderer3_Init(renderer);
     ImGui::GetPlatformIO().Platform_OpenInShellFn = [](ImGuiContext*, const char* u8path) {
         return SDL_OpenURL(u8path) == 0;
     };
@@ -279,16 +291,16 @@ int main(int, char**) {
             while (SDL_PollEvent(&event)) {
                 // Disable tab-related controls (nav menu & cycling through input fields)
                 // Related: https://github.com/ocornut/imgui/issues/8525
-                if ((event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) && event.key.keysym.sym == SDLK_TAB) {
+                if ((event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) && event.key.key == SDLK_TAB) {
                     continue;
                 }
 
-                ImGui_ImplSDL2_ProcessEvent(&event);
-                if (event.type == SDL_QUIT) {
+                ImGui_ImplSDL3_ProcessEvent(&event);
+                if (event.type == SDL_EVENT_QUIT) {
                     return false;
                 }
                 // This appears not needed.
-                // if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE &&
+                // if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
                 //     event.window.windowID == SDL_GetWindowID(window)) {
                 //     return false;
                 // }
@@ -302,8 +314,8 @@ int main(int, char**) {
             }
         }
 
-        ImGui_ImplSDLRenderer2_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
+        ImGui_ImplSDLRenderer3_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
         return true;
     };
@@ -314,15 +326,16 @@ int main(int, char**) {
         // Skip rendering in the first frame for better visual.
         // (The intro window is hidden in the first frame due to auto-resize.)
         if (ImGui::GetFrameCount() >= 2) {
+            // TODO: how does this work?
             const auto& io = ImGui::GetIO();
-            SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+            SDL_SetRenderScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
             // `SDL_RenderClear` seems not necessary, as the program uses full-screen window.
             // (Kept as it does no harm.)
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
 
-            ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+            ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
             SDL_RenderPresent(renderer);
         }
     };
@@ -338,11 +351,11 @@ int main(int, char**) {
 
         // (Normally `SDL_RENDERER_PRESENTVSYNC` will further limit to a smaller framerate, like 60fps.)
         static Uint64 last = 0;
-        const Uint64 now = SDL_GetTicks64();
+        const Uint64 now = SDL_GetTicks();
         const Uint64 until = last + 1000 / frame_per_sec;
         if (now < until) {
             SDL_Delay(until - now);
-            last = until; // Instead of another `SDL_GetTicks64()` call.
+            last = until; // Instead of another `SDL_GetTicks()` call.
         } else {
             last = now;
         }
@@ -350,8 +363,8 @@ int main(int, char**) {
     code_atlas::end();
     texture_pool::end();
 
-    ImGui_ImplSDLRenderer2_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
+    ImGui_ImplSDLRenderer3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
     SDL_DestroyRenderer(renderer);
