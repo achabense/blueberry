@@ -384,80 +384,49 @@ public:
     }
 };
 
-struct id_pair {
-    ImGuiID id0 = 0, id1 = 0;
-
-    explicit id_pair() = default;
-    /*implicit*/ id_pair(ImGuiID i, ImGuiID j = 1) : id0(i), id1(j) {}
-    /*implicit*/ id_pair(const char* s, ImGuiID j = 1) : id0(ImGui::GetID(s)), id1(j) {}
-
-    explicit operator bool() const { return id0 || id1; }
-    friend bool operator==(const id_pair&, const id_pair&) = default;
-};
-
 class rclick_popup : no_create {
-    inline static id_pair bound_id{}, bound_id_next{};
-    inline static bool in_popup = false;
-
 public:
-    static void begin_frame(frame_main_token) {
-        bound_id = std::exchange(bound_id_next, id_pair{});
-        assert(!in_popup);
-    }
-
     // Popups are hidden at the first frame due to auto-resize, but will still block items.
     enum class hoverE { None, Hovered, PopupInvisible, PopupVisible };
     using enum hoverE;
 
-    [[nodiscard]] static hoverE popup_no_highlight(const id_pair id, const func_ref<void()> fn) {
-        // assert(!in_popup); (Too strict; ok as long as never hovered (e.g. in tooltip).)
+    // (Not meant to be called recursively.)
+    [[nodiscard]] static hoverE popup_no_highlight(const ImGuiID id, const func_ref<void()> fn) {
+        assert(id != 0);
+        const ImGuiID popup_id = id;
         const bool hovered = ImGui::IsItemHovered();
-        if (!hovered && id != bound_id) {
+        bool opened = imgui_IsPopupOpen(popup_id);
+        if (!hovered && !opened) {
+            // To respect ImGui::SetNextWindowXX calls.
+            GImGui->NextWindowData.ClearFlags();
             return None;
         }
 
-        assert(!in_popup); // Cannot open recursively.
-        hoverE hov = Hovered;
-
-        const ImGuiID popup_id = ImGui::GetID("Rclick-popup");
-        assert_implies(!bound_id, !imgui_IsPopupOpen(popup_id));
-        // (This doesn't break assertion, which means skipping `BeginPopup` is able to close the popup as well.)
-        // if (ImGui::IsKeyDown(ImGuiKey_Q)) {
-        //     return;
-        // }
-
         const ImGuiWindow* source_window = GImGui->CurrentWindow;
-        if (!bound_id && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+        if (!opened && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
             popup_with_focus::open_popup(popup_id, ImGuiPopupFlags_NoReopen);
+            opened = true;
             // TODO: whether to do this?
             // ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2(1, 1)); // Won't be closed by repeated clicks.
-            bound_id = id;
         }
 
-        if (bound_id == id) {
-            if (imgui_BeginPopupRecycled(popup_id)) {
-                popup_with_focus::set_focus(popup_id, source_window);
-                bound_id_next = id;
-                hov = ImGui::IsWindowAppearing() ? PopupInvisible : PopupVisible;
-                assert_implies(hov == PopupInvisible, GImGui->CurrentWindow->Hidden);
+        hoverE hov = Hovered;
+        if (opened && imgui_BeginPopupRecycled(popup_id)) {
+            popup_with_focus::set_focus(popup_id, source_window);
+            hov = ImGui::IsWindowAppearing() ? PopupInvisible : PopupVisible;
+            assert_implies(hov == PopupInvisible, GImGui->CurrentWindow->Hidden);
 
-                lock_scroll();
-                in_popup = true;
-                fn();
-                in_popup = false;
-                if constexpr (debug_mode_double_esc_to_close) {
-                    if (test_esc()) {
-                        ImGui::CloseCurrentPopup();
-                    }
+            lock_scroll();
+            fn();
+            if constexpr (debug_mode_double_esc_to_close) {
+                if (test_esc()) {
+                    ImGui::CloseCurrentPopup();
                 }
-                ImGui::EndPopup();
             }
-            // else: `bound_id` will become {} next frame.
+            ImGui::EndPopup();
         } else {
-            // To respect ImGui::SetNextWindow... calls.
             GImGui->NextWindowData.ClearFlags();
         }
-
         return hov;
     }
 
@@ -465,7 +434,7 @@ public:
         return ImGui::GetColorU32(bright ? ImGuiCol_Text : ImGuiCol_TextDisabled);
     }
 
-    static hoverE popup(const id_pair id, const func_ref<void()> fn) {
+    static hoverE popup(const ImGuiID id, const func_ref<void()> fn) {
         const hoverE hov = popup_no_highlight(id, fn);
         if (hov != None) {
             imgui_ItemUnderline(highlight_col(hov == PopupVisible));
@@ -932,6 +901,7 @@ public:
 
 // Preview rules.
 // TODO: support pausing groups/globally?
+// TODO: support dumping all rules in display?
 class previewer : no_create {
 public:
     enum { default_settings };

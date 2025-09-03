@@ -133,7 +133,6 @@ void frame_main() {
 
     global_timer::begin_frame({});
     shortcuts::begin_frame({});
-    rclick_popup::begin_frame({});
     previewer::begin_frame({});
     pass_rule::begin_frame({});
 

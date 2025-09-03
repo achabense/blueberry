@@ -1764,6 +1764,7 @@ void previewer::begin_frame(frame_main_token) { _global_data::begin_frame(); }
 // TODO: support send-to menu ops...
 // TODO: support pause mode?
 void previewer::_preview(const uint64_t id, const configT& config, const aniso::ruleT& rule) {
+    assert(ImGui::GetItemID() != 0);
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
     const int frame = ImGui::GetFrameCount();
@@ -1783,8 +1784,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     rclick_popup::hoverE hov = rclick_popup::None;
     bool restart_from_menu = false;
     if (!passing) {
-        const id_pair popup_id{ImGui::GetItemID(), (ImGuiID)(intptr_t)&term}; // Absolutely impossible to clash.
-        hov = rclick_popup::popup_no_highlight(popup_id, [&] {
+        hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
             // !!TODO: rewrite...
             imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n"
                                       "Hold to pause.\n\n"
