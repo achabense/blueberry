@@ -566,8 +566,6 @@ struct preview_setting {
     previewer::configT config = previewer::default_settings;
 };
 
-// !!TODO: (v0.9.9) support loading pattern from text page directly.
-
 // It is easy to locate all rules in the text via `extract_MAP_str`.
 // However there are no easy ways to locate or highlight (only) the rule across the lines.
 // See: https://github.com/ocornut/imgui/issues/2313
@@ -767,7 +765,7 @@ public:
                 if (menu_opened) {
                     if (imgui_BeginPopupRecycled(popup_id)) {
                         lock_scroll();
-                        if (ImGui::Selectable("Copy text")) {
+                        const auto get_str = [&] {
                             const auto [min, max] = m_sel->minmax();
                             std::string str;
                             for (int i = min; i <= max; ++i) {
@@ -776,10 +774,21 @@ public:
                                 }
                                 str += m_lines[i].str.get(m_text);
                             }
+                            return str;
+                        };
+                        if (ImGui::Selectable("Copy text")) {
                             // (wontfix) Won't copy if `str` contains '\0' (not expected to appear in utf8 text files).
-                            set_clipboard_and_notify(str);
+                            set_clipboard_and_notify(get_str());
                         }
-                        // TODO: support more operations (e.g. pattern extraction)
+                        // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
+                        // (Should appear only if it's really an RLE blob...)
+                        if constexpr (debug_mode) {
+                            if (runner_status::available()) {
+                                if (ImGui::Selectable("Load pattern")) {
+                                    load_pattern(get_str());
+                                }
+                            }
+                        }
                         if constexpr (debug_mode_double_esc_to_close) {
                             if (test_esc()) {
                                 ImGui::CloseCurrentPopup();
@@ -879,14 +888,11 @@ private:
         } else {
             ImGui::Text("Total:%d At:N/A", total);
         }
-        if constexpr (debug_mode) {
-            // TODO: whether to support clearing?
-            rclick_popup::popup(imgui_GetItemPosID(), [&] {
-                if (ImGui::Selectable("Reset cursor") && messenger::dot()) {
-                    m_pos.reset();
-                }
-            });
-        }
+        rclick_popup::popup(imgui_GetItemPosID(), [&] {
+            if (ImGui::Selectable("Reset cursor") && messenger::dot()) {
+                m_pos.reset();
+            }
+        });
         return pos;
     }
 
@@ -969,6 +975,7 @@ private:
                         }
                     }
 
+                    // TODO: ideally should not split RLE blob from header....
                     if (m_preview.enabled) {
                         imgui_StrDisabled("-: ");
                         ImGui::SameLine();

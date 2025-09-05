@@ -580,6 +580,7 @@ class runnerT : no_copy {
 
     // !!TODO: (v0.9.9) enhance to pattern list (& support more sources like text-page & sel op).
     struct pasteT {
+        bool newly_assigned = true;
         std::optional<aniso::ruleT> rule = std::nullopt;
         aniso::tileT tile{};
         aniso::vecT beg{0, 0};
@@ -1028,6 +1029,9 @@ public:
         }
 
         if (m_paste) {
+            if (std::exchange(m_paste->newly_assigned, false)) {
+                ImGui::SetNextWindowFocus();
+            }
             bool open = true;
             ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos(), ImGuiCond_Appearing);
             imgui_Window::next_window_titlebar_tooltip = "Close the window, or press 'V' again to discard the pattern.";
@@ -1334,6 +1338,32 @@ public:
         }
     }
 
+    void load_pattern(std::string_view text) {
+        // (Not interested in whether the header has correct format.)
+        const std::string_view header = aniso::strip_RLE_header(text);
+        aniso::from_RLE_str(text, [&](const aniso::prepareT size) -> std::optional<aniso::tile_ref> {
+            if (size.empty()) {
+                messenger::set_msg("Found no pattern (RLE-string).");
+                return std::nullopt;
+            } else if (const aniso::vecT tile_size = m_torus.size(); //
+                       size.x > tile_size.x || size.y > tile_size.y) {
+                messenger::set_msg("The space is not large enough for the pattern.\n"
+                                   "Space size: x = {}, y = {}\n"
+                                   "Pattern size: x = {}, y = {}",
+                                   tile_size.x, tile_size.y, size.x, size.y);
+                return std::nullopt;
+            } else {
+                m_ctrl.push_pause_for_m_paste();
+                m_paste = {.newly_assigned = true,
+                           .rule = aniso::extract_one_rule(header),
+                           .tile = aniso::tileT(aniso::vecT{.x = (int)size.x, .y = (int)size.y}),
+                           .beg = {0, 0},
+                           .mode = aniso::blitE::Copy};
+                return m_paste->tile.data();
+            }
+        });
+    }
+
 private:
     void range_operations(const bool canvas_hovered_or_held, bool& show_op_window) {
         // TODO: disable some operations if `m_paste.has_value`?
@@ -1507,28 +1537,7 @@ private:
                 if (self.m_paste) {
                     self.reset_m_paste();
                 } else if (std::string_view text = read_clipboard(); !text.empty()) {
-                    // (Not interested in whether the header has correct format.)
-                    const std::string_view header = aniso::strip_RLE_header(text);
-                    aniso::from_RLE_str(text, [&](const aniso::prepareT size) -> std::optional<aniso::tile_ref> {
-                        if (size.empty()) {
-                            messenger::set_msg("Found no pattern (RLE-string).");
-                            return std::nullopt;
-                        } else if (const aniso::vecT tile_size = self.m_torus.size(); //
-                                   size.x > tile_size.x || size.y > tile_size.y) {
-                            messenger::set_msg("The space is not large enough for the pattern.\n"
-                                               "Space size: x = {}, y = {}\n"
-                                               "Pattern size: x = {}, y = {}",
-                                               tile_size.x, tile_size.y, size.x, size.y);
-                            return std::nullopt;
-                        } else {
-                            self.m_ctrl.push_pause_for_m_paste();
-                            self.m_paste = {.rule = aniso::extract_one_rule(header),
-                                            .tile = aniso::tileT(aniso::vecT{.x = (int)size.x, .y = (int)size.y}),
-                                            .beg = {0, 0},
-                                            .mode = aniso::blitE::Copy};
-                            return self.m_paste->tile.data();
-                        }
-                    });
+                    self.load_pattern(text);
                 }
             } //
         };
@@ -1673,11 +1682,13 @@ private:
 };
 
 static runnerT runner;
-static test_active runner_active;
 void apply_rule(frame_main_token) {
+    runner_status::update();
+    // runner_status::begin_disabled(); // TODO: whether to disable?
     runner.display();
-    runner_active.update();
+    // runner_status::end_disabled();
 }
+void load_pattern(std::string_view text) { runner.load_pattern(text); }
 
 struct previewer::_global_data : no_create {
     static constexpr initT init_init{.seed = 0, .density = 50, .area = 100, .background = aniso::cellT{0}};
@@ -1830,7 +1841,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 }
             }
 
-            const bool runner_avail = (bool)runner_active;
+            const bool runner_avail = runner_status::available();
             const bool rand_access_avail = random_access_status::available();
 
             // Workaround to avoid breaking z-order.

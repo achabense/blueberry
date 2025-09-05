@@ -1467,8 +1467,10 @@ public:
 };
 
 // (Horrible workaround for send-to operation...)
+// (Should be plain class... temporarily template to avoid breaking code...)
 // TODO: should refactor away...
-class random_access_status : no_create {
+template <int id>
+class item_status : no_create {
     inline static test_active active;
     inline static bool disabled = false;
 
@@ -1478,5 +1480,9 @@ public:
     static void end_disabled() { disabled = false; }
 
     static bool available() { return active && !disabled; }
-    static constexpr int rule_id = 1; // For pass_rule::set_extra
+    static constexpr int rule_id = id; // For pass_rule::set_extra
 };
+
+using random_access_status = item_status<1>;
+using runner_status = item_status<2>;
+void load_pattern(std::string_view text);
