@@ -783,7 +783,7 @@ public:
                         // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
                         // (Should appear only if it's really an RLE blob...)
                         if constexpr (debug_mode) {
-                            if (runner_status::available()) {
+                            if (pattern_editor_status::available()) {
                                 if (ImGui::Selectable("Load pattern")) {
                                     load_pattern(get_str());
                                 }

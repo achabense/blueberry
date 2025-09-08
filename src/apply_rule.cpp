@@ -655,7 +655,7 @@ public:
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip(
                     "(...)",
-                    "The \"main window\" (as highlighted) has strictly wider control than preview windows, and is able to operate on patterns (e.g. saving and pasting; see 'Op-settings' for details).\n\n"
+                    "The \"pattern editor\" (as highlighted) has strictly wider control than preview windows, and is able to operate on patterns (e.g. saving and pasting; see 'Op-list' for details).\n\n"
                     "All spaces use torus topology, i.e. information can go across boundaries directly, so the entire space can be imagined as a periodic unit in an infinite space.")) {
                 highlight_canvas = true;
             }
@@ -682,7 +682,7 @@ public:
                                      "Drag to send the rule elsewhere.\n"
                                      "Right-click to open menu (copy the rule/select recent rules).");
             if (m_snapshot) {
-                display_snapshot("Recent - main window", m_snapshot, current_rule.rec(),
+                display_snapshot("Recent - pattern editor", m_snapshot, current_rule.rec(),
                                  {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
                                    .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
             }
@@ -869,7 +869,7 @@ public:
             }
             ImGui::SameLine();
             if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the screen.\n\n"
-                                        "(Scroll in the main window to zoom in/out without resizing.)")) {
+                                        "(Scroll in the editor to zoom in/out without resizing.)")) {
                 highlight_canvas = true;
             }
         };
@@ -884,7 +884,7 @@ public:
                                           "+s/+1/+!: S/D/F (repeatable)\n"
                                           "-/+ Step    : 1/2 (repeatable)\n"
                                           "-/+ Interval: 3/4 (repeatable)\n\n"
-                                          "These shortcuts work only when the main window is hovered.")) {
+                                          "These shortcuts work only when the editor is hovered.")) {
                 highlight_canvas = true;
             }
 
@@ -1002,7 +1002,7 @@ public:
         ImGui::Separator();
 
         ImGui::AlignTextToFramePadding();
-        if (imgui_StrTooltip("(...)", "Scroll in the main window to zoom in/out.\n\n"
+        if (imgui_StrTooltip("(...)", "Scroll in the editor to zoom in/out.\n\n"
                                       "Drag with left button to move the space.\n"
                                       "Ctrl + drag to rotate the space.\n\n"
                                       "Drag with right button to select area.\n"
@@ -1012,7 +1012,7 @@ public:
         ImGui::SameLine();
         static bool show_op_window = false;
         m_appearing.reset_if_appearing(show_op_window);
-        ImGui::Checkbox("Op-settings", &show_op_window);
+        ImGui::Checkbox("Op-list", &show_op_window);
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         ImGui::SameLine(0, wide_spacing);
         if (m_sel) {
@@ -1076,7 +1076,7 @@ public:
                                         "Copy:  Paste values directly.\n"
                                         "Or/And/Xor: Perform binary op.\n"
                                         "(Use Or/And to treat black/white cells as transparent bg.)\n\n"
-                                        "Right-click in the main window to switch between Copy/Or/And/Xor.");
+                                        "Right-click in the editor to switch between Copy/Or/And/Xor.");
                 if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                     switch (m_paste->mode) {
                         case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
@@ -1567,8 +1567,8 @@ private:
                 ImGui::SetNextWindowPos(ImGui::GetMousePos() + ImVec2(2, 2), ImGuiCond_Appearing);
             }
             imgui_Window::next_window_titlebar_tooltip =
-                "The shortcuts work when the main window is hovered, and this window don't have to stay open.";
-            if (auto window = imgui_Window("Op (settings)", &show_op_window,
+                "The shortcuts work only when the editor is hovered (and this window doesn't have to stay open).";
+            if (auto window = imgui_Window("Operations (settings)", &show_op_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 const auto term = [&](const char* label, const op_term& t) {
                     const bool valid = t.check_sel(*this);
@@ -1681,12 +1681,13 @@ private:
     }
 };
 
+// TODO: rename -> (pattern_)editor
 static runnerT runner;
 void apply_rule(frame_main_token) {
-    runner_status::update();
-    // runner_status::begin_disabled(); // TODO: whether to disable?
+    pattern_editor_status::update();
+    // pattern_editor_status::begin_disabled(); // TODO: whether to disable?
     runner.display();
-    // runner_status::end_disabled();
+    // pattern_editor_status::end_disabled();
 }
 void load_pattern(std::string_view text) { runner.load_pattern(text); }
 
@@ -1841,22 +1842,22 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 }
             }
 
-            const bool runner_avail = runner_status::available();
+            const bool editor_avail = pattern_editor_status::available();
             const bool rand_access_avail = random_access_status::available();
 
             // Workaround to avoid breaking z-order.
             // Related: https://github.com/ocornut/imgui/issues/8903
             ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
             ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
-            const bool begun = ImGui::BeginMenu("Send to", runner_avail || rand_access_avail);
+            const bool begun = ImGui::BeginMenu("Send to", editor_avail || rand_access_avail);
             ImGui::PopItemFlag();
             ImGui::PopStyleColor();
             if (begun) {
-                if (runner_avail) {
-                    if (ImGui::Selectable("Main window") && messenger::dot()) {
+                if (editor_avail) {
+                    if (ImGui::Selectable("Pattern editor") && messenger::dot()) {
                         runner.set_rule(rule);
                     }
-                    guide_mode::item_tooltip("Equivalent to sending the rule to the MAP-string ('MAP...').\n\n"
+                    guide_mode::item_tooltip("Equivalent to sending rule to the MAP-string ('MAP...').\n\n"
                                              "(Unlike 'Mirror', this will not duplicate space state.)");
                 }
                 if (rand_access_avail) {
@@ -1865,18 +1866,18 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                         pass_rule::set_extra(rule, random_access_status::rule_id);
                     }
                     guide_mode::item_tooltip(
-                        "Equivalent to sending the rule to the 'Random-access' checkbox (or '[Z]' if it's turned on).");
+                        "Equivalent to sending rule to the 'Random-access' checkbox (or '[Z]' if it's turned on).");
                 }
                 ImGui::EndMenu();
             }
-            if (runner_avail) {
+            if (editor_avail) {
                 if (ImGui::Selectable("Mirror") && messenger::dot()) {
                     runner.set_rule(rule);
                     runner.set_state(tile_size, _global_data::init);
                     // runner.set_state(term.tile.size(), term.init);
                 }
                 guide_mode::item_tooltip(
-                    "Send rule to the main window and duplicate the space state (so you can operate on the same patterns).");
+                    "Send rule to the pattern editor & duplicate the space state (so you can operate on the same patterns).");
             }
         });
     }

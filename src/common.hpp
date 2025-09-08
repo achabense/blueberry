@@ -1484,5 +1484,5 @@ public:
 };
 
 using random_access_status = item_status<1>;
-using runner_status = item_status<2>;
+using pattern_editor_status = item_status<2>;
 void load_pattern(std::string_view text);
