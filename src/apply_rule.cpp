@@ -713,7 +713,8 @@ public:
             ImGui::SameLine();
             imgui_StrTooltip("(?)",
                              "The space will pause and restart if you click 'Restart' or change init settings.\n\n"
-                             "Shortcuts in this window: 'R' to restart, 'Space' to toggle pause state.");
+                             "Restart : R\n"
+                             "Pause   : Space");
 
             initT init = reset ? torusT::init_init : m_torus.get_init();
 
@@ -1002,6 +1003,7 @@ public:
         ImGui::Separator();
 
         ImGui::AlignTextToFramePadding();
+        // & '6' to see the projected view in hexagonal space.
         if (imgui_StrTooltip("(...)", "Scroll in the editor to zoom in/out.\n\n"
                                       "Drag with left button to move the space.\n"
                                       "Ctrl + drag to rotate the space.\n\n"
@@ -1797,17 +1799,14 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     bool restart_from_menu = false;
     if (!passing) {
         hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
-            // !!TODO: rewrite...
-            imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n"
-                                      "Hold to pause.\n\n"
-                                      "Similar to space window's 'Restart' and '+s/+1/+!':\n"
-                                      "'R' to restart. (+'A' to apply to the entire group.)\n"
-                                      "Hold (pause) + 'S' to run manually.\n"
+            // & '6' to see the projected view in hexagonal space.
+            imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n\n"
+                                      "(Press 'A' to apply to the entire group.)\n"
+                                      "Hold to pause.\n"
+                                      "'R' to restart.\n"
+                                      "Pause + 'S' to run manually.\n"
                                       "'D' to advance generation by 1.\n"
-                                      "'F' to speed up. (+'A' to apply to the entire group.)\n\n"
-                                      "For rules that belong to 'Hex' set:\n"
-                                      "'6' to see the projected view in hexagonal space.\n"
-                                      "(This also applies to the space window.)");
+                                      "'F' to speed up manually.");
             ImGui::SameLine();
             // imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
             imgui_StrDisabled("Belongs");
@@ -1842,31 +1841,33 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 }
             }
 
-            const bool editor_avail = pattern_editor_status::available();
             const bool rand_access_avail = random_access_status::available();
+            const bool editor_avail = pattern_editor_status::available();
 
             // Workaround to avoid breaking z-order.
             // Related: https://github.com/ocornut/imgui/issues/8903
             ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
             ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
-            const bool begun = ImGui::BeginMenu("Send to", editor_avail || rand_access_avail);
+            const bool begun = ImGui::BeginMenu("Send to", rand_access_avail || editor_avail);
             ImGui::PopItemFlag();
             ImGui::PopStyleColor();
             if (begun) {
-                if (editor_avail) {
-                    if (ImGui::Selectable("Pattern editor") && messenger::dot()) {
-                        runner.set_rule(rule);
-                    }
-                    guide_mode::item_tooltip("Equivalent to sending rule to the MAP-string ('MAP...').\n\n"
-                                             "(Unlike 'Mirror', this will not duplicate space state.)");
-                }
                 if (rand_access_avail) {
                     // !!TODO: (v0.9.9) recheck calling convention; only handlers are responsible for showing the dot...
-                    if (ImGui::Selectable("Random-access") /*XX messenger::dot()*/) {
+                    // ('Random-access' looks awkward here.)
+                    if (ImGui::Selectable("Rule editor") /*XX messenger::dot()*/) {
                         pass_rule::set_extra(rule, random_access_status::rule_id);
                     }
                     guide_mode::item_tooltip(
                         "Equivalent to sending rule to the 'Random-access' checkbox (or '[Z]' if it's turned on).");
+                }
+                if (editor_avail) {
+                    if (ImGui::Selectable("Pattern editor") && messenger::dot()) {
+                        runner.set_rule(rule);
+                    }
+                    guide_mode::item_tooltip(
+                        "Equivalent to sending rule to the MAP-string ('MAP...').\n\n"
+                        "(Unlike 'Mirror', this will not duplicate space state, so you may see different results; to reproduce the same patterns, use 'Mirror' instead.)");
                 }
                 ImGui::EndMenu();
             }

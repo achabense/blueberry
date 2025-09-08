@@ -632,8 +632,8 @@ class rule_selector : no_copy {
          "For any rule in any case, being same as this rule means the cell will stay unchanged (0->0 or 1->1), and being different means the cell will \"flip\" (0->1 or 1->0)."},
 
         {Other, "Other",
-         "Another rule that's neither 'Zero' nor 'Identity'. (Initially it's the Game of Life rule.)\n\n"
-         "Sometimes neither 'Zero' nor 'Identity' belongs to [S] (for example, try '0<>1 & Total(+s)'), and this will be updated to guarantee there is at least one rule available in [S]."},
+         "Another rule that's neither 'Zero' nor 'Identity' (initially the Game of Life rule).\n\n"
+         "Sometimes neither 'Zero' nor 'Identity' belongs to [S], and this will be updated to guarantee there is at least one rule available in [S]. (For example, try '0<>1 & Total(+s)'.)"},
     };
 
     const aniso::ruleT& get_rule(tagE tag) const {
@@ -1374,6 +1374,7 @@ void edit_rule(frame_main_token) {
     }
     ImGui::SameLine();
     {
+        // TODO: rename to 'Edit-rule'?
         ImGui::Checkbox("Random-access", &show_random_access);
         guide_mode::item_tooltip("Flip values of rules (in [S]) by groups.\n\n"
                                  "(Mainly useful for large sets.)");
