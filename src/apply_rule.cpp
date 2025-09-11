@@ -1693,6 +1693,9 @@ void apply_rule(frame_main_token) {
 }
 void load_pattern(std::string_view text) { runner.load_pattern(text); }
 
+// (Actually starts-with-pattern.)
+bool has_pattern(std::string_view text) { return aniso::is_RLE_str(text); }
+
 struct previewer::_global_data : no_create {
     static constexpr initT init_init{.seed = 0, .density = 50, .area = 100, .background = aniso::cellT{0}};
     inline static initT init = init_init; // Globally shared.

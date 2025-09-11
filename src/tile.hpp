@@ -618,6 +618,15 @@ namespace aniso {
         }
     }
 
+    inline bool is_RLE_str(const std::string_view text) {
+        bool is = false;
+        from_RLE_str(text, [&](const prepareT p_size) {
+            is = !p_size.empty();
+            return std::nullopt;
+        });
+        return is;
+    }
+
 #ifdef ENABLE_TESTS
     namespace _tests {
         inline const testT test_RLE_str = [] {
@@ -638,10 +647,7 @@ namespace aniso {
 
         inline const testT test_RLE_str_2 = [] {
             for (const char* str : {"", "o", "b", "book", "0b!", "-1o!", "!", "b2!", "b1!"}) {
-                from_RLE_str(str, [](const prepareT p_size) {
-                    assert(p_size.empty());
-                    return std::nullopt;
-                });
+                assert(!is_RLE_str(str));
             }
         };
     } // namespace _tests

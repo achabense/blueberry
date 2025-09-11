@@ -781,9 +781,12 @@ public:
                             set_clipboard_and_notify(get_str());
                         }
                         // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
-                        // (Should appear only if it's really an RLE blob...)
                         if constexpr (debug_mode) {
-                            if (pattern_editor_status::available()) {
+                            static bool can_load_pattern = false;
+                            if (ImGui::IsWindowAppearing()) {
+                                can_load_pattern = pattern_editor_status::available() && has_pattern(get_str());
+                            }
+                            if (can_load_pattern) {
                                 if (ImGui::Selectable("Load pattern")) {
                                     load_pattern(get_str());
                                 }
