@@ -376,16 +376,15 @@ class runnerT : no_copy {
 
     staged_rule current_rule{};
 
-    struct paceT {
-        int step = 1;
-        global_timer::intervalT interval{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
-    };
-
     class ctrlT {
-        paceT pace{};
+    public:
+        int step = 1; // Auto mode.
+        global_timer::intervalT interval{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
+
         int extra_step = 0; // Workaround for +s/+1/+!.
+
+    private:
         bool pause = false;
-        bool extra_pause = false;
         bool skip_run = false; // Affects only auto mode.
 
         // TODO: the interop between different parts is pretty awkward...
@@ -403,28 +402,25 @@ class runnerT : no_copy {
             }
         }
 
-        int calc_step(const aniso::ruleT& rule, const bool newly_restarted, const bool extra_skip) {
-            const bool ex_pause = std::exchange(extra_pause, false);
+        int calc_step(const aniso::ruleT& rule, const bool newly_restarted) {
             const int ex_step = std::exchange(extra_step, 0);
-            if (pause || ex_pause || extra_skip) {
+            if (pause) {
                 skip_run = true;
             }
 
-            if (!pause && !ex_pause && newly_restarted) {
+            if (!pause && newly_restarted) {
                 // (Unless paused) skip displaying initial state for better visual.
                 skip_run = true;
-                return adjust_step(pace.step, strobing(rule));
+                return adjust_step(step, strobing(rule));
             } else if (ex_step) {
                 skip_run = true;
                 return ex_step;
-            } else if (!pause && !ex_pause && pace.interval.test() && !std::exchange(skip_run, false)) {
-                return adjust_step(pace.step, strobing(rule));
+            } else if (!pause && interval.test() && !std::exchange(skip_run, false)) {
+                return adjust_step(step, strobing(rule));
             } else {
                 return 0;
             }
         }
-
-        void pause_for_this_frame() { extra_pause = true; }
 
         bool get_pause() const { return pause; }
         void set_pause(bool p) {
@@ -433,7 +429,7 @@ class runnerT : no_copy {
         }
         void flip_pause() { set_pause(!pause); }
 
-        void set_step_interval(const func_ref<void(paceT&, int&)> fn) { fn(pace, extra_step); }
+        void skip_once() { skip_run = true; }
     };
 
     ctrlT m_ctrl{};
@@ -555,8 +551,10 @@ class runnerT : no_copy {
         }
 
         void run(const aniso::ruleT& rule, ctrlT& ctrl) {
-            const int step =
-                ctrl.calc_step(rule, std::exchange(m_newly_restarted, false), std::exchange(m_written, false));
+            if (std::exchange(m_written, false)) {
+                ctrl.skip_once();
+            }
+            const int step = ctrl.calc_step(rule, std::exchange(m_newly_restarted, false));
             for (int c = 0; c < step; ++c) {
                 m_tile.run_torus(rule);
                 ++m_gen;
@@ -877,8 +875,13 @@ public:
 
         ImGui::PushItemWidth(item_width);
         ImGui::BeginGroup();
-        m_ctrl.set_step_interval([&](paceT& pace, int& extra_step) {
-            // !!TODO: (v0.9.9) support keeping tooltips open?
+        {
+            const bool enable_shortcuts = canvas_hovered_or_held && shortcuts::no_ctrl();
+            const auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
+                return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, repeat);
+            };
+
+            // !!TODO: (v0.9.9) support keeping tooltips open? (Or just display in regular windows?)
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip("(...)", "Restart : R\n"
                                           "Pause   : Space\n"
@@ -888,12 +891,6 @@ public:
                                           "These shortcuts work only when the editor is hovered.")) {
                 highlight_canvas = true;
             }
-
-            const bool enable_shortcuts = canvas_hovered_or_held && shortcuts::no_ctrl();
-            const auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
-                return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, repeat);
-            };
-
             ImGui::SameLine();
             if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false)) {
                 m_torus.restart();
@@ -905,18 +902,18 @@ public:
             ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
             ImGui::SameLine();
             if (ImGui::Button("+s") || item_shortcut(ImGuiKey_S, true)) {
-                extra_step = m_ctrl.get_pause() ? adjust_step(pace.step, strobing(current_rule)) : 0;
+                m_ctrl.extra_step = m_ctrl.get_pause() ? adjust_step(m_ctrl.step, strobing(current_rule)) : 0;
                 m_ctrl.set_pause(true);
             }
             ImGui::SameLine();
             if (ImGui::Button("+1") || item_shortcut(ImGuiKey_D, true)) {
-                extra_step = 1;
+                m_ctrl.extra_step = 1;
             }
             ImGui::SameLine();
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
                 (enable_shortcuts && shortcuts::test_down_and_highlight(ImGuiKey_F))) {
-                extra_step = adjust_step(step_fast, strobing(current_rule));
+                m_ctrl.extra_step = adjust_step(step_fast, strobing(current_rule));
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
             ImGui::SameLine();
@@ -942,7 +939,7 @@ public:
             if (enable_shortcuts) {
                 imgui_StepSliderInt::next_shortcuts = {ImGuiKey_1, ImGuiKey_2};
             }
-            imgui_StepSliderInt::fn("Step", &pace.step, 1, 100, 1, to_str);
+            imgui_StepSliderInt::fn("Step", &m_ctrl.step, 1, 100, 1, to_str);
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
@@ -952,10 +949,12 @@ public:
             if (enable_shortcuts) {
                 imgui_StepSliderInt::next_shortcuts = {ImGuiKey_3, ImGuiKey_4};
             }
-            pace.interval.step_slide("Interval", 0, 400);
-        });
+            m_ctrl.interval.step_slide("Interval", 0, 400);
+        }
         ImGui::EndGroup();
+
         ImGui::SameLine(floor(1.5 * item_width));
+
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
         menu_like_popup::popup(set_init_state_in_popup);
@@ -1111,7 +1110,7 @@ public:
             const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
             const bool r_down = ImGui::IsMouseDown(ImGuiMouseButton_Right);
             if (active) {
-                m_ctrl.pause_for_this_frame();
+                m_ctrl.skip_once(); // Pause for this frame.
             }
 
             const auto fullscreen_size = [&](const zoomT& z) {
