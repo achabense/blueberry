@@ -382,6 +382,7 @@ class runnerT : no_copy {
         global_timer::intervalT interval{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
 
         int extra_step = 0; // Workaround for +s/+1/+!.
+        bool extra_pause = false;
 
     private:
         bool pause = false;
@@ -402,20 +403,21 @@ class runnerT : no_copy {
             }
         }
 
-        int calc_step(const aniso::ruleT& rule, const bool newly_restarted) {
+        int calc_step(const aniso::ruleT& rule, const bool newly_restarted, const bool written) {
             const int ex_step = std::exchange(extra_step, 0);
-            if (pause) {
+            const bool ex_pause = std::exchange(extra_pause, false) || pause;
+            if (ex_pause || written) {
                 skip_run = true;
             }
 
-            if (!pause && newly_restarted) {
+            if (!ex_pause && newly_restarted) {
                 // (Unless paused) skip displaying initial state for better visual.
                 skip_run = true;
                 return adjust_step(step, strobing(rule));
             } else if (ex_step) {
                 skip_run = true;
                 return ex_step;
-            } else if (!pause && interval.test() && !std::exchange(skip_run, false)) {
+            } else if (!ex_pause && interval.test() && !std::exchange(skip_run, false)) {
                 return adjust_step(step, strobing(rule));
             } else {
                 return 0;
@@ -428,8 +430,6 @@ class runnerT : no_copy {
             stashed_pause.reset();
         }
         void flip_pause() { set_pause(!pause); }
-
-        void skip_once() { skip_run = true; }
     };
 
     ctrlT m_ctrl{};
@@ -551,10 +551,8 @@ class runnerT : no_copy {
         }
 
         void run(const aniso::ruleT& rule, ctrlT& ctrl) {
-            if (std::exchange(m_written, false)) {
-                ctrl.skip_once();
-            }
-            const int step = ctrl.calc_step(rule, std::exchange(m_newly_restarted, false));
+            const int step =
+                ctrl.calc_step(rule, std::exchange(m_newly_restarted, false), std::exchange(m_written, false));
             for (int c = 0; c < step; ++c) {
                 m_tile.run_torus(rule);
                 ++m_gen;
@@ -1110,7 +1108,7 @@ public:
             const bool l_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
             const bool r_down = ImGui::IsMouseDown(ImGuiMouseButton_Right);
             if (active) {
-                m_ctrl.skip_once(); // Pause for this frame.
+                m_ctrl.extra_pause = true; // Pause for this frame.
             }
 
             const auto fullscreen_size = [&](const zoomT& z) {
