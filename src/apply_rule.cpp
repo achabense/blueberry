@@ -454,6 +454,11 @@ class runnerT : no_copy {
             m_newly_restarted = false;
             m_written = true;
         }
+        void resize(const aniso::vecT& size) {
+            if (m_tile.resize(align(size))) {
+                m_resized = true;
+            }
+        }
 
     public:
         torusT() { restart(init_size); }
@@ -466,10 +471,17 @@ class runnerT : no_copy {
             m_newly_restarted = true;
             m_written = true;
         }
-        void restart(const aniso::vecT size) {
-            if (!resize(size)) {
-                restart();
-            }
+        void restart(const aniso::vecT& size) {
+            resize(size);
+            restart();
+        }
+        void restart(const initT& init) {
+            m_init = init;
+            restart(m_tile.size()); // Instead of plain restart() (in case the background is resized).
+        }
+        void restart(const aniso::vecT& size, const initT& init) {
+            m_init = init;
+            restart(size);
         }
 
         aniso::tile_const_ref read_only() const { return m_tile.data(); }
@@ -503,11 +515,11 @@ class runnerT : no_copy {
         double density() const { return double(aniso::count(m_tile.data())) / m_tile.size().xy(); }
 
         aniso::vecT size() const {
-            assert(m_tile.size() == calc_size(m_tile.size()));
+            assert(m_tile.size() == align(m_tile.size()));
             return m_tile.size();
         }
 
-        aniso::vecT calc_size(const aniso::vecT size) const {
+        aniso::vecT align(const aniso::vecT& size) const {
             const aniso::vecT n_size =
                 aniso::divmul_floor(aniso::clamp(size, min_size, max_size), m_init.background.size());
             if (!n_size.both_gteq(min_size)) [[unlikely]] {
@@ -516,31 +528,29 @@ class runnerT : no_copy {
             return n_size;
         }
 
-        bool resize(const aniso::vecT size) {
-            if (m_tile.resize(calc_size(size))) {
-                m_resized = true;
-                restart();
-                return true;
-            }
-            return false;
-        }
         bool resized_since_last_check() { return std::exchange(m_resized, false); }
-
         const initT& get_init() const { return m_init; }
-        bool set_init(const initT& init) {
-            if (compare_update(m_init, init)) {
-                restart(m_tile.size()); // In case the background is resized.
-                return true;
-            }
-            return false;
-        }
-        bool resize_and_set_init(const aniso::vecT& size, const initT& init) {
-            if (compare_update(m_init, init)) {
+
+        bool set(const aniso::vecT& size) {
+            if (m_tile.size() != align(size)) {
                 restart(size);
                 return true;
-            } else {
-                return resize(size);
             }
+            return false;
+        }
+        bool set(const initT& init) {
+            if (m_init != init) {
+                restart(init);
+                return true;
+            }
+            return false;
+        }
+        bool set(const aniso::vecT& size, const initT& init) {
+            if (m_init != init || m_tile.size() != align(size)) {
+                restart(size, init);
+                return true;
+            }
+            return false;
         }
 
         void run(const aniso::ruleT& rule, ctrlT& ctrl) {
@@ -623,7 +633,7 @@ public:
 
     void set_state(const aniso::vecT& size, const initT& init) {
         reset_pos();
-        if (m_torus.resize_and_set_init(size, init)) {
+        if (m_torus.set(size, init)) {
             reset_m_paste_and_m_sel();
         }
     }
@@ -809,7 +819,7 @@ public:
             if (restart) {
                 m_torus.restart();
             }
-            if (m_torus.set_init(init) || restart) {
+            if (m_torus.set(init) || restart) {
                 m_ctrl.set_pause(true);
                 reset_m_paste_and_m_sel();
             };
@@ -838,8 +848,8 @@ public:
                 reset_pos();
 
                 // Both values will be flushed if either receives the enter key.
-                if (m_torus.resize({.x = ix.value_or(input_x.flush().value_or(size.x)),
-                                    .y = iy.value_or(input_y.flush().value_or(size.y))})) {
+                if (m_torus.set({.x = ix.value_or(input_x.flush().value_or(size.x)),
+                                 .y = iy.value_or(input_y.flush().value_or(size.y))})) {
                     reset_m_paste_and_m_sel();
                 }
             }
@@ -959,18 +969,18 @@ public:
             static_assert(torusT::init_size == aniso::vecT{600, 400});
             if (imgui_SelectableStyledButtonEx(id++, "Size (600*400)") && messenger::dot()) {
                 reset_pos();
-                if (m_torus.resize(torusT::init_size)) {
+                if (m_torus.set(torusT::init_size)) {
                     reset_m_paste_and_m_sel();
                 }
             }
             if (imgui_SelectableStyledButtonEx(id++, "Init state") && messenger::dot()) {
-                if (m_torus.set_init(torusT::init_init)) {
+                if (m_torus.set(torusT::init_init)) {
                     reset_m_paste_and_m_sel();
                 }
             }
             if (imgui_SelectableStyledButtonEx(id++, "Size & state") && messenger::dot()) {
                 reset_pos();
-                if (m_torus.resize_and_set_init(torusT::init_size, torusT::init_init)) {
+                if (m_torus.set(torusT::init_size, torusT::init_init)) {
                     reset_m_paste_and_m_sel();
                 }
             }
@@ -1105,10 +1115,10 @@ public:
             }
 
             const auto fullscreen_size = [&](const zoomT& z) {
-                // return m_torus.calc_size(from_imvec((canvas_size - ImVec2(20, 20)) / z));
+                // return m_torus.align(from_imvec((canvas_size - ImVec2(20, 20)) / z));
                 // (v So that 220*160 will choose zoom = 2...)
-                return m_torus.calc_size(from_imvec((canvas_size - (z > 2 ? ImVec2(70, 70) : ImVec2(50, 50))) / z));
-                // return m_torus.calc_size(from_imvec((canvas_size - ImVec2(30, 30) * std::max((float)z, 1.0f)) / z));
+                return m_torus.align(from_imvec((canvas_size - (z > 2 ? ImVec2(70, 70) : ImVec2(50, 50))) / z));
+                // return m_torus.align(from_imvec((canvas_size - ImVec2(30, 30) * std::max((float)z, 1.0f)) / z));
             };
 
             if (resize_fullscreen_tooltip) {
@@ -1121,7 +1131,7 @@ public:
             if (resize_fullscreen) {
                 reset_pos();
                 m_coord.zoom = *resize_fullscreen;
-                if (m_torus.resize(fullscreen_size(m_coord.zoom))) {
+                if (m_torus.set(fullscreen_size(m_coord.zoom))) {
                     reset_m_paste_and_m_sel();
                     find_suitable_zoom = false;
                 }
