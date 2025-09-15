@@ -450,9 +450,15 @@ class runnerT : no_copy {
         bool m_newly_restarted = true;
         bool m_written = true;
 
-    public:
-        torusT() { resize_and_restart(init_size); }
+        void mark_written() {
+            m_newly_restarted = false;
+            m_written = true;
+        }
 
+    public:
+        torusT() { restart(init_size); }
+
+        // TODO: whether to try to avoid repeated init?
         void restart() {
             assert_implies(m_newly_restarted, m_gen == 0);
             m_gen = 0;
@@ -460,38 +466,33 @@ class runnerT : no_copy {
             m_newly_restarted = true;
             m_written = true;
         }
-        // TODO: whether to try to avoid repeated init?
-        // void restart_opt() {
-        //     if (!m_newly_restarted) {
-        //         restart();
-        //     }
-        // }
+        void restart(const aniso::vecT size) {
+            if (!resize(size)) {
+                restart();
+            }
+        }
 
         aniso::tile_const_ref read_only() const { return m_tile.data(); }
         aniso::tile_const_ref read_only(const aniso::rangeT& range) const { return m_tile.data(range); }
 
         aniso::tile_ref write_only() {
-            m_newly_restarted = false;
-            m_written = true;
+            mark_written();
             return m_tile.data();
         }
         aniso::tile_ref write_only(const aniso::rangeT& range) {
-            m_newly_restarted = false;
-            m_written = true;
+            mark_written();
             return m_tile.data(range);
         }
 
         void read_and_maybe_write(const func_ref<bool(aniso::tile_ref)> fn) {
             if (fn(m_tile.data())) {
-                m_newly_restarted = false;
-                m_written = true;
+                mark_written();
             }
         }
 
         void rotate_00_to(int dx, int dy) {
             if (dx != 0 || dy != 0) {
-                m_newly_restarted = false;
-                m_written = true;
+                mark_written();
                 aniso::tileT temp(m_tile.size());
                 aniso::rotate_copy_00_to(temp.data(), m_tile.data(), {.x = dx, .y = dy});
                 m_tile.swap(temp);
@@ -525,25 +526,17 @@ class runnerT : no_copy {
         }
         bool resized_since_last_check() { return std::exchange(m_resized, false); }
 
-    private:
-        void resize_and_restart(const aniso::vecT size) {
-            if (!resize(size)) {
-                restart();
-            }
-        }
-
-    public:
         const initT& get_init() const { return m_init; }
         bool set_init(const initT& init) {
             if (compare_update(m_init, init)) {
-                resize_and_restart(m_tile.size()); // In case the background is resized.
+                restart(m_tile.size()); // In case the background is resized.
                 return true;
             }
             return false;
         }
         bool resize_and_set_init(const aniso::vecT& size, const initT& init) {
             if (compare_update(m_init, init)) {
-                resize_and_restart(size);
+                restart(size);
                 return true;
             } else {
                 return resize(size);
