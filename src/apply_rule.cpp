@@ -386,7 +386,7 @@ class runnerT : no_copy {
 
     private:
         bool pause = false;
-        bool skip_run = false; // Affects only auto mode.
+        bool delay = false; // Affects only auto mode.
 
         // TODO: the interop between different parts is pretty awkward...
         // m_paste.create -> push_pause_for_m_paste.
@@ -403,21 +403,21 @@ class runnerT : no_copy {
             }
         }
 
-        int calc_step(const aniso::ruleT& rule, const bool newly_restarted, const bool written) {
+        int calc_step(const aniso::ruleT& rule, const bool newly_restarted, const bool ex_delay) {
             const int ex_step = std::exchange(extra_step, 0);
             const bool ex_pause = std::exchange(extra_pause, false) || pause;
-            if (ex_pause || written) {
-                skip_run = true;
+            if (ex_pause || ex_delay) {
+                delay = true;
             }
 
             if (!ex_pause && newly_restarted) {
                 // (Unless paused) skip displaying initial state for better visual.
-                skip_run = true;
+                delay = true;
                 return adjust_step(step, strobing(rule));
             } else if (ex_step) {
-                skip_run = true;
+                delay = true;
                 return ex_step;
-            } else if (!ex_pause && interval.test() && !std::exchange(skip_run, false)) {
+            } else if (!ex_pause && interval.test() && !std::exchange(delay, false)) {
                 return adjust_step(step, strobing(rule));
             } else {
                 return 0;
@@ -447,12 +447,14 @@ class runnerT : no_copy {
         int m_gen = 0;
 
         bool m_resized = true;
-        bool m_newly_restarted = true;
-        bool m_written = true;
+        bool m_restarted = true; // -> skip displaying initial state if not paused.
+        bool m_written = false;
+        bool m_delay = true;
 
         void mark_written() {
-            m_newly_restarted = false;
+            m_restarted = false;
             m_written = true;
+            m_delay = true;
         }
         void resize(const aniso::vecT& size) {
             if (m_tile.resize(align(size))) {
@@ -465,11 +467,11 @@ class runnerT : no_copy {
 
         // TODO: whether to try to avoid repeated init?
         void restart() {
-            assert_implies(m_newly_restarted, m_gen == 0);
             m_gen = 0;
             m_init.initialize(m_tile);
-            m_newly_restarted = true;
-            m_written = true;
+            m_restarted = true;
+            m_written = false;
+            m_delay = true;
         }
         void restart(const aniso::vecT& size) {
             resize(size);
@@ -531,6 +533,8 @@ class runnerT : no_copy {
         bool resized_since_last_check() { return std::exchange(m_resized, false); }
         const initT& get_init() const { return m_init; }
 
+        // !!TODO: whether to restart if `m_written`?
+        // (Whether to restart if the space is edited and user use 'Reset', 'Mirror' etc?)
         bool set(const aniso::vecT& size) {
             if (m_tile.size() != align(size)) {
                 restart(size);
@@ -554,8 +558,7 @@ class runnerT : no_copy {
         }
 
         void run(const aniso::ruleT& rule, ctrlT& ctrl) {
-            const int step =
-                ctrl.calc_step(rule, std::exchange(m_newly_restarted, false), std::exchange(m_written, false));
+            const int step = ctrl.calc_step(rule, std::exchange(m_restarted, false), std::exchange(m_delay, false));
             for (int c = 0; c < step; ++c) {
                 m_tile.run_torus(rule);
                 ++m_gen;
@@ -700,13 +703,15 @@ public:
             ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
 
         const auto set_init_state_in_popup = [&] {
+            const auto item_shortcut = [enable_shortcuts = shortcuts::keys_avail_and_no_ctrl()](ImGuiKey key) {
+                return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, false);
+            };
+
             const bool reset = ImGui::Button("Reset") && messenger::dot();
             ImGui::SameLine();
-            const bool restart = ImGui::Button("Restart") || (shortcuts::keys_avail_and_no_ctrl() &&
-                                                              shortcuts::test_pressed_and_highlight(ImGuiKey_R));
+            const bool restart = ImGui::Button("Restart") || item_shortcut(ImGuiKey_R);
             ImGui::SameLine();
-            if (imgui_CheckboxV("Pause", m_ctrl.get_pause()) ||
-                (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed_and_highlight(ImGuiKey_Space))) {
+            if (imgui_CheckboxV("Pause", m_ctrl.get_pause()) || item_shortcut(ImGuiKey_Space)) {
                 m_ctrl.flip_pause();
             }
             ImGui::SameLine();
@@ -792,11 +797,11 @@ public:
                     aniso::tileT demo(demo_size);
                     aniso::fill(demo.data(), init.background);
                     static aniso::tileT curr;
-                    static bool skip_run = true;
+                    static bool delay = true;
                     static test_appearing appearing;
                     if (appearing.update() || curr.empty() || init.background != m_torus.get_init().background) {
                         curr = aniso::tileT(demo);
-                        skip_run = true;
+                        delay = true;
                     }
 
                     ImGui::SameLine(0, 0);
@@ -810,7 +815,7 @@ public:
                     ImGui::Image(to_texture(curr.data(), scaleE::Nearest), to_imvec(curr.size() * demo_zoom));
                     imgui_ItemRect(IM_COL32_GREY(160, 255));
 
-                    if (global_timer::test(200) && !std::exchange(skip_run, false)) {
+                    if (global_timer::test(200) && !std::exchange(delay, false)) {
                         curr.run_torus(current_rule.get());
                     }
                 }
@@ -822,7 +827,7 @@ public:
             if (m_torus.set(init) || restart) {
                 m_ctrl.set_pause(true);
                 reset_m_paste_and_m_sel();
-            };
+            }
         };
 
         const auto input_size = [&] {
@@ -1702,7 +1707,7 @@ struct previewer::_global_data : no_create {
 
     struct termT {
         bool active = false;
-        bool skip_run = false;  // (Affects only auto mode.)
+        bool delay = false;     // (Affects only auto mode.)
         initT init = init_init; // (Whichever is ok; just to allow for default construction.)
         aniso::ruleT rule = {};
         aniso::tileT tile = {};
@@ -1917,23 +1922,23 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     const int step = [&] {
         const bool pause = op.pause || passing;
         if (pause) {
-            term.skip_run = true;
+            term.delay = true;
         }
 
         if (!pause && restart) {
             // (Unless paused, skip displaying initial state for better visual.)
-            term.skip_run = true;
+            term.delay = true;
             return adjust_step(config.step, strobing(rule));
         } else if (pause && op.p_s) {
-            term.skip_run = true;
+            term.delay = true;
             return adjust_step(config.step, strobing(rule));
         } else if (op.p_1) {
-            term.skip_run = true;
+            term.delay = true;
             return 1;
         } else if (op.p_f) {
-            term.skip_run = true;
+            term.delay = true;
             return adjust_step(step_fast, strobing(rule));
-        } else if (!pause && config.interval.test() && !std::exchange(term.skip_run, false)) {
+        } else if (!pause && config.interval.test() && !std::exchange(term.delay, false)) {
             return adjust_step(config.step, strobing(rule));
         } else {
             return 0;
