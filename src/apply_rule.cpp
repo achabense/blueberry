@@ -697,13 +697,11 @@ public:
 
         constexpr const char* canvas_name = "Canvas";
         const ImGuiID canvas_id = ImGui::GetID(canvas_name);
-        // The shortcuts are available only when the canvas is hovered or held.
-        // (`keys_avail` is needed for hover case, as the canvas can still be hovered when another text-input is active (won't actually happen now).)
-        const bool canvas_hovered_or_held =
-            ((ImGui::GetActiveID() == canvas_id) || shortcuts::keys_avail()) && (ImGui::GetHoveredID() == canvas_id);
+        // (Requiring active test to disable shortcuts when an input field is active.)
+        const bool canvas_hovered_or_held = imgui_IsItemOrNoneActive(canvas_id) && (ImGui::GetHoveredID() == canvas_id);
 
         const auto set_init_state_in_popup = [&] {
-            const auto item_shortcut = [enable_shortcuts = shortcuts::keys_avail_and_no_ctrl()](ImGuiKey key) {
+            const auto item_shortcut = [enable_shortcuts = shortcuts::no_active_and_no_ctrl()](ImGuiKey key) {
                 return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, false);
             };
 
@@ -1897,7 +1895,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     const bool active = ImGui::IsItemActive();
     const bool has_group_op = config.group_op.has_value();
     configT::opT op = has_group_op ? *config.group_op : configT::opT{};
-    if (hovered && (active || shortcuts::keys_avail())) {
+    if (hovered && (active || shortcuts::no_active())) {
         // (Using unfiltered shortcut for `p_f` for smoother inter with seq op (<</>>).)
         const bool no_ctrl = shortcuts::no_ctrl();
         const configT::opT op2 = {.pause = active,

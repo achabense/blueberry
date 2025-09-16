@@ -43,7 +43,7 @@ static open_state intro_window(frame_main_token) {
 
             ImGui::Bullet();
             imgui_Str("Press 'H' to toggle on/off additional tooltips.");
-            guide_mode::item_tooltip(":|");
+            guide_mode::item_tooltip("...");
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
                                     "All the other shortcuts (like this) require Ctrl not to be pressed.");
@@ -138,7 +138,7 @@ void frame_main() {
     pass_rule::begin_frame({});
 
     messenger::display_msg_if_present({});
-    if (shortcuts::keys_avail_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_H)) {
+    if (shortcuts::no_active_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_H)) {
         guide_mode::flip_enable({});
     }
 

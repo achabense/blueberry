@@ -88,7 +88,11 @@ inline bool imgui_IsItemPartiallyVisible(const float least) {
 
 // `!ImGui::IsAnyItemActive() || ImGui::IsItemActive()`
 inline bool imgui_IsItemOrNoneActive() { //
-    return GImGui->ActiveId == 0 || GImGui->ActiveId == GImGui->LastItemData.ID;
+    return (!GImGui->ActiveId && !GImGui->IO.WantTextInput) || GImGui->ActiveId == GImGui->LastItemData.ID;
+}
+
+inline bool imgui_IsItemOrNoneActive(ImGuiID id) { //
+    return (!GImGui->ActiveId && !GImGui->IO.WantTextInput) || GImGui->ActiveId == id;
 }
 
 [[deprecated]] inline bool imgui_IsBgHeld() { //
@@ -149,7 +153,7 @@ inline bool imgui_BeginTooltipFirstOnly() {
     return false;
 }
 
-inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
+inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) { //
     return ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | flags);
 }
 
@@ -174,7 +178,7 @@ inline bool imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags flags = 0) {
 // !!TODO: (v0.9.9) support copying tooltips in release mode as well. Currently:
 // (Guide mode) Cannot copy multiple begin/end-tooltip as a whole.
 inline constexpr bool debug_mode_log_aware = debug_mode;
-inline void imgui_LogRenderedText(const ImVec2& pos, std::string_view str) {
+inline void imgui_LogRenderedText(const ImVec2& pos, std::string_view str) { //
     ImGui::LogRenderedText(&pos, str.data(), str.data() + str.size());
 }
 
@@ -336,7 +340,7 @@ inline constexpr bool debug_mode_double_esc_to_close = debug_mode;
 // (Not general enough to add 'imgui' prefix...)
 inline bool test_esc_single_hit() {
     static int frame = 0; // Avoid closing multiple windows within one frame.
-    return !GImGui->IO.KeyCtrl && !GImGui->IO.WantCaptureKeyboard && imgui_IsWindowFocused() &&
+    return !GImGui->IO.KeyCtrl && !GImGui->ActiveId && !GImGui->IO.WantTextInput && imgui_IsWindowFocused() &&
            !ImGui::IsMouseDown(ImGuiMouseButton_Left) && imgui_IsWindowHoverable() &&
            ImGui::IsKeyPressed(ImGuiKey_Escape) && compare_update(frame, ImGui::GetFrameCount());
 }

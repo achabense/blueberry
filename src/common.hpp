@@ -125,19 +125,12 @@ public:
     static bool ctrl() { return GImGui->IO.KeyCtrl; }
     static bool no_ctrl() { return !GImGui->IO.KeyCtrl; }
 
-    static bool global_flag(ImGuiKey key) { //
-        return !GImGui->IO.WantTextInput && ImGui::IsKeyDown(key);
-    }
+    static bool no_input() { return !GImGui->IO.WantTextInput; }
+    static bool global_flag(ImGuiKey key) { return no_input() && ImGui::IsKeyDown(key); }
 
-    static bool keys_avail() {
-        // return !ImGui::GetIO().WantCaptureKeyboard && !ImGui::IsAnyItemActive();
-        return !GImGui->IO.WantCaptureKeyboard && !GImGui->ActiveId;
-    }
-
-    static bool keys_avail_and_no_ctrl() { return keys_avail() && no_ctrl(); }
-    static bool keys_avail_and_window_hoverable() { // Not blocked by popup.
-        return keys_avail() && imgui_IsWindowHoverable();
-    }
+    // (`IO.WantCaptureKeyboard` is for notifying non-imgui parts.)
+    static bool no_active() { return !GImGui->ActiveId && no_input(); }
+    static bool no_active_and_no_ctrl() { return no_active() && no_ctrl(); }
 
 private:
     inline static ImGuiKey occupied = ImGuiKey_None;
@@ -221,7 +214,7 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
 // TODO: whether to support this?
 // There is intended to be at most one call to this function in each window hierarchy.
 [[deprecated]] inline void set_scroll_by_up_down(float dy) {
-    if (shortcuts::no_ctrl() && may_scroll() && shortcuts::keys_avail() && imgui_IsWindowFocused()) {
+    if (shortcuts::no_active_and_no_ctrl() && may_scroll() && imgui_IsWindowFocused()) {
         if (shortcuts::test_pressed(ImGuiKey_DownArrow, true)) {
             ImGui::SetScrollY(ImGui::GetScrollY() + dy);
             highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
@@ -608,15 +601,14 @@ public:
         tagE tag = None;
 
         const bool not_disabled = !imgui_TestItemFlag(ImGuiItemFlags_Disabled);
-        const bool shortcut_avail = not_disabled && imgui_IsWindowFocused(); // Not including popup hierarchy.
+        // (Used to require `may_scroll` to avoid previewed rule being changed by shortcut; perhaps no longer needed.)
+        const bool shortcut_avail = not_disabled && imgui_IsWindowFocused() // Not including popup hierarchy.
+                                    && may_scroll() && shortcuts::no_active_and_no_ctrl() && imgui_IsWindowHoverable();
         const bool shortcut_visible =
             not_disabled && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows); // Including popup.
         assert_implies(shortcut_avail, shortcut_visible);
         const auto item_shortcut = [shortcut_avail](ImGuiKey key) {
-            // (Used to require `may_scroll` to avoid previewed rule being changed by shortcut.)
-            // (Perhaps no longer needed; kept as it does no harm.)
-            return shortcut_avail && may_scroll() && shortcuts::no_ctrl() &&
-                   shortcuts::keys_avail_and_window_hoverable() && shortcuts::test_pressed_and_highlight(key);
+            return shortcut_avail && shortcuts::test_pressed_and_highlight(key);
         };
 
         if (ImGui::Button(label_first)) {
