@@ -959,7 +959,8 @@ public:
         }
         ImGui::EndGroup();
 
-        ImGui::SameLine(floor(1.5 * item_width));
+        ImGui::SameLine(0, imgui_ItemSpacingX() * 5);
+        const float cursor_pos = ImGui::GetCursorPosX();
 
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
@@ -1028,7 +1029,7 @@ public:
             imgui_Str("Selected:N/A");
         }
         // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
-        ImGui::SameLine(floor(1.5 * item_width));
+        ImGui::SameLine(cursor_pos);
         if constexpr (debug_mode) { // TODO: whether to show density?
             ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(), m_torus.density());
         } else {

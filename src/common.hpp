@@ -111,6 +111,7 @@ inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
 inline constexpr bool init_maximize_window = false;
 inline constexpr bool init_zero_interval = false;
 inline constexpr bool init_show_intro = true;
+inline constexpr bool init_extra_tooltips = true;
 inline constexpr bool init_compact_mode = false;
 inline constexpr bool init_auto_focus = false; // (Not quite "init" related) affects popups & drop-target
 
@@ -189,7 +190,7 @@ public:
 
 // !!TODO: (v0.9.9) should redesign...
 class guide_mode : no_create {
-    inline static bool enable_tooltip = false;
+    inline static bool enable_tooltip = init_extra_tooltips;
 
 public:
     static void flip_enable(frame_main_token) { enable_tooltip = !enable_tooltip; }

@@ -763,7 +763,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
     if (auto window = imgui_Window("Misc utils", &open, ImGuiWindowFlags_NoSavedSettings)) {
         static std::optional<aniso::ruleT> rule_01_rev = aniso::trans_reverse(aniso::game_of_life());
         static std::optional<aniso::ruleT> rule_approx;
-        static std::optional<aniso::ruleT> rule_temp[6];
+        static std::optional<aniso::ruleT> rule_temp[8];
 
         const auto clear_button = [](int& id, std::optional<aniso::ruleT>& rule) {
             ImGui::PushID(id++);

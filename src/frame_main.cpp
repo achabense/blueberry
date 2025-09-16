@@ -43,6 +43,7 @@ static open_state intro_window(frame_main_token) {
 
             ImGui::Bullet();
             imgui_Str("Press 'H' to toggle on/off additional tooltips.");
+            guide_mode::item_tooltip(":|");
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
                                     "All the other shortcuts (like this) require Ctrl not to be pressed.");
