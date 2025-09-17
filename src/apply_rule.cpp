@@ -644,7 +644,8 @@ public:
     // (wontfix) Not designed to support multiple instances. (For example, some settings use static variables.)
     void display() {
         if (m_appearing.update()) {
-            reset_m_paste();
+            reset_pos();
+            reset_m_paste_and_m_sel();
             m_snapshot.clear();
         }
         if (current_rule.update()) {
@@ -1689,7 +1690,7 @@ private:
 
 // TODO: rename -> (pattern_)editor
 static runnerT runner;
-void apply_rule(frame_main_token) {
+void edit_pattern(frame_main_token) {
     pattern_editor_status::update();
     // pattern_editor_status::begin_disabled(); // TODO: whether to disable?
     runner.display();

@@ -52,7 +52,7 @@ open_state load_clipboard(ImVec2, frame_main_token);
 open_state load_doc(ImVec2, frame_main_token);
 
 void edit_rule(frame_main_token);
-void apply_rule(frame_main_token);
+void edit_pattern(frame_main_token);
 
 class rand_source : no_create {
     static uint32_t seed() { return time(0); }

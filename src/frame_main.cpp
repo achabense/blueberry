@@ -207,6 +207,23 @@ void frame_main() {
             }
         }
 
+        // !!TODO: undocumented...
+        static bool show_edit_rule = true;
+        static bool show_edit_pattern = true;
+        bool reset_table = false;
+        if (!show_edit_rule && !show_edit_pattern) [[unlikely]] { // Defensive.
+            show_edit_pattern = true;
+        }
+        if (!show_edit_rule || !show_edit_pattern) {
+            ImGui::SameLine(0, wide_spacing);
+            if (ImGui::Button("Restore")) {
+                show_edit_rule = true;
+                show_edit_pattern = true;
+                reset_table = true;
+            }
+            guide_mode::item_tooltip("Display both panels.");
+        }
+
         ImGui::SameLine(0, wide_spacing);
         ImGui::Text("(%d FPS)", (int)round(ImGui::GetIO().Framerate));
         if constexpr (debug_mode) {
@@ -237,49 +254,35 @@ void frame_main() {
 
         ImGui::Separator();
 
-        if (ImGui::BeginTable("Layout", 2, ImGuiTableFlags_Resizable)) {
-            const auto try_hide = [](const float width) {
-                if (const ImVec2 avail = ImGui::GetContentRegionAvail(); avail.x <= width) {
-                    ImGui::Dummy(avail);
-                    imgui_ItemRectFilled(ImGui::GetColorU32(ImGuiCol_FrameBg, ImGui::GetStyle().DisabledAlpha));
-                    imgui_ItemTooltip("Hidden.");
-                    return true;
+        assert(show_edit_rule || show_edit_pattern);
+        if (ImGui::BeginTable("Layout", show_edit_rule + show_edit_pattern, ImGuiTableFlags_Resizable)) {
+            if (show_edit_rule && show_edit_pattern) {
+                if (reset_table) {
+                    ImGui::TableResetSettings(ImGui::GetCurrentTable());
                 }
-                return false;
-            };
-
-            static bool right_was_hidden = false;
-            constexpr float min_w = 6;
-            {
-                // TODO: what can be skipped when the program is minimized? Is this check reliable for all backends?
-                const bool minimized = viewport.WorkSize.x <= 0 || viewport.WorkSize.y <= 0;
-                if (!minimized && right_was_hidden) {
-                    // TODO: working, but this looks very fragile...
-                    // So when the program window is resized (e.g. maximized), the right panel will remain hidden.
-                    // (As tested this does not affect manual resizing (using table's resize bar) within the program.)
-                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
-                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, min_w);
-                } else {
-                    // (No need to check whether the left panel was hidden.)
-                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 510);
-                    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
-                }
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.65);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
             }
-
-            imgui_LockTableLayoutWithMinColumnWidth(min_w);
 
             ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            // The child window is required here (for stable scrolling).
-            if (auto child = imgui_ChildWindow("Rule", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
-                if (!try_hide(min_w)) {
+            constexpr float min_w = 8;
+            if (show_edit_rule) {
+                ImGui::TableNextColumn();
+                // The child window is required here (for stable scrolling).
+                if (auto child = imgui_ChildWindow("Rule", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
                     edit_rule({});
+                    if (ImGui::GetContentRegionAvail().x < min_w) {
+                        show_edit_rule = false;
+                    }
                 }
             }
-            ImGui::TableNextColumn();
-            if (auto child = imgui_ChildWindow("Pattern", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
-                if (!(right_was_hidden = try_hide(min_w))) {
-                    apply_rule({});
+            if (show_edit_pattern) {
+                ImGui::TableNextColumn();
+                if (auto child = imgui_ChildWindow("Pattern", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
+                    edit_pattern({});
+                    if (ImGui::GetContentRegionAvail().x < min_w) {
+                        show_edit_pattern = false;
+                    }
                 }
             }
             ImGui::EndTable();
