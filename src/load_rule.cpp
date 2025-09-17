@@ -238,12 +238,15 @@ public:
 };
 
 class folderT {
+public:
     struct entryT {
+        bool is_file;
         pathT name;
         std::string str;
-        entryT(pathT&& n) noexcept : name(std::move(n)), str(cpp17_u8string_b(name)) {}
+        entryT(bool f, pathT&& n) noexcept : is_file(f), name(std::move(n)), str(cpp17_u8string_b(name)) {}
     };
 
+private:
     pathT m_path{};
     std::vector<entryT> m_dirs{}, m_files{};
 
@@ -262,12 +265,11 @@ class folderT {
             // 2. Windows shortcuts are not symlinks (they are regular files) and cannot be resolved using filesystem functions...
             std::error_code ec{};
             if (const auto status = entry.status(ec); !ec) {
-                const bool is_dir = std::filesystem::is_directory(status);
-                const bool is_file = !is_dir && std::filesystem::is_regular_file(status);
-                if (is_dir || is_file) {
-                    std::vector<entryT>& dest = is_dir ? dirs : files;
+                const bool is_file = std::filesystem::is_regular_file(status);
+                if (is_file || std::filesystem::is_directory(status)) {
+                    std::vector<entryT>& dest = is_file ? files : dirs;
                     if (pathT name = entry.path().filename(); !name.empty()) {
-                        dest.emplace_back(std::move(name));
+                        dest.emplace_back(is_file, std::move(name));
                     } else [[unlikely]] {
                         assert(false);
                         // 2024/12/25
@@ -279,7 +281,7 @@ class folderT {
                         // I wasted almost one hour on this and realized there is again no "efficient" way to deal with it, just like when I was messing with those fancy-neo-cpp20-styled utf8 strings.
                         // If it's not for avoiding dragging in an extra library, I'd never want to work with these craps...
                         pathT nAm_E = entry.path().parent_path().filename();
-                        dest.emplace_back(!nAm_E.empty() ? std::move(nAm_E) : "why??");
+                        dest.emplace_back(is_file, !nAm_E.empty() ? std::move(nAm_E) : "why??");
                     }
                 }
             }
@@ -400,7 +402,7 @@ public:
 // TODO: support recording recently-opened folders/files?
 class file_nav : no_copy {
     char buf_path[200]{};
-    char buf_filter[20]{}; // For files.
+    char buf_filter[20]{}; // For files and folders.
 
     pathT m_home{};
     folderT m_current{};
@@ -447,26 +449,52 @@ public:
 
     void input_filter() { input_text("Filter", buf_filter, ".txt"); }
 
-    void select_file(std::optional<pathT>& target, const pathT* current_file /*name*/ = nullptr, int* pid = nullptr) {
-        if (auto child = imgui_ChildWindow("Files")) {
-            int id = pid ? *pid : 0;
+private:
+    enum typeE { File, Folder, Both };
+    const folderT::entryT* select_entry(const typeE type, int& id, const pathT* current /*name*/ = nullptr) const {
+        assert_implies(current, type == File); // (Due to `assign_dir_or_file`.)
+        const folderT::entryT* sel = nullptr;
+        if (auto child = imgui_ChildWindow("Entries")) {
             bool any = false;
-            for (const auto& [file /*name*/, str] : m_current.files()) {
-                if (!buf_filter[0] || str.find(buf_filter) != str.npos) {
+
+            // To distinguish files and folders.
+            const float indent_spacing = imgui_ItemSpacingX() * 2;
+            const float inner_spacing = imgui_ItemInnerSpacingX();
+            const ImU32 text_disabled_col = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+            ImDrawList& drawlist = *ImGui::GetWindowDrawList();
+            for (const auto* list :
+                 {type != File ? &m_current.dirs() : nullptr, type != Folder ? &m_current.files() : nullptr}) {
+                if (!list) {
+                    continue;
+                }
+                for (const folderT::entryT& entry : *list) {
+                    if (buf_filter[0] && entry.str.find(buf_filter) == std::string::npos) {
+                        continue;
+                    }
                     any = true;
-                    const bool selected = current_file && file == *current_file;
-                    if (imgui_SelectableStyledButtonEx(id++, str, selected)) {
-                        target = m_current / file;
+                    const bool selected = current && entry.name == *current;
+                    const bool indent = type == Both && !entry.is_file;
+                    if (indent) {
+                        imgui_AddCursorPosX(indent_spacing);
+                    }
+                    if (imgui_SelectableStyledButtonEx(id++, entry.str, selected)) {
+                        sel = &entry;
+                    }
+                    if (indent) {
+                        const ImVec2 item_min = ImGui::GetItemRectMin();
+                        const float h = floor(ImGui::GetItemRectSize().y / 2);
+                        drawlist.AddLine(item_min + ImVec2(-indent_spacing, h), item_min + ImVec2(-inner_spacing, h),
+                                         text_disabled_col);
                     }
                     if (selected && ImGui::IsWindowAppearing()) {
                         ImGui::SetScrollHereY();
                     }
                     rclick_popup::popup2([&] { // (Undocumented.)
                         if (ImGui::Selectable("Copy full path")) {
-                            copy_path(m_current / file);
+                            copy_path(m_current / entry.name);
                         }
                         if (ImGui::Selectable("Copy name")) {
-                            copy_path(file);
+                            copy_path(entry.name);
                         }
                     });
                 }
@@ -474,10 +502,18 @@ public:
             if (!any) {
                 imgui_StrDisabled("None");
             }
-            if (pid) {
-                *pid = id;
-            }
         }
+        return sel;
+    }
+
+public:
+    std::optional<pathT> select_file(const pathT* current /*name*/ = nullptr, int* p_id = nullptr) {
+        int id2 = 0;
+        if (const folderT::entryT* sel = select_entry(File, p_id ? *p_id : id2, current)) {
+            assert(sel->is_file);
+            return m_current / sel->name;
+        }
+        return std::nullopt;
     }
 
     // Return one of file path in `m_current`.
@@ -489,74 +525,50 @@ public:
             }
         };
 
-        if (ImGui::BeginTable("##Table", 2, ImGuiTableFlags_Resizable)) {
-            imgui_LockTableLayoutWithMinColumnWidth(140); // TODO: improve...
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            int id = 0; // For selectables.
-            {
-                ImGui::SetNextItemWidth(std::min(ImGui::CalcItemWidth(), (float)item_width));
-                input_path(target);
-                ImGui::Separator();
-                {
-                    // TODO: reconsider disabled vs hiding...
-                    bool any = false;
-                    if (!m_home.empty()) {
-                        any = true;
-                        if (imgui_SelectableStyledButtonEx(id++, "Home") && messenger::dot()) {
-                            set_dir(m_home);
-                        }
-                        rclick_popup::popup2([&] { // (Undocumented.)
-                            if (ImGui::Selectable("Copy full path")) {
-                                copy_path(m_home);
-                            }
-                            if (ImGui::Selectable("Copy name")) {
-                                // m_home ~ canonical ~ won't have trailing sep unless it's root path (nearly impossible).
-                                copy_path(m_home.filename());
-                            }
-                        });
-                    }
-                    if (m_current.valid()) {
-                        any = true;
-                        if (imgui_SelectableStyledButtonEx(id++, "..")) {
-                            set_dir(".."); // (Both ".." and m_current.path().parent_path() work here.)
-                        }
-                    }
-                    if (any) {
-                        ImGui::Separator();
-                    }
+        ImGui::SetNextItemWidth(floor(item_width * 0.8));
+        input_path(target);
+        ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
+        ImGui::SetNextItemWidth(floor(item_width * 0.6));
+        input_filter();
+
+        ImGui::Separator();
+        int id = 0; // For selectables.
+        {
+            // TODO: reconsider disabled vs hiding...
+            bool any = false;
+            if (!m_home.empty()) {
+                any = true;
+                if (imgui_SelectableStyledButtonEx(id++, "Home") && messenger::dot()) {
+                    set_dir(m_home);
                 }
-                if (auto child = imgui_ChildWindow("Folders")) {
-                    if (m_current.dirs().empty()) {
-                        imgui_StrDisabled("None");
+                rclick_popup::popup2([&] { // (Undocumented.)
+                    if (ImGui::Selectable("Copy full path")) {
+                        copy_path(m_home);
                     }
-                    const pathT* sel = nullptr;
-                    for (const auto& [dir /*name*/, str] : m_current.dirs()) {
-                        if (imgui_SelectableStyledButtonEx(id++, str)) {
-                            sel = &dir;
-                        }
-                        rclick_popup::popup2([&] { // (Undocumented.)
-                            if (ImGui::Selectable("Copy full path")) {
-                                copy_path(m_current / dir);
-                            }
-                            if (ImGui::Selectable("Copy name")) {
-                                copy_path(dir);
-                            }
-                        });
+                    if (ImGui::Selectable("Copy name")) {
+                        // m_home ~ canonical ~ won't have trailing sep unless it's root path (nearly impossible).
+                        copy_path(m_home.filename());
                     }
-                    if (sel) {
-                        set_dir(m_current / (*sel));
-                    }
+                });
+            }
+            if (m_current.valid()) {
+                any = true;
+                if (imgui_SelectableStyledButtonEx(id++, "..")) {
+                    set_dir(".."); // (Both ".." and m_current.path().parent_path() work here.)
                 }
             }
-            ImGui::TableNextColumn();
-            ImGui::SetNextItemWidth(std::min(ImGui::CalcItemWidth(), (float)item_width));
-            input_filter();
-            ImGui::Separator();
-            select_file(target, nullptr, &id);
-            ImGui::EndTable();
+            if (any) {
+                ImGui::Separator();
+            }
         }
 
+        if (const folderT::entryT* sel = select_entry(Both, id)) {
+            if (sel->is_file) {
+                target = m_current / sel->name;
+            } else {
+                set_dir(m_current / sel->name);
+            }
+        }
         return target;
     }
 };
@@ -1106,13 +1118,12 @@ public:
                 }
                 // guide_mode::item_tooltip("Reload entry list.");
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(floor(item_width * 0.75));
+                ImGui::SetNextItemWidth(floor(item_width * 0.6));
                 nav.input_filter();
                 ImGui::Separator();
 
-                std::optional<pathT> sel = std::nullopt;
                 const pathT name = file_path->filename();
-                nav.select_file(sel, &name);
+                std::optional<pathT> sel = nav.select_file(&name);
                 if (sel && try_load(*sel, /*reset-scroll*/ true)) {
                     file_path = std::move(*sel);
                 }

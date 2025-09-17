@@ -260,7 +260,7 @@ void frame_main() {
                 if (reset_table) {
                     ImGui::TableResetSettings(ImGui::GetCurrentTable());
                 }
-                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.65);
+                ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.65f);
                 ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
             }
 

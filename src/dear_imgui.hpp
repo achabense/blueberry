@@ -461,10 +461,10 @@ inline void imgui_AddCursorPosY(float dy) {
     window.DC.IsSetPos = true;
 }
 
-// TODO: workaround to set min column width for tables. Highly dependent on impl details.
+// Workaround to set min column width for tables. Highly dependent on impl details.
 // See: `ImGui::TableUpdateLayout`, `table->MinColumnWidth` and `ImGui::TableNextRow`.
 // Are there public ways to do similar things?
-inline void imgui_LockTableLayoutWithMinColumnWidth(const float min_column_width) {
+[[deprecated]] inline void imgui_LockTableLayoutWithMinColumnWidth(const float min_column_width) {
     ImGuiTable* table = GImGui->CurrentTable;
     assert(table && !table->IsLayoutLocked);
     ImGui::PushStyleVarX(ImGuiStyleVar_FramePadding, min_column_width);
