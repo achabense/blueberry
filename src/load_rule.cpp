@@ -1071,7 +1071,7 @@ class load_file_impl : no_copy {
             messenger::set_msg("Too many lines: {} > {}", l, max_line);
             return false;
         } else {
-            if constexpr (debug_mode) {
+            if constexpr (0) {
                 text.assign(reset_scroll, str, "@@");
             } else {
                 text.assign(reset_scroll, str);
@@ -1216,13 +1216,12 @@ extern const char* const docs[][2];
 
 class load_doc_impl : no_copy {
     textT text;
-    std::optional<int> doc_id = std::nullopt;
+    const char* doc_title = nullptr;
 
     void select() {
         for (int i = 0; docs[i][0] != nullptr; ++i) {
             const auto [title, contents] = docs[i];
-            // if (ImGui::Selectable(title, doc_id == i, ImGuiSelectableFlags_NoAutoClosePopups) && doc_id != i) {
-            if (imgui_SelectableStyledButtonEx(i, title, doc_id == i) && compare_update(doc_id, i)) {
+            if (imgui_SelectableStyledButtonEx(i, title, doc_title == title) && compare_update(doc_title, title)) {
                 text.assign(/*reset-scroll*/ true, contents, "@@");
             }
         }
@@ -1230,7 +1229,7 @@ class load_doc_impl : no_copy {
 
 public:
     void display() {
-        if (!doc_id) {
+        if (!doc_title) {
             imgui_Str("A toy for exploring MAP rules, by GitHub user 'achabense'.");
             imgui_Str("The latest version is available at: ");
             ImGui::SameLine(0, 0);
@@ -1254,7 +1253,7 @@ public:
             menu_like_popup::small_button("Select");
             menu_like_popup::popup([&] { select(); });
             ImGui::SameLine();
-            imgui_Str(docs[*doc_id][0]);
+            imgui_Str(doc_title);
             ImGui::SameLine();
             menu_like_popup::small_button(">");
             menu_like_popup::popup([&] { text.select_line(); });
@@ -1267,13 +1266,13 @@ public:
             text.display();
             if (close) {
                 text.clear();
-                doc_id.reset();
+                doc_title = nullptr;
             }
         }
     }
 
     const char* window_tooltip() const { //
-        return doc_id.has_value() ? textT::about_selection : nullptr;
+        return doc_title ? textT::about_selection : nullptr;
     }
 };
 
