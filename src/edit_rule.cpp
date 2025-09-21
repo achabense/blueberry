@@ -591,8 +591,7 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
     if (!pass.rule) {
         return nullptr;
     } else if (!working_set.contains(*pass.rule)) {
-        constexpr const char* msg = "The rule does not belong to [S].\n\n"
-                                    "(To get a similar rule in [S], try using 'Approx' in the 'Misc' window.)";
+        constexpr const char* msg = "The rule does not belong to [S].";
         // if (pass.hov_for_tooltip() || pass.deliv) {
         //     messenger::set_msg(msg);
         // }
@@ -1296,9 +1295,6 @@ void edit_rule(frame_main_token) {
                 messenger::dot();
             }
         }
-        // ImGui::SameLine(0, 0);
-        // imgui_Str(" ~");
-
         ImGui::SameLine();
         ImGui::Checkbox("Collapse", &collapse);
 
@@ -1427,11 +1423,8 @@ void edit_rule(frame_main_token) {
         }
 
         // TODO: simplify if possible...
-        // !!TODO: (v0.9.9) use 'Cmp' if possible (need to mess with fonts)...
-        // 'Cmp' is fine, but in the default font settings there is no spacing between C and m...
-        // Related: https://github.com/ocornut/imgui/issues/8854
         static constexpr std::pair<displayE, const char*> terms[]{
-            {Observer, "R##disp"}, {Target, "Z##disp"}, {Comp, "Xor##disp"}};
+            {Observer, "R##disp"}, {Target, "Z##disp"}, {Comp, "V##disp"}};
         float spacing = imgui_ItemSpacingX() * 3;
         for (const auto& [mode, label] : terms) {
             ImGui::SameLine(0, std::exchange(spacing, imgui_ItemInnerSpacingX()));
@@ -1447,7 +1440,7 @@ void edit_rule(frame_main_token) {
         imgui_StrTooltip("(?)", [] {
             imgui_StrPair("R: ", "Display values of [R] (0/1).");
             imgui_StrPair("Z: ", "Display values of [Z] (for random-access mode).");
-            imgui_StrPair("Xor: ", "Compare whether [Z] is same (O) or different (I) than [R].");
+            imgui_StrPair("V: ", "Compare whether [Z] is same (O) or different (I) than [R].");
         });
     }
     if (show_random_access) {

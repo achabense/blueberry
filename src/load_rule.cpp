@@ -1360,6 +1360,7 @@ public:
     }
 };
 
+// !!TODO: (v0.9.9) should redesign...
 class rule_saver : no_copy {
     std::fstream m_file{};
     rec_for_rule_b m_rec{};
@@ -1373,7 +1374,7 @@ public:
             if (!std::filesystem::is_directory(base)) {
                 return;
             }
-            const pathT folder = base / "autosaved"; // !!TODO: decide the name before v0.9.8 release...
+            const pathT folder = base / "autosaved"; // TODO: -> "rules/auto"?
             const auto status = std::filesystem::status(folder);
             if (std::filesystem::is_directory(status) ||
                 (!std::filesystem::exists(status) && std::filesystem::create_directory(folder))) {

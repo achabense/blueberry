@@ -1420,7 +1420,9 @@ public:
     static void copy(const aniso::ruleT& rule) {
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
         rec.add(rule);
-        save(rule);
+        if constexpr (debug_mode) { // !!TODO: (v0.9.9) support in release mode...
+            save(rule);
+        }
     }
 
     static const rec_for_rule& get_rec(frame_main_token) { return rec; }
