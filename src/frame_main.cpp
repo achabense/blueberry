@@ -127,6 +127,12 @@ static open_state intro_window(frame_main_token) {
 void frame_main() {
     // Make collapsed windows obvious to see.
     ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, ImGui::GetColorU32(ImGuiCol_TitleBgActive, 0.8f));
+    // By default header colors are less saturated than buttons.
+    if constexpr (init_selectables_use_button_color) {
+        ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_Button));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+    }
     // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {8, 6});
     if constexpr (init_compact_mode) {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{3, 2});
@@ -276,5 +282,8 @@ void frame_main() {
         ImGui::PopStyleVar();
     }
     // ImGui::PopStyleVar();
+    if constexpr (init_selectables_use_button_color) {
+        ImGui::PopStyleColor(3);
+    }
     ImGui::PopStyleColor();
 }

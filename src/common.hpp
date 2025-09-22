@@ -113,6 +113,7 @@ inline constexpr bool init_zero_interval = false;
 inline constexpr bool init_show_intro = true;
 inline constexpr bool init_extra_tooltips = true;
 inline constexpr bool init_compact_mode = false;
+inline constexpr bool init_selectables_use_button_color = false;
 inline constexpr bool init_auto_focus = false; // (Not quite "init" related) affects popups & drop-target
 
 inline void highlight_item() { ImGui::NavHighlightActivated(ImGui::GetItemID()); }
@@ -480,9 +481,6 @@ inline bool double_click_button_small(const char* label) {
     return ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 }
 
-// true: use the same colors as `ImGui::Selectable()` (less saturated than button colors).
-inline constexpr bool selectable_button_use_same_col = true;
-
 // TODO: should finally be replaced by Ex version.
 // Looks like `ImGui::Selectable` but behaves like a button (not designed for tables).
 // (`menu_shortcut` is a workaround to mimic `MenuItem` in the range-ops window. Ideally, that window
@@ -495,14 +493,11 @@ inline bool imgui_SelectableStyledButton(const char* label, const bool selected 
         return false;
     }
 
-    if constexpr (selectable_button_use_same_col) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Header));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
-    }
-    if (!selected) {
-        ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32_BLACK_TRANS);
-    }
+    // (`ImGui::Selectable()` uses `ImGuiCol_HeaderXXX`.)
+    ImGui::PushStyleColor(ImGuiCol_Button, selected ? ImGui::GetStyleColorVec4(ImGuiCol_Header) : ImVec4());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
+
     static ImGuiID prev_id = 0;
     if (prev_id != 0 && prev_id == ImGui::GetItemID()) {
         // As if the last call used `ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0)`.
@@ -535,12 +530,7 @@ inline bool imgui_SelectableStyledButton(const char* label, const bool selected 
 
     ImGui::PopStyleVar(2);
     prev_id = ImGui::GetItemID();
-    if (!selected) {
-        ImGui::PopStyleColor();
-    }
-    if constexpr (selectable_button_use_same_col) {
-        ImGui::PopStyleColor(3);
-    }
+    ImGui::PopStyleColor(3);
 
     return ret;
 }
@@ -553,14 +543,11 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
         return false;
     }
 
-    if constexpr (selectable_button_use_same_col) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Header));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
-    }
-    if (!selected) {
-        ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32_BLACK_TRANS);
-    }
+    // (`ImGui::Selectable()` uses `ImGuiCol_HeaderXXX`.)
+    ImGui::PushStyleColor(ImGuiCol_Button, selected ? ImGui::GetStyleColorVec4(ImGuiCol_Header) : ImVec4());
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
+
     static ImGuiID prev_id = 0;
     if (prev_id != 0 && prev_id == ImGui::GetItemID()) {
         // As if the last call used `ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0)`.
@@ -580,12 +567,7 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
                              label.data() + label.size(), &label_size, {0, 0} /*align*/, &rect);
 
     prev_id = ImGui::GetItemID();
-    if (!selected) {
-        ImGui::PopStyleColor();
-    }
-    if constexpr (selectable_button_use_same_col) {
-        ImGui::PopStyleColor(3);
-    }
+    ImGui::PopStyleColor(3);
 
     return ret;
 }
