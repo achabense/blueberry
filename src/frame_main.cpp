@@ -51,7 +51,7 @@ static open_state intro_window(frame_main_token) {
 
             ImGui::Bullet();
             imgui_Str("Right-click underlined text (like this) to open menu.");
-            rclick_popup::popup(imgui_GetItemPosID(), [] {
+            rclick_popup::for_text([] {
                 if (ImGui::Selectable("...")) {
                     messenger::dot();
                 }

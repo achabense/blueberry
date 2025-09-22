@@ -381,7 +381,7 @@ public:
 class rclick_popup : no_create {
 public:
     // Popups are hidden at the first frame due to auto-resize, but will still block items.
-    enum class hoverE { None, Hovered, PopupInvisible, PopupVisible };
+    enum class hoverE { None, Hovered, PopupHidden, PopupVisible };
     using enum hoverE;
 
     // (Not meant to be called recursively.)
@@ -407,8 +407,7 @@ public:
         hoverE hov = Hovered;
         if (opened && imgui_BeginPopupRecycled(popup_id)) {
             popup_with_focus::set_focus(popup_id, source_window);
-            hov = ImGui::IsWindowAppearing() ? PopupInvisible : PopupVisible;
-            assert_implies(hov == PopupInvisible, GImGui->CurrentWindow->Hidden);
+            hov = GImGui->CurrentWindow->Hidden ? PopupHidden : PopupVisible;
 
             lock_scroll();
             fn();
@@ -428,19 +427,19 @@ public:
         return ImGui::GetColorU32(bright ? ImGuiCol_Text : ImGuiCol_TextDisabled);
     }
 
-    static hoverE popup(const ImGuiID id, const func_ref<void()> fn) {
-        const hoverE hov = popup_no_highlight(id, fn);
+    static hoverE for_text(const func_ref<void()> fn) {
+        const hoverE hov = popup_no_highlight(imgui_GetItemIDNonZero(), fn);
         if (hov != None) {
             imgui_ItemUnderline(highlight_col(hov == PopupVisible));
         }
         return hov;
     }
 
-    static hoverE popup2(const func_ref<void()> fn) {
+    static hoverE for_button(const func_ref<void()> fn) {
         const ImGuiID id = ImGui::GetItemID();
         assert(id);
         const hoverE hov = popup_no_highlight(id, fn);
-        if (hov == PopupInvisible || hov == PopupVisible) {
+        if (hov == PopupHidden || hov == PopupVisible) {
             highlight_item(id);
         }
         return hov;

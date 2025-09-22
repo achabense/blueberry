@@ -160,7 +160,7 @@ static void path_options(const pathT& p) {
 static void display_path(const pathT& p, const float avail_w) {
     bool clipped = false;
     imgui_Str(clip_path(p, avail_w, clipped));
-    rclick_popup::popup(imgui_GetItemPosID(), [&] { path_options(p); });
+    rclick_popup::for_text([&] { path_options(p); });
     if (clipped) {
         imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
     }
@@ -168,7 +168,7 @@ static void display_path(const pathT& p, const float avail_w) {
 static void display_filename(const pathT& p) {
     constexpr char prefix[]{'.', '.', '.', char(pathT::preferred_separator), '\0'};
     imgui_Str(prefix + cpp17_u8string_b(p.filename()));
-    rclick_popup::popup(imgui_GetItemPosID(), [&] { path_options(p); });
+    rclick_popup::for_text([&] { path_options(p); });
     imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
 }
 
@@ -470,7 +470,7 @@ private:
                     if (selected && ImGui::IsWindowAppearing()) {
                         ImGui::SetScrollHereY();
                     }
-                    rclick_popup::popup2([&] { // (Undocumented.)
+                    rclick_popup::for_button([&] { // (Undocumented.)
                         path_options(m_current / entry.name);
                     });
                 }
@@ -517,7 +517,7 @@ public:
                 if (imgui_SelectableStyledButtonEx(id++, "Home") && messenger::dot()) {
                     set_dir(m_home);
                 }
-                rclick_popup::popup2([&] { // (Undocumented.)
+                rclick_popup::for_button([&] { // (Undocumented.)
                     // m_home ~ canonical ~ won't have trailing sep unless it's root path (nearly impossible).
                     path_options(m_home);
                 });
@@ -874,7 +874,7 @@ private:
         } else {
             ImGui::Text("Total:%d At:N/A", total);
         }
-        rclick_popup::popup(imgui_GetItemPosID(), [&] {
+        rclick_popup::for_text([&] {
             if (ImGui::Selectable("Reset cursor") && messenger::dot()) {
                 m_pos.reset();
             }
@@ -1214,7 +1214,7 @@ public:
             constexpr const char* url = "https://github.com/achabense/blueberry";
             // ImGui::TextLinkOpenURL(url);
             imgui_Str(url);
-            rclick_popup::popup(imgui_GetItemPosID(), [] {
+            rclick_popup::for_text([] {
                 if (ImGui::Selectable("Copy link")) {
                     set_clipboard_and_notify(url);
                 }

@@ -662,11 +662,9 @@ public:
             }
             ImGui::SameLine();
 
-            const ImGuiID map_id = ImGui::GetID("MAP-str");
-            imgui_StrWithID(aniso::to_MAP_str(current_rule), map_id);
+            imgui_StrWithID(aniso::to_MAP_str(current_rule), ImGui::GetID("MAP-str"));
             if (!pass_rule::source(current_rule)) {
-                assert(ImGui::GetItemID() == map_id);
-                rclick_popup::popup(map_id, [&] {
+                rclick_popup::for_text([&] {
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(current_rule);
                     }
@@ -1946,10 +1944,10 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                    : hov == rclick_popup::None ? default_border_color()
                                                : rclick_popup::highlight_col(hov == rclick_popup::PopupVisible));
 
-    const bool popup_invisible = hov == rclick_popup::PopupInvisible;
-    const bool tooltip = !has_group_op && (hovered || popup_invisible) &&
-                         imgui_IsItemHoveredForTooltip(popup_invisible ? ImGuiHoveredFlags_AllowWhenBlockedByPopup
-                                                                       : ImGuiHoveredFlags_None);
+    const bool popup_hidden = hov == rclick_popup::PopupHidden;
+    const bool tooltip = !has_group_op && (hovered || popup_hidden) &&
+                         imgui_IsItemHoveredForTooltip(popup_hidden ? ImGuiHoveredFlags_AllowWhenBlockedByPopup
+                                                                    : ImGuiHoveredFlags_None);
     bool hex_mode = false;
     if (tooltip && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
         assert(ImGui::IsMousePosValid());

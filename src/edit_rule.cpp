@@ -931,8 +931,7 @@ public:
         return false;
     }
 
-    bool display(const char* label, const char* snapshot_title, const previewer::configT& settings,
-                 const aniso::subsetT& working_set) {
+    bool display(const char* label, const previewer::configT& settings, const aniso::subsetT& working_set) {
         if (m_appearing.update()) {
             m_window = false;
         }
@@ -947,7 +946,7 @@ public:
                 imgui_ItemTooltip([&] { previewer::preview(-1, settings, m_rule.get()); });
                 // ImGui::PopStyleVar();
 
-                rclick_popup::popup(ImGui::GetItemID(), [&] {
+                rclick_popup::for_text([&] {
                     imgui_StrTooltip(
                         "(...)",
                         "This can be an arbitrary rule in [S]. (When [S] changes and no longer contains the rule, it will be reset to [R].)\n\n"
@@ -1078,7 +1077,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
         }
         ImGui::SameLine();
-        if (orderer.display("[X]", "Recent - [X]", config, working_set)) {
+        if (orderer.display("[X]", config, working_set)) {
             page.clear();
         }
 
@@ -1114,7 +1113,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
                 ImGui::Text("Dist:%d~%d", min_dist, max_dist);
             }
         }
-        rclick_popup::popup(imgui_GetItemPosID(), [] {
+        rclick_popup::for_text([] {
             if (ImGui::Selectable("Clear") && messenger::dot()) {
                 page.clear();
             }
@@ -1183,7 +1182,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             assert(round(rate * c_free) == free_dist);
         }
         ImGui::SameLine();
-        target.display("[Y]", "Recent - [Y]", config, working_set);
+        target.display("[Y]", config, working_set);
 
         static std::vector<aniso::compressT> rules{};
         static int page_no = 0;
@@ -1225,7 +1224,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         } else {
             ImGui::Text("Pages:%d At:N/A", calc_page());
         }
-        rclick_popup::popup(imgui_GetItemPosID(), [] {
+        rclick_popup::for_text([] {
             if (ImGui::Selectable("Clear") && messenger::dot()) {
                 rules.clear();
                 rules.shrink_to_fit();
@@ -1380,7 +1379,7 @@ void edit_rule(frame_main_token) {
 
             ImGui::SameLine();
             random_access_status::begin_disabled();
-            target.display("[Z]", "Recent - [Z]", config, working_set);
+            target.display("[Z]", config, working_set);
             random_access_status::end_disabled();
             ImGui::SameLine();
             config.set("Settings");
