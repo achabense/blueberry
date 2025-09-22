@@ -911,7 +911,6 @@ struct page_adapter {
 
 class target_rule : no_copy {
     rule_with_rec m_rule{};
-    rule_snapshot m_snapshot{};
     bool m_window = false;
 
     test_appearing m_appearing{};
@@ -935,7 +934,6 @@ public:
     bool display(const char* label, const char* snapshot_title, const previewer::configT& settings,
                  const aniso::subsetT& working_set) {
         if (m_appearing.update()) {
-            m_snapshot.clear();
             m_window = false;
         }
 
@@ -952,7 +950,7 @@ public:
                 rclick_popup::popup(ImGui::GetItemID(), [&] {
                     imgui_StrTooltip(
                         "(...)",
-                        "[X]/[Y]/[Z] can be arbitrary rules in [S]. When [S] changes and no longer contains them (or when they appear initially), they will be reset to [R].\n\n"
+                        "This can be an arbitrary rule in [S]. (When [S] changes and no longer contains the rule, it will be reset to [R].)\n\n"
                         "Drag a rule to the label to apply the rule.\n"
                         "Drag the label to send the rule elsewhere.");
                     ImGui::Separator();
@@ -965,8 +963,6 @@ public:
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(m_rule.get());
                     }
-
-                    selectable_to_take_snapshot("Recent", m_rule.rec(), m_snapshot);
                 });
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
@@ -989,7 +985,6 @@ public:
             // TODO: ideally, should always appear above the source window.
             if (auto window = imgui_Window(label, &m_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                item_to_take_snapshot(ImGui::SmallButton, "Recent", m_rule.rec(), m_snapshot);
                 previewer::preview(0, settings, m_rule.get());
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
                     m_rule.set(*deliv);
@@ -997,19 +992,6 @@ public:
                     updated = true;
                 }
             }
-        }
-
-        if (m_snapshot) {
-            // (The function is no longer stored; preserved for reference.)
-            // https://stackoverflow.com/questions/21443023/capturing-a-reference-by-reference-in-a-c11-lambda
-            const auto get = [&]() -> decltype(auto) { return m_rule.get(); };
-            const auto set = [&](const aniso::ruleT& r) {
-                if (const auto* deliv = get_deliv(&r, working_set)) {
-                    m_rule.set(*deliv);
-                    updated = true;
-                }
-            };
-            display_snapshot(snapshot_title, m_snapshot, m_rule.rec(), {{.get = get, .set = set}});
         }
 
         return updated;
@@ -1394,7 +1376,7 @@ void edit_rule(frame_main_token) {
                 "1. Click the same button again to undo the change.\n"
                 "2. Collapse the set table ('Collapse') to leave more room.\n"
                 "3. Use the 'Misc' window to temporarily store the rule.\n"
-                "4. Right-click [Z] to open menu (display [Z] in regular window, select recent rules, etc.).");
+                "4. Right-click [Z] to open menu (display [Z] in a regular window, etc.).");
 
             ImGui::SameLine();
             random_access_status::begin_disabled();

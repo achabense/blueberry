@@ -1203,7 +1203,7 @@ struct rule_and_hash {
 static_assert(std::is_trivially_copyable_v<rule_and_hash>);
 #endif
 
-// !!TODO: (v0.9.9?) horrible, should redesign one day...
+// !!TODO: (v0.9.9) horrible, should redesign or remove (! &rec_for_rule)...
 class rule_snapshot : no_copy {
     using dataT = std::vector<aniso::compressT>;
     previewer::configT m_settings{previewer::default_settings}; // TODO: support external settings?
@@ -1321,6 +1321,7 @@ public:
     }
 };
 
+// [[deprecated]]
 class rec_for_rule : no_copy {
     using dataT = std::vector<aniso::compressT>;
     int m_capacity;
@@ -1357,6 +1358,7 @@ public:
     // void clear() { m_data.clear(); }
 };
 
+// [[deprecated]]
 inline void item_to_take_snapshot(bool (&item)(const char*), const char* label, const rec_for_rule& rec,
                                   rule_snapshot& snapshot) {
     const bool empty = rec.empty();
@@ -1372,13 +1374,14 @@ inline void item_to_take_snapshot(bool (&item)(const char*), const char* label, 
 }
 
 // (Used by `rclick_popup`.)
-inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& rec, rule_snapshot& snapshot) {
+[[deprecated]] inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& rec,
+                                                       rule_snapshot& snapshot) {
     const auto selectable = [](const char* label) { return ImGui::Selectable(label); };
-    return item_to_take_snapshot(*+selectable, label, rec, snapshot);
+    item_to_take_snapshot(*+selectable, label, rec, snapshot);
 }
 
-inline void display_snapshot(const char* title, rule_snapshot& snapshot, const rec_for_rule& rec,
-                             const std::optional<rule_snapshot::contextT>& context = std::nullopt) {
+[[deprecated]] inline void display_snapshot(const char* title, rule_snapshot& snapshot, const rec_for_rule& rec,
+                                            const std::optional<rule_snapshot::contextT>& context = std::nullopt) {
     assert(snapshot);
     if (rec.written_since_last_check()) {
         snapshot.test_outdated(rec.data());
@@ -1412,20 +1415,15 @@ public:
 };
 
 class copy_rule : no_create {
-    inline static rec_for_rule rec{};
-
     static void save(const aniso::ruleT& rule);
 
 public:
     static void copy(const aniso::ruleT& rule) {
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
-        rec.add(rule);
         if constexpr (debug_mode) { // !!TODO: (v0.9.9) support in release mode...
             save(rule);
         }
     }
-
-    static const rec_for_rule& get_rec(frame_main_token) { return rec; }
 };
 
 class test_active {

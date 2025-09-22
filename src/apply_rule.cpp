@@ -628,7 +628,6 @@ class runnerT : no_copy {
         m_sel.reset();
     }
 
-    rule_snapshot m_snapshot{}; // For `current_rule`.
     test_appearing m_appearing{};
 
 public:
@@ -646,7 +645,6 @@ public:
         if (m_appearing.update()) {
             reset_pos();
             reset_m_paste_and_m_sel();
-            m_snapshot.clear();
         }
         if (current_rule.update()) {
             m_torus.restart();
@@ -672,8 +670,6 @@ public:
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(current_rule);
                     }
-
-                    selectable_to_take_snapshot("Recent", current_rule.rec(), m_snapshot);
                 });
             }
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
@@ -682,13 +678,7 @@ public:
             }
             guide_mode::item_tooltip("This is the MAP-string for the displayed rule.\n\n"
                                      "Drag a rule here to apply the rule.\n"
-                                     "Drag to send the rule elsewhere.\n"
-                                     "Right-click to open menu (copy the rule/select recent rules).");
-            if (m_snapshot) {
-                display_snapshot("Recent - pattern editor", m_snapshot, current_rule.rec(),
-                                 {{.get = [&]() -> decltype(auto) { return current_rule.get(); },
-                                   .set = [&](const aniso::ruleT& r) { current_rule.set_next(r); }}});
-            }
+                                     "Drag to send the rule elsewhere.");
 
             ImGui::Separator();
         }
@@ -1827,8 +1817,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             if (ImGui::Selectable("Copy rule")) {
                 copy_rule::copy(rule);
             }
-            guide_mode::item_tooltip("Copy to the clipboard (as MAP-string).\n\n"
-                                     "(Equivalent to sending the rule to '[C]' after 'Clipboard'.)");
+            guide_mode::item_tooltip("Copy to the clipboard (as MAP-string).");
             if (ImGui::Selectable("Restart")) {
                 restart_from_menu = true;
             }
