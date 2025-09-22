@@ -122,13 +122,6 @@ static const pathT& get_home_path() /*noexcept*/ {
     }
 }
 
-static void copy_path(const pathT& p) {
-    if (const auto str = cpp17_u8string(p)) {
-        set_clipboard_and_notify(*str);
-    } else {
-        messenger::set_msg("Cannot convert to utf-8 text.");
-    }
-}
 static bool has_open_url_fn() { return GImGui->PlatformIO.Platform_OpenInShellFn; }
 static bool open_url(const char* url) {
     if (GImGui->PlatformIO.Platform_OpenInShellFn) {
@@ -149,22 +142,25 @@ static bool open_folder(const pathT& p) {
     }
 }
 
+static void copy_path(const pathT& p) {
+    if (const auto str = cpp17_u8string(p)) {
+        set_clipboard_and_notify(*str);
+    } else {
+        messenger::set_msg("Cannot convert to utf-8 text.");
+    }
+}
+static void path_options(const pathT& p) {
+    if (ImGui::Selectable("Copy path")) {
+        copy_path(p);
+    }
+    if (ImGui::Selectable("Copy name")) {
+        copy_path(p.filename()); // (`p` shouldn't end with separator.)
+    }
+}
 static void display_path(const pathT& p, const float avail_w) {
     bool clipped = false;
     imgui_Str(clip_path(p, avail_w, clipped));
-    rclick_popup::popup(imgui_GetItemPosID(), [&] {
-        if (ImGui::Selectable("Copy full path")) {
-            copy_path(p);
-        }
-        if (ImGui::Selectable("Copy name")) {
-            copy_path(p.filename());
-        }
-        if (has_open_url_fn()) {
-            if (ImGui::Selectable("Open in system")) {
-                open_folder(p);
-            }
-        }
-    });
+    rclick_popup::popup(imgui_GetItemPosID(), [&] { path_options(p); });
     if (clipped) {
         imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
     }
@@ -172,22 +168,7 @@ static void display_path(const pathT& p, const float avail_w) {
 static void display_filename(const pathT& p) {
     constexpr char prefix[]{'.', '.', '.', char(pathT::preferred_separator), '\0'};
     imgui_Str(prefix + cpp17_u8string_b(p.filename()));
-    rclick_popup::popup(imgui_GetItemPosID(), [&] {
-        if (ImGui::Selectable("Copy full path")) {
-            copy_path(p);
-        }
-        if (ImGui::Selectable("Copy name")) {
-            copy_path(p.filename());
-        }
-        if constexpr (debug_mode) {
-            // TODO: useful but it's hard to decide the label...
-            if (has_open_url_fn()) {
-                if (ImGui::Selectable("Open parent path")) {
-                    open_folder(p.parent_path());
-                }
-            }
-        }
-    });
+    rclick_popup::popup(imgui_GetItemPosID(), [&] { path_options(p); });
     imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
 }
 
@@ -490,12 +471,7 @@ private:
                         ImGui::SetScrollHereY();
                     }
                     rclick_popup::popup2([&] { // (Undocumented.)
-                        if (ImGui::Selectable("Copy full path")) {
-                            copy_path(m_current / entry.name);
-                        }
-                        if (ImGui::Selectable("Copy name")) {
-                            copy_path(entry.name);
-                        }
+                        path_options(m_current / entry.name);
                     });
                 }
             }
@@ -542,13 +518,8 @@ public:
                     set_dir(m_home);
                 }
                 rclick_popup::popup2([&] { // (Undocumented.)
-                    if (ImGui::Selectable("Copy full path")) {
-                        copy_path(m_home);
-                    }
-                    if (ImGui::Selectable("Copy name")) {
-                        // m_home ~ canonical ~ won't have trailing sep unless it's root path (nearly impossible).
-                        copy_path(m_home.filename());
-                    }
+                    // m_home ~ canonical ~ won't have trailing sep unless it's root path (nearly impossible).
+                    path_options(m_home);
                 });
             }
             if (m_current.valid()) {
@@ -1090,6 +1061,13 @@ public:
                     nav.refresh_if_valid();
                 }
                 // guide_mode::item_tooltip("Reload entry list.");
+                if (has_open_url_fn()) {
+                    ImGui::SameLine();
+                    if (double_click_button_small("Local")) {
+                        open_folder(nav.current_path());
+                    }
+                    guide_mode::item_tooltip("Open current path in the file manager.");
+                }
                 ImGui::SameLine();
                 display_path(nav.current_path(), ImGui::GetContentRegionAvail().x);
             } else {

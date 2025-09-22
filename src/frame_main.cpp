@@ -22,7 +22,7 @@ static open_state intro_window(frame_main_token) {
         ImGui::PushTextWrapPos(wrap_len());
         if (page == 0) {
             ImGui::Bullet();
-            imgui_Str("Use 'Files' and 'Clipboard' windows to load rules.");
+            imgui_Str("Use 'Open' and 'Paste' to load rules.");
             ImGui::Bullet();
             imgui_Str("Use the left panel to generate rules.");
             ImGui::SameLine();
@@ -162,7 +162,7 @@ void frame_main() {
         {
             static bool show_file = false;
             // appearing.reset_if_appearing(show_file);
-            ImGui::Checkbox("Files", &show_file);
+            ImGui::Checkbox("Open##Files", &show_file);
             guide_mode::item_tooltip("Load text/rules from files.");
             if (show_file) {
                 const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
@@ -172,7 +172,7 @@ void frame_main() {
         ImGui::SameLine();
         {
             static bool show_clipboard = false;
-            ImGui::Checkbox("Clipboard", &show_clipboard);
+            ImGui::Checkbox("Paste##Clipboard", &show_clipboard);
             guide_mode::item_tooltip("Load text/rules from the clipboard.");
             if (show_clipboard) {
                 const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
