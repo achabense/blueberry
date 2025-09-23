@@ -533,6 +533,7 @@ public:
             }
         }
 
+        // TODO: should reset scroll in some cases...
         if (const folderT::entryT* sel = select_entry(Both, id)) {
             if (sel->is_file) {
                 target = m_current / sel->name;
@@ -702,6 +703,8 @@ public:
             ImGui::Separator();
 
             // TODO: are there easy ways to introduce vertical scrollbar, without messing with width?
+            // !!TODO: (v0.9.9) this almost works: SetNextWindowSizeConstraints + ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY
+            // However, the window will have wrong size (for one frame) when appearing, even though the parent popup is already hidden for one frame.
             constexpr int limit = 10;
             const float h = std::min((int)m_highlighted.size(), limit) *
                             (ImGui::GetFontSize() + 4 /*imgui_SelectableStyledButton*/);
@@ -831,7 +834,6 @@ public:
                 m_sel = sel;
             } else if (click_pos) {
                 assert(*click_pos >= 0 && *click_pos < int(m_rules.size()));
-                // set_apply_rule_target(m_rules[*click_pos]); // TODO: whether to support this?
                 m_pos = *click_pos;
             }
         }
