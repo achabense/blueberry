@@ -1029,7 +1029,7 @@ public:
             }
             bool open = true;
             ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos(), ImGuiCond_Appearing);
-            imgui_Window::next_window_titlebar_tooltip = "Close the window, or press 'V' again to discard the pattern.";
+            imgui_Window::next_window_titlebar_tooltip = "Close the window to discard the pattern.";
             const std::string title = std::format("Pattern:{}*{}###Pattern", m_paste->size().x, m_paste->size().y);
             if (auto window = imgui_Window(title.c_str(), &open,
                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse |
@@ -1450,7 +1450,7 @@ private:
             [](runnerT& self) {
                 assert(self.m_sel);
                 const aniso::rangeT sel_range = self.m_sel->to_range();
-                const aniso::tile_const_ref sel_area = self.m_torus.read_only(sel_range);
+                const auto sel_area = self.m_torus.read_only(sel_range);
                 const aniso::vecT p_size{2, 2};
                 if (check_border(sel_area, p_size)) {
                     const aniso::rangeT bound = aniso::bounding_box(sel_area, p_size);
@@ -1466,12 +1466,13 @@ private:
             } //
         };
 
+#if 0
         // !!TODO: (v0.9.9) enhance to background sampling...
         static constexpr op_term op_test_bg_period{
             ImGuiKey_P, "P", true,
             [](runnerT& self) {
                 assert(self.m_sel);
-                const aniso::tile_const_ref sel_area = self.m_torus.read_only(self.m_sel->to_range());
+                const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
                 if (const auto p_size = aniso::spatial_period_full_area(sel_area, {30, 30})) {
                     if (const auto period = aniso::torus_period(self.current_rule, sel_area.clip_corner(*p_size), 60)) {
                         messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size->x, p_size->y, *period);
@@ -1485,6 +1486,7 @@ private:
                 }
             } //
         };
+#endif
 
         static constexpr bool add_rule = true; // TODO: whether to support specifying this?
         static constexpr bool show_rle = true;
@@ -1502,15 +1504,22 @@ private:
                 }
             } //
         };
-        static constexpr op_term op_cut{
+        static constexpr op_term op_extract{
             ImGuiKey_X, "X", true,
             [](runnerT& self) {
                 assert(self.m_sel);
-                const aniso::rangeT sel_range = self.m_sel->to_range();
-                const aniso::vecT p_size{2, 2};
-                if (check_border(self.m_torus.read_only(sel_range), p_size)) {
-                    op_copy.op(self);
-                    aniso::self_repeat(self.m_torus.write_only(sel_range), p_size);
+                self.m_sel->active = false;
+                if (self.m_paste) { // (Undocumented.)
+                    // !!TODO: should not require m_sel...
+                    self.reset_m_paste();
+                } else {
+                    const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
+                    self.m_ctrl.push_pause_for_m_paste();
+                    self.m_paste = {.newly_assigned = true,
+                                    .rule = self.current_rule,
+                                    .tile = aniso::tileT(sel_area),
+                                    .beg = {0, 0},
+                                    .mode = aniso::blitE::Copy};
                 }
             } //
         };
@@ -1529,7 +1538,7 @@ private:
                 if (self.m_sel) {
                     self.m_sel->active = false;
                 }
-                if (self.m_paste) {
+                if (self.m_paste) { // (Undocumented.)
                     self.reset_m_paste();
                 } else if (std::string_view text = read_clipboard(); !text.empty()) {
                     self.load_pattern(text);
@@ -1542,8 +1551,8 @@ private:
 
         if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
             static constexpr const op_term* op_list[]{
-                &op_random_flip,    &op_flip, &op_clear_inside, &op_clear_outside, &op_select_all, &op_bounding_box,
-                &op_test_bg_period, &op_copy, &op_cut,          &op_identify,      &op_paste};
+                &op_random_flip,  &op_flip, &op_clear_inside, &op_clear_outside, &op_select_all,
+                &op_bounding_box, &op_copy, &op_extract,      &op_identify,      &op_paste};
             for (const op_term* t : op_list) {
                 if (shortcuts::test_pressed(t->key, false)) {
                     op_highlight = t;
@@ -1562,7 +1571,7 @@ private:
                 ImGui::SetNextWindowPos(ImGui::GetMousePos() + ImVec2(2, 2), ImGuiCond_Appearing);
             }
             imgui_Window::next_window_titlebar_tooltip =
-                "The shortcuts work only when the editor is hovered (and this window doesn't have to stay open).";
+                "The shortcuts work only when the editor is hovered (and this window doesn't need to stay open).";
             if (auto window = imgui_Window("Operations (settings)", &show_op_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 const auto term = [&](const char* label, const op_term& t) {
@@ -1583,7 +1592,9 @@ private:
 
                 flip_den.step_slide("Density");
                 term("Random flip", op_random_flip);
+                guide_mode::item_tooltip("Flip random cells in the selected area (rate controlled by 'Density').");
                 term("Flip", op_flip);
+                guide_mode::item_tooltip("Flip all cells in the selected area.");
 
                 ImGui::Separator();
 
@@ -1601,7 +1612,7 @@ private:
                         "For 'Clear inside/outside':\n"
                         "0/1: Fill area with 0 or 1 (unconditionally).\n"
                         "C:   If the area is enclosed in 2*2 periodic bg, fill area with the bg; otherwise do nothing.\n\n"
-                        "The \"2*2 periodic bg\" includes the following patterns:");
+                        "2*2 periodic bg:");
 
                     static constexpr std::array<aniso::cellT, 4> bg_data[]{
                         {{{0}, {0}, {0}, {0}}}, {{{1}, {1}, {1}, {1}}}, {{{0}, {1}, {1}, {0}}}, {{{1}, {0}, {0}, {0}}},
@@ -1642,8 +1653,8 @@ private:
                 guide_mode::item_tooltip(
                     "The area should be enclosed in 2*2 periodic background.\n\n"
                     "Get the bounding box for the pattern; the resulting bounding box will include a layer of background.");
-                term("Test background", op_test_bg_period);
-                guide_mode::item_tooltip("Test the size and period of periodic background.");
+                // term("Test background", op_test_bg_period);
+                // guide_mode::item_tooltip("Test the size and period of periodic background.");
 
                 ImGui::Separator();
 
@@ -1654,16 +1665,12 @@ private:
                 //            "(This applies to 'Copy' and 'Cut'. 'Identify' will always include rule info.)");
                 term("Copy", op_copy);
                 guide_mode::item_tooltip("Copy selected area to the clipboard (as RLE-string).");
-                term("Cut", op_cut);
-                guide_mode::item_tooltip("The area should be enclosed in 2*2 periodic background.\n\n"
-                                         "Copy selected area and clear area with the background.");
+                term("Extract", op_extract);
+                guide_mode::item_tooltip("Extract selected area without copying to the clipboard.");
                 term("Identify", op_identify);
                 guide_mode::item_tooltip(
                     "The area should be enclosed in 2*2 periodic background.\n\n"
                     "Identify a single oscillator or spaceship in the area, and copy its smallest phase to the clipboard.");
-
-                ImGui::Separator();
-
                 term("Paste", op_paste);
                 guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.\n\n"
                                          "(To load list of rules, use the 'Clipboard' window instead.)");
