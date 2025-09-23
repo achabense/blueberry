@@ -1111,10 +1111,6 @@ public:
             ImGui::SameLine();
             menu_like_popup::small_button(">");
             menu_like_popup::popup([&] { text.select_line(); });
-            ImGui::SameLine();
-            if (ImGui::SmallButton("Top") && messenger::dot()) {
-                text.reset_scroll();
-            }
 
             ImGui::Separator();
             text.display();
@@ -1177,10 +1173,6 @@ public:
         ImGui::SameLine();
         menu_like_popup::small_button(">");
         menu_like_popup::popup([&] { text.select_line(); });
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Top") && messenger::dot()) {
-            text.reset_scroll();
-        }
 
         ImGui::Separator();
         text.display();
@@ -1235,10 +1227,6 @@ public:
             ImGui::SameLine();
             menu_like_popup::small_button(">");
             menu_like_popup::popup([&] { text.select_line(); });
-            ImGui::SameLine();
-            if (ImGui::SmallButton("Top") && messenger::dot()) {
-                text.reset_scroll();
-            }
 
             ImGui::Separator();
             text.display();

@@ -1252,10 +1252,6 @@ public:
                 to_top = true;
             }
             ImGui::SameLine();
-            if (ImGui::SmallButton("Top") && messenger::dot()) {
-                to_top = true;
-            }
-            ImGui::SameLine();
             m_settings.set("Settings", true /*small*/);
             ImGui::SameLine();
             const int total = m_data.size();

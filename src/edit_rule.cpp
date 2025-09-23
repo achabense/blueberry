@@ -776,13 +776,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
             previewer::preview_or_dummy(id++, config, rule ? &*rule : nullptr);
         };
 
-        const bool to_top = ImGui::SmallButton("Top") && messenger::dot();
-        ImGui::SameLine();
         config.set("Settings", true /*small*/);
-
-        if (to_top) {
-            ImGui::SetNextWindowScroll({0, 0});
-        }
 
         ImGui::Separator();
 
@@ -1431,12 +1425,6 @@ void edit_rule(frame_main_token) {
         imgui_StrTooltip("(?)",
                          "Distance between [Z] and [R], i.e. the number of groups where they have different values.");
     }
-
-    // TODO: whether to add here? whether to hide when it's not needed?
-    // ImGui::SameLine();
-    // if (ImGui::SmallButton("Top") && messenger::dot()) {
-    //     ImGui::SetNextWindowScroll({0, 0});
-    // }
 
     ImGui::Separator();
 
