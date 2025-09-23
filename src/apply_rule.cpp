@@ -656,7 +656,7 @@ public:
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip(
                     "(...)",
-                    "The \"pattern editor\" (as highlighted) has strictly wider control than preview windows, and is able to operate on patterns (e.g. saving and pasting; see 'Op-list' for details).\n\n"
+                    "The \"pattern editor\" (as highlighted) has strictly wider control than preview windows, and is able to operate on patterns (see 'Edit-pattern' for details).\n\n"
                     "All spaces use torus topology, i.e. information can go across boundaries directly, so the entire space can be imagined as a periodic unit in an infinite space.")) {
                 highlight_canvas = true;
             }
@@ -1007,7 +1007,7 @@ public:
         ImGui::SameLine();
         static bool show_op_window = false;
         m_appearing.reset_if_appearing(show_op_window);
-        ImGui::Checkbox("Op-list", &show_op_window);
+        ImGui::Checkbox("Edit-pattern", &show_op_window);
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
         ImGui::SameLine(0, wide_spacing);
         if (m_sel) {
@@ -1326,7 +1326,7 @@ public:
                 }
             }
 
-            range_operations(canvas_hovered_or_held, show_op_window);
+            edit_pattern(canvas_hovered_or_held, show_op_window);
 
             assert(tile_size == m_torus.size());
             assert(!m_torus.resized_since_last_check());
@@ -1360,7 +1360,7 @@ public:
     }
 
 private:
-    void range_operations(const bool canvas_hovered_or_held, bool& show_op_window) {
+    void edit_pattern(const bool canvas_hovered_or_held, bool& show_op_window) {
         // TODO: disable some operations if `m_paste.has_value`?
         // TODO: set pause for some operations?
         struct op_term : no_copy {
@@ -1570,7 +1570,7 @@ private:
             }
             imgui_Window::next_window_titlebar_tooltip =
                 "The shortcuts work only when the editor is hovered (and this window doesn't need to stay open).";
-            if (auto window = imgui_Window("Operations (settings)", &show_op_window,
+            if (auto window = imgui_Window("Edit pattern (settings)", &show_op_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 const auto term = [&](const char* label, const op_term& t) {
                     const char* msg = t.check(*this);
@@ -1813,7 +1813,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             if (ImGui::Selectable("Copy rule")) {
                 copy_rule::copy(rule);
             }
-            guide_mode::item_tooltip("Copy to the clipboard (as MAP-string).");
+            guide_mode::item_tooltip("Copy rule to the clipboard (as MAP-string).");
             if (ImGui::Selectable("Restart")) {
                 restart_from_menu = true;
             }
@@ -1847,12 +1847,11 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             if (begun) {
                 if (rand_access_avail) {
                     // !!TODO: (v0.9.9) recheck calling convention; only handlers are responsible for showing the dot...
-                    // ('Random-access' looks awkward here.)
                     if (ImGui::Selectable("Rule editor") /*XX messenger::dot()*/) {
                         pass_rule::set_extra(rule, random_access_status::rule_id);
                     }
                     guide_mode::item_tooltip(
-                        "Equivalent to sending rule to the 'Random-access' checkbox (or '[Z]' if it's turned on).");
+                        "Equivalent to sending rule to the 'Edit-rule' checkbox (or '[Z]' if it's turned on).");
                 }
                 if (editor_avail) {
                     if (ImGui::Selectable("Pattern editor") && messenger::dot()) {

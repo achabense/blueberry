@@ -656,7 +656,7 @@ public:
     static void about() {
         imgui_Str(
             "[S] divides all cases into disjoint groups, and any two rules in [S] must have either all-same or all-different values in each group. Due to this structure, the \"distance\" between rules can be defined as the number of groups where they have different values.\n\n"
-            "[R] stands for an arbitrary rule in [S] to measure relative distance and compare with other rules (same or different). It doesn't affect rule generation directly, but serves as the default rule for [X]/[Y]/[Z] (for 'Traverse', 'Random' and 'Random-access' respectively).\n\n"
+            "[R] stands for an arbitrary rule in [S] to measure relative distance and compare values with other rules. It doesn't affect rule generation directly, but serves as the default rule for [X]/[Y]/[Z] (for 'Traverse', 'Random' and 'Edit-rule' respectively).\n\n"
             // "(If you select 'Zero' or 'Identity', being same or different than [R] has natural interpretations.)"
             // "('Other' won't be updated when you switch with the radio buttons.)"
             "You can update [R] by dragging a rule to it. If [S] changes and no longer contains [R], [R] will be updated to an unspecified rule. In both cases, the updating logic is: if the rule equals 'Zero' or 'Identity', select directly without updating 'Other'; otherwise, update and select 'Other'.");
@@ -943,7 +943,7 @@ public:
                 rclick_popup::for_text([&] {
                     imgui_StrTooltip(
                         "(...)",
-                        "This can be an arbitrary rule in [S]. (When [S] changes and no longer contains the rule, it will be reset to [R].)\n\n"
+                        "This can be an arbitrary rule in [S]. (When [S] changes and no longer contains the rule, this will be reset to [R].)\n\n"
                         "Drag a rule to the label to apply the rule.\n"
                         "Drag the label to send the rule elsewhere.");
                     ImGui::Separator();
@@ -1061,7 +1061,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             "(...)",
             "The seq can iterate through all rules in [S] in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
             "The \"dist\" in this window refers to distance to [X]. For example, 'Go to dist' can get to the first rule with specified distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
-            "(This is mainly useful for small sets (having only a few groups). For large sets, 'Random' and 'Random-access' may be more suitable tools.)");
+            "(This is mainly useful for small sets (having only a few groups). For large sets, 'Random' and 'Edit-rule' may be more suitable tools.)");
         //"(Some small subsets include self-complementary totalistic rules ('0<>1 & Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All & Jvn') and so on.)"
         ImGui::SameLine();
         imgui_Str("Go to dist ~ ");
@@ -1307,7 +1307,7 @@ void edit_rule(frame_main_token) {
 
     static bool show_random_access = false;
     // appearing.reset_if_appearing(show_random_access);
-    static target_rule target{}; // Random-access
+    static target_rule target{}; // Random-access ('Edit-rule')
     static previewer::configT config{previewer::default_settings};
     {
         static bool show_misc = false;
@@ -1337,7 +1337,7 @@ void edit_rule(frame_main_token) {
         appearing.reset_if_appearing(show_rand);
         ImGui::Checkbox("Random", &show_rand);
         guide_mode::item_tooltip("Get random rules in [S].\n\n"
-                                 "(Mainly useful for large sets.)");
+                                 "(This is mainly useful for large sets.)");
         if (show_rand) {
             const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
             random_rule_window(init_pos, working_set, observer).reset_if_closed(show_rand);
@@ -1345,10 +1345,9 @@ void edit_rule(frame_main_token) {
     }
     ImGui::SameLine();
     {
-        // TODO: rename to 'Edit-rule'?
-        ImGui::Checkbox("Random-access", &show_random_access);
-        guide_mode::item_tooltip("Flip values of rules (in [S]) by groups.\n\n"
-                                 "(Mainly useful for large sets.)");
+        ImGui::Checkbox("Edit-rule", &show_random_access);
+        guide_mode::item_tooltip("Edit rules in [S] (by flipping values).\n\n"
+                                 "(This is mainly useful for large sets.)");
         random_access_status::update();
         if (const auto* deliv = get_deliv(
                 pass_rule::dest(/*accept drop if*/ !show_random_access, random_access_status::rule_id), working_set)) {
@@ -1364,12 +1363,12 @@ void edit_rule(frame_main_token) {
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
-                "The preview windows display the rules gotten by flipping [Z]'s values for each group. In other words, the table displays all rules with distance = 1 to [Z] in [S].\n\n"
+                "The table displays all rules with distance = 1 to [Z] in [S].\n\n"
                 "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group.\n\n"
                 "1. Click the same button again to undo the change.\n"
                 "2. Collapse the set table ('Collapse') to leave more room.\n"
                 "3. Use the 'Misc' window to temporarily store the rule.\n"
-                "4. Right-click [Z] to open menu (display [Z] in a regular window, etc.).");
+                "4. Display [Z] in a regular window (from [Z]'s menu) for better control.");
 
             ImGui::SameLine();
             random_access_status::begin_disabled();
@@ -1399,7 +1398,7 @@ void edit_rule(frame_main_token) {
 
         // TODO: simplify if possible...
         static constexpr std::pair<displayE, const char*> terms[]{
-            {Observer, "R##disp"}, {Target, "Z##disp"}, {Comp, "V##disp"}};
+            {Observer, "R##disp"}, {Target, "Z##disp"}, {Comp, "C##disp"}};
         float spacing = imgui_ItemSpacingX() * 3;
         for (const auto& [mode, label] : terms) {
             ImGui::SameLine(0, std::exchange(spacing, imgui_ItemInnerSpacingX()));
@@ -1408,14 +1407,14 @@ void edit_rule(frame_main_token) {
             imgui_RadioButton(label, &disp_mode, mode);
             ImGui::EndDisabled();
             if (!selectable && mode != Observer) {
-                imgui_ItemTooltip("Used in random-access mode.");
+                imgui_ItemTooltip("Used in editing mode ('Edit-rule').");
             }
         }
         ImGui::SameLine();
         imgui_StrTooltip("(?)", [] {
             imgui_StrPair("R: ", "Display values of [R] (0/1).");
-            imgui_StrPair("Z: ", "Display values of [Z] (for random-access mode).");
-            imgui_StrPair("V: ", "Compare whether [Z] is same (O) or different (I) than [R].");
+            imgui_StrPair("Z: ", "Display values of [Z] (for 'Edit-rule').");
+            imgui_StrPair("C: ", "Compare whether [Z] is same (O) or different (I) than [R].");
         });
     }
     if (show_random_access) {

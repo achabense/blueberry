@@ -1038,7 +1038,7 @@ public:
     }
 
 private:
-    // TODO: experimental (only used by random-access); should finally be enum-based...
+    // TODO: experimental; should finally be enum-based...
     inline static int extra_rule_id{};
     inline static aniso::ruleT extra_rule{};
 
@@ -1453,7 +1453,7 @@ public:
     static constexpr int rule_id = id; // For pass_rule::set_extra
 };
 
-using random_access_status = item_status<1>;
+using random_access_status = item_status<1>; // TODO: -> rule_editor_status.
 using pattern_editor_status = item_status<2>;
 bool has_pattern(std::string_view text);
 void load_pattern(std::string_view text);
