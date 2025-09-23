@@ -1364,26 +1364,36 @@ private:
         // TODO: disable some operations if `m_paste.has_value`?
         // TODO: set pause for some operations?
         struct op_term : no_copy {
+            const char* (*check)(const runnerT& self);
             void (*op)(runnerT& self);
             const char* key_label;
             ImGuiKey key;
-            bool req_sel;
 
             // (Should respect -Wreorder-ctor)
-            consteval op_term(ImGuiKey key, const char* key_label, bool req_sel, void (*op)(runnerT& self))
-                : op(op), key_label(key_label), key(key), req_sel(req_sel) {}
+            consteval op_term(ImGuiKey key, const char* key_label, const char* (*check)(const runnerT& self),
+                              void (*op)(runnerT& self))
+                : check(check), op(op), key_label(key_label), key(key) {}
 
-            bool check_sel(const runnerT& self) const { return !req_sel || self.m_sel; }
             void apply(runnerT& self) const {
-                if (check_sel(self)) {
+                if (const char* msg = check(self)) {
+                    messenger::set_msg(msg);
+                } else {
                     op(self);
                 }
             }
         };
 
+        static constexpr auto check_nothing = [](const runnerT&) -> const char* { return nullptr; };
+        static constexpr auto check_sel = [](const runnerT& self) -> const char* {
+            return self.m_sel ? nullptr : "No selected area.";
+        };
+        static constexpr auto check_for_extract = [](const runnerT& self) -> const char* {
+            return self.m_paste || self.m_sel ? nullptr : "No selected area.";
+        };
+
         static percentT flip_den = 50;
         static constexpr op_term op_random_flip{
-            ImGuiKey_Equal, "+ (=)", true,
+            ImGuiKey_Equal, "+ (=)", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
                 static std::mt19937 rand = rand_source::create();
@@ -1391,7 +1401,7 @@ private:
             } // (Without a comment here, the clang-format result will be extremely ugly...)
         };
         static constexpr op_term op_flip{
-            ImGuiKey_Minus, "- (_)", true,
+            ImGuiKey_Minus, "- (_)", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
                 aniso::flip(self.m_torus.write_only(self.m_sel->to_range()));
@@ -1400,7 +1410,7 @@ private:
 
         static int background = 0; // TODO: -> enum.
         static constexpr op_term op_clear_inside{
-            ImGuiKey_Backspace, "Backspace", true,
+            ImGuiKey_Backspace, "Backspace", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
                 const auto sel_area = self.m_torus.write_only(self.m_sel->to_range());
@@ -1415,7 +1425,7 @@ private:
             } //
         };
         static constexpr op_term op_clear_outside{
-            ImGuiKey_0, "0 (zero)", true,
+            ImGuiKey_0, "0 (zero)", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
                 if (background == 0 || background == 1) {
@@ -1434,7 +1444,7 @@ private:
         };
 
         static constexpr op_term op_select_all{
-            ImGuiKey_A, "A", false,
+            ImGuiKey_A, "A", check_nothing,
             [](runnerT& self) {
                 const aniso::vecT tile_size = self.m_torus.size();
                 auto& m_sel = self.m_sel;
@@ -1446,7 +1456,7 @@ private:
             } //
         };
         static constexpr op_term op_bounding_box{
-            ImGuiKey_B, "B", true,
+            ImGuiKey_B, "B", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
                 const aniso::rangeT sel_range = self.m_sel->to_range();
@@ -1469,7 +1479,7 @@ private:
 #if 0
         // !!TODO: (v0.9.9) enhance to background sampling...
         static constexpr op_term op_test_bg_period{
-            ImGuiKey_P, "P", true,
+            ImGuiKey_P, "P", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
                 const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
@@ -1489,30 +1499,24 @@ private:
 #endif
 
         static constexpr bool add_rule = true; // TODO: whether to support specifying this?
-        static constexpr bool show_rle = true;
         static constexpr op_term op_copy{
-            ImGuiKey_C, "C", true,
+            ImGuiKey_C, "C", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
-                std::string rle_str = aniso::to_RLE_str(self.m_torus.read_only(self.m_sel->to_range()),
-                                                        add_rule ? &self.current_rule.get() : nullptr);
-                ImGui::SetClipboardText(rle_str.c_str());
-                if constexpr (show_rle) { // TODO: sometimes noisy...
-                    messenger::set_msg(std::move(rle_str));
-                } else { // (But this doesn't work well with 'Cut'...)
-                    messenger::set_msg("Copied.");
-                }
+                const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
+                set_clipboard_and_notify(aniso::to_RLE_str(sel_area, add_rule ? &self.current_rule.get() : nullptr));
             } //
         };
         static constexpr op_term op_extract{
-            ImGuiKey_X, "X", true,
+            ImGuiKey_X, "X", check_for_extract,
             [](runnerT& self) {
-                assert(self.m_sel);
-                self.m_sel->active = false;
+                if (self.m_sel) {
+                    self.m_sel->active = false;
+                }
                 if (self.m_paste) { // (Undocumented.)
-                    // !!TODO: should not require m_sel...
                     self.reset_m_paste();
                 } else {
+                    assert(self.m_sel);
                     const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
                     self.m_ctrl.push_pause_for_m_paste();
                     self.m_paste = {.newly_assigned = true,
@@ -1524,7 +1528,7 @@ private:
             } //
         };
         static constexpr op_term op_identify{
-            ImGuiKey_I, "I (i)", true,
+            ImGuiKey_I, "I (i)", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
                 const aniso::vecT p_size{2, 2};
@@ -1533,7 +1537,7 @@ private:
         };
 
         static constexpr op_term op_paste{
-            ImGuiKey_V, "V", false,
+            ImGuiKey_V, "V", check_nothing,
             [](runnerT& self) {
                 if (self.m_sel) {
                     self.m_sel->active = false;
@@ -1547,7 +1551,6 @@ private:
         };
 
         const op_term* op = nullptr;
-        const op_term* op_highlight = nullptr;
 
         if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
             static constexpr const op_term* op_list[]{
@@ -1555,12 +1558,7 @@ private:
                 &op_bounding_box, &op_copy, &op_extract,      &op_identify,      &op_paste};
             for (const op_term* t : op_list) {
                 if (shortcuts::test_pressed(t->key, false)) {
-                    op_highlight = t;
-                    if (t->check_sel(*this)) {
-                        op = t;
-                    } else {
-                        messenger::set_msg("No selected area.");
-                    }
+                    op = t;
                     break;
                 }
             }
@@ -1575,18 +1573,17 @@ private:
             if (auto window = imgui_Window("Operations (settings)", &show_op_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 const auto term = [&](const char* label, const op_term& t) {
-                    const bool valid = t.check_sel(*this);
+                    const char* msg = t.check(*this);
                     // Was `ImGui::MenuItem(label, shortcut, nullptr, valid)`.
-                    ImGui::BeginDisabled(!valid);
+                    ImGui::BeginDisabled(msg);
                     if (imgui_SelectableStyledButton(label, false, t.key_label)) {
-                        assert(valid);
                         op = &t;
-                    } else if (op_highlight == &t) {
+                    } else if (op == &t) { // Triggered by shortcut.
                         highlight_item();
                     }
                     ImGui::EndDisabled();
-                    if (!valid) {
-                        imgui_ItemTooltip("No selected area.");
+                    if (msg) {
+                        imgui_ItemTooltip(msg);
                     }
                 };
 
@@ -1658,11 +1655,6 @@ private:
 
                 ImGui::Separator();
 
-                // ImGui::Checkbox("Rule info", &add_rule);
-                // ImGui::SameLine();
-                // imgui_StrTooltip(
-                //     "(?)", "Whether to include rule info ('rule = ...') in the header for the patterns.\n\n"
-                //            "(This applies to 'Copy' and 'Cut'. 'Identify' will always include rule info.)");
                 term("Copy", op_copy);
                 guide_mode::item_tooltip("Copy selected area to the clipboard (as RLE-string).");
                 term("Extract", op_extract);
@@ -1672,8 +1664,7 @@ private:
                     "The area should be enclosed in 2*2 periodic background.\n\n"
                     "Identify a single oscillator or spaceship in the area, and copy its smallest phase to the clipboard.");
                 term("Paste", op_paste);
-                guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.\n\n"
-                                         "(To load list of rules, use the 'Clipboard' window instead.)");
+                guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.");
             }
         }
 
