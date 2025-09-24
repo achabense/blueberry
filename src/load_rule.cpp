@@ -466,6 +466,14 @@ private:
                     if (imgui_SelectableStyledButtonEx(id++, entry.str, selected)) {
                         sel = &entry;
                     }
+                    if (imgui_SelectableStyledButtonEx_Clipped) {
+                        // imgui_ItemTooltip(entry.str); // (To avoid wrapping...)
+                        ImGui::SetNextWindowSizeConstraints({}, {ImGui::GetFontSize() * 80, FLT_MAX});
+                        if (ImGui::BeginItemTooltip()) {
+                            imgui_Str(entry.str);
+                            ImGui::EndTooltip();
+                        }
+                    }
                     if (indent) {
                         const ImVec2 item_min = ImGui::GetItemRectMin();
                         const float h = floor(ImGui::GetItemRectSize().y / 2);

@@ -536,10 +536,12 @@ inline bool imgui_SelectableStyledButton(const char* label, const bool selected 
 }
 
 // The actual item-id is id/##Sel, irrelevant to 'label'.
+inline bool imgui_SelectableStyledButtonEx_Clipped = false; // Label is not fully visible.
 inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view label, const bool selected = false) {
     assert(!GImGui->CurrentWindow->DC.IsSameLine);
     GImGui->CurrentWindow->WriteAccessed = true;
     if (GImGui->CurrentWindow->SkipItems) {
+        imgui_SelectableStyledButtonEx_Clipped = false;
         return false;
     }
 
@@ -557,8 +559,10 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
 
     constexpr float frame_padding_y = 2;
     const ImVec2 label_size = imgui_CalcTextSize(label); // (Not trying to hide double-hash.)
-    const ImVec2 button_size = {std::max(ImGui::GetContentRegionAvail().x, label_size.x),
-                                label_size.y + 2 * frame_padding_y};
+    const float avail_size_x = ImGui::GetContentRegionAvail().x;
+    const ImVec2 button_size = {std::max(avail_size_x, label_size.x), label_size.y + 2 * frame_padding_y};
+    imgui_SelectableStyledButtonEx_Clipped = label_size.x > avail_size_x + 2;
+
     ImGui::PushID(id);
     const bool ret = ImGui::Button("##Sel", button_size);
     ImGui::PopID();
