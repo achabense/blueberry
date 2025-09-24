@@ -388,6 +388,8 @@ class file_nav : no_copy {
     pathT m_home{};
     folderT m_current{};
 
+    bool reset_scroll = true;
+
 public:
     bool valid() const { return m_current.valid(); }
     const auto& current_path() const {
@@ -397,10 +399,11 @@ public:
 
     void refresh_if_valid() {
         if (m_current.valid()) {
-            if (!m_current.refresh()) {
-                messenger::set_msg("Cannot refresh.");
-            } else {
+            if (m_current.refresh()) {
+                // reset_scroll = true;
                 messenger::dot();
+            } else {
+                messenger::set_msg("Cannot refresh.");
             }
         }
     }
@@ -419,7 +422,9 @@ public:
             buf_path[0] != '\0') {
             // It's impressive that path has implicit c-str ctor... why?
             const auto p = cpp17_u8path(buf_path);
-            if (!(p && m_current.assign_dir_or_file(*p, target))) {
+            if (p && m_current.assign_dir_or_file(*p, target)) {
+                reset_scroll = true;
+            } else {
                 std::error_code ec{};
                 messenger::set_msg(p && !std::filesystem::exists(*p, ec) ? "Path doesn't exist." : "Cannot open.");
             }
@@ -495,8 +500,13 @@ public:
     // Return one of file path in `m_current`.
     std::optional<pathT> display() {
         std::optional<pathT> target = std::nullopt;
-        const auto set_dir = [&](const pathT& path) {
-            if (!m_current.assign_dir(path)) {
+        const auto set_dir = [&](const pathT& path, const bool dot = false) {
+            if (m_current.assign_dir(path)) {
+                reset_scroll = true;
+                if (dot) {
+                    messenger::dot();
+                }
+            } else {
                 messenger::set_msg("Cannot open.");
             }
         };
@@ -514,8 +524,8 @@ public:
             bool any = false;
             if (!m_home.empty()) {
                 any = true;
-                if (imgui_SelectableStyledButtonEx(id++, "Home") && messenger::dot()) {
-                    set_dir(m_home);
+                if (imgui_SelectableStyledButtonEx(id++, "Home")) {
+                    set_dir(m_home, true /*show dot*/);
                 }
                 rclick_popup::for_button([&] { // (Undocumented.)
                     // m_home ~ canonical ~ won't have trailing sep unless it's root path (nearly impossible).
@@ -533,7 +543,9 @@ public:
             }
         }
 
-        // TODO: should reset scroll in some cases...
+        if (std::exchange(reset_scroll, false)) {
+            ImGui::SetNextWindowScroll({0, 0});
+        }
         if (const folderT::entryT* sel = select_entry(Both, id)) {
             if (sel->is_file) {
                 target = m_current / sel->name;
