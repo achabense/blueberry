@@ -448,17 +448,22 @@ inline ImVec2 imgui_CalcRequiredWindowSize() { //
     return GImGui->CurrentWindow->DC.CursorMaxPos + ImGui::GetStyle().WindowPadding - ImGui::GetWindowPos();
 }
 
+inline float imgui_CalcContentTotalWidth() {
+    const auto& DC = GImGui->CurrentWindow->DC;
+    return DC.CursorMaxPos.x - DC.CursorStartPos.x;
+}
+
 // (Referring to `ImGui::Get/SetCursorScreenPos(...)`.)
 inline void imgui_AddCursorPosX(float dx) {
-    ImGuiWindow& window = *ImGui::GetCurrentWindow();
-    window.DC.CursorPos.x = floor(window.DC.CursorPos.x + dx);
-    window.DC.IsSetPos = true;
+    auto& DC = ImGui::GetCurrentWindow()->DC;
+    DC.CursorPos.x = floor(DC.CursorPos.x + dx);
+    DC.IsSetPos = true;
 }
 
 inline void imgui_AddCursorPosY(float dy) {
-    ImGuiWindow& window = *ImGui::GetCurrentWindow();
-    window.DC.CursorPos.y = floor(window.DC.CursorPos.y + dy);
-    window.DC.IsSetPos = true;
+    auto& DC = ImGui::GetCurrentWindow()->DC;
+    DC.CursorPos.y = floor(DC.CursorPos.y + dy);
+    DC.IsSetPos = true;
 }
 
 // Workaround to set min column width for tables. Highly dependent on impl details.

@@ -718,8 +718,7 @@ public:
             // !!TODO: (v0.9.9) this almost works: SetNextWindowSizeConstraints + ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY
             // However, the window will have wrong size (for one frame) when appearing, even though the parent popup is already hidden for one frame.
             constexpr int limit = 10;
-            const float h = std::min((int)m_highlighted.size(), limit) *
-                            (ImGui::GetFontSize() + 4 /*imgui_SelectableStyledButton*/);
+            const float h = std::min((int)m_highlighted.size(), limit) * imgui_CalcSelectableStyledButtonHeight();
             float w = 0;
             if (window_appearing) { // (As tested, it's ok to specify width only when appearing.)
                 for (const int l : m_highlighted) {
@@ -728,6 +727,7 @@ public:
                 if (m_highlighted.size() > limit) {
                     w += ImGui::GetStyle().ScrollbarSize;
                 }
+                w = std::max(w, imgui_CalcContentTotalWidth());
             }
             if (auto child = imgui_ChildWindow("Sections", {w, h})) {
                 for (int id = 0; const int l : m_highlighted) {
@@ -1102,7 +1102,6 @@ public:
             }
             // guide_mode::item_tooltip("Reload from disk.");
             ImGui::SameLine();
-            ImGui::SetNextWindowSize({300, 200}, ImGuiCond_Always);
             menu_like_popup::small_button("Select");
             menu_like_popup::popup([&] {
                 if (ImGui::Button("Refresh")) {
@@ -1112,10 +1111,13 @@ public:
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(floor(item_width * 0.6));
                 nav.input_filter();
+
                 ImGui::Separator();
 
+                ImGui::SetNextWindowSize(ImVec2(imgui_CalcContentTotalWidth() + ImGui::GetStyle().ScrollbarSize,
+                                                8 * imgui_CalcSelectableStyledButtonHeight()));
                 const pathT name = file_path->filename();
-                std::optional<pathT> sel = nav.select_file(&name);
+                std::optional<pathT> sel = nav.select_file(&name); // imgui_ChildWindow
                 if (sel && try_load(*sel, /*reset-scroll*/ true)) {
                     file_path = std::move(*sel);
                 }

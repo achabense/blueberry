@@ -572,6 +572,8 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
     return ret;
 }
 
+inline int imgui_CalcSelectableStyledButtonHeight() { return ImGui::GetFontSize() + 4; }
+
 // (No longer need to be a class.)
 class sequence : no_create {
 public:
