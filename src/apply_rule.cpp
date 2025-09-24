@@ -720,9 +720,8 @@ public:
             if (ImGui::TreeNodeEx("Background", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap |
                                                     ImGuiTreeNodeFlags_NoAutoOpenOnLog)) {
                 ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
-                imgui_StrTooltip("(?)", "Left-click a cell to set it to 1 (white).\n"
-                                        "Right-click to set to 0 (black).\n"
-                                        "Ctrl + left-click a cell to resize to that position.");
+                imgui_StrTooltip("(?)", "Left-click a cell to flip its value (drag to color more cells).\n\n"
+                                        "Hold right mouse button + left-click to resize.");
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Flip")) {
                     aniso::flip(init.background.data());
@@ -739,17 +738,14 @@ public:
                 // static_assert(max_period.x * max_period.y == init.background.capacity()); This works, but why?
                 static_assert(max_period.x * max_period.y == aniso::tile_buf::capacity());
 
-                ImGui::InvisibleButton(
-                    "##Board", cell_button_size * to_imvec(max_period),
-                    ImGuiButtonFlags_MouseButtonLeft |
-                        ImGuiButtonFlags_MouseButtonRight); // So right-click can activate the button.
+                ImGui::InvisibleButton("##Board", cell_button_size * to_imvec(max_period));
                 {
                     const ImVec2 button_beg = ImGui::GetItemRectMin();
                     const bool button_hovered = ImGui::IsItemHovered();
                     const ImVec2 mouse_pos = ImGui::GetMousePos();
                     ImDrawList& drawlist = *ImGui::GetWindowDrawList();
                     const aniso::tile_ref data = init.background.data();
-                    std::optional<aniso::vecT> resize = std::nullopt;
+                    std::optional<aniso::vecT> hover_pos = std::nullopt;
                     for (int y = 0; y < max_period.y; ++y) {
                         for (int x = 0; x < max_period.x; ++x) {
                             const bool in_range = x < data.size.x && y < data.size.y;
@@ -761,22 +757,31 @@ public:
                                                             : IM_COL32_GREY(60, 255));
                             drawlist.AddRect(cell_beg, cell_end, IM_COL32_GREY(160, 255));
                             if (button_hovered && ImRect(cell_beg, cell_end).Contains(mouse_pos) /*[)*/) {
-                                if (shortcuts::ctrl()) {
-                                    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                                        resize = {.x = x + 1, .y = y + 1};
-                                    }
-                                } else if (in_range) {
-                                    if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                                        data.at(x, y) = {0};
-                                    } else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                                        data.at(x, y) = {1};
-                                    }
-                                }
+                                hover_pos = {.x = x, .y = y};
                             }
                         }
                     }
-                    if (resize && init.background.size() != *resize) {
-                        init.background.resize(*resize);
+                    if (hover_pos) {
+                        static std::optional<aniso::cellT> col = std::nullopt;
+                        static double col_time = -1; // Ideally should be frame count (but not provided).
+                        if (col && col_time != ImGui::GetIO().MouseClickedTime[ImGuiMouseButton_Left]) {
+                            col.reset();
+                        }
+
+                        const bool l_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+                        if (l_clicked && ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                            init.background.resize(hover_pos->plus(1, 1));
+                            col.reset();
+                        } else if (hover_pos->both_lt(data.size)) {
+                            aniso::cellT& cell = data.at(*hover_pos);
+                            if (l_clicked) {
+                                cell = !cell;
+                                col = cell;
+                                col_time = ImGui::GetIO().MouseClickedTime[ImGuiMouseButton_Left];
+                            } else if (col && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                                cell = *col;
+                            }
+                        }
                     }
                 }
 

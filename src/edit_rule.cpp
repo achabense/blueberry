@@ -437,8 +437,8 @@ public:
         imgui_Str(
             "[S] stands for the intersection of selected sets.\n"
             "A rule belongs to [S] iff it belongs to every selected set.\n\n"
-            "Click a set to toggle selection. Multiple sets can be selected as long as their intersection is not empty. If no sets are selected, [S] will be the entire MAP set.\n\n"
-            "Hold right mouse button + click to select only one set.\n\n"); // TODO: or just right-click?
+            "Left-click a set to toggle selection. Multiple sets can be selected as long as their intersection is not empty. If no sets are selected, [S] will be the entire MAP set.\n\n"
+            "Hold right mouse button + left-click to select only one set.\n\n"); // TODO: or just right-click?
 
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");
