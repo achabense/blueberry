@@ -1465,7 +1465,32 @@ void edit_rule(frame_main_token) {
         constexpr int image_zoom = button_zoom;
         constexpr ImVec2 button_padding = {2, 2};
         constexpr float image_padding = 1;
-        const int spacing_x = ImGui::GetStyle().ItemSpacing.x + (show_random_access ? 3 : 5);
+        const auto code_button_with_label = [&](const aniso::codeT code, bool* hov = nullptr) -> bool {
+            assert(show_random_access);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
+            const bool hit = code_button(code, button_zoom);
+            ImGui::PopStyleVar();
+            if (hov) {
+                *hov = imgui_IsItemHoveredForTooltip();
+            }
+            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            align_text(ImGui::GetItemRectSize().y);
+            imgui_Str(labels_disp_from_to[disp[code]]);
+            return hit;
+        };
+        const auto code_image_with_label = [&](const aniso::codeT code, bool* hov = nullptr) {
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5, 0.5, 0.5, 1));
+            ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, image_padding);
+            code_image(code, image_zoom);
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor();
+            if (hov) {
+                *hov = imgui_IsItemHoveredForTooltip();
+            }
+            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            align_text(ImGui::GetItemRectSize().y);
+            imgui_Str(labels_disp[disp[code]]);
+        };
         const int group_size_x = [&]() -> int {
             if (show_random_access) {
                 int size = button_padding.x * 2 + 3 * button_zoom; // button-size
@@ -1476,14 +1501,10 @@ void edit_rule(frame_main_token) {
                        imgui_CalcTextSize(labels_disp[0]).x;
             }
         }();
+        const int spacing_x = ImGui::GetStyle().ItemSpacing.x + (show_random_access ? 3 : 5);
         const int perline = fit_count(ImGui::GetContentRegionAvail().x, group_size_x, spacing_x);
 
-        // std::vector<aniso::groupT> working_set_groups = working_set->group_vec();
-        // if (!working_contains) {
-        //     std::ranges::stable_partition(working_set_groups, [&](const aniso::groupT& group) {
-        //         return !aniso::all_same_or_different(group, observer, target);
-        //     });
-        // }
+        // TODO: support sorting (partitioning)...
         for (int n = 0; const aniso::groupT& group : working_set->groups()) {
             const int this_n = n++;
             if (this_n % perline != 0) {
@@ -1493,73 +1514,39 @@ void edit_rule(frame_main_token) {
             }
 
             const aniso::codeT head = group[0];
-            const auto group_details = [&] {
-                // ImGui::PushTextWrapPos(-1); // No wrapping.
-                const int group_size = group.size();
-                ImGui::Text("Cases:%d", group_size);
-                ImGui::Separator();
-                constexpr int perline = 8;
-                constexpr int max_to_show = perline * 6;
-                for (int n = 0; const aniso::codeT code : group.first(std::min(group_size, max_to_show))) {
-                    if (n++ % perline != 0) {
-                        ImGui::SameLine();
-                    }
-                    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5, 0.5, 0.5, 1));
-                    ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, image_padding);
-                    code_image(code, image_zoom);
-                    ImGui::PopStyleVar();
-                    ImGui::PopStyleColor();
-
-                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                    align_text(ImGui::GetItemRectSize().y);
-                    imgui_Str(labels_disp[disp[code]]);
-                }
-                if (group_size > max_to_show) {
-                    imgui_Str("...");
-                }
-                // ImGui::PopTextWrapPos();
-            };
-
+            bool hov = false;
             if (show_random_access) {
                 const auto get_adjacent_rule = [&] { return aniso::flip_values_v(group, target); };
 
                 ImGui::BeginGroup();
-                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, button_padding);
-                if (code_button(head, button_zoom)) {
+                if (code_button_with_label(head, &hov)) {
                     target.set(get_adjacent_rule());
                 }
-                ImGui::PopStyleVar();
-
-                // !!TODO: (v0.9.9) sometimes noisy; should be able to turn off this tooltip.
-                // imgui_ItemTooltip(group_details);
-                if (ImGui::BeginItemTooltip()) {
-                    group_details();
-                    ImGui::EndTooltip();
-                }
-
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                align_text(ImGui::GetItemRectSize().y);
-                imgui_Str(labels_disp_from_to[disp[head]]);
-
                 random_access_status::begin_disabled();
                 previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
                 random_access_status::end_disabled();
                 ImGui::EndGroup();
             } else {
-                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5, 0.5, 0.5, 1));
-                ImGui::PushStyleVar(ImGuiStyleVar_ImageBorderSize, image_padding);
-                code_image(head, image_zoom);
-                ImGui::PopStyleVar();
-                ImGui::PopStyleColor();
+                code_image_with_label(head, &hov);
+            }
 
-                // imgui_ItemTooltip(group_details);
-                if (ImGui::BeginItemTooltip()) {
-                    group_details();
-                    ImGui::EndTooltip();
+            // !!TODO: (v0.9.9) sometimes noisy; should be able to turn off this tooltip.
+            if (hov && ImGui::BeginTooltip()) { // No text wrapping.
+                const int group_size = group.size();
+                ImGui::Text("Cases:%d", group_size);
+                ImGui::Separator();
+                constexpr int perline2 = 8; // -Wshadow
+                constexpr int max_to_show = perline2 * 6;
+                for (int n2 = 0; const aniso::codeT code : group.first(std::min(group_size, max_to_show))) {
+                    if (n2++ % perline2 != 0) {
+                        ImGui::SameLine();
+                    }
+                    code_image_with_label(code);
                 }
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                align_text(ImGui::GetItemRectSize().y);
-                imgui_Str(labels_disp[disp[head]]);
+                if (group_size > max_to_show) {
+                    imgui_Str("...");
+                }
+                ImGui::EndTooltip();
             }
         }
     }
