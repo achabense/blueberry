@@ -379,7 +379,7 @@ class runnerT : no_copy {
     class ctrlT {
     public:
         int step = 1; // Auto mode.
-        global_timer::intervalT interval{init_zero_interval ? 0 : global_timer::min_nonzero_interval};
+        global_timer::intervalT interval = global_timer::default_interval;
 
         int extra_step = 0; // Workaround for +s/+1/+!.
         bool extra_pause = false;
@@ -1549,7 +1549,7 @@ private:
                 }
                 if (self.m_paste) { // (Undocumented.)
                     self.reset_m_paste();
-                } else if (std::string_view text = read_clipboard(); !text.empty()) {
+                } else if (const auto text = read_clipboard(); !text.empty()) {
                     self.load_pattern(text);
                 }
             } //

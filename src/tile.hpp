@@ -442,7 +442,7 @@ namespace aniso {
 
     namespace _misc {
         //  https://conwaylife.com/wiki/Run_Length_Encoded
-        inline void to_RLE(std::string& str, const tile_const_ref tile) {
+        inline void append_RLE(std::string& str, const tile_const_ref tile) {
             class putT {
                 std::string& str;
                 size_t last_nl;
@@ -503,7 +503,7 @@ namespace aniso {
     inline std::string to_RLE_str(const tile_const_ref tile, const ruleT* rule = nullptr) {
         std::string str = rule ? std::format("x = {}, y = {}, rule = {}\n", tile.size.x, tile.size.y, to_MAP_str(*rule))
                                : std::format("x = {}, y = {}\n", tile.size.x, tile.size.y);
-        _misc::to_RLE(str, tile);
+        _misc::append_RLE(str, tile);
         str += '!';
         return str;
     }

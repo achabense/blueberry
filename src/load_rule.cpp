@@ -749,6 +749,10 @@ public:
 
     static constexpr const char* about_selection = "Drag with right button to select lines.";
 
+    // (Not inherent to impl; just arbitrary values small enough to guarantee perf and large enough for normal use cases.)
+    static constexpr int max_size = 1024 * 256;
+    static constexpr int max_line = 20000;
+
     void display() {
         assert_implies(m_lines.empty(), m_text.empty() && m_rules.empty());
 
@@ -1038,11 +1042,6 @@ static int count_line(const std::string_view str) { //
     return str.empty() ? 0 : std::ranges::count(str, '\n') + 1;
 }
 
-// These limits are not inherent to textT's functions, but just arbitrary numbers
-// small enough to guarantee performance and large enough for normal use cases.
-static constexpr int max_size = 1024 * 256;
-static constexpr int max_line = 20000;
-
 // TODO: -> m_.
 // TODO: support opening multiple files?
 // TODO: add a mode to avoid opening files without rules?
@@ -1053,15 +1052,15 @@ class load_file_impl : no_copy {
 
     bool try_load(const pathT& p, const bool reset_scroll) {
         std::string str;
-        if (const uintmax_t size = load_binary(p, str, max_size); size > max_size) {
+        if (const uintmax_t size = load_binary(p, str, textT::max_size); size > textT::max_size) {
             if (size != uintmax_t(-1)) {
-                messenger::set_msg("File too large: {} > {}", to_size(size), to_size(max_size));
+                messenger::set_msg("File too large: {} > {}", to_size(size), to_size(textT::max_size));
             } else {
                 messenger::set_msg("Cannot open.");
             }
             return false;
-        } else if (const int l = count_line(str); l > max_line) {
-            messenger::set_msg("Too many lines: {} > {}", l, max_line);
+        } else if (const int l = count_line(str); l > textT::max_line) {
+            messenger::set_msg("Too many lines: {} > {}", l, textT::max_line);
             return false;
         } else {
             if constexpr (0) {
@@ -1158,14 +1157,14 @@ class load_clipboard_impl : no_copy {
 public:
     void display() {
         // (The page will hold roughly at most 1.5*max_size/line.)
-        const bool too_much_content = text.lines() > max_line || text.length() > max_size;
+        const bool too_much_content = text.lines() > textT::max_line || text.length() > textT::max_size;
         ImGui::BeginDisabled(too_much_content);
         if (ImGui::SmallButton("Paste")) {
-            if (const std::string_view str = read_clipboard(); !str.empty()) {
-                if (str.size() > max_size / 2) {
-                    messenger::set_msg("Too much content: {} > {}", to_size(str.size()), to_size(max_size / 2));
-                } else if (const int l = count_line(str); l > max_line / 2) {
-                    messenger::set_msg("Too many lines: {} > {}", l, max_line / 2);
+            if (const auto str = read_clipboard(); !str.empty()) {
+                if (str.size() > textT::max_size / 2) {
+                    messenger::set_msg("Too much content: {} > {}", to_size(str.size()), to_size(textT::max_size / 2));
+                } else if (const int l = count_line(str); l > textT::max_line / 2) {
+                    messenger::set_msg("Too many lines: {} > {}", l, textT::max_line / 2);
                 } else if (!compare_update(last_str, str) && dedup) {
                     messenger::set_msg("Ignored. (Identical text.)");
                 } else {

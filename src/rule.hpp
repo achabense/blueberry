@@ -203,7 +203,7 @@ namespace aniso {
 
     // The program saves `ruleT` as normal "MAP strings" (which is based on `q*256+w*128+...` encoding scheme),
     // so the output can be accepted by other programs like Golly.
-    // See `to_MAP` and `from_MAP` below for details - the encoding scheme of `codeT` affects only internal
+    // See `append_MAP` and `from_MAP` below for details - the encoding scheme of `codeT` affects only internal
     // representation of `ruleT` etc in this program, and is independent of input/output.
 
     template <class T>
@@ -290,7 +290,7 @@ namespace aniso {
 
         inline constexpr int MAP_length = (512 + 5) / 6; // 86; not including "MAP" prefix.
 
-        inline void to_MAP(std::string& str, const auto& source /* ruleT or lockT */) {
+        inline void append_MAP(std::string& str, const auto& source /* ruleT or lockT */) {
             std::array<bool, 512> MAP_data{};
             for (const codeT code : each_code) {
                 MAP_data[transcode_MAP(code)] = source[code];
@@ -336,10 +336,10 @@ namespace aniso {
     // Format: MAP...( [...])? (regex: "MAP([a-zA-Z0-9+/]{86})( \\[([a-zA-Z0-9+/]{86})\\])?")
     inline std::string to_MAP_str(const ruleT& rule, const lockT* lock = nullptr) {
         std::string str = "MAP";
-        _misc::to_MAP(str, rule);
+        _misc::append_MAP(str, rule);
         if (lock) {
             str += " [";
-            _misc::to_MAP(str, *lock);
+            _misc::append_MAP(str, *lock);
             str += "]";
         }
         return str;

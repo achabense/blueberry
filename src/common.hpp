@@ -854,6 +854,7 @@ public:
 
     // 0: will return true every frame.
     static constexpr int min_nonzero_interval = time_unit;
+    static constexpr int default_interval = init_zero_interval ? 0 : min_nonzero_interval;
 
     class intervalT {
         int i; // terms[i].
@@ -893,7 +894,7 @@ public:
         int height_ = 160;
 
         int step = 1;
-        global_timer::intervalT interval = init_zero_interval ? 0 : global_timer::min_nonzero_interval;
+        global_timer::intervalT interval = global_timer::default_interval;
 
         // (Workaround to support group op.)
         struct opT {
