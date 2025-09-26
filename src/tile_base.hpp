@@ -79,6 +79,8 @@ namespace aniso {
                 return std::bit_cast<tile_ref_<const T>>(*this);
             }
 
+            int area() const { return size.xy(); }
+
             bool contains(vecT pos) const { return pos.x >= 0 && pos.y >= 0 && pos.x < size.x && pos.y < size.y; }
             bool contains(int x, int y) const { return x >= 0 && y >= 0 && x < size.x && y < size.y; }
             bool contains(const rangeT& range) const {

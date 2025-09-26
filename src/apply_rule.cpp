@@ -240,7 +240,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
 
         const aniso::tile_const_ref pattern = region.get_pattern();
         if ((!require_matching_bg || matching_bg.contains(pattern.clip_corner(period_size))) &&
-            pattern.size.xy() < smallest.size().xy()) {
+            pattern.area() < smallest.area()) {
             smallest = aniso::tileT(pattern);
         }
         if (aniso::equal(init_pattern, pattern)) {
@@ -515,7 +515,7 @@ class runnerT : no_copy {
         }
 
         int gen() const { return m_gen; }
-        double density() const { return double(aniso::count(m_tile.data())) / m_tile.size().xy(); }
+        double density() const { return double(aniso::count(m_tile.data())) / m_tile.area(); }
 
         aniso::vecT size() const {
             assert(m_tile.size() == align(m_tile.size()));
@@ -608,6 +608,7 @@ class runnerT : no_copy {
         int width() const { return std::abs(beg.x - end.x) + 1; }
         int height() const { return std::abs(beg.y - end.y) + 1; }
         aniso::vecT size() const { return {.x = width(), .y = height()}; }
+        int area() const { return width() * height(); }
     };
     std::optional<selectT> m_sel = std::nullopt;
 
@@ -668,6 +669,11 @@ public:
                 rclick_popup::for_text([&] {
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(current_rule);
+                    }
+                    if (random_access_status::available()) {
+                        if (ImGui::Selectable("Send to rule editor")) {
+                            pass_rule::set_extra(current_rule, random_access_status::rule_id);
+                        }
                     }
                 });
             }
@@ -1023,11 +1029,8 @@ public:
         }
         // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
         ImGui::SameLine(cursor_pos);
-        if constexpr (debug_mode) { // TODO: whether to show density?
-            ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(), m_torus.density());
-        } else {
-            ImGui::Text("Generation:%d", m_torus.gen());
-        }
+        // TODO: density is more meaningful as a property of selected area...
+        ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(), m_torus.density());
 
         if (m_paste) {
             if (std::exchange(m_paste->newly_assigned, false)) {
@@ -1162,7 +1165,7 @@ public:
                 m_sel->active = false;
                 // Allow a single right-click to unselect the area.
                 // (`bounding_box` has no size check like this. This is intentional.)
-                if (m_sel->size().xy() <= 2) {
+                if (m_sel->area() <= 2) {
                     m_sel.reset();
                 }
             }
@@ -1207,7 +1210,7 @@ public:
                 const aniso::vecT cel_pos = from_imvec(m_coord.to_space(mouse_pos));
 
                 // (`want_hex_mode` should be tested only when the zoom window is really going to be shown.)
-                if (!m_paste && !(m_sel && m_sel->active && m_sel->to_range().size().xy() > 2)) {
+                if (!m_paste && !(m_sel && m_sel->active && m_sel->area() > 2)) {
                     if (imgui_IsItemHoveredForTooltip() && cel_pos.both_gteq({-10, -10}) &&
                         cel_pos.both_lt(tile_size.plus(10, 10))) {
                         hex_mode = want_hex_mode(current_rule);

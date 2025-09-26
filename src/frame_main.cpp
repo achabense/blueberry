@@ -195,13 +195,13 @@ void frame_main() {
             }
         }
 
-        // !!TODO: undocumented...
         static bool show_edit_rule = true;
         static bool show_edit_pattern = true;
         bool reset_table = false;
         if (!show_edit_rule && !show_edit_pattern) [[unlikely]] { // Defensive.
             show_edit_pattern = true;
         }
+        // (Undocumented.)
         if (!show_edit_rule || !show_edit_pattern) {
             ImGui::SameLine(0, wide_spacing);
             if (ImGui::Button("Restore")) {

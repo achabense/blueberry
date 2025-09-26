@@ -33,15 +33,15 @@ namespace aniso {
     struct backgroundT : tile_const_ref {};
 
     inline bool is_pure_0(const backgroundT background) { //
-        return *background.data == cellT{0} && (background.size == vecT{1, 1} || !count(background));
+        return *background.data == cellT{0} && (background.area() == 1 || !count(background));
     }
 
     inline bool is_pure(const backgroundT background) {
-        if (background.size == vecT{1, 1}) {
+        if (background.area() == 1) {
             return true;
         }
         const int c = count(background);
-        return c == 0 || c == background.size.xy();
+        return c == 0 || c == background.area();
     }
 
     inline void copy(const tile_ref dest, const tile_const_ref source) {
@@ -183,7 +183,7 @@ namespace aniso {
     inline int count_diff(const tile_const_ref tile, const backgroundT background) {
         if (is_pure(background)) {
             const int c = count(tile);
-            return *background.data == cellT{0} ? c : tile.size.xy() - c;
+            return *background.data == cellT{0} ? c : tile.area() - c;
         }
 
         int c = 0;
@@ -910,6 +910,7 @@ namespace aniso {
         }
 
         vecT size() const { return m_size; }
+        int area() const { return m_size.xy(); }
 
         tile_ref data() {
             assert(!empty());
@@ -974,6 +975,7 @@ namespace aniso {
 
         static constexpr int capacity() { return capacity_; }
         vecT size() const { return m_size; }
+        int area() const { return m_size.xy(); }
         tile_ref data() { return {m_data, m_size}; }
         tile_const_ref data() const { return {m_data, m_size}; }
 
@@ -1032,7 +1034,7 @@ namespace aniso {
     };
 
     [[nodiscard]] inline tile_buf realign_from_to(const tile_const_ref tile_from, const vecT from, const vecT to) {
-        assert(tile_from.size.xy() <= tile_buf::capacity());
+        assert(tile_from.area() <= tile_buf::capacity());
 
         tile_buf tile_to(tile_from.size);
         rotate_copy_00_to(tile_to.data(), tile_from, from - to);

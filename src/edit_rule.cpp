@@ -586,7 +586,7 @@ void previewer::_show_belongs(const aniso::ruleT& rule) {
     dummy.select({.rule = &rule, .select = false, .tooltip = false});
 }
 
-// (Used to require being use after regular tooltips; no longer necessary.)
+// (Used to require being used after regular tooltips; no longer necessary.)
 static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
     if (!pass.rule) {
         return nullptr;
@@ -943,14 +943,14 @@ public:
                         "Drag the label to send the rule elsewhere.");
                     ImGui::Separator();
 
+                    if (ImGui::Selectable("Copy rule")) {
+                        copy_rule::copy(m_rule.get());
+                    }
                     if (ImGui::Selectable("Show in window")) {
                         opened = true;
                         m_window = true;
                     }
                     guide_mode::item_tooltip("Display the rule in a regular window.");
-                    if (ImGui::Selectable("Copy rule")) {
-                        copy_rule::copy(m_rule.get());
-                    }
                 });
             }
             if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
