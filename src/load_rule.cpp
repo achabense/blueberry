@@ -706,10 +706,14 @@ public:
     }
 
     void select_line() {
-        const bool window_appearing = ImGui::IsWindowAppearing();
         static input_int input_line{};
-        if (window_appearing) {
+        if (ImGui::IsWindowAppearing()) {
             (void)input_line.flush();
+            if (!m_highlighted.empty()) {
+                // Workaround to guarantee correct size when visually appearing.
+                // Related: https://github.com/ocornut/imgui/issues/8959
+                ImGui::GetCurrentWindow()->HiddenFramesForRenderOnly = 2;
+            }
         }
 
         ImGui::AlignTextToFramePadding();
@@ -722,22 +726,9 @@ public:
         if (!m_highlighted.empty()) {
             ImGui::Separator();
 
-            // TODO: are there easy ways to introduce vertical scrollbar, without messing with width?
-            // !!TODO: (v0.9.9) this almost works: SetNextWindowSizeConstraints + ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY
-            // However, the window will have wrong size (for one frame) when appearing, even though the parent popup is already hidden for one frame.
             constexpr int limit = 10;
             const float h = std::min((int)m_highlighted.size(), limit) * imgui_CalcSelectableStyledButtonHeight();
-            float w = 0;
-            if (window_appearing) { // (As tested, it's ok to specify width only when appearing.)
-                for (const int l : m_highlighted) {
-                    w = std::max(w, imgui_CalcLabelSize(m_lines[l].str.get(m_text)).x);
-                }
-                if (m_highlighted.size() > limit) {
-                    w += ImGui::GetStyle().ScrollbarSize;
-                }
-                w = std::max(w, imgui_CalcContentTotalWidth());
-            }
-            if (auto child = imgui_ChildWindow("Sections", {w, h})) {
+            if (auto child = imgui_ChildWindow("Sections", {0, h}, ImGuiChildFlags_AutoResizeX)) {
                 for (int id = 0; const int l : m_highlighted) {
                     if (imgui_SelectableStyledButtonEx(id++, m_lines[l].str.get(m_text))) {
                         go_line = l;
