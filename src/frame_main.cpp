@@ -143,7 +143,6 @@ void frame_main() {
     previewer::begin_frame({});
     pass_rule::begin_frame({});
 
-    messenger::display_msg_if_present({});
     if (shortcuts::no_active_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_H)) {
         guide_mode::flip_enable({});
     }
@@ -277,6 +276,8 @@ void frame_main() {
             ImGui::EndTable();
         }
     }
+
+    messenger::display_if_present({});
 
     if constexpr (init_compact_mode) {
         ImGui::PopStyleVar();

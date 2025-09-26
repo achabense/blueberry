@@ -98,6 +98,7 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
         if (!rule_algo::is_hexagonal_rule(rule)) {
             // (But actually, the projection still corresponds to a range-2 hex rule.)
             messenger::set_msg("This rule does not belong to 'Hex' set.");
+            messenger::set_auto_disappear();
             // return false;
         }
         return true;

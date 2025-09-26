@@ -586,22 +586,17 @@ void previewer::_show_belongs(const aniso::ruleT& rule) {
     dummy.select({.rule = &rule, .select = false, .tooltip = false});
 }
 
-// (Should appear after regular tooltip.)
+// (Used to require being use after regular tooltips; no longer necessary.)
 static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
     if (!pass.rule) {
         return nullptr;
     } else if (!working_set.contains(*pass.rule)) {
-        constexpr const char* msg = "The rule does not belong to [S].";
-        // if (pass.hov_for_tooltip() || pass.deliv) {
-        //     messenger::set_msg(msg);
-        // }
-        if (pass.hov_for_tooltip() && imgui_BeginTooltipFirstOnly()) {
-            ImGui::PushTextWrapPos(wrap_len());
-            imgui_Str(msg);
-            ImGui::PopTextWrapPos();
-            ImGui::EndTooltip();
-        } else if (pass.deliv) {
-            messenger::set_msg(msg);
+        const bool hov = pass.hov_for_tooltip();
+        if (hov || pass.deliv) {
+            messenger::set_msg("The rule does not belong to [S].");
+            if (hov && pass.deliv) { // Mouse released.
+                messenger::set_auto_disappear();
+            }
         }
         return nullptr;
     } else {

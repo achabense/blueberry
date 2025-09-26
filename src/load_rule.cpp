@@ -454,7 +454,7 @@ private:
                     continue;
                 }
                 for (const folderT::entryT& entry : *list) {
-                    if (buf_filter[0] && entry.str.find(buf_filter) == std::string::npos) {
+                    if (buf_filter[0] && entry.str.find(buf_filter) == entry.str.npos) {
                         continue;
                     }
                     any = true;

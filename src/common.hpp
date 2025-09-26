@@ -566,7 +566,7 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
     ImGui::PushID(id);
     const bool ret = ImGui::Button("##Sel", button_size);
     ImGui::PopID();
-    const auto rect = imgui_GetItemRect();
+    const ImRect rect = imgui_GetItemRect();
     ImGui::RenderTextClipped(rect.Min + ImVec2(0, frame_padding_y), rect.Max - ImVec2(0, frame_padding_y), label.data(),
                              label.data() + label.size(), &label_size, {0, 0} /*align*/, &rect);
 
@@ -674,7 +674,7 @@ public:
         ImGui::SetNextItemWidth(std::max(1.0f, ImGui::CalcItemWidth() - 2 * (r + s)));
         ImGui::SliderInt("", &u, 0, u_max, "" /*rendered below*/, ImGuiSliderFlags_NoInput);
         {
-            const auto rect = imgui_GetItemRect();
+            const ImRect rect = imgui_GetItemRect();
             const std::string str = to_str(to_v(u));
             ImGui::RenderTextClipped(rect.Min, rect.Max, str.data(), str.data() + str.size(), nullptr,
                                      ImVec2(0.5f, 0.5f));
@@ -718,18 +718,28 @@ class messenger : no_create {
     class messageT {
         using clockT = std::chrono::steady_clock;
 
+        bool m_dot{};
         std::string m_str{};
         std::optional<ImVec2> m_min{};
+
+        bool m_auto{}; // Disappear automatically.
         int m_count{};
         clockT::time_point m_time{};
 
     public:
         // (Defined as a workaround for gcc building.)
         // (Related: https://stackoverflow.com/questions/53408962)
-        messageT() : m_str{}, m_min{}, m_count{}, m_time{} {}
+        messageT() : m_dot{}, m_str{}, m_min{}, m_auto{}, m_count{}, m_time{} {}
 
-        void set(std::string&& str) {
+        void clear() {
+            m_dot = false;
+            m_str.clear();
             m_min.reset();
+        }
+
+        void set_str(std::string&& str) {
+            clear();
+            m_auto = false;
 
             // TODO: ideally should take account of wrap-len...
             size_t subsize = 0;
@@ -749,9 +759,17 @@ class messenger : no_create {
             }
         }
 
+        void set_dot() {
+            clear();
+            m_auto = true;
+            m_dot = true;
+        }
+
+        void set_auto_disappear() { m_auto = true; }
+
         // Won't interfere with normal tooltips or popups.
         void display_if_present() {
-            if (m_str.empty()) {
+            if (!m_dot && m_str.empty()) {
                 return;
             }
             const auto now = clockT::now();
@@ -761,69 +779,71 @@ class messenger : no_create {
                 }
                 const bool t_expired = now > m_time;
                 const bool c_expired = m_count < 0;
-                // TODO: ideally the callers of `set_msg` should be able to specify quitting cond.
-                if (m_str.size() < 15 ? (c_expired || t_expired) : (c_expired && t_expired)) {
-                    m_str.clear();
+                if (m_auto ? (c_expired || t_expired) : (c_expired && t_expired)) {
+                    clear();
                     return;
                 }
             }
 
-            assert(!m_str.empty());
-            if (m_str == ".") {
+            assert(m_dot || !m_str.empty());
+            if (m_dot) {
+                assert(m_auto);
                 if (!m_min) {
                     m_count = 12;
                     m_time = now + std::chrono::milliseconds(400);
-                    m_min = ImGui::GetMousePos();
+                    m_min = ImGui::IsMousePosValid() ? ImGui::GetMousePos() : ImGui::GetStyle().WindowPadding;
                 }
                 assert(m_time >= now);
                 const float radius =
                     4.0f * std::chrono::floor<std::chrono::milliseconds>(m_time - now).count() / 400.0f;
                 ImGui::GetForegroundDrawList()->AddCircleFilled(*m_min - ImVec2(1, 1), radius,
                                                                 IM_COL32(0, 255, 0, 255) /*light green*/);
-                return;
-            }
-
-            const float text_wrap = wrap_len();
-            const char *const text_beg = m_str.c_str(), *const text_end = text_beg + m_str.size();
-            const ImVec2 window_padding = ImGui::GetStyle().WindowPadding;
-            const ImVec2 window_size = ImGui::CalcTextSize(text_beg, text_end, false, text_wrap) + window_padding * 2;
-            if (!m_min) {
-                m_count = 12;
-                m_time = now + std::chrono::milliseconds(600);
-                // TODO: support specifying appearing pos?
-                if (ImGui::IsMousePosValid()) [[likely]] {
-                    m_min = clamp_window_pos(ImGui::GetMousePos() + window_padding, window_size);
-                } else {
-                    m_min = window_padding;
+            } else {
+                const float text_wrap = wrap_len();
+                const char *const text_beg = m_str.c_str(), *const text_end = text_beg + m_str.size();
+                const ImVec2 window_padding = ImGui::GetStyle().WindowPadding;
+                const ImVec2 window_size =
+                    ImGui::CalcTextSize(text_beg, text_end, false, text_wrap) + window_padding * 2;
+                if (!m_min) {
+                    m_count = 12;
+                    m_time = now + std::chrono::milliseconds(600);
+                    // TODO: support specifying appearing pos?
+                    if (ImGui::IsMousePosValid()) [[likely]] {
+                        m_min = clamp_window_pos(ImGui::GetMousePos() + window_padding, window_size);
+                    } else {
+                        m_min = window_padding;
+                    }
                 }
-            }
 
-            const ImVec2 window_min = *m_min;
-            const ImVec2 window_max = window_min + window_size;
-            ImDrawList& drawlist = *ImGui::GetForegroundDrawList();
-            drawlist.AddRectFilled(window_min, window_max, ImGui::GetColorU32(ImGuiCol_PopupBg));
-            drawlist.AddRect(window_min, window_max, ImGui::GetColorU32(ImGuiCol_Border));
-            drawlist.AddText(nullptr, 0.0f, window_min + window_padding, ImGui::GetColorU32(ImGuiCol_Text), text_beg,
-                             text_end, text_wrap);
+                const ImVec2 window_min = *m_min;
+                const ImVec2 window_max = window_min + window_size;
+                ImDrawList& drawlist = *ImGui::GetForegroundDrawList();
+                drawlist.AddRectFilled(window_min, window_max, ImGui::GetColorU32(ImGuiCol_PopupBg));
+                drawlist.AddRect(window_min, window_max, ImGui::GetColorU32(ImGuiCol_Border));
+                drawlist.AddText(nullptr, 0.0f, window_min + window_padding, ImGui::GetColorU32(ImGuiCol_Text),
+                                 text_beg, text_end, text_wrap);
+            }
         }
     };
 
     inline static messageT m_msg;
 
 public:
-    static void set_msg(std::string str) { m_msg.set(std::move(str)); }
+    static void set_auto_disappear() { m_msg.set_auto_disappear(); }
+
+    static void set_msg(std::string str) { m_msg.set_str(std::move(str)); }
 
     template <class... U>
     static void set_msg(std::format_string<const U&...> fmt, const U&... args) {
-        m_msg.set(std::format(fmt, args...));
+        m_msg.set_str(std::format(fmt, args...));
     }
 
     static bool dot() {
-        m_msg.set(".");
+        m_msg.set_dot();
         return true;
     }
 
-    static void display_msg_if_present(frame_main_token) { m_msg.display_if_present(); }
+    static void display_if_present(frame_main_token) { m_msg.display_if_present(); }
 };
 
 class global_timer : no_create {
@@ -1111,14 +1131,15 @@ public:
 inline void set_clipboard_and_notify(const std::string& str) {
     if (str.empty()) {
         messenger::set_msg("Empty.");
-    } else if (str.find('\0') == str.npos) {
-        ImGui::SetClipboardText(str.c_str());
-        // messenger::dot();
-        messenger::set_msg("Copied.");
-    } else {
+        // messenger::set_auto_disappear();
+    } else if (str.find('\0') != str.npos) {
         // This can happen when the user tries to copy lines in a data file.
         // If copied, the result will be incomplete, and nothing in worst case (if starts with '\0').
         messenger::set_msg("Cannot copy. (The text contains null characters.)");
+    } else {
+        ImGui::SetClipboardText(str.c_str());
+        messenger::set_msg("Copied.");
+        messenger::set_auto_disappear();
     }
 }
 
