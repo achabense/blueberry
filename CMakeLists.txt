@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-# (wontfix) I wasted many hours trying to find a "reliable way" to avoid repeated cloning for different configurations. Now I'd rather let it go.
+# I wasted many hours trying to find a "reliable way" to avoid repeated cloning for different configurations. Now I'd rather let it go.
 # Note to self: don't bother with this problem anymore.
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)

@@ -106,17 +106,17 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
     return false;
 }
 
-// TODO: error-prone. Should work in a way similar to `identify`.
+// !!TODO: (v0.9.9) not reliable way to capture patterns; should enhance `identify` instead.
+#if 0
 // Copy the subrange and run as a torus space, recording all invoked mappings.
 // This is only good at capturing simple, "self-contained" patterns (oscillators/spaceships).
 // For more complex situations, the program has "open-capture" (`fake_apply`) to record
 // areas frame-by-frame.
-[[maybe_unused]] static aniso::lockT capture_closed(const aniso::tile_const_ref tile, const aniso::ruleT& rule) {
+static aniso::lockT capture_closed(const aniso::tile_const_ref tile, const aniso::ruleT& rule) {
     aniso::lockT lock{};
     aniso::tileT torus(tile);
 
-    // (wontfix) It's possible that the loop fails to catch all invocations in very rare cases,
-    // due to that `limit` is not large enough.
+    // (This may fail to catch all invocations in rare cases, due to that `limit` is not large enough.)
 
     // Loop until there has been `limit` generations without newly invoked mappings.
     constexpr int limit = 120;
@@ -133,6 +133,7 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
 
     return lock;
 }
+#endif
 
 static bool check_border(const aniso::tile_const_ref tile, const aniso::vecT p_size) {
     if (!tile.size.both_gt(p_size * 2)) {
@@ -491,7 +492,7 @@ class runnerT : no_copy {
             return m_tile.data(range);
         }
 
-        void read_and_maybe_write(const func_ref<bool(aniso::tile_ref)> fn) {
+        void read_and_maybe_write(const auto& fn) {
             if (fn(m_tile.data())) {
                 mark_written();
             }
@@ -634,7 +635,7 @@ public:
         }
     }
 
-    // (wontfix) Not designed to support multiple instances. (For example, some settings use static variables.)
+    // Not designed to support multiple instances. (For example, some settings use static variables.)
     void display() {
         if (m_appearing.update()) {
             reset_pos();
@@ -1263,7 +1264,7 @@ public:
                                              to_imvec(clamped.size() * 3));
                             }
 
-                            // (wontfix) It's too hard to correctly show selected area in hex mode.
+                            // TODO: too hard to correctly show selected area in hex mode...
                             if (!hex_mode && m_sel) {
                                 const aniso::rangeT sel = aniso::common(clamped, m_sel->to_range());
                                 if (!sel.empty()) {
@@ -1280,18 +1281,22 @@ public:
                 } else {
                     assert(!zoom_center);
                     assert(m_paste->size().both_lteq(tile_size));
-                    const aniso::vecT paste_beg = aniso::clamp(m_paste->beg, {0, 0}, tile_size - m_paste->size());
-                    const aniso::vecT paste_end = paste_beg + m_paste->size();
-                    m_paste->beg = paste_beg;
-
-                    ImTextureID texture = 0;
-                    // (wontfix) Wasteful, but after all this works...
+                    // (Wasteful, but after all this works...)
                     m_torus.read_and_maybe_write([&](const aniso::tile_ref tile) {
+                        const aniso::vecT paste_beg = aniso::clamp(m_paste->beg, {0, 0}, tile_size - m_paste->size());
+                        const aniso::vecT paste_end = paste_beg + m_paste->size();
+                        m_paste->beg = paste_beg;
+
                         const aniso::tile_ref paste_area = tile.clip({paste_beg, paste_end});
                         aniso::tileT temp(paste_area);
                         // !!TODO: (v0.9.9) support specifying align req.
                         aniso::blit(paste_area, m_paste->tile.data(), m_paste->mode);
-                        texture = to_texture(tile, scale_mode);
+                        {
+                            drawlist.AddImage(to_texture(tile, scale_mode), screen_min, screen_max);
+                            const ImVec2 paste_min = screen_min + to_imvec(paste_beg) * m_coord.zoom;
+                            const ImVec2 paste_max = screen_min + to_imvec(paste_end) * m_coord.zoom;
+                            drawlist.AddRectFilled(paste_min, paste_max, IM_COL32(255, 0, 0, 60));
+                        }
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                             if (m_paste->paste_once) {
                                 reset_m_paste();
@@ -1304,12 +1309,6 @@ public:
                             return false;
                         }
                     });
-
-                    drawlist.AddImage(texture, screen_min, screen_max);
-                    // (It's ok to render for this frame even if `m_paste` has been consumed.)
-                    const ImVec2 paste_min = screen_min + to_imvec(paste_beg) * m_coord.zoom;
-                    const ImVec2 paste_max = screen_min + to_imvec(paste_end) * m_coord.zoom;
-                    drawlist.AddRectFilled(paste_min, paste_max, IM_COL32(255, 0, 0, 60));
                 }
 
                 if (m_sel) {

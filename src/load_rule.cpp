@@ -778,7 +778,7 @@ public:
                             return str;
                         };
                         if (ImGui::Selectable("Copy text")) {
-                            // (wontfix) Won't copy if `str` contains '\0' (not expected to appear in utf8 text files).
+                            // (Won't copy if `str` contains '\0' (should't appear in regular utf8 text files).)
                             set_clipboard_and_notify(get_str());
                         }
                         // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
