@@ -1128,16 +1128,24 @@ public:
     }
 };
 
-inline void set_clipboard_and_notify(const std::string& str) {
+inline bool set_clipboard(const std::string& str) {
     if (str.empty()) {
         messenger::set_msg("Empty.");
         // messenger::set_auto_disappear();
+        return false;
     } else if (str.find('\0') != str.npos) {
         // This can happen when the user tries to copy lines in a data file.
         // If copied, the result will be incomplete, and nothing in worst case (if starts with '\0').
         messenger::set_msg("Cannot copy. (The text contains null characters.)");
+        return false;
     } else {
         ImGui::SetClipboardText(str.c_str());
+        return true;
+    }
+}
+
+inline void set_clipboard_and_notify(const std::string& str) {
+    if (set_clipboard(str)) {
         messenger::set_msg("Copied.");
         messenger::set_auto_disappear();
     }

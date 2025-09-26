@@ -149,17 +149,22 @@ static bool check_border(const aniso::tile_const_ref tile, const aniso::vecT p_s
 // objects like guns, puffers etc.)
 // The area should be fully surrounded by periodic border, and contain a full phase of the object (one or
 // several oscillators, or a single spaceship).
-static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule, const aniso::vecT period_size,
-                     const bool require_matching_bg = true) {
+struct identify_result {
+    aniso::tileT pattern; // Smallest phase.
+    aniso::vecT offset;
+    int period;
+};
+static std::optional<identify_result> identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
+                                               const aniso::vecT period_size, const bool require_matching_bg = true) {
     assert(period_size.both_lteq({4, 4}));
     if (!check_border(tile, period_size)) {
-        return;
+        return std::nullopt;
     }
 
     const aniso::tile_buf init_bg = tile.clip_corner(period_size);
     if (!aniso::torus_period(rule, init_bg.data(), 20).has_value()) {
         messenger::set_msg("The background is not temporally periodic.");
-        return;
+        return std::nullopt;
     }
 
     aniso::tilesetT matching_bg;
@@ -173,7 +178,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
         // assert(aniso::has_enclosing_period(tile, period_size));
         const aniso::rangeT range = aniso::bounding_box(tile, period_size);
         if (range.empty()) {
-            messenger::set_msg(for_input ? "The area contains no pattern." : "The pattern dies out.");
+            messenger::set_msg(for_input ? "The area contains nothing." : "The pattern dies out.");
             return {};
         } else if (const auto size = range.size(); size.x > 3000 || size.y > 3000 || size.xy() > 400 * 400) {
             // For example, this can happen when the initial area contains a still life and a spaceship.
@@ -222,7 +227,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
 
     const auto init_range = locate_pattern_with_bg(tile, period_size, true /*for-input*/);
     if (init_range.empty()) {
-        return;
+        return std::nullopt;
     }
 
     const aniso::tile_const_ref init_pattern = tile.clip(init_range);
@@ -235,7 +240,7 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
     constexpr int limit = 4000; // Max period to deal with.
     for (int g = 1; g <= limit; ++g) {
         if (!region.run(rule)) {
-            return;
+            return std::nullopt;
         }
 
         const aniso::tile_const_ref pattern = region.get_pattern();
@@ -244,26 +249,14 @@ static void identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
             smallest = aniso::tileT(pattern);
         }
         if (aniso::equal(init_pattern, pattern)) {
-            std::string str;
-            const bool is_oscillator = region.off == aniso::vecT{0, 0};
-            if (is_oscillator && g == 1) {
-                str = "#C Still life.\n";
-            } else if (is_oscillator) {
-                str = std::format("#C Oscillator. Period:{}.\n", g);
-            } else {
-                str = std::format("#C Spaceship. Period:{}. Offset(x,y):({},{}).\n", g, region.off.x, region.off.y);
-            }
-            assert(str.ends_with('\n'));
             // TODO: pad an extra layer of bg pattern?
-            str += aniso::to_RLE_str(smallest.data(), &rule);
-            ImGui::SetClipboardText(str.c_str());
-            messenger::set_msg(std::move(str));
-            return;
+            return {{.pattern = std::move(smallest), .offset = region.off, .period = g}};
         }
     }
     // For example, this can happen the object really has a huge period, or the initial area doesn't
     // contain a full phase (fragments that evolves to full objects are not recognized), or whatever else.
     messenger::set_msg("Cannot identify.");
+    return std::nullopt;
 }
 
 class percentT {
@@ -1479,7 +1472,7 @@ private:
                                       .end = sel_range.begin + bound.end.minus(1, 1) + p_size};
                     } else {
                         // m_sel.reset();
-                        messenger::set_msg("The area contains no pattern.");
+                        messenger::set_msg("The area contains nothing.");
                     }
                 }
             } //
@@ -1541,7 +1534,30 @@ private:
             [](runnerT& self) {
                 assert(self.m_sel);
                 const aniso::vecT p_size{2, 2};
-                identify(self.m_torus.read_only(self.m_sel->to_range()), self.current_rule, p_size);
+                if (const auto result =
+                        identify(self.m_torus.read_only(self.m_sel->to_range()), self.current_rule, p_size)) {
+                    const auto& [pattern, offset, period] = *result;
+                    const bool no_offset = offset == aniso::vecT{0, 0};
+                    std::string desc;
+                    if (no_offset && period == 1) {
+                        desc = "still life";
+                    } else if (no_offset) {
+                        desc = std::format("oscillator, period = {}", period);
+                    } else {
+                        desc = std::format("spaceship, period = {}, offset = ({},{})", period, offset.x, offset.y);
+                    }
+                    std::string rle_str =
+                        "#C " + desc + '\n' + aniso::to_RLE_str(pattern.data(), &self.current_rule.get());
+                    if (set_clipboard(rle_str)) {
+                        if constexpr (0) {
+                            messenger::set_msg(std::move(rle_str));
+                        } else {
+                            desc[0] = std::toupper(desc[0]);
+                            desc += '.';
+                            messenger::set_msg(std::move(desc));
+                        }
+                    }
+                }
             } //
         };
 
@@ -1671,7 +1687,7 @@ private:
                 term("Identify", op_identify);
                 guide_mode::item_tooltip(
                     "The area should be enclosed in 2*2 periodic background.\n\n"
-                    "Identify a single oscillator or spaceship in the area, and copy its smallest phase to the clipboard.");
+                    "Identify a single object (still life, oscillator or spaceship) in the area, and *copy* its smallest phase to the clipboard.");
                 term("Paste", op_paste);
                 guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.");
             }
