@@ -8,7 +8,7 @@
 
 static ImVec2 to_imvec(const aniso::vecT& vec) { return ImVec2(vec.x, vec.y); }
 
-template <float (&fn)(float) = floor>
+template <float (&fn)(float) = std::floor>
 static aniso::vecT from_imvec(const ImVec2& vec) {
     return {.x = int(fn(vec.x)), .y = int(fn(vec.y))};
 }
@@ -66,7 +66,7 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
             }
         };
 
-        const double x2_flr = floor(x2), y2_flr = floor(y2);
+        const double x2_flr = std::floor(x2), y2_flr = std::floor(y2);
         find_nearest(x2_flr, y2_flr);
         find_nearest(x2_flr + 1, y2_flr);
         find_nearest(x2_flr, y2_flr + 1);
@@ -262,7 +262,6 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
 class percentT {
     int m_val; // ∈ [0, 100].
 public:
-    // percentT(double v) { m_val = round(std::clamp(v, 0.0, 1.0) * 100); }
     constexpr percentT(int p) { m_val = std::clamp(p, 0, 100); }
     percentT(double) = delete;
 
@@ -831,10 +830,10 @@ public:
             ImGui::AlignTextToFramePadding();
             imgui_Str("Size ~");
             ImGui::SameLine(0, inner_spacing);
-            ImGui::SetNextItemWidth(floor((item_width - inner_spacing) / 2));
+            ImGui::SetNextItemWidth(std::floor((item_width - inner_spacing) / 2));
             const auto ix = input_x.input(5, "##Width", std::format("Width:{}", size.x).c_str());
             ImGui::SameLine(0, inner_spacing);
-            ImGui::SetNextItemWidth(ceil((item_width - inner_spacing) / 2));
+            ImGui::SetNextItemWidth(std::ceil((item_width - inner_spacing) / 2));
             const auto iy = input_y.input(5, "##Height", std::format("Height:{}", size.y).c_str());
             // Bruh...
             // ImGui::SameLine();

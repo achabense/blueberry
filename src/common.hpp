@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <ctime>
 #include <format>
 
 #include "rule.hpp"
@@ -9,25 +10,14 @@
 
 /* Not inline */ static const bool check_version = IMGUI_CHECKVERSION();
 
-#if 0
 // Enforce that ordinary string literals are encoded with utf-8.
 // This requires certain compiler flags to be set (e.g. `/utf-8` in MSVC).
-// Currently not necessary, as the program is not using non-ascii characters.
-// (u8"..." is not usable in this project, as it becomes `char8_t[]` since C++20.)
-inline void assert_utf8_encoding() {
-    constexpr auto a = std::to_array("中文");
-    constexpr auto b = std::to_array(u8"中文");
-
-    static_assert(std::ranges::equal(
-        a, b, [](auto l, auto r) { return static_cast<unsigned char>(l) == static_cast<unsigned char>(r); }));
-}
-
-// Experience in MSVC
-// It turns out that there are still a lot of messy encoding problems even if `/utf-8` is specified.
-// For example, how is main's argv / fs::path.string() / exception.what() / ... encoded?
-// (Well, are there even guarantees that we can get a valid fs::path from main's argv?)
-// To make things easy the program does not try to deal with these strings.
-#endif
+// (Currently not necessary, as the program is using only ascii characters.)
+// (u8"..." is not usable in this project, as it becomes `char8_t[]` in C++20.)
+// (This doesn't imply main's argv / fs::path.string() / exception.what() are encoded as utf-8...)
+static_assert(std::ranges::equal("中文日本語한국어", u8"中文日本語한국어", [](auto l, auto r) {
+    return static_cast<unsigned char>(l) == static_cast<unsigned char>(r);
+}));
 
 struct [[nodiscard]] open_state {
     const bool open;
@@ -55,7 +45,7 @@ void edit_rule(frame_main_token);
 void edit_pattern(frame_main_token);
 
 class rand_source : no_create {
-    static uint32_t seed() { return time(0); }
+    static uint32_t seed() { return std::time(0); }
 
 public:
     static std::mt19937 create() { return std::mt19937{seed()}; }
@@ -211,53 +201,6 @@ inline void lock_scroll() {
 }
 
 inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGuiKeyOwner_NoOwner); }
-
-// TODO: whether to support this?
-// There is intended to be at most one call to this function in each window hierarchy.
-[[deprecated]] inline void set_scroll_by_up_down(float dy) {
-    if (shortcuts::no_active_and_no_ctrl() && may_scroll() && imgui_IsWindowFocused()) {
-        if (shortcuts::test_pressed(ImGuiKey_DownArrow, true)) {
-            ImGui::SetScrollY(ImGui::GetScrollY() + dy);
-            highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
-        } else if (shortcuts::test_pressed(ImGuiKey_UpArrow, true)) {
-            ImGui::SetScrollY(ImGui::GetScrollY() - dy);
-            highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
-        }
-    }
-}
-
-[[deprecated]] inline void global_tooltip(const bool highlight, const func_ref<void()> func) {
-    // TODO: are there simpler ways to prevent inheriting styles?
-    // const ImGuiStyle old_style = GImGui->Style;
-    // auto old_stack = GImGui->StyleVarStack;
-    // ImGui::PopStyleVar(GImGui->StyleVarStack.size()); // Restore style vars.
-
-    if (highlight) {
-        ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(0, 128, 255, 255));
-    }
-    imgui_CenterNextWindow(ImGuiCond_Always);
-    // Multiple tooltips: https://github.com/ocornut/imgui/issues/1345
-    if (auto tooltip = imgui_Window("global_tooltip", nullptr,
-                                    ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar |
-                                        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-                                        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
-        if (ImGui::IsWindowAppearing() ||
-            ((ImGui::GetFrameCount() % 32) == 0) /*As normal tooltips may appear after this*/) {
-            ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
-        }
-        func();
-        if (highlight) {
-            const auto [min, max] = imgui_GetWindowRect();
-            ImGui::GetWindowDrawList()->AddRectFilled(min, max, IM_COL32(0, 128, 255, 16));
-        }
-    }
-    if (highlight) {
-        ImGui::PopStyleColor();
-    }
-
-    // GImGui->Style = old_style;
-    // GImGui->StyleVarStack.swap(old_stack);
-}
 
 // It's enough to focus the source window by calling `SetWindowFocus` before `OpenPopup`.
 // However, the parent window will be brought to foreground immediately, while the popup will appear at next frame due to auto-resize...
@@ -1271,8 +1214,9 @@ public:
             ImGui::SetNextWindowFocus();
             if (ImGui::IsMousePosValid()) {
                 const float h = ImGui::GetFrameHeight();
-                ImGui::SetNextWindowPos(clamp_window_pos(ImGui::GetMousePos() - ImVec2{h * 2, floor(h / 2)}, min_size),
-                                        ImGuiCond_Always);
+                ImGui::SetNextWindowPos(
+                    clamp_window_pos(ImGui::GetMousePos() - ImVec2{h * 2, std::floor(h / 2)}, min_size),
+                    ImGuiCond_Always);
             }
         }
 

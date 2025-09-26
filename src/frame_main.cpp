@@ -213,7 +213,7 @@ void frame_main() {
         }
 
         ImGui::SameLine(0, wide_spacing);
-        ImGui::Text("(%d FPS)", (int)round(ImGui::GetIO().Framerate));
+        ImGui::Text("(%d FPS)", (int)std::round(ImGui::GetIO().Framerate));
         if constexpr (debug_mode) {
             ImGui::SameLine();
             menu_like_popup::small_button("Set");

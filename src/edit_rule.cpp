@@ -967,7 +967,7 @@ public:
                 ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
                 if (ImGui::IsMousePosValid()) {
                     const float h = ImGui::GetFrameHeight();
-                    ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, floor(h / 2)}, ImGuiCond_Always);
+                    ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, std::floor(h / 2)}, ImGuiCond_Always);
                 }
             }
             // TODO: ideally, should always appear above the source window.
@@ -1151,8 +1151,8 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         static bool exact_mode = false;
         static double rate = 0.29;
         const int c_group = working_set->k();
-        const int c_free = c_group;           // TODO: temporarily preserved.
-        int free_dist = round(rate * c_free); // Intended distance.
+        const int c_free = c_group;                // TODO: temporarily preserved.
+        int free_dist = std::round(rate * c_free); // Intended distance.
 
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
@@ -1165,10 +1165,10 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         imgui_RadioButton("Exactly", &exact_mode, true);
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(floor(item_width * 0.9));
+        ImGui::SetNextItemWidth(std::floor(item_width * 0.9));
         if (imgui_StepSliderInt::fn("##Dist", &free_dist, 0, c_free) && c_free != 0) {
             rate = double(free_dist) / c_free;
-            assert(round(rate * c_free) == free_dist);
+            assert(std::round(rate * c_free) == free_dist);
         }
         ImGui::SameLine();
         target.display("[Y]", config, working_set);
@@ -1425,8 +1425,6 @@ void edit_rule(frame_main_token) {
     // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
-        // set_scroll_by_up_down(preview_mode ? floor(config.height() * 0.5) : ImGui::GetFrameHeight());
-
         const bool comp_mode = disp_mode == displayE::Comp;
         const auto disp = [&] {
             aniso::codeT::map_to<bool> disp{};

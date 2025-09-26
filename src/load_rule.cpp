@@ -476,7 +476,7 @@ private:
                     }
                     if (indent) {
                         const ImVec2 item_min = ImGui::GetItemRectMin();
-                        const float h = floor(ImGui::GetItemRectSize().y / 2);
+                        const float h = std::floor(ImGui::GetItemRectSize().y / 2);
                         drawlist.AddLine(item_min + ImVec2(-indent_spacing, h), item_min + ImVec2(-inner_spacing, h),
                                          text_disabled_col);
                     }
@@ -519,10 +519,10 @@ public:
             }
         };
 
-        ImGui::SetNextItemWidth(floor(item_width * 0.8));
+        ImGui::SetNextItemWidth(std::floor(item_width * 0.8));
         input_path(target);
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
-        ImGui::SetNextItemWidth(floor(item_width * 0.6));
+        ImGui::SetNextItemWidth(std::floor(item_width * 0.6));
         input_filter();
 
         ImGui::Separator();
@@ -912,8 +912,6 @@ private:
         // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Content")) {
-            // set_scroll_by_up_down(ImGui::GetTextLineHeight() * 2);
-
             const bool test_hover = !menu_opened && (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos();
             const float region_max_x = imgui_GetContentRegionMaxAbsX();
@@ -1107,7 +1105,7 @@ public:
                 }
                 // guide_mode::item_tooltip("Reload entry list.");
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(floor(item_width * 0.6));
+                ImGui::SetNextItemWidth(std::floor(item_width * 0.6));
                 nav.input_filter();
 
                 ImGui::Separator();
@@ -1297,10 +1295,11 @@ open_state load_doc(const ImVec2 init_pos, frame_main_token) {
 }
 
 static std::array<int, 3> get_year_month_day() {
-    const time_t now = time(0);
-    if (const tm* local = localtime(&now)) {
+    const time_t now = std::time(0);
+    if (const tm* local = std::localtime(&now)) {
         return {local->tm_year + 1900, local->tm_mon + 1, local->tm_mday};
-    } else { // UTC; won't bother with `chrono::current_zone()`.
+    } else [[unlikely]] { // UTC; won't bother with `chrono::current_zone()`.
+        assert(false);
         const std::chrono::year_month_day ymd(
             std::chrono::floor<std::chrono::days>(std::chrono::system_clock::from_time_t(now)));
         // Why do they define only unsigned explicit casts for month and day...

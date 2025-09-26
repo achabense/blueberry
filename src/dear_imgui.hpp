@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -228,8 +229,8 @@ inline void imgui_ItemStr(ImU32 col, std::string_view str) {
         const ImVec2 item_min = ImGui::GetItemRectMin();
         const ImVec2 item_size = ImGui::GetItemRectSize();
         const ImVec2 str_size = ImGui::CalcTextSize(begin, end);
-        const ImVec2 pos(item_min.x + floor((item_size.x - str_size.x) / 2),
-                         item_min.y + floor((item_size.y - str_size.y) / 2) - 1 /* -1 for better visual effect */);
+        const ImVec2 pos(item_min.x + std::floor((item_size.x - str_size.x) / 2),
+                         item_min.y + std::floor((item_size.y - str_size.y) / 2) - 1 /* -1 for better visual effect */);
         ImGui::GetWindowDrawList()->AddText(pos, col, begin, end);
     }
 }
@@ -429,7 +430,7 @@ inline bool imgui_MouseScrollingDown() { return ImGui::GetIO().MouseWheel < 0; }
 inline bool imgui_MouseScrollingUp() { return ImGui::GetIO().MouseWheel > 0; }
 
 inline float imgui_CalcCharWidth(unsigned char ch) { //
-    return ceil(ImGui::GetFontBaked()->GetCharAdvance(ch));
+    return std::ceil(ImGui::GetFontBaked()->GetCharAdvance(ch));
 }
 
 inline ImVec2 imgui_CalcTextSize(std::string_view text) { //
@@ -456,13 +457,13 @@ inline float imgui_CalcContentTotalWidth() {
 // (Referring to `ImGui::Get/SetCursorScreenPos(...)`.)
 inline void imgui_AddCursorPosX(float dx) {
     auto& DC = ImGui::GetCurrentWindow()->DC;
-    DC.CursorPos.x = floor(DC.CursorPos.x + dx);
+    DC.CursorPos.x = std::floor(DC.CursorPos.x + dx);
     DC.IsSetPos = true;
 }
 
 inline void imgui_AddCursorPosY(float dy) {
     auto& DC = ImGui::GetCurrentWindow()->DC;
-    DC.CursorPos.y = floor(DC.CursorPos.y + dy);
+    DC.CursorPos.y = std::floor(DC.CursorPos.y + dy);
     DC.IsSetPos = true;
 }
 
