@@ -16,7 +16,7 @@
 [[noreturn]] static void resource_failure() {
     assert(false);
     SDL_Log("Error: %s", SDL_GetError());
-    exit(EXIT_FAILURE);
+    std::exit(EXIT_FAILURE);
 }
 
 static SDL_Window* window = nullptr;
@@ -140,13 +140,11 @@ public:
         SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
 
         // Using heap allocation to avoid "Function uses XXX bytes of stack" warning.
-        std::unique_ptr<Uint32[][3][3]> pixels(new Uint32[512][3][3]);
+        std::unique_ptr<Uint32[]> pixels(new Uint32[512 * 9]);
+        Uint32* p = pixels.get();
         for (const auto code : aniso::each_code) {
-            const auto fill = aniso::decode(code).to_3x3();
-            for (int y = 0; y < 3; ++y) {
-                for (int x = 0; x < 3; ++x) {
-                    pixels[code][y][x] = color_for(fill[y][x]);
-                }
+            for (const auto cell : aniso::decode(code).to_9()) {
+                *p++ = color_for(cell);
             }
         }
 

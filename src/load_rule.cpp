@@ -876,13 +876,16 @@ public:
 
 private:
     static std::optional<int> display_seq(const int total, std::optional<int>& m_pos) {
-        std::optional<int> pos = std::nullopt;
         assert(total > 0);
+        std::optional<int> pos = std::nullopt;
         switch (sequence::seq("<|", "Prev", "Next", "|>")) {
             case 0: pos = 0; break;
-            case 1: pos = std::max(0, m_pos ? *m_pos - 1 : 0); break;
-            case 2: pos = std::min(total - 1, m_pos ? *m_pos + 1 : 0); break;
-            case 3: pos = total - 1; break;
+            case 1: pos = m_pos ? *m_pos - 1 : 0; break;
+            case 2: pos = m_pos ? *m_pos + 1 : 0; break;
+            case 3: pos = INT_MAX; break;
+        }
+        if (pos) {
+            pos = std::clamp(*pos, 0, total - 1);
         }
 
         ImGui::SameLine();

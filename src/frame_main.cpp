@@ -107,16 +107,18 @@ static open_state intro_window(frame_main_token) {
             ImGui::BeginGroup();
             switch (sequence::seq("<|", "Prev", "Next", "|>")) {
                 case 0: at = 0; break;
-                case 1: at = std::max(0, at - 1); break;
-                case 2: at = std::min(total - 1, at + 1); break;
-                case 3: at = total - 1; break;
+                case 1: --at; break;
+                case 2: ++at; break;
+                case 3: at = INT_MAX; break;
             }
+            at = std::clamp(at, 0, total - 1);
+
             ImGui::SameLine();
             ImGui::Text("Total:%d At:%d", total, at + 1);
             ImGui::SameLine();
             config.set("Settings");
 
-            previewer::preview(at, config, rules[at]);
+            previewer::preview(0, config, rules[at]);
             ImGui::EndGroup();
         }
         ImGui::PopTextWrapPos();

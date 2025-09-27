@@ -89,9 +89,8 @@ namespace aniso {
         cellT a, s, d;
         cellT z, x, c;
 
-        auto to_3x3() const { //
-            return std::bit_cast<std::array<std::array<cellT, 3>, 3>>(*this);
-        }
+        auto to_9() const { return std::bit_cast<std::array<cellT, 9>>(*this); }
+        auto to_3x3() const { return std::bit_cast<std::array<std::array<cellT, 3>, 3>>(*this); }
     };
 
     // `situT` encoded as an integer.
