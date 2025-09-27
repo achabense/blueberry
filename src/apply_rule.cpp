@@ -742,7 +742,7 @@ public:
                 {
                     const ImVec2 button_beg = ImGui::GetItemRectMin();
                     const bool button_hovered = ImGui::IsItemHovered();
-                    const ImVec2 mouse_pos = ImGui::GetMousePos();
+                    const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
                     ImDrawList& drawlist = *ImGui::GetWindowDrawList();
                     const aniso::tile_ref data = init.background.data();
                     std::optional<aniso::vecT> hover_pos = std::nullopt;
@@ -1166,9 +1166,8 @@ public:
             std::optional<aniso::vecT> zoom_center = std::nullopt; // Not clamped.
             bool hex_mode = false;
 
-            if (hovered) {
+            if (hovered && ImGui::IsMousePosValid()) {
                 const auto& io = ImGui::GetIO();
-                assert(ImGui::IsMousePosValid(&io.MousePos));
                 const ImVec2 mouse_pos = io.MousePos - canvas_min;
 
                 if (active && (!m_paste ? l_down && !r_down : l_down || r_down)) {
@@ -1969,8 +1968,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                          imgui_IsItemHoveredForTooltip(popup_hidden ? ImGuiHoveredFlags_AllowWhenBlockedByPopup
                                                                     : ImGuiHoveredFlags_None);
     bool hex_mode = false;
-    if (tooltip && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1)) {
-        assert(ImGui::IsMousePosValid());
+    if (tooltip && ((hex_mode = want_hex_mode(rule)) || config.zoom_ <= 1) && ImGui::IsMousePosValid()) {
         const aniso::vecT pos = from_imvec((ImGui::GetMousePos() - ImGui::GetItemRectMin()) / config.zoom_);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
         if (ImGui::BeginTooltip()) {

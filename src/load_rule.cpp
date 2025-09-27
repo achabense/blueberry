@@ -916,7 +916,7 @@ private:
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Content")) {
             const bool test_hover = !menu_opened && (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
-            const ImVec2 mouse_pos = ImGui::GetMousePos();
+            const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
             const float region_max_x = imgui_GetContentRegionMaxAbsX();
             ImDrawList& drawlist = *ImGui::GetWindowDrawList();
 

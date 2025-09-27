@@ -289,7 +289,7 @@ public:
         if (imgui_BeginPopupRecycled(popup_id)) {
             if (imgui_IsWindowHoverable()) { // Topmost popup.
                 popup_with_focus::set_focus(popup_id, source_window);
-                const ImVec2 mouse_pos = ImGui::GetMousePos();
+                const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
                 const auto window_rect = imgui_GetWindowRect();
                 if (!window_rect.Contains(mouse_pos)) {
                     // Disable mouse scrolling in other windows.
@@ -344,8 +344,6 @@ public:
         if (!opened && hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
             popup_with_focus::open_popup(popup_id, ImGuiPopupFlags_NoReopen);
             opened = true;
-            // TODO: whether to do this?
-            // ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2(1, 1)); // Won't be closed by repeated clicks.
         }
 
         hoverE hov = Hovered;
@@ -627,10 +625,7 @@ public:
             const std::string str = to_str(to_v(u));
             ImGui::RenderTextClipped(rect.Min, rect.Max, str.data(), str.data() + str.size(), nullptr,
                                      ImVec2(0.5f, 0.5f));
-            // imgui_ItemTooltip([&] {
-            //     imgui_Str(to_str(to_v(value_if_clicked(rect.GetWidth(), u_max, ImGui::GetMousePos().x - rect.Min.x))));
-            // });
-            if (ImGui::BeginItemTooltip()) {
+            if (ImGui::IsMousePosValid() && ImGui::BeginItemTooltip()) {
                 imgui_Str(to_str(to_v(value_if_clicked(rect.GetWidth(), u_max, ImGui::GetMousePos().x - rect.Min.x))));
                 ImGui::EndTooltip();
             }

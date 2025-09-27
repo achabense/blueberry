@@ -926,7 +926,6 @@ public:
         }
 
         bool updated = false;
-        bool opened = false;
         if (!m_window) {
             imgui_StrWithID(label);
 
@@ -947,7 +946,6 @@ public:
                         copy_rule::copy(m_rule.get());
                     }
                     if (ImGui::Selectable("Show in window")) {
-                        opened = true;
                         m_window = true;
                     }
                     guide_mode::item_tooltip("Display the rule in a regular window.");
@@ -963,12 +961,10 @@ public:
         }
 
         if (m_window) {
-            if (opened) {
-                ImGui::SetNextWindowCollapsed(false, ImGuiCond_Always);
-                if (ImGui::IsMousePosValid()) {
-                    const float h = ImGui::GetFrameHeight();
-                    ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, std::floor(h / 2)}, ImGuiCond_Always);
-                }
+            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+            if (ImGui::IsMousePosValid()) {
+                const float h = ImGui::GetFrameHeight();
+                ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, std::floor(h / 2)}, ImGuiCond_Appearing);
             }
             // TODO: ideally, should always appear above the source window.
             if (auto window = imgui_Window(label, &m_window,
