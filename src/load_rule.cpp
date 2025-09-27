@@ -878,7 +878,7 @@ private:
     static std::optional<int> display_seq(const int total, std::optional<int>& m_pos) {
         assert(total > 0);
         std::optional<int> pos = std::nullopt;
-        switch (sequence::seq("<|", "Prev", "Next", "|>")) {
+        switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
             case 0: pos = 0; break;
             case 1: pos = m_pos ? *m_pos - 1 : 0; break;
             case 2: pos = m_pos ? *m_pos + 1 : 0; break;

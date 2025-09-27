@@ -1070,7 +1070,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             page.clear();
         }
 
-        switch (sequence::seq("<|", "Prev", "Next", "|>")) {
+        switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
             case 0: reset_page(First, aniso::flatten::first(working_set, orderer)); break;
             case 1:
                 if (page.empty()) {
@@ -1158,7 +1158,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         imgui_StrTooltip(
             "(...)",
             "The seq can generate random rules in [S] with specified distance around/exactly to [Y].\n\n"
-            "When you are at the last page (or when the page is empty; 'At' ~ N/A), '>>>' can generate new pages of rules. The generated rules can be accessed using '<</>>>'. (They won't be cleared automatically.)\n\n"
+            "When you are at the last page (or when the page is empty; 'At' ~ N/A), '>>' can generate new pages of rules. The generated rules can be accessed using '</>>'. (They won't be cleared automatically.)\n\n"
             "(Note that nothing will happen immediately after you update [S] or [Y], as they only affect how to generate new rules.)");
         ImGui::SameLine();
         imgui_RadioButton("Around", &exact_mode, false);
@@ -1199,7 +1199,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             page_no = (rules.size() / adapter.page_size) - 1; // == last_page().
         };
 
-        switch (sequence::seq("<|", "<<", ">>>", "|>")) {
+        switch (sequence::seq("<|", "<##Prev", ">>##Next", "|>")) {
             case 0: page_no = 0; break;
             case 1: page_no = std::max(page_no - 1, 0); break;
             case 2: set_next_page(); break;

@@ -76,7 +76,7 @@ static open_state intro_window(frame_main_token) {
                                     "2. The MAP-string for (the rule shown in) the main window.\n"
                                     "3. Other items that display a preview window in tooltip.");
             ImGui::Bullet();
-            imgui_Str("Press left/right arrow keys to control 'Prev/Next' in the focused window.");
+            imgui_Str("Press left/right arrow keys to control '</>' in the focused window.");
 
             ImGui::Bullet();
             imgui_Str("Make sure you can save discoveries (rules and patterns).");
@@ -105,7 +105,7 @@ static open_state intro_window(frame_main_token) {
             ImGui::AlignTextToFramePadding();
             ImGui::Bullet();
             ImGui::BeginGroup();
-            switch (sequence::seq("<|", "Prev", "Next", "|>")) {
+            switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
                 case 0: at = 0; break;
                 case 1: --at; break;
                 case 2: ++at; break;

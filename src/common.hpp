@@ -545,16 +545,22 @@ public:
             tag = First;
         }
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+        const ImVec2 sample_size = imgui_CalcButtonSize(">");
+        const float extra_padding = std::max(0.0f, std::floor((sample_size.y - sample_size.x) / 2));
+        ImGui::GetStyle().FramePadding.x += extra_padding;
         if (ImGui::Button(label_prev) || item_shortcut(ImGuiKey_LeftArrow)) {
             tag = Prev;
         }
+        ImGui::GetStyle().FramePadding.x -= extra_padding;
         if (shortcut_visible) {
             imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive /*, shortcut_avail ? 1.0f : 0.7f*/));
         }
         ImGui::SameLine(0, 0), imgui_Str("/"), ImGui::SameLine(0, 0);
+        ImGui::GetStyle().FramePadding.x += extra_padding;
         if (ImGui::Button(label_next) || item_shortcut(ImGuiKey_RightArrow)) {
             tag = Next;
         }
+        ImGui::GetStyle().FramePadding.x -= extra_padding;
         if (shortcut_visible) {
             imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive /*, shortcut_avail ? 1.0f : 0.7f*/));
         }
