@@ -94,11 +94,10 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
 
 static bool want_hex_mode(const aniso::ruleT& rule) {
     if (shortcuts::no_ctrl() && shortcuts::global_flag(ImGuiKey_6)) {
-        // TODO: feels strange, but no idea how to improve...
         if (!rule_algo::is_hexagonal_rule(rule)) {
             // (But actually, the projection still corresponds to a range-2 hex rule.)
-            messenger::set_msg("This rule does not belong to 'Hex' set.");
-            messenger::set_auto_disappear();
+            messenger::set_msg("The rule does not belong to 'Hex'.");
+            messenger::set_once();
             // return false;
         }
         return true;

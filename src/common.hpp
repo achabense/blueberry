@@ -666,14 +666,16 @@ class messenger : no_create {
         std::string m_str{};
         std::optional<ImVec2> m_min{};
 
-        bool m_auto{}; // Disappear automatically.
+        enum lifeE { Once, Auto, User };
+        lifeE m_life{};
+
         int m_count{};
         clockT::time_point m_time{};
 
     public:
         // (Defined as a workaround for gcc building.)
         // (Related: https://stackoverflow.com/questions/53408962)
-        messageT() : m_dot{}, m_str{}, m_min{}, m_auto{}, m_count{}, m_time{} {}
+        messageT() : m_dot{}, m_str{}, m_min{}, m_life{}, m_count{}, m_time{} {}
 
         void clear() {
             m_dot = false;
@@ -683,7 +685,7 @@ class messenger : no_create {
 
         void set_str(std::string&& str) {
             clear();
-            m_auto = false;
+            m_life = User;
 
             // TODO: ideally should take account of wrap-len...
             size_t subsize = 0;
@@ -705,11 +707,12 @@ class messenger : no_create {
 
         void set_dot() {
             clear();
-            m_auto = true;
+            m_life = Auto;
             m_dot = true;
         }
 
-        void set_auto_disappear() { m_auto = true; }
+        void set_auto_disappear() { m_life = Auto; }
+        void set_once() { m_life = Once; }
 
         // Won't interfere with normal tooltips or popups.
         void display_if_present() {
@@ -723,7 +726,7 @@ class messenger : no_create {
                 }
                 const bool t_expired = now > m_time;
                 const bool c_expired = m_count < 0;
-                if (m_auto ? (c_expired || t_expired) : (c_expired && t_expired)) {
+                if (m_life == Once || (m_life == Auto ? (c_expired || t_expired) : (c_expired && t_expired))) {
                     clear();
                     return;
                 }
@@ -731,7 +734,7 @@ class messenger : no_create {
 
             assert(m_dot || !m_str.empty());
             if (m_dot) {
-                assert(m_auto);
+                assert(m_life != User);
                 if (!m_min) {
                     m_count = 12;
                     m_time = now + std::chrono::milliseconds(400);
@@ -774,6 +777,7 @@ class messenger : no_create {
 
 public:
     static void set_auto_disappear() { m_msg.set_auto_disappear(); }
+    static void set_once() { m_msg.set_once(); } // To emulate tooltips.
 
     static void set_msg(std::string str) { m_msg.set_str(std::move(str)); }
 

@@ -594,8 +594,8 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
         const bool hov = pass.hov_for_tooltip();
         if (hov || pass.deliv) {
             messenger::set_msg("The rule does not belong to [S].");
-            if (hov && pass.deliv) { // Mouse released.
-                messenger::set_auto_disappear();
+            if (hov) {
+                messenger::set_once();
             }
         }
         return nullptr;
@@ -667,13 +667,14 @@ public:
 
     void select(const aniso::subsetT& working_set) {
         assert(working_set.contains(get()));
-        const auto peek_dist = [&](const aniso::ruleT& rule) { // (Should appear after regular tooltip.)
+        // (Used to require being used after regular tooltips; no longer necessary.)
+        const auto peek_dist = [&](const aniso::ruleT& rule) {
             if (const aniso::ruleT* peek = pass_rule::peek()) {
                 if (imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
-                    working_set.contains(*peek) && imgui_BeginTooltipFirstOnly()) {
+                    working_set.contains(*peek)) {
                     const int dist = aniso::distance(working_set, rule, *peek);
-                    ImGui::Text("Dist:%d%s", dist, dist == 0 ? " (same rule)" : "");
-                    ImGui::EndTooltip();
+                    messenger::set_msg("Dist:{}{}", dist, dist == 0 ? " (same rule)" : "");
+                    messenger::set_once();
                     highlight_item();
                 }
             }
