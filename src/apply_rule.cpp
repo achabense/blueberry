@@ -509,6 +509,9 @@ class runnerT : no_copy {
 
         int gen() const { return m_gen; }
         double density() const { return double(aniso::count(m_tile.data())) / m_tile.area(); }
+        double density(const aniso::rangeT& range) const {
+            return double(aniso::count(m_tile.data(range))) / range.size().xy();
+        }
 
         aniso::vecT size() const {
             assert(m_tile.size() == align(m_tile.size()));
@@ -738,7 +741,7 @@ public:
                 // static_assert(max_period.x * max_period.y == init.background.capacity()); This works, but why?
                 static_assert(max_period.x * max_period.y == aniso::tile_buf::capacity());
 
-                ImGui::InvisibleButton("##Board", cell_button_size * to_imvec(max_period));
+                ImGui::InvisibleButton("Board", cell_button_size * to_imvec(max_period));
                 {
                     const ImVec2 button_beg = ImGui::GetItemRectMin();
                     const bool button_hovered = ImGui::IsItemHovered();
@@ -1022,8 +1025,11 @@ public:
         }
         // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
         ImGui::SameLine(cursor_pos);
-        // TODO: density is more meaningful as a property of selected area...
-        ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(), m_torus.density());
+        ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(),
+                    m_sel ? m_torus.density(m_sel->to_range()) : m_torus.density());
+        // TODO: has no stable offset (can break hover)...
+        // ImGui::SameLine();
+        // imgui_StrTooltip("(?)", "Density of the selected area (or the entire space).");
 
         if (m_paste) {
             if (std::exchange(m_paste->newly_assigned, false)) {

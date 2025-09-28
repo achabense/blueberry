@@ -493,7 +493,7 @@ public:
 
                 ImGui::PushID(id++);
                 ImGui::BeginDisabled(!selectable);
-                if (ImGui::InvisibleButton("##Invisible", square_size())) {
+                if (ImGui::InvisibleButton("Subset", square_size())) {
                     if (r_down) {
                         select_single(term.set);
                     } else if (term.has_common) {
