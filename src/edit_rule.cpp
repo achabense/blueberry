@@ -659,6 +659,14 @@ public:
 
     const aniso::ruleT& get() const { return get_rule(m_tag); }
 
+    bool try_set(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
+        if (const auto* deliv = get_deliv(pass, working_set)) {
+            set(*deliv);
+            return true;
+        }
+        return false;
+    }
+
     void sync(const aniso::subsetT& working_set) {
         if (!working_set.contains(get())) {
             set(working_set.rule);
@@ -685,8 +693,7 @@ public:
         imgui_StrWithID("[R]");
         guide_mode::item_tooltip("Drag a rule here to update [R] (will also update 'Other' if necessary).");
         // pass_rule::source(get());
-        if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-            set(*deliv);
+        if (try_set(pass_rule::dest(), working_set)) {
             messenger::dot();
             highlight = m_tag;
         }
@@ -908,7 +915,13 @@ class target_rule : no_copy {
 public:
     operator const aniso::ruleT&() const { return m_rule.get(); }
     const aniso::ruleT& get() const { return m_rule.get(); }
-    void set(const aniso::ruleT& rule) { m_rule.set(rule); }
+    bool try_set(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
+        if (const auto* deliv = get_deliv(pass, working_set)) {
+            m_rule.set(*deliv);
+            return true;
+        }
+        return false;
+    }
 
     // !!TODO: (v0.9.9) reconsider this design (resetting rules silently)...
     // -> require manually specifying a rule?
@@ -952,8 +965,7 @@ public:
                     guide_mode::item_tooltip("Display the rule in a regular window.");
                 });
             }
-            if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-                m_rule.set(*deliv);
+            if (try_set(pass_rule::dest(), working_set)) {
                 messenger::dot();
                 updated = true;
             }
@@ -971,8 +983,7 @@ public:
             if (auto window = imgui_Window(label, &m_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 previewer::preview(0, settings, m_rule.get());
-                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-                    m_rule.set(*deliv);
+                if (try_set(pass_rule::dest(), working_set)) {
                     messenger::dot();
                     updated = true;
                 }
@@ -1011,6 +1022,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
 
         enum roleE { First, Last };
         const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/) {
+            assert(working_set.contains(rule));
             const auto fill_next = [&] {
                 assert(!page.empty());
                 while (page.size() < adapter.page_size) {
@@ -1341,9 +1353,8 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Edit rules in [S] (by flipping values).\n\n"
                                  "(This is mainly useful for large sets.)");
         random_access_status::update();
-        if (const auto* deliv = get_deliv(
-                pass_rule::dest(/*accept drop if*/ !show_random_access, random_access_status::rule_id), working_set)) {
-            target.set(*deliv);
+        if (target.try_set(pass_rule::dest(/*accept drop if*/ !show_random_access, random_access_status::rule_id),
+                           working_set)) {
             show_random_access = true;
             messenger::dot();
         }
@@ -1510,7 +1521,8 @@ void edit_rule(frame_main_token) {
 
                 ImGui::BeginGroup();
                 if (code_button_with_label(head, &hov)) {
-                    target.set(get_adjacent_rule());
+                    const aniso::ruleT r = get_adjacent_rule();
+                    target.try_set(&r, working_set); // Must succeed.
                 }
                 random_access_status::begin_disabled();
                 previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
