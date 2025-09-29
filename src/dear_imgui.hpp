@@ -60,14 +60,20 @@ inline void imgui_FillAvailRect(ImU32 col) {
 }
 
 // These names are somewhat misleading after the introduction of `imgui_GetItemRect`...
-inline void imgui_ItemRect(ImU32 col, ImVec2 off_min = {0, 0}) {
+inline void imgui_ItemRect(ImU32 col) {
     const auto [pos_min, pos_max] = GImGui->LastItemData.Rect;
-    ImGui::GetWindowDrawList()->AddRect(pos_min + off_min, pos_max - off_min, col);
+    ImGui::GetWindowDrawList()->AddRect(pos_min, pos_max, col);
 }
 
-inline void imgui_ItemRectFilled(ImU32 col, ImVec2 off_min = {0, 0}) {
+inline void imgui_ItemRectFilled(ImU32 col) {
     const auto [pos_min, pos_max] = GImGui->LastItemData.Rect;
-    ImGui::GetWindowDrawList()->AddRectFilled(pos_min + off_min, pos_max - off_min, col);
+    ImGui::GetWindowDrawList()->AddRectFilled(pos_min, pos_max, col);
+}
+
+inline void imgui_ItemRectFilled(ImU32 col, float rate) {
+    const auto [pos_min, pos_max] = GImGui->LastItemData.Rect;
+    const ImVec2 off = ImFloor((pos_max - pos_min) * ((1 - rate) / 2));
+    ImGui::GetWindowDrawList()->AddRectFilled(pos_min + off, pos_max - off, col);
 }
 
 inline void imgui_ItemUnderline(ImU32 col) {

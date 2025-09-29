@@ -411,7 +411,7 @@ private:
         if (title && (center == None || center == Disabled)) {
             imgui_ItemStr(title_col, {&title, 1});
         } else {
-            imgui_ItemRectFilled(cent_col, ImVec2(4, 4));
+            imgui_ItemRectFilled(cent_col, 0.5f);
         }
         imgui_ItemRect(ring_col);
     }
@@ -1454,14 +1454,8 @@ void edit_rule(frame_main_token) {
         const char* const labels_disp_from_to[2]{comp_mode ? "-O -> I:" : "-0 -> 1:",
                                                  comp_mode ? "-I -> O:" : "-1 -> 0:"};
 
-        // Precise vertical alignment:
-        // https://github.com/ocornut/imgui/issues/2064
-        const auto align_text = [](float height) {
-            imgui_AddCursorPosY(std::max(0.0f, (height - ImGui::GetTextLineHeight()) / 2));
-        };
-
-        constexpr int button_zoom = init_compact_mode ? 6 : 7;
-        constexpr int image_zoom = button_zoom;
+        const int button_zoom = std::ceil(ImGui::GetFrameHeight() / 3);
+        const int image_zoom = button_zoom;
         constexpr ImVec2 button_padding = {2, 2};
         constexpr float image_padding = 1;
         const auto code_button_with_label = [&](const aniso::codeT code, bool* hov = nullptr) -> bool {
@@ -1473,7 +1467,7 @@ void edit_rule(frame_main_token) {
                 *hov = imgui_IsItemHoveredForTooltip();
             }
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-            align_text(ImGui::GetItemRectSize().y);
+            imgui_AddCursorPosY((ImGui::GetItemRectSize().y - ImGui::GetTextLineHeight()) / 2); // Align vertically.
             imgui_Str(labels_disp_from_to[disp[code]]);
             return hit;
         };
@@ -1487,7 +1481,7 @@ void edit_rule(frame_main_token) {
                 *hov = imgui_IsItemHoveredForTooltip();
             }
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-            align_text(ImGui::GetItemRectSize().y);
+            imgui_AddCursorPosY((ImGui::GetItemRectSize().y - ImGui::GetTextLineHeight()) / 2); // Align vertically.
             imgui_Str(labels_disp[disp[code]]);
         };
         const int group_size_x = [&]() -> int {

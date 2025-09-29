@@ -1267,8 +1267,9 @@ static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& 
     // assert(open);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize({600, 400}, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(450, 300), ImVec2(FLT_MAX, FLT_MAX));
+    const float h = ImGui::GetFontSize();
+    ImGui::SetNextWindowSize(ImVec2(h * 48, h * 32), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(h * 36, h * 24), ImVec2(FLT_MAX, FLT_MAX));
     if constexpr (debug_mode) {
         // TODO: whether to document this way?
         imgui_Window::next_window_titlebar_tooltip = tooltip;
