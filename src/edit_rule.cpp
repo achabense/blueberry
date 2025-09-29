@@ -1173,7 +1173,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         imgui_RadioButton("Exactly", &exact_mode, true);
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(std::floor(item_width * 0.9));
+        ImGui::SetNextItemWidth(std::floor(item_width() * 0.9));
         if (imgui_StepSliderInt::fn("##Dist", &free_dist, 0, c_free) && c_free != 0) {
             rate = double(free_dist) / c_free;
             assert(std::round(rate * c_free) == free_dist);

@@ -78,11 +78,14 @@ inline namespace backend_fn {
     void set_frame_rate(); // Shown in popup.
 } // namespace backend_fn
 
-inline constexpr int item_width = 220;
-
-inline ImVec2 square_size() {
+inline ImVec2 square_size(/*const float r = ImGui::GetFrameHeight()*/) {
     const float r = ImGui::GetFrameHeight();
     return ImVec2(r, r);
+}
+
+inline float item_width() {
+    // The same as the default width for tooltips.
+    return ImGui::GetFontSize() * 16.0f;
 }
 
 inline float wrap_len() {

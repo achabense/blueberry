@@ -519,10 +519,11 @@ public:
             }
         };
 
-        ImGui::SetNextItemWidth(std::floor(item_width * 0.8));
+        const float default_w = item_width();
+        ImGui::SetNextItemWidth(std::floor(default_w * 0.8));
         input_path(target);
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
-        ImGui::SetNextItemWidth(std::floor(item_width * 0.6));
+        ImGui::SetNextItemWidth(std::floor(default_w * 0.6));
         input_filter();
 
         ImGui::Separator();
@@ -922,6 +923,7 @@ private:
             const bool test_hover = !menu_opened && (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
             const float region_max_x = imgui_GetContentRegionMaxAbsX();
+            const float min_wrap = item_width();
             ImDrawList& drawlist = *ImGui::GetWindowDrawList();
 
             // (Inefficient, but not worth bothering.)
@@ -948,7 +950,7 @@ private:
                 }
                 // (`ImGui::TextWrapped` has no problem rendering long single-lines now.)
                 // (Related: https://github.com/ocornut/imgui/issues/7496)
-                imgui_StrWrapped(line.str.get(m_text), item_width);
+                imgui_StrWrapped(line.str.get(m_text), min_wrap);
                 if (line.highlight) {
                     ImGui::PopStyleColor();
                 }
@@ -1112,7 +1114,7 @@ public:
                 }
                 // guide_mode::item_tooltip("Reload entry list.");
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(std::floor(item_width * 0.6));
+                ImGui::SetNextItemWidth(std::floor(item_width() * 0.6));
                 nav.input_filter();
 
                 ImGui::Separator();

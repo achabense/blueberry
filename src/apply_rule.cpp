@@ -711,7 +711,7 @@ public:
 
             initT init = reset ? torusT::init_init : m_torus.get_init();
 
-            ImGui::PushItemWidth(item_width);
+            ImGui::PushItemWidth(item_width());
             imgui_StepSliderInt::fn("Seed", &init.seed, 0, 29);
             init.density.step_slide("Density");
             init.area.step_slide("Area");
@@ -827,16 +827,17 @@ public:
         const auto input_size = [&] {
             static input_int input_x{}, input_y{};
 
+            const float total_w = item_width();
             const float inner_spacing = imgui_ItemInnerSpacingX();
             const aniso::vecT size = m_torus.size();
 
             ImGui::AlignTextToFramePadding();
             imgui_Str("Size ~");
             ImGui::SameLine(0, inner_spacing);
-            ImGui::SetNextItemWidth(std::floor((item_width - inner_spacing) / 2));
+            ImGui::SetNextItemWidth(std::floor((total_w - inner_spacing) / 2));
             const auto ix = input_x.input(5, "##Width", std::format("Width:{}", size.x).c_str());
             ImGui::SameLine(0, inner_spacing);
-            ImGui::SetNextItemWidth(std::ceil((item_width - inner_spacing) / 2));
+            ImGui::SetNextItemWidth(std::ceil((total_w - inner_spacing) / 2));
             const auto iy = input_y.input(5, "##Height", std::format("Height:{}", size.y).c_str());
             // Bruh...
             // ImGui::SameLine();
@@ -873,7 +874,7 @@ public:
             }
         };
 
-        ImGui::PushItemWidth(item_width);
+        ImGui::PushItemWidth(item_width());
         ImGui::BeginGroup();
         {
             const bool enable_shortcuts = canvas_hovered_or_held && shortcuts::no_ctrl();
@@ -1741,7 +1742,7 @@ struct previewer::_global_data : no_create {
 
 void previewer::configT::_set(const bool can_resize) {
     // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {3, 2});
-    ImGui::PushItemWidth(item_width);
+    ImGui::PushItemWidth(item_width());
 
     if (can_resize) {
         const auto to_tile_size = [&](int size) { return std::to_string(int(size / zoom_)); };
