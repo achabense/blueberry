@@ -565,9 +565,9 @@ public:
     }
 };
 
-struct preview_setting {
-    bool enabled = true;
-    previewer::configT config = previewer::default_settings;
+struct preview_settings {
+    bool inline_mode = true;
+    previewer::configT settings = previewer::default_settings;
 };
 
 // It is easy to locate all rules in the text via `extract_MAP_str`.
@@ -642,7 +642,7 @@ class textT : no_copy {
     std::optional<selT> m_sel = std::nullopt;
     bool menu_opened = false;
 
-    preview_setting m_preview{}; // TODO: move out of class?
+    preview_settings m_preview{};
 
     bool do_rewind = false;
     int go_line = -1;
@@ -812,18 +812,7 @@ public:
             // Line-selecting > iterating > (starting line-selection) > left-click setting
             std::optional<int> iter_pos = std::nullopt;
             if (!m_rules.empty()) {
-                iter_pos = display_seq(m_rules.size(), m_pos);
-                if constexpr (0) {
-                    // TODO: whether to support hiding preview windows?
-                    ImGui::SameLine();
-                    ImGui::Checkbox("Preview", &m_preview.enabled);
-                } else {
-                    assert(m_preview.enabled);
-                }
-                if (m_preview.enabled) {
-                    ImGui::SameLine();
-                    m_preview.config.set("Settings");
-                }
+                iter_pos = display_seq(m_rules.size(), m_preview, m_pos);
             } else {
                 imgui_Str("(No rules)");
             }
@@ -851,6 +840,13 @@ public:
                 assert(*click_pos >= 0 && *click_pos < int(m_rules.size()));
                 m_pos = *click_pos;
             }
+
+            if (!m_preview.inline_mode) {
+                assert(false);
+                // !!TODO: (v0.9.9) support displaying in another window...
+                // (Ideally the window should always appear above the current one.)
+                // previewer::preview_or_dummy(0, m_preview.settings, m_pos ? &m_rules[*m_pos] : nullptr);
+            }
         }
 
         // Prevent interaction with other widgets, so that for example, the parent window cannot be
@@ -875,7 +871,7 @@ public:
     }
 
 private:
-    static std::optional<int> display_seq(const int total, std::optional<int>& m_pos) {
+    static std::optional<int> display_seq(const int total, preview_settings& m_preview, std::optional<int>& m_pos) {
         assert(total > 0);
         std::optional<int> pos = std::nullopt;
         switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
@@ -888,6 +884,14 @@ private:
             pos = std::clamp(*pos, 0, total - 1);
         }
 
+        if constexpr (0) {
+            ImGui::SameLine();
+            ImGui::Checkbox("Inline", &m_preview.inline_mode);
+        } else {
+            assert(m_preview.inline_mode);
+        }
+        ImGui::SameLine();
+        m_preview.settings.set("Settings");
         ImGui::SameLine();
         if (m_pos.has_value()) {
             ImGui::Text("Total:%d At:%d", total, *m_pos + 1);
@@ -935,7 +939,7 @@ private:
                     ImGui::SetScrollHereY(0);
                 }
                 ImGui::SameLine();
-                if (m_preview.enabled && rule.has_value()) {
+                if (m_preview.inline_mode && rule.has_value()) {
                     ImGui::BeginGroup();
                 }
 
@@ -980,12 +984,12 @@ private:
                     }
 
                     // TODO: ideally should not split RLE blob from header....
-                    if (m_preview.enabled) {
+                    if (m_preview.inline_mode) {
                         imgui_StrDisabled("-: ");
                         ImGui::SameLine();
 
                         ImGui::PopStyleVar(); // (Workaround to avoid affecting popup & tooltip.)
-                        previewer::preview(rule.pos, m_preview.config, rule.get(m_rules) /*cheap call*/);
+                        previewer::preview(rule.pos, m_preview.settings, rule.get(m_rules) /*cheap call*/);
                         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
                         ImGui::EndGroup();

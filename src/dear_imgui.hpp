@@ -479,3 +479,15 @@ inline void imgui_AddCursorPosY(float dy) {
     assert(table->MinColumnWidth == min_column_width);
     table->IsLayoutLocked = true;
 }
+
+// Workaround to avoid breaking z-order.
+// Related: https://github.com/ocornut/imgui/issues/8903
+inline bool imgui_BeginMenuFromPopup(const char* label, bool enabled = true) {
+    assert(GImGui->CurrentWindow->Flags & ImGuiWindowFlags_Popup);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+    ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
+    const bool begun = ImGui::BeginMenu(label, enabled);
+    ImGui::PopItemFlag();
+    ImGui::PopStyleColor();
+    return begun;
+}

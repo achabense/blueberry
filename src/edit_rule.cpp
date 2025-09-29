@@ -1099,6 +1099,8 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         }
 
         ImGui::SameLine();
+        config.set("Settings");
+        ImGui::SameLine();
         if (page.empty()) {
             imgui_Str("Dist:N/A");
         } else {
@@ -1116,9 +1118,6 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
                 page.clear();
             }
         });
-
-        ImGui::SameLine();
-        config.set("Settings");
 
         ImGui::Separator();
 
@@ -1216,6 +1215,8 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         }
 
         ImGui::SameLine();
+        config.set("Settings");
+        ImGui::SameLine();
         if (!rules.empty()) {
             // TODO: will this be confusing when the page is resized?
             ImGui::Text("Pages:%d At:%d", calc_page(), page_no + 1);
@@ -1229,9 +1230,6 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
                 page_no = 0;
             }
         });
-
-        ImGui::SameLine();
-        config.set("Settings");
 
         ImGui::Separator();
 

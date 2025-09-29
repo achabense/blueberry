@@ -114,9 +114,9 @@ static open_state intro_window(frame_main_token) {
             at = std::clamp(at, 0, total - 1);
 
             ImGui::SameLine();
-            ImGui::Text("Total:%d At:%d", total, at + 1);
-            ImGui::SameLine();
             config.set("Settings");
+            ImGui::SameLine();
+            ImGui::Text("Total:%d At:%d", total, at + 1);
 
             previewer::preview(0, config, rules[at]);
             ImGui::EndGroup();

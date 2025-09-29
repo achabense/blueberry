@@ -1861,18 +1861,11 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 }
             }
 
-            const bool rand_access_avail = random_access_status::available();
-            const bool editor_avail = pattern_editor_status::available();
+            const bool rule_editor_avail = random_access_status::available();
+            const bool pattern_editor_avail = pattern_editor_status::available();
 
-            // Workaround to avoid breaking z-order.
-            // Related: https://github.com/ocornut/imgui/issues/8903
-            ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
-            ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
-            const bool begun = ImGui::BeginMenu("Send to", rand_access_avail || editor_avail);
-            ImGui::PopItemFlag();
-            ImGui::PopStyleColor();
-            if (begun) {
-                if (rand_access_avail) {
+            if ((rule_editor_avail || pattern_editor_avail) && imgui_BeginMenuFromPopup("Send to")) {
+                if (rule_editor_avail) {
                     // !!TODO: (v0.9.9) recheck calling convention; only handlers are responsible for showing the dot...
                     if (ImGui::Selectable("Rule editor") /*XX messenger::dot()*/) {
                         pass_rule::set_extra(rule, random_access_status::rule_id);
@@ -1880,7 +1873,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                     guide_mode::item_tooltip(
                         "Equivalent to sending rule to the 'Edit-rule' checkbox (or '[Z]' if it's turned on).");
                 }
-                if (editor_avail) {
+                if (pattern_editor_avail) {
                     if (ImGui::Selectable("Pattern editor") && messenger::dot()) {
                         runner.set_rule(rule);
                     }
@@ -1890,7 +1883,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 }
                 ImGui::EndMenu();
             }
-            if (editor_avail) {
+            if (pattern_editor_avail) {
                 if (ImGui::Selectable("Mirror") && messenger::dot()) {
                     runner.set_rule(rule);
                     runner.set_state(tile_size, _global_data::init);
