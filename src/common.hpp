@@ -1158,7 +1158,7 @@ public:
     }
 };
 
-// TODO: whether to apply this? (rule_snapshot & rec_for_rule(_b))
+// TODO: whether to apply this to rec_for_rule(_b)?
 #if 0
 struct rule_and_hash {
     aniso::compressT rule;
@@ -1171,14 +1171,16 @@ struct rule_and_hash {
 static_assert(std::is_trivially_copyable_v<rule_and_hash>);
 #endif
 
-// !!TODO: (v0.9.9) horrible, should redesign or remove (! &rec_for_rule)...
+// !!TODO: (v0.9.9) support in release mode...
+inline constexpr bool debug_mode_support_snapshot = debug_mode;
+
 class rule_snapshot : no_copy {
     using dataT = std::vector<aniso::compressT>;
-    previewer::configT m_settings{previewer::default_settings}; // TODO: support external settings?
+    previewer::configT m_settings{previewer::default_settings};
 
     dataT m_data{};
-    bool m_newly_updated{};
-    bool m_outdated{}; // TODO: remove this?
+    int m_pos{}; // ∈ [0, m_data.size())
+    bool m_updated{};
 
 public:
     explicit rule_snapshot() = default;
@@ -1187,112 +1189,57 @@ public:
     explicit operator bool() const { return !empty(); }
     void clear() { m_data.clear(); }
 
-    void update(const dataT& data) {
+    void update(dataT data, const previewer::configT& settings) {
         assert(!data.empty());
-        m_data = data;
-        m_newly_updated = true;
-        m_outdated = false;
+        m_settings = settings;
+        m_data = std::move(data);
+        m_pos = 0;
+        m_updated = true;
     }
-    void test_outdated(const dataT& data) { m_outdated = data != m_data; }
 
-    struct contextT {
-        func_ref<aniso::compressT()> get;
-        func_ref<void(const aniso::compressT&)> set;
-    };
-    open_state display(const char* title, const dataT& data, const std::optional<contextT>& context) {
-        assert(!m_data.empty());
-        const bool updated = std::exchange(m_newly_updated, false);
-        bool open = true;
-        bool to_top = updated;
+    void display_if_present(const char* label) {
+        if (m_data.empty()) {
+            return;
+        }
 
-        const ImVec2 min_size = [&] {
-            const auto& style = ImGui::GetStyle();
-            const int min_size_x = m_settings.width() +
-                                   (context ? (style.ItemSpacing.x + ImGui::GetFrameHeight()) /*radio*/ : 0) +
-                                   (m_data.size() > 1 ? style.ScrollbarSize : 0);
-            const int min_size_y =
-                ImGui::GetFrameHeight() + ImGui::GetTextLineHeight() + style.ItemSpacing.y * 2 + m_settings.height();
-            return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
-        }();
-
-        ImGui::SetNextWindowSize(min_size, updated ? ImGuiCond_Always : ImGuiCond_Appearing);
-        ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + 120, 500});
-        if (updated) {
+        if (std::exchange(m_updated, false)) {
             ImGui::SetNextWindowCollapsed(false);
             ImGui::SetNextWindowFocus();
             if (ImGui::IsMousePosValid()) {
+                // TODO: should clamp pos based on size...
                 const float h = ImGui::GetFrameHeight();
-                ImGui::SetNextWindowPos(
-                    clamp_window_pos(ImGui::GetMousePos() - ImVec2{h * 2, std::floor(h / 2)}, min_size),
-                    ImGuiCond_Always);
+                ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, std::floor(h / 2)});
             }
         }
 
-        imgui_Window::next_window_titlebar_tooltip =
-            "This is a snapshot of the actual record. When it's outdated, the window title will be marked with '*', and you can update it with 'Update'.";
-
-        const std::string title2 = std::format("{}{}###{}", title, m_outdated ? " *" : "", title);
-        if (auto window = imgui_Window(title2.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
-            if (ImGui::SmallButton("Update") && messenger::dot()) {
-                assert(!data.empty()); // (As there is currently no clear method.)
-                m_data = data;
-                m_outdated = false;
-                to_top = true;
+        bool open = true;
+        if (auto window =
+                imgui_Window(label, &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
+            switch (sequence::seq("<|", "<", ">", "|>")) {
+                case 0: m_pos = 0; break;
+                case 1: --m_pos; break;
+                case 2: ++m_pos; break;
+                case 3: m_pos = INT_MAX; break;
             }
-            ImGui::SameLine();
-            m_settings.set("Settings", true /*small*/);
-            ImGui::SameLine();
             const int total = m_data.size();
-            ImGui::Text("Total:%d", total);
+            m_pos = std::clamp(m_pos, 0, total - 1);
 
-            ImGui::Separator();
-
-            if (to_top) {
-                ImGui::SetNextWindowScroll({0, 0});
-            }
-            // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
-            if (auto child = imgui_ChildWindow("Page")) {
-                const auto current = context ? std::optional{context->get()} : std::nullopt;
-                static_assert(std::is_same_v<decltype(*current), const aniso::compressT&>);
-                std::optional<aniso::compressT> select = std::nullopt;
-
-                for (int i = 0; i < total; ++i) {
-                    if (i != 0) {
-                        ImGui::Spacing(); // ImGui::Separator();
-                    }
-
-                    previewer::preview(i, m_settings, m_data[i]);
-                    if (context) {
-                        ImGui::SameLine();
-                        ImGui::PushID(i);
-                        if (const bool eq = current == m_data[i]; //
-                            ImGui::RadioButton("##Sel", eq) && !eq) {
-                            select = m_data[i];
-                        }
-                        ImGui::PopID();
-                    }
-                }
-
-                assert_implies(select, context);
-                if (select) {
-                    context->set(*select);
-                    // m_outdated = true; // (Will be set back by the context.)
-                }
-            }
-            ImGui::PopStyleColor();
+            ImGui::SameLine();
+            m_settings.set("Settings");
+            ImGui::SameLine();
+            ImGui::Text("Total:%d At:%d", total, m_pos + 1);
+            previewer::preview(0, m_settings, m_data[m_pos]);
         }
-        return {open};
+        if (!open) {
+            clear();
+        }
     }
 };
 
-// [[deprecated]]
 class rec_for_rule : no_copy {
     using dataT = std::vector<aniso::compressT>;
     int m_capacity;
     dataT m_data;
-
-    mutable bool m_written = false; // (Workaround to notify snapshot.)
 
 public:
     explicit rec_for_rule(const int cap = 20) : m_capacity(cap) {
@@ -1307,6 +1254,7 @@ public:
     bool contains(const aniso::compressT& rule) const { return find(rule) != m_data.end(); }
 
     // LRU; inefficient but no problem as `m_capacity` is small enough.
+    // [0] ~ most recent.
     void add(const aniso::compressT& rule) {
         if (const auto found = find(rule); found != m_data.end()) {
             m_data.erase(found);
@@ -1314,47 +1262,23 @@ public:
             m_data.pop_back();
         }
         m_data.insert(m_data.begin(), rule);
-        m_written = true;
     }
 
-    bool written_since_last_check() const { return std::exchange(m_written, false); }
+    // (Workaround; defined here for convenience.)
+    void dump(const previewer::configT& settings) const {
+        assert(debug_mode_support_snapshot);
+        assert(!empty());
+        snapshot.update(data(), settings);
+    }
 
-    // TODO: whether to support clearing? (Never necessary as the buffer is small enough...)
-    // void clear() { m_data.clear(); }
+    static void display_if_present(frame_main_token, const char* label) {
+        assert(debug_mode_support_snapshot);
+        snapshot.display_if_present(label);
+    }
+
+private:
+    inline static rule_snapshot snapshot;
 };
-
-// [[deprecated]]
-inline void item_to_take_snapshot(bool (&item)(const char*), const char* label, const rec_for_rule& rec,
-                                  rule_snapshot& snapshot) {
-    const bool empty = rec.empty();
-    ImGui::BeginDisabled(empty);
-    if (item(std::format("{} ({})###{}", label, rec.size(), label).c_str())) {
-        snapshot.update(rec.data());
-        (void)rec.written_since_last_check(); // Consume written flag.
-    }
-    ImGui::EndDisabled();
-    if (empty) {
-        imgui_ItemTooltip("No rules.");
-    }
-}
-
-// (Used by `rclick_popup`.)
-[[deprecated]] inline void selectable_to_take_snapshot(const char* label, const rec_for_rule& rec,
-                                                       rule_snapshot& snapshot) {
-    const auto selectable = [](const char* label) { return ImGui::Selectable(label); };
-    item_to_take_snapshot(*+selectable, label, rec, snapshot);
-}
-
-[[deprecated]] inline void display_snapshot(const char* title, rule_snapshot& snapshot, const rec_for_rule& rec,
-                                            const std::optional<rule_snapshot::contextT>& context = std::nullopt) {
-    assert(snapshot);
-    if (rec.written_since_last_check()) {
-        snapshot.test_outdated(rec.data());
-    }
-    if (snapshot.display(title, rec.data(), context).closed()) {
-        snapshot.clear();
-    }
-}
 
 class rule_with_rec : no_copy {
     aniso::ruleT m_rule{};
@@ -1377,14 +1301,19 @@ public:
     }
 
     const rec_for_rule& rec() const { return m_rec; }
+
+    // !!TODO: (v0.9.9) support cursor (undoing/redoing)? (But how to update the record when adding new rules?)
 };
 
+// TODO: support recording copied rules? (The problem is, where to expose in UI...)
 class copy_rule : no_create {
     static void save(const aniso::ruleT& rule);
+    // inline static rec_for_rule record;
 
 public:
     static void copy(const aniso::ruleT& rule) {
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
+        // record.add(rule);
         if constexpr (debug_mode) { // !!TODO: (v0.9.9) support in release mode...
             save(rule);
         }

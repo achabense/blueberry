@@ -277,6 +277,10 @@ void frame_main() {
             }
             ImGui::EndTable();
         }
+
+        if constexpr (debug_mode_support_snapshot) {
+            rec_for_rule::display_if_present({}, "Snapshot (dumped rules)");
+        }
     }
 
     messenger::display_if_present({});

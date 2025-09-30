@@ -963,6 +963,12 @@ public:
                         m_window = true;
                     }
                     guide_mode::item_tooltip("Display the rule in a regular window.");
+
+                    if constexpr (debug_mode_support_snapshot) {
+                        if (ImGui::Selectable("Dump")) {
+                            m_rule.rec().dump(settings);
+                        }
+                    }
                 });
             }
             if (try_set(pass_rule::dest(), working_set)) {
@@ -982,6 +988,12 @@ public:
             // TODO: ideally, should always appear above the source window.
             if (auto window = imgui_Window(label, &m_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                if constexpr (debug_mode_support_snapshot) {
+                    if (double_click_button_small("Dump")) {
+                        m_rule.rec().dump(settings);
+                    }
+                }
+
                 previewer::preview(0, settings, m_rule.get());
                 if (try_set(pass_rule::dest(), working_set)) {
                     messenger::dot();

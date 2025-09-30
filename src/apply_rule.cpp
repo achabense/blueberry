@@ -662,12 +662,20 @@ public:
             imgui_StrWithID(aniso::to_MAP_str(current_rule), ImGui::GetID("MAP-str"));
             if (!pass_rule::source(current_rule)) {
                 rclick_popup::for_text([&] {
+                    // imgui_StrTooltip("(...)", "..."); // TODO: move the tooltip here?
+                    // ImGui::Separator();
+
                     if (ImGui::Selectable("Copy rule")) {
                         copy_rule::copy(current_rule);
                     }
                     if (random_access_status::available()) {
                         if (ImGui::Selectable("Send to rule editor")) {
                             pass_rule::set_extra(current_rule, random_access_status::rule_id);
+                        }
+                    }
+                    if constexpr (debug_mode_support_snapshot) {
+                        if (ImGui::Selectable("Dump")) {
+                            current_rule.rec().dump(previewer::default_settings);
                         }
                     }
                 });
@@ -1880,7 +1888,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                     }
                     guide_mode::item_tooltip(
                         "Equivalent to sending rule to the MAP-string ('MAP...').\n\n"
-                        "(Unlike 'Mirror', this will not duplicate space state, so you may see different results; to reproduce the same patterns, use 'Mirror' instead.)");
+                        "(Unlike 'Mirror', this will not duplicate space state, so you may see different patterns; to reproduce the same patterns, use 'Mirror' instead.)");
                 }
                 ImGui::EndMenu();
             }
