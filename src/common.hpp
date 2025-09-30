@@ -867,24 +867,6 @@ public:
         int step = 1;
         global_timer::intervalT interval = global_timer::default_interval;
 
-        // (Workaround to support group op.)
-        struct opT {
-            bool pause = false, restart = false, p_s = false, p_1 = false, p_f = false;
-        };
-        mutable int sync_frame = -1;
-        mutable std::optional<opT> group_op{};
-        mutable opT group_op_next{};
-        mutable int group_op_next_frame = -1;
-        void update_op(const int frame) const {
-            if (compare_update(sync_frame, frame)) {
-                if (group_op_next_frame == frame) {
-                    group_op = group_op_next;
-                } else {
-                    group_op.reset();
-                }
-            }
-        }
-
         void _set(bool can_resize);
 
     public:

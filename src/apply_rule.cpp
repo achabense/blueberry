@@ -1732,6 +1732,17 @@ struct previewer::_global_data : no_create {
 
     inline static std::unordered_map<uint64_t, termT> terms;
 
+    // (Workaround to support group op; configT should live across frames.)
+    struct opT {
+        bool pause = false, restart = false, p_s = false, p_1 = false, p_f = false;
+    };
+    struct opT_ex {
+        uintptr_t owner = 0; // (To avoid storing invalid ptr.)
+        opT op = {};
+    };
+    inline static opT_ex group_op{};
+    inline static opT_ex group_op_next{};
+
     static void begin_frame() {
         if (!terms.empty()) {
             // According to https://en.cppreference.com/w/cpp/container/unordered_map/erase_if
@@ -1740,6 +1751,9 @@ struct previewer::_global_data : no_create {
                 return !std::exchange(pair.second.active, false);
             });
         }
+
+        group_op.owner = std::exchange(group_op_next.owner, 0);
+        group_op.op = group_op_next.op;
     }
 };
 
@@ -1806,8 +1820,6 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     assert(ImGui::GetItemID() != 0);
     assert(ImGui::GetItemRectSize() == config.size_imvec());
     assert(ImGui::IsItemVisible());
-    const int frame = ImGui::GetFrameCount();
-    config.update_op(frame);
 
     _global_data::termT& term = _global_data::terms[id];
     if (term.active) [[unlikely]] { // ID conflict
@@ -1899,19 +1911,18 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
 
     const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
-    const bool has_group_op = config.group_op.has_value();
-    configT::opT op = has_group_op ? *config.group_op : configT::opT{};
+    const bool has_group_op = _global_data::group_op.owner == uintptr_t(&config);
+    _global_data::opT op = has_group_op ? _global_data::group_op.op : _global_data::opT{};
     if (hovered && (active || shortcuts::no_active())) {
         // (Using unfiltered shortcut for `p_f` for smoother inter with seq op (<</>>).)
         const bool no_ctrl = shortcuts::no_ctrl();
-        const configT::opT op2 = {.pause = active,
-                                  .restart = no_ctrl && shortcuts::test_pressed(ImGuiKey_R),
-                                  .p_s = no_ctrl && shortcuts::test_pressed(ImGuiKey_S, true),
-                                  .p_1 = no_ctrl && shortcuts::test_pressed(ImGuiKey_D, true),
-                                  .p_f = no_ctrl && shortcuts::global_flag(ImGuiKey_F)};
+        const _global_data::opT op2 = {.pause = active,
+                                       .restart = no_ctrl && shortcuts::test_pressed(ImGuiKey_R),
+                                       .p_s = no_ctrl && shortcuts::test_pressed(ImGuiKey_S, true),
+                                       .p_1 = no_ctrl && shortcuts::test_pressed(ImGuiKey_D, true),
+                                       .p_f = no_ctrl && shortcuts::global_flag(ImGuiKey_F)};
         if (no_ctrl && shortcuts::global_flag(ImGuiKey_A)) {
-            config.group_op_next = op2;
-            config.group_op_next_frame = frame + 1;
+            _global_data::group_op_next = {.owner = uintptr_t(&config), .op = op2};
         } else if (!has_group_op) {
             op = op2;
         }
