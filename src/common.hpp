@@ -1009,6 +1009,7 @@ public:
                     keep_active = true;
                 }
                 rule = r;
+                assert(!ImGui::IsItemHovered()); // Blocked by source.
                 return true;
             }
         }
@@ -1228,6 +1229,7 @@ public:
             m_settings.set("Settings");
             ImGui::SameLine();
             ImGui::Text("Total:%d At:%d", total, m_pos + 1);
+
             previewer::preview(0, m_settings, m_data[m_pos]);
         }
         if (!open) {

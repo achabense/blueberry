@@ -724,19 +724,17 @@ public:
                 ImGui::PopStyleColor(4);
             }
 
-            if (!pass_rule::source(rule)) {
-                imgui_ItemTooltip([&] {
-                    if (!belongs) {
-                        imgui_Str("This rule does not belong to [S].");
-                        ImGui::Separator();
-                    }
-                    imgui_Str(term.desc);
-                    previewer::preview(-1, previewer::default_settings, rule);
-                });
-
-                if (belongs) {
-                    peek_dist(rule);
+            pass_rule::source(rule);
+            imgui_ItemTooltip([&] {
+                if (!belongs) {
+                    imgui_Str("This rule does not belong to [S].");
+                    ImGui::Separator();
                 }
+                imgui_Str(term.desc);
+                previewer::preview(0, previewer::default_settings, rule);
+            });
+            if (belongs) {
+                peek_dist(rule);
             }
         }
 
@@ -942,38 +940,34 @@ public:
         bool updated = false;
         if (!m_window) {
             imgui_StrWithID(label);
-
-            if (!pass_rule::source(m_rule.get())) {
-                // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-                imgui_ItemTooltip([&] { previewer::preview(-1, settings, m_rule.get()); });
-                // ImGui::PopStyleVar();
-
-                rclick_popup::for_text([&] {
-                    imgui_StrTooltip(
-                        "(...)",
-                        "This can be an arbitrary rule in [S]. (When [S] changes and no longer contains the rule, this will be reset to [R].)\n\n"
-                        "Drag a rule to the label to apply the rule.\n"
-                        "Drag the label to send the rule elsewhere.");
-                    ImGui::Separator();
-
-                    if (ImGui::Selectable("Copy rule")) {
-                        copy_rule::copy(m_rule.get());
-                    }
-                    if (ImGui::Selectable("Show in window")) {
-                        m_window = true;
-                    }
-                    guide_mode::item_tooltip("Display the rule in a regular window.");
-
-                    if constexpr (debug_mode_support_snapshot) {
-                        if (ImGui::Selectable("Dump")) {
-                            m_rule.rec().dump(settings);
-                        }
-                    }
-                });
-            }
+            pass_rule::source(m_rule.get());
             if (try_set(pass_rule::dest(), working_set)) {
                 messenger::dot();
                 updated = true;
+            }
+            rclick_popup::for_text([&] {
+                if (ImGui::Selectable("Copy rule")) {
+                    copy_rule::copy(m_rule.get());
+                }
+                if (ImGui::Selectable("Show in window")) {
+                    m_window = true;
+                }
+                guide_mode::item_tooltip("Display the rule in a regular window.");
+
+                if constexpr (debug_mode_support_snapshot) {
+                    if (ImGui::Selectable("Dump")) {
+                        m_rule.rec().dump(settings);
+                    }
+                }
+            });
+            guide_mode::item_tooltip(
+                "This can be an arbitrary rule in [S]. (When [S] changes and no longer contains the rule, this will be reset to [R].)\n\n"
+                "Drag a rule to the label to apply the rule.\n"
+                "Drag the label to send the rule elsewhere.");
+            // imgui_ItemTooltip([&] { previewer::preview(0, settings, m_rule.get()); }); // Will introduce a separator...
+            if (ImGui::BeginItemTooltip()) {
+                previewer::preview(0, settings, m_rule.get());
+                ImGui::EndTooltip();
             }
         } else {
             imgui_StrDisabled(label);

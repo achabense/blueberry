@@ -660,30 +660,26 @@ public:
             ImGui::SameLine();
 
             imgui_StrWithID(aniso::to_MAP_str(current_rule), ImGui::GetID("MAP-str"));
-            if (!pass_rule::source(current_rule)) {
-                rclick_popup::for_text([&] {
-                    // imgui_StrTooltip("(...)", "..."); // TODO: move the tooltip here?
-                    // ImGui::Separator();
-
-                    if (ImGui::Selectable("Copy rule")) {
-                        copy_rule::copy(current_rule);
-                    }
-                    if (random_access_status::available()) {
-                        if (ImGui::Selectable("Send to rule editor")) {
-                            pass_rule::set_extra(current_rule, random_access_status::rule_id);
-                        }
-                    }
-                    if constexpr (debug_mode_support_snapshot) {
-                        if (ImGui::Selectable("Dump")) {
-                            current_rule.rec().dump(previewer::default_settings);
-                        }
-                    }
-                });
-            }
+            pass_rule::source(current_rule);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
                 current_rule.set_next(*deliv);
                 messenger::dot();
             }
+            rclick_popup::for_text([&] {
+                if (ImGui::Selectable("Copy rule")) {
+                    copy_rule::copy(current_rule);
+                }
+                if (random_access_status::available()) {
+                    if (ImGui::Selectable("Send to rule editor")) {
+                        pass_rule::set_extra(current_rule, random_access_status::rule_id);
+                    }
+                }
+                if constexpr (debug_mode_support_snapshot) {
+                    if (ImGui::Selectable("Dump")) {
+                        current_rule.rec().dump(previewer::default_settings);
+                    }
+                }
+            });
             guide_mode::item_tooltip("This is the MAP-string for the displayed rule.\n\n"
                                      "Drag a rule here to apply the rule.\n"
                                      "Drag to send the rule elsewhere.");
@@ -744,7 +740,7 @@ public:
                 constexpr aniso::vecT max_period{.x = 4, .y = 4};
                 constexpr aniso::vecT demo_size{.x = 24, .y = 24};
                 constexpr int demo_zoom = 3;
-                constexpr ImVec2 cell_button_size{18, 18};
+                constexpr ImVec2 cell_button_size{18, 18}; // TODO: use font-based size (not quite easy...)
                 // static_assert(max_period.x * max_period.y == init.background.capacity()); This works, but why?
                 static_assert(max_period.x * max_period.y == aniso::tile_buf::capacity());
 
@@ -1054,12 +1050,11 @@ public:
                 if (m_paste->rule && *(m_paste->rule) != current_rule) { // TODO: improve...
                     ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
                     imgui_StrWithID("[Rule]");
-                    if (!pass_rule::source(*(m_paste->rule))) {
-                        imgui_ItemTooltip([&] {
-                            imgui_Str("The pattern specified a different rule.");
-                            previewer::preview(-1, previewer::default_settings, *(m_paste->rule));
-                        });
-                    }
+                    pass_rule::source(*(m_paste->rule));
+                    imgui_ItemTooltip([&] {
+                        imgui_Str("The pattern specified a different rule.");
+                        previewer::preview(0, previewer::default_settings, *(m_paste->rule));
+                    });
                     ImGui::SameLine();
                     if (double_click_button_small("Apply")) {
                         current_rule.set_next(*(m_paste->rule));
@@ -1825,84 +1820,81 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
 
     // TODO: (though the actual behaviors are ok) these op logics are quite messy...
     const bool passing = pass_rule::source(rule);
-    rclick_popup::hoverE hov = rclick_popup::None;
     bool restart_from_menu = false;
-    if (!passing) {
-        hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
-            // & '6' to see the projected view in hexagonal space.
-            imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n\n"
-                                      "(Press 'A' to apply to the entire group.)\n"
-                                      "Hold to pause.\n"
-                                      "'R' to restart.\n"
-                                      "Pause + 'S' to run manually.\n"
-                                      "'D' to advance generation by 1.\n"
-                                      "'F' to speed up manually.");
-            ImGui::SameLine();
-            // imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
-            imgui_StrDisabled("Belongs");
-            if (ImGui::BeginItemTooltip()) {
-                _show_belongs(rule);
-                ImGui::EndTooltip();
-            }
-            ImGui::Separator();
+    const rclick_popup::hoverE hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
+        // & '6' to see the projected view in hexagonal space.
+        imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n\n"
+                                  "(Press 'A' to apply to the entire group.)\n"
+                                  "Hold to pause.\n"
+                                  "'R' to restart.\n"
+                                  "Pause + 'S' to run manually.\n"
+                                  "'D' to advance generation by 1.\n"
+                                  "'F' to speed up manually.");
+        ImGui::SameLine();
+        // imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
+        imgui_StrDisabled("Belongs");
+        if (ImGui::BeginItemTooltip()) {
+            _show_belongs(rule);
+            ImGui::EndTooltip();
+        }
+        ImGui::Separator();
 
-            if (ImGui::Selectable("Copy rule")) {
-                copy_rule::copy(rule);
-            }
-            guide_mode::item_tooltip("Copy rule to the clipboard (as MAP-string).");
-            if (ImGui::Selectable("Restart")) {
-                restart_from_menu = true;
-            }
-            guide_mode::item_tooltip("Equivalent to the shortcut ('R').");
+        if (ImGui::Selectable("Copy rule")) {
+            copy_rule::copy(rule);
+        }
+        guide_mode::item_tooltip("Copy rule to the clipboard (as MAP-string).");
+        if (ImGui::Selectable("Restart")) {
+            restart_from_menu = true;
+        }
+        guide_mode::item_tooltip("Equivalent to the shortcut ('R').");
 
-            if constexpr (0) {
-                // TODO: very convenient, but cannot decide how to expose (be menu-like, or another rclick-popup mode)...
-                // (If it's a group-wise popup, may support resizing as well...)
-                // (& Whether to defer the change to the end of the frame?)
-                ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
-                ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
-                const bool begun = ImGui::BeginMenu("Settings");
-                ImGui::PopItemFlag();
-                ImGui::PopStyleColor();
-                if (begun) {
-                    const_cast<configT&>(config)._set(false); // bleh...
-                    ImGui::EndMenu();
-                }
-            }
-
-            const bool rule_editor_avail = random_access_status::available();
-            const bool pattern_editor_avail = pattern_editor_status::available();
-
-            if ((rule_editor_avail || pattern_editor_avail) && imgui_BeginMenuFromPopup("Send to")) {
-                if (rule_editor_avail) {
-                    // !!TODO: (v0.9.9) recheck calling convention; only handlers are responsible for showing the dot...
-                    if (ImGui::Selectable("Rule editor") /*XX messenger::dot()*/) {
-                        pass_rule::set_extra(rule, random_access_status::rule_id);
-                    }
-                    guide_mode::item_tooltip(
-                        "Equivalent to sending rule to the 'Edit-rule' checkbox (or '[Z]' if it's turned on).");
-                }
-                if (pattern_editor_avail) {
-                    if (ImGui::Selectable("Pattern editor") && messenger::dot()) {
-                        runner.set_rule(rule);
-                    }
-                    guide_mode::item_tooltip(
-                        "Equivalent to sending rule to the MAP-string ('MAP...').\n\n"
-                        "(Unlike 'Mirror', this will not duplicate space state, so you may see different patterns; to reproduce the same patterns, use 'Mirror' instead.)");
-                }
+        if constexpr (0) {
+            // TODO: very convenient, but cannot decide how to expose (be menu-like, or another rclick-popup mode)...
+            // (If it's a group-wise popup, may support resizing as well...)
+            // (& Whether to defer the change to the end of the frame?)
+            ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+            ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
+            const bool begun = ImGui::BeginMenu("Settings");
+            ImGui::PopItemFlag();
+            ImGui::PopStyleColor();
+            if (begun) {
+                const_cast<configT&>(config)._set(false); // bleh...
                 ImGui::EndMenu();
             }
-            if (pattern_editor_avail) {
-                if (ImGui::Selectable("Mirror") && messenger::dot()) {
-                    runner.set_rule(rule);
-                    runner.set_state(tile_size, _global_data::init);
-                    // runner.set_state(term.tile.size(), term.init);
+        }
+
+        const bool rule_editor_avail = random_access_status::available();
+        const bool pattern_editor_avail = pattern_editor_status::available();
+
+        if ((rule_editor_avail || pattern_editor_avail) && imgui_BeginMenuFromPopup("Send to")) {
+            if (rule_editor_avail) {
+                // !!TODO: (v0.9.9) recheck calling convention; only handlers are responsible for showing the dot...
+                if (ImGui::Selectable("Rule editor") /*XX messenger::dot()*/) {
+                    pass_rule::set_extra(rule, random_access_status::rule_id);
                 }
                 guide_mode::item_tooltip(
-                    "Send rule to the pattern editor & duplicate the space state (so you can operate on the same patterns).");
+                    "Equivalent to sending rule to the 'Edit-rule' checkbox (or '[Z]' if it's turned on).");
             }
-        });
-    }
+            if (pattern_editor_avail) {
+                if (ImGui::Selectable("Pattern editor") && messenger::dot()) {
+                    runner.set_rule(rule);
+                }
+                guide_mode::item_tooltip(
+                    "Equivalent to sending rule to the MAP-string ('MAP...').\n\n"
+                    "(Unlike 'Mirror', this will not duplicate space state, so you may see different patterns; to reproduce the same patterns, use 'Mirror' instead.)");
+            }
+            ImGui::EndMenu();
+        }
+        if (pattern_editor_avail) {
+            if (ImGui::Selectable("Mirror") && messenger::dot()) {
+                runner.set_rule(rule);
+                runner.set_state(tile_size, _global_data::init);
+                // runner.set_state(term.tile.size(), term.init);
+            }
+            guide_mode::item_tooltip(
+                "Send rule to the pattern editor & duplicate the space state (so you can operate on the same patterns).");
+        }
+    });
     assert_implies(passing, hov == rclick_popup::None);
 
     const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();

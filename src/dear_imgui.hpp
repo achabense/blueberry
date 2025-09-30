@@ -70,6 +70,7 @@ inline void imgui_ItemRectFilled(ImU32 col) {
     ImGui::GetWindowDrawList()->AddRectFilled(pos_min, pos_max, col);
 }
 
+// (May still render a dot if rate == 0.)
 inline void imgui_ItemRectFilled(ImU32 col, float rate) {
     const auto [pos_min, pos_max] = GImGui->LastItemData.Rect;
     const ImVec2 off = ImFloor((pos_max - pos_min) * ((1 - rate) / 2));
