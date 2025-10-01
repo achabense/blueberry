@@ -344,7 +344,7 @@ public:
         }
     }
 
-    bool assign_dir_or_file(const pathT& path, std::optional<pathT>& out_file) noexcept {
+    bool assign_dir_or_file(const pathT& path, const entryT*& file_pos) noexcept {
         if (path.empty() || (m_path.empty() && !path.is_absolute())) {
             return false;
         }
@@ -359,6 +359,23 @@ public:
         if (std::filesystem::is_directory(status)) {
             return assign_dir(p);
         } else if (std::filesystem::is_regular_file(status)) {
+#if 1
+            if (!assign_dir(p / "..")) {
+                return false;
+            }
+
+            for (const pathT name = p.filename(); const entryT& file : m_files) {
+                if (name.native() == file.name.native()) {
+                    file_pos = &file;
+                    return true;
+                }
+            }
+
+            // The file exists, but cannot resolve with string comparison.
+            // Used to resort to fs::equivalent (below), but that's too expensive...
+            messenger::set_msg("Cannot resolve the name.");
+            return true;
+#else
             folderT temp;
             if (!temp.assign_dir(p / "..")) { // 'p' may contain trailing sep, so parent_path doesn't apply here.
                 return false;
@@ -374,6 +391,7 @@ public:
                     return true;
                 }
             }
+#endif
         }
         return false;
     }
@@ -421,9 +439,15 @@ public:
         if (input_text("Open", buf_path, "Folder or file path", ImGuiInputTextFlags_EnterReturnsTrue) &&
             buf_path[0] != '\0') {
             // It's impressive that path has implicit c-str ctor... why?
+            // Related: https://github.com/microsoft/STL/issues/909
             const auto p = cpp17_u8path(buf_path);
-            if (p && m_current.assign_dir_or_file(*p, target)) {
+            const folderT::entryT* pos = nullptr;
+            if (p && m_current.assign_dir_or_file(*p, pos)) {
                 reset_scroll = true;
+                if (pos) {
+                    assert(pos->is_file);
+                    target = m_current / pos->name;
+                }
             } else {
                 std::error_code ec{};
                 messenger::set_msg(p && !std::filesystem::exists(*p, ec) ? "Path doesn't exist." : "Cannot open.");
@@ -458,7 +482,9 @@ private:
                         continue;
                     }
                     any = true;
-                    const bool selected = current && entry.name == *current;
+                    // (Direct path comparison is expensive.)
+                    // const bool selected = current && entry.name == *current;
+                    const bool selected = current && entry.name.native() == current->native();
                     const bool indent = type == Both && !entry.is_file;
                     if (indent) {
                         imgui_AddCursorPosX(indent_spacing);
