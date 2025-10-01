@@ -1740,8 +1740,8 @@ struct previewer::_global_data : no_create {
         uintptr_t owner = 0; // (To avoid storing invalid ptr.)
         opT op = {};
     };
-    inline static opT_ex group_op{};
-    inline static opT_ex group_op_next{};
+    static opT_ex group_op;
+    static opT_ex group_op_next;
 
     static void begin_frame() {
         if (!terms.empty()) {
@@ -1756,6 +1756,10 @@ struct previewer::_global_data : no_create {
         group_op.op = group_op_next.op;
     }
 };
+
+// (Could be inline static; workaround for gcc & clang building...)
+previewer::_global_data::opT_ex previewer::_global_data::group_op{};
+previewer::_global_data::opT_ex previewer::_global_data::group_op_next{};
 
 void previewer::configT::_set(const bool can_resize) {
     // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {3, 2});

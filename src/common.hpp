@@ -676,8 +676,9 @@ class messenger : no_create {
         clockT::time_point m_time{};
 
     public:
-        // (Defined as a workaround for gcc building.)
+        // (Defined as a workaround for gcc & clang building.)
         // (Related: https://stackoverflow.com/questions/53408962)
+        // messageT() = default; // Doesn't work...
         messageT() : m_dot{}, m_str{}, m_min{}, m_life{}, m_count{}, m_time{} {}
 
         void clear() {
@@ -1261,7 +1262,7 @@ public:
     }
 
 private:
-    inline static rule_snapshot snapshot;
+    inline static rule_snapshot snapshot{}; // (Only) gcc requires {} here due to explicit default ctor (likely a bug)
 };
 
 class rule_with_rec : no_copy {
