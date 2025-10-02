@@ -359,6 +359,12 @@ class runnerT : no_copy {
             }
         }
 
+        void on_rule_changed() {
+            assert(enabled);
+            self.m_torus.restart();
+            self.m_ctrl.set_pause(false);
+        }
+
         void on_pattern_set() {
             assert(enabled);
             const bool p = self.m_ctrl.get_pause();
@@ -380,33 +386,26 @@ class runnerT : no_copy {
 
     handlerT m_handler{*this};
 
-    // TODO: update immediately?
-    class staged_rule {
+    class targetT : no_copy {
         rule_with_rec rule = aniso::game_of_life();
-        // std::optional<aniso::ruleT> next = std::nullopt;
-        aniso::ruleT next = {};
-        bool has_next = false;
+        handlerT& m_handler;
 
     public:
+        targetT(handlerT& m_handler) : m_handler{m_handler} {}
+
         operator const aniso::ruleT&() const { return rule.get(); }
         const aniso::ruleT& get() const { return rule.get(); }
         const rec_for_rule& rec() const { return rule.rec(); }
 
-        void set_next(const aniso::ruleT& r) {
-            next = r;
-            has_next = true;
-        }
-        bool update() {
-            // TODO: restart as long as `has_next`?
-            if (std::exchange(has_next, false) && rule.get() != next) {
-                rule.set(next);
-                return true;
+        void set(const aniso::ruleT& r) {
+            if (rule.get() != r) { // TODO: whether to compare? (Whether to always restart?)
+                rule.set(r);
+                m_handler.on_rule_changed(); // -> restart
             }
-            return false;
         }
     };
 
-    staged_rule current_rule{};
+    targetT m_rule{m_handler};
 
     class ctrlT : no_copy {
     public:
@@ -682,7 +681,7 @@ class runnerT : no_copy {
 public:
     runnerT() { m_handler.enable(); }
 
-    void set_rule(const aniso::ruleT& rule) { current_rule.set_next(rule); }
+    void set_rule(const aniso::ruleT& rule) { m_rule.set(rule); }
 
     void set_state(const aniso::vecT& size, const initT& init) {
         reset_pos();
@@ -696,10 +695,6 @@ public:
             m_paste.reset();
             m_sel.reset();
         }
-        if (current_rule.update()) {
-            m_torus.restart();
-            m_ctrl.set_pause(false);
-        }
 
         bool highlight_canvas = false;
         {
@@ -712,24 +707,24 @@ public:
             }
             ImGui::SameLine();
 
-            imgui_StrWithID(aniso::to_MAP_str(current_rule), ImGui::GetID("MAP-str"));
-            pass_rule::source(current_rule);
+            imgui_StrWithID(aniso::to_MAP_str(m_rule), ImGui::GetID("MAP-str"));
+            pass_rule::source(m_rule);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                current_rule.set_next(*deliv);
+                m_rule.set(*deliv);
                 messenger::dot();
             }
             rclick_popup::for_text([&] {
                 if (ImGui::Selectable("Copy rule")) {
-                    copy_rule::copy(current_rule);
+                    copy_rule::copy(m_rule);
                 }
                 if (random_access_status::available()) {
                     if (ImGui::Selectable("Send to rule editor")) {
-                        pass_rule::set_extra(current_rule, random_access_status::rule_id);
+                        pass_rule::set_extra(m_rule, random_access_status::rule_id);
                     }
                 }
                 if constexpr (debug_mode_support_snapshot) {
                     if (ImGui::Selectable("Dump")) {
-                        current_rule.rec().dump(previewer::default_settings);
+                        m_rule.rec().dump(previewer::default_settings);
                     }
                 }
             });
@@ -867,7 +862,7 @@ public:
                     imgui_ItemRect(IM_COL32_GREY(160, 255));
 
                     if (global_timer::test(200) && !std::exchange(delay, false)) {
-                        curr.run_torus(current_rule.get());
+                        curr.run_torus(m_rule.get());
                     }
                 }
             }
@@ -962,7 +957,7 @@ public:
             ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
             ImGui::SameLine();
             if (ImGui::Button("+s") || item_shortcut(ImGuiKey_S, true)) {
-                m_ctrl.extra_step = m_ctrl.get_pause() ? adjust_step(m_ctrl.step, strobing(current_rule)) : 0;
+                m_ctrl.extra_step = m_ctrl.get_pause() ? adjust_step(m_ctrl.step, strobing(m_rule)) : 0;
                 m_ctrl.set_pause(true);
             }
             ImGui::SameLine();
@@ -973,7 +968,7 @@ public:
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
                 (enable_shortcuts && shortcuts::test_down_and_highlight(ImGuiKey_F))) {
-                m_ctrl.extra_step = adjust_step(step_fast, strobing(current_rule));
+                m_ctrl.extra_step = adjust_step(step_fast, strobing(m_rule));
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
             ImGui::SameLine();
@@ -988,7 +983,7 @@ public:
 
             ImGui::Separator(); // To align with the left panel.
 
-            const auto to_str = [is_strobing = strobing(current_rule)](int step) {
+            const auto to_str = [is_strobing = strobing(m_rule)](int step) {
                 if (!is_strobing) {
                     return std::to_string(step);
                 } else {
@@ -1097,7 +1092,7 @@ public:
                                            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse |
                                                ImGuiWindowFlags_AlwaysAutoResize)) {
                 imgui_Str("Double-click to paste.");
-                if (m_paste->rule && *(m_paste->rule) != current_rule) { // TODO: improve...
+                if (m_paste->rule && *(m_paste->rule) != m_rule) { // TODO: improve...
                     ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
                     imgui_StrWithID("[Rule]");
                     pass_rule::source(*(m_paste->rule));
@@ -1107,7 +1102,7 @@ public:
                     });
                     ImGui::SameLine();
                     if (double_click_button_small("Apply")) {
-                        current_rule.set_next(*(m_paste->rule));
+                        m_rule.set(*(m_paste->rule));
                     }
                 }
 
@@ -1256,7 +1251,7 @@ public:
                 if (!m_paste && !(m_sel && m_sel->active && m_sel->area() > 2)) {
                     if (imgui_IsItemHoveredForTooltip() && cel_pos.both_gteq({-10, -10}) &&
                         cel_pos.both_lt(tile_size.plus(10, 10))) {
-                        hex_mode = want_hex_mode(current_rule);
+                        hex_mode = want_hex_mode(m_rule);
                         if (hex_mode || m_coord.zoom <= 1) {
                             zoom_center = cel_pos;
                         }
@@ -1276,7 +1271,7 @@ public:
                 }
             }
 
-            m_torus.run(current_rule, m_ctrl);
+            m_torus.run(m_rule, m_ctrl);
 
             // Render.
             {
@@ -1529,7 +1524,7 @@ private:
                 assert(self.m_sel);
                 const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
                 if (const auto p_size = aniso::spatial_period_full_area(sel_area, {30, 30})) {
-                    if (const auto period = aniso::torus_period(self.current_rule, sel_area.clip_corner(*p_size), 60)) {
+                    if (const auto period = aniso::torus_period(self.m_rule, sel_area.clip_corner(*p_size), 60)) {
                         messenger::set_msg("Period: x = {}, y = {}, p = {}", p_size->x, p_size->y, *period);
                     } else {
                         messenger::set_msg("Spatial period: x = {}, y = {} (not temporally periodic)", p_size->x,
@@ -1549,7 +1544,7 @@ private:
             [](runnerT& self) {
                 assert(self.m_sel);
                 const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
-                set_clipboard_and_notify(aniso::to_RLE_str(sel_area, add_rule ? &self.current_rule.get() : nullptr));
+                set_clipboard_and_notify(aniso::to_RLE_str(sel_area, add_rule ? &self.m_rule.get() : nullptr));
             } //
         };
         static constexpr op_term op_extract{
@@ -1563,7 +1558,7 @@ private:
                 } else {
                     assert(self.m_sel);
                     const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
-                    self.m_paste.set(self.current_rule, aniso::tileT(sel_area));
+                    self.m_paste.set(self.m_rule, aniso::tileT(sel_area));
                 }
             } //
         };
@@ -1572,8 +1567,7 @@ private:
             [](runnerT& self) {
                 assert(self.m_sel);
                 const aniso::vecT p_size{2, 2};
-                if (const auto result =
-                        identify(self.m_torus.read_only(self.m_sel->to_range()), self.current_rule, p_size)) {
+                if (const auto result = identify(self.m_torus.read_only(self.m_sel->to_range()), self.m_rule, p_size)) {
                     const auto& [pattern, offset, period] = *result;
                     const bool no_offset = offset == aniso::vecT{0, 0};
                     std::string desc;
@@ -1584,8 +1578,7 @@ private:
                     } else {
                         desc = std::format("spaceship, period = {}, offset = ({},{})", period, offset.x, offset.y);
                     }
-                    std::string rle_str =
-                        "#C " + desc + '\n' + aniso::to_RLE_str(pattern.data(), &self.current_rule.get());
+                    std::string rle_str = "#C " + desc + '\n' + aniso::to_RLE_str(pattern.data(), &self.m_rule.get());
                     if (set_clipboard(rle_str)) {
                         if constexpr (0) {
                             messenger::set_msg(std::move(rle_str));

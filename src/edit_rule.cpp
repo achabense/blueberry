@@ -961,7 +961,7 @@ public:
                 }
             });
             guide_mode::item_tooltip(
-                "This can be an arbitrary rule in [S]. (When [S] changes and no longer contains the rule, this will be reset to [R].)\n\n"
+                "This can be an arbitrary rule in [S]. (If [S] changes and no longer contains the rule, this will be reset to [R].)\n\n"
                 "Drag a rule here to apply the rule.\n"
                 "Drag to send the rule elsewhere.");
             // imgui_ItemTooltip([&] { previewer::preview(0, settings, m_rule.get()); }); // Will introduce a separator...
