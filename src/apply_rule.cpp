@@ -605,11 +605,20 @@ class runnerT : no_copy {
 
         ImVec2 to_rotate = {0, 0};
         bool reset_pos = true;
+
+        // Cannot serve to reset pos immediately (needs up-to-date size).
+        ImVec2 last_known_canvas_size = {0, 0};
     };
 
     coordT m_coord{};
 
     void reset_pos() { m_coord.reset_pos = true; }
+
+    aniso::vecT fullscreen_size(const zoomT& z, ImVec2 canvas_size) const {
+        // TODO: using {70, 70} so that 220*160 (via 'Mirror') can select zoom = 2 by default...
+        // Too fragile.
+        return m_torus.align(from_imvec((canvas_size - ImVec2(70, 70)) / z));
+    };
 
     // !!TODO: (v0.9.9) enhance to pattern list (& support more sources like text-page & sel op).
     // (Used to be std::optional.)
@@ -734,9 +743,6 @@ public:
 
             ImGui::Separator();
         }
-
-        std::optional<zoomT> resize_fullscreen_tooltip = std::nullopt;
-        std::optional<zoomT> resize_fullscreen = std::nullopt;
 
         constexpr const char* canvas_name = "Canvas";
         const ImGuiID canvas_id = ImGui::GetID(canvas_name);
@@ -914,12 +920,15 @@ public:
             imgui_Str("Zoom ~");
             for (const zoomT& z : zoomT::list()) {
                 ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                // (`last_known_canvas_size` is 99.99% reliable here due to UI logic.)
                 if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
-                    resize_fullscreen = z;
+                    reset_pos();
+                    m_torus.set(fullscreen_size(z, m_coord.last_known_canvas_size));
                 }
-                if (imgui_IsItemHoveredForTooltip()) {
-                    resize_fullscreen_tooltip = z;
-                }
+                imgui_ItemTooltip([&] {
+                    const auto size = fullscreen_size(z, m_coord.last_known_canvas_size);
+                    ImGui::Text("%d*%d", size.x, size.y);
+                });
             }
             ImGui::SameLine();
             if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the screen.\n\n"
@@ -1154,6 +1163,7 @@ public:
             const ImVec2 canvas_max = ImGui::GetItemRectMax();
             const ImVec2 canvas_size = ImGui::GetItemRectSize();
             assert(canvas_id == ImGui::GetItemID());
+            m_coord.last_known_canvas_size = canvas_size;
 
             const bool active = ImGui::IsItemActive();
             const bool hovered = ImGui::IsItemHovered();
@@ -1163,25 +1173,6 @@ public:
                 m_ctrl.extra_pause = true; // Pause for this frame.
             }
 
-            const auto fullscreen_size = [&](const zoomT& z) {
-                // return m_torus.align(from_imvec((canvas_size - ImVec2(20, 20)) / z));
-                // (v So that 220*160 will choose zoom = 2...)
-                return m_torus.align(from_imvec((canvas_size - (z > 2 ? ImVec2(70, 70) : ImVec2(50, 50))) / z));
-                // return m_torus.align(from_imvec((canvas_size - ImVec2(30, 30) * std::max((float)z, 1.0f)) / z));
-            };
-
-            if (resize_fullscreen_tooltip) {
-                if (ImGui::BeginTooltip()) {
-                    const auto size = fullscreen_size(*resize_fullscreen_tooltip);
-                    ImGui::Text("%d*%d", size.x, size.y);
-                    ImGui::EndTooltip();
-                }
-            }
-            if (resize_fullscreen) {
-                reset_pos();
-                m_torus.set(fullscreen_size(*resize_fullscreen));
-            }
-
             // `m_torus` won't resize now.
             const aniso::vecT tile_size = m_torus.size();
 
@@ -1189,7 +1180,7 @@ public:
                 // Select the largest zoom that can hold the entire tile.
                 m_coord.zoom = zoomT::min();
                 for (const zoomT& z : std::views::reverse(zoomT::list())) {
-                    if (fullscreen_size(z).both_gteq(tile_size)) {
+                    if (fullscreen_size(z, canvas_size).both_gteq(tile_size)) {
                         m_coord.zoom = z;
                         break;
                     }
