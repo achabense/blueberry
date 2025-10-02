@@ -885,6 +885,7 @@ namespace aniso {
         }
 
         ~tileT() { delete[] m_data; }
+        void clear() { *this = {}; }
 
         explicit tileT(const tile_const_ref tile) : m_size{tile.size}, m_data{} {
             assert(tile.size.x > 0 && tile.size.y > 0);
@@ -900,7 +901,7 @@ namespace aniso {
         }
         tileT& operator=(const tileT&) = delete; // -> `= tileT(other)`
 
-        // Not value-preserving.
+        // Not value-preserving (if resized).
         bool resize(const vecT size) {
             if (m_size != size) {
                 tileT(size).swap(*this);

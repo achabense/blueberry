@@ -340,8 +340,47 @@ public:
 };
 
 // TODO: stop running when the space is moved out of scope?
-// TODO: refactor; the code is horribly messy...
+// !!TODO: reconsider, when to reset pos? When to reset sel and pattern? When to restart the space?
 class runnerT : no_copy {
+    class handlerT : no_copy {
+        runnerT& self;
+        bool enabled = false; // Disabled during member init.
+
+        std::optional<bool> stashed_pause = std::nullopt;
+
+    public:
+        handlerT(runnerT& self) : self{self} {}
+        void enable() { enabled = true; }
+
+        void on_resized() {
+            if (enabled) {
+                self.m_paste.reset();
+                self.m_sel.reset();
+            }
+        }
+
+        void on_pattern_set() {
+            assert(enabled);
+            const bool p = self.m_ctrl.get_pause();
+            self.m_ctrl.set_pause(true);
+            stashed_pause = p;
+        }
+        void on_pause_written() {
+            assert(enabled);
+            stashed_pause.reset();
+        }
+        void on_pattern_reset() {
+            assert(enabled);
+            if (stashed_pause) {
+                self.m_ctrl.set_pause(*stashed_pause); // -> on_pause_written
+                assert(!stashed_pause);
+            }
+        }
+    };
+
+    handlerT m_handler{*this};
+
+    // TODO: update immediately?
     class staged_rule {
         rule_with_rec rule = aniso::game_of_life();
         // std::optional<aniso::ruleT> next = std::nullopt;
@@ -369,7 +408,7 @@ class runnerT : no_copy {
 
     staged_rule current_rule{};
 
-    class ctrlT {
+    class ctrlT : no_copy {
     public:
         int step = 1; // Auto mode.
         global_timer::intervalT interval = global_timer::default_interval;
@@ -381,20 +420,10 @@ class runnerT : no_copy {
         bool pause = false;
         bool delay = false; // Affects only auto mode.
 
-        // TODO: the interop between different parts is pretty awkward...
-        // m_paste.create -> push_pause_for_m_paste.
-        // any interrupting write-access to pause -> invalidate stashed_pause.
-        // m_paste.reset -> pop_pause_for_m_paste (~ restore if not invalidated).
-        std::optional<bool> stashed_pause = std::nullopt;
+        handlerT& m_handler;
 
     public:
-        void push_pause_for_m_paste() { stashed_pause = std::exchange(pause, true); }
-        void pop_pause_for_m_paste() {
-            if (stashed_pause) {
-                pause = *stashed_pause;
-                stashed_pause.reset();
-            }
-        }
+        ctrlT(handlerT& m_handler) : m_handler{m_handler} {}
 
         int calc_step(const aniso::ruleT& rule, const bool newly_restarted, const bool ex_delay) {
             const int ex_step = std::exchange(extra_step, 0);
@@ -420,14 +449,14 @@ class runnerT : no_copy {
         bool get_pause() const { return pause; }
         void set_pause(bool p) {
             pause = p;
-            stashed_pause.reset();
+            m_handler.on_pause_written();
         }
         void flip_pause() { set_pause(!pause); }
     };
 
-    ctrlT m_ctrl{};
+    ctrlT m_ctrl{m_handler};
 
-    class torusT {
+    class torusT : no_copy {
     public:
         static constexpr initT init_init{.seed = 0, .density = 50, .area = 50, .background = aniso::cellT{0}};
         static constexpr aniso::vecT init_size{.x = 600, .y = 400};
@@ -435,11 +464,12 @@ class runnerT : no_copy {
         static constexpr aniso::vecT max_size{.x = 1500, .y = 1000};
 
     private:
+        handlerT& m_handler;
+
         initT m_init = init_init;
         aniso::tileT m_tile = {};
         int m_gen = 0;
 
-        bool m_resized = true;
         bool m_restarted = true; // -> skip displaying initial state if not paused.
         bool m_written = false;
         bool m_delay = true;
@@ -451,12 +481,14 @@ class runnerT : no_copy {
         }
         void resize(const aniso::vecT& size) {
             if (m_tile.resize(align(size))) {
-                m_resized = true;
+                m_handler.on_resized();
             }
         }
 
     public:
-        torusT() { restart(init_size); }
+        torusT(handlerT& m_handler) : m_handler{m_handler} { //
+            restart(init_size);
+        }
 
         // TODO: whether to try to avoid repeated init?
         void restart() {
@@ -526,7 +558,6 @@ class runnerT : no_copy {
             return n_size;
         }
 
-        bool resized_since_last_check() { return std::exchange(m_resized, false); }
         const initT& get_init() const { return m_init; }
 
         // !!TODO: whether to restart if `m_written`?
@@ -562,8 +593,9 @@ class runnerT : no_copy {
         }
     };
 
-    torusT m_torus{}; // Space.
+    torusT m_torus{m_handler}; // Space.
 
+    // !!TODO: recheck (especially rounding)...
     // space-pos == corner-pos + canvas-pos / zoom
     struct coordT {
         zoomT zoom{};
@@ -571,23 +603,60 @@ class runnerT : no_copy {
         ImVec2 to_space(ImVec2 canvas_pos) const { return corner_pos + canvas_pos / zoom; }
         ImVec2 to_canvas(ImVec2 space_pos) const { return (space_pos - corner_pos) * zoom; }
         void bind(const ImVec2 space_pos, const ImVec2 canvas_pos) { corner_pos = space_pos - canvas_pos / zoom; }
+
+        ImVec2 to_rotate = {0, 0};
+        bool reset_pos = true;
     };
 
     coordT m_coord{};
-    ImVec2 to_rotate = {0, 0};
+
+    void reset_pos() { m_coord.reset_pos = true; }
 
     // !!TODO: (v0.9.9) enhance to pattern list (& support more sources like text-page & sel op).
-    struct pasteT {
-        bool newly_assigned = true;
-        std::optional<aniso::ruleT> rule = std::nullopt;
-        aniso::tileT tile{};
-        aniso::vecT beg{0, 0};
-        aniso::blitE mode = aniso::blitE::Copy;
-        inline static bool paste_once = true; // TODO: static or per object?
+    // (Used to be std::optional.)
+    class pasteT : no_copy {
+        handlerT& m_handler;
+        bool has_value = false;
 
-        aniso::vecT size() const { return tile.size(); }
+        struct {
+            bool newly_assigned = true;
+            std::optional<aniso::ruleT> rule = std::nullopt;
+            aniso::tileT tile = {};
+            aniso::vecT beg = {0, 0};
+            aniso::blitE mode = aniso::blitE::Copy;
+            bool paste_once = true;
+            aniso::vecT size() const { return tile.size(); }
+        } data{};
+
+    public:
+        pasteT(handlerT& m_handler) : m_handler{m_handler} {}
+
+        explicit operator bool() const { return has_value; }
+        auto* operator->() {
+            assert(has_value);
+            return &data;
+        }
+
+        void set(std::optional<aniso::ruleT> rule_, aniso::tileT tile_) {
+            m_handler.on_pattern_set();
+            has_value = true;
+
+            data.newly_assigned = true;
+            data.rule = std::move(rule_);
+            data.tile = std::move(tile_);
+            data.beg = {0, 0};
+            data.mode = aniso::blitE::Copy;
+            // TODO: whether to reset `paste_once`?
+        }
+        void reset() {
+            if (std::exchange(has_value, false)) {
+                data.tile.clear();
+                m_handler.on_pattern_reset();
+            }
+        }
     };
-    std::optional<pasteT> m_paste = std::nullopt;
+
+    pasteT m_paste{m_handler};
 
     struct selectT {
         bool active = true;
@@ -605,43 +674,27 @@ class runnerT : no_copy {
         aniso::vecT size() const { return {.x = width(), .y = height()}; }
         int area() const { return width() * height(); }
     };
+
     std::optional<selectT> m_sel = std::nullopt;
-
-    bool locate_center = true;
-    bool find_suitable_zoom = true;
-
-    // Any state change (size or init) -> reset area & pattern.
-    // Any attempt to resize (not including init-bg) -> reset pos.
-    void reset_pos() {
-        locate_center = true;
-        find_suitable_zoom = true;
-    }
-    void reset_m_paste() {
-        m_paste.reset();
-        m_ctrl.pop_pause_for_m_paste();
-    }
-    void reset_m_paste_and_m_sel() {
-        reset_m_paste();
-        m_sel.reset();
-    }
 
     test_appearing m_appearing{};
 
 public:
+    runnerT() { m_handler.enable(); }
+
     void set_rule(const aniso::ruleT& rule) { current_rule.set_next(rule); }
 
     void set_state(const aniso::vecT& size, const initT& init) {
         reset_pos();
-        if (m_torus.set(size, init)) {
-            reset_m_paste_and_m_sel();
-        }
+        m_torus.set(size, init);
     }
 
     // Not designed to support multiple instances. (For example, some settings use static variables.)
     void display() {
         if (m_appearing.update()) {
             reset_pos();
-            reset_m_paste_and_m_sel();
+            m_paste.reset();
+            m_sel.reset();
         }
         if (current_rule.update()) {
             m_torus.restart();
@@ -713,7 +766,7 @@ public:
                              "Restart : R\n"
                              "Pause   : Space");
 
-            initT init = reset ? torusT::init_init : m_torus.get_init();
+            initT init = m_torus.get_init();
 
             ImGui::PushItemWidth(item_width());
             imgui_StepSliderInt::fn("Seed", &init.seed, 0, 29);
@@ -819,12 +872,16 @@ public:
                 }
             }
 
-            if (restart) {
-                m_torus.restart();
-            }
-            if (m_torus.set(init) || restart) {
+            // !!TODO: recheck...
+            if (reset) {
+                m_torus.restart(torusT::init_init); // Or set?
                 m_ctrl.set_pause(true);
-                reset_m_paste_and_m_sel();
+            } else if (restart) {
+                m_torus.restart();
+                m_ctrl.set_pause(true);
+            } else if (m_torus.get_init() != init) {
+                m_torus.restart(init);
+                m_ctrl.set_pause(true);
             }
         };
 
@@ -852,10 +909,8 @@ public:
                 reset_pos();
 
                 // Both values will be flushed if either receives the enter key.
-                if (m_torus.set({.x = ix.value_or(input_x.flush().value_or(size.x)),
-                                 .y = iy.value_or(input_y.flush().value_or(size.y))})) {
-                    reset_m_paste_and_m_sel();
-                }
+                m_torus.set({.x = ix.value_or(input_x.flush().value_or(size.x)),
+                             .y = iy.value_or(input_y.flush().value_or(size.y))});
             }
         };
 
@@ -974,20 +1029,15 @@ public:
             static_assert(torusT::init_size == aniso::vecT{600, 400});
             if (imgui_SelectableStyledButtonEx(id++, "Size (600*400)") && messenger::dot()) {
                 reset_pos();
-                if (m_torus.set(torusT::init_size)) {
-                    reset_m_paste_and_m_sel();
-                }
+                m_torus.set(torusT::init_size);
             }
             if (imgui_SelectableStyledButtonEx(id++, "Init state") && messenger::dot()) {
-                if (m_torus.set(torusT::init_init)) {
-                    reset_m_paste_and_m_sel();
-                }
+                // reset_pos();
+                m_torus.set(torusT::init_init);
             }
             if (imgui_SelectableStyledButtonEx(id++, "Size & state") && messenger::dot()) {
                 reset_pos();
-                if (m_torus.set(torusT::init_size, torusT::init_init)) {
-                    reset_m_paste_and_m_sel();
-                }
+                m_torus.set(torusT::init_size, torusT::init_init);
             }
         });
         ImGui::SameLine();
@@ -1094,7 +1144,7 @@ public:
                 }
             }
             if (!open) {
-                reset_m_paste();
+                m_paste.reset();
             }
         }
 
@@ -1134,33 +1184,24 @@ public:
             }
             if (resize_fullscreen) {
                 reset_pos();
-                m_coord.zoom = *resize_fullscreen;
-                if (m_torus.set(fullscreen_size(m_coord.zoom))) {
-                    reset_m_paste_and_m_sel();
-                    find_suitable_zoom = false;
-                }
-            }
-            if (std::exchange(find_suitable_zoom, false)) {
-                // Select the largest zoom that can hold the entire tile.
-                m_coord.zoom = zoomT::min();
-                for (const zoomT& z : std::views::reverse(zoomT::list())) {
-                    if (fullscreen_size(z).both_gteq(m_torus.size())) {
-                        m_coord.zoom = z;
-                        break;
-                    }
-                }
+                m_torus.set(fullscreen_size(*resize_fullscreen));
             }
 
             // `m_torus` won't resize now.
             const aniso::vecT tile_size = m_torus.size();
-            if (m_torus.resized_since_last_check()) {
-                assert(!m_paste && !m_sel);
-                reset_m_paste_and_m_sel(); // Defensive.
-            }
 
-            if (std::exchange(locate_center, false)) {
+            if (std::exchange(m_coord.reset_pos, false)) {
+                // Select the largest zoom that can hold the entire tile.
+                m_coord.zoom = zoomT::min();
+                for (const zoomT& z : std::views::reverse(zoomT::list())) {
+                    if (fullscreen_size(z).both_gteq(tile_size)) {
+                        m_coord.zoom = z;
+                        break;
+                    }
+                }
+                // Locate center.
                 m_coord.bind(to_imvec(tile_size) / 2, canvas_size / 2);
-                to_rotate = {0, 0};
+                m_coord.to_rotate = {0, 0};
             }
 
             if (m_sel && m_sel->active && (!r_down || m_paste || ImGui::IsItemDeactivated())) {
@@ -1181,10 +1222,11 @@ public:
 
                 if (active && (!m_paste ? l_down && !r_down : l_down || r_down)) {
                     if (io.KeyCtrl) {
-                        to_rotate += io.MouseDelta / m_coord.zoom;
-                        const int dx = to_rotate.x, dy = to_rotate.y; // Truncate.
+                        m_coord.to_rotate += io.MouseDelta / m_coord.zoom;
+                        const int dx = m_coord.to_rotate.x; // Truncate.
+                        const int dy = m_coord.to_rotate.y;
                         if (dx || dy) {
-                            to_rotate -= ImVec2(dx, dy);
+                            m_coord.to_rotate -= ImVec2(dx, dy);
                             m_torus.rotate_00_to(dx, dy);
                         }
                     } else {
@@ -1195,7 +1237,7 @@ public:
                 }
 
                 if (imgui_MouseScrolling()) {
-                    to_rotate = {0, 0};
+                    m_coord.to_rotate = {0, 0};
 
                     const ImVec2 space_pos = m_coord.to_space(mouse_pos);
                     const ImVec2 space_pos_clamped = ImClamp(space_pos, {0, 0}, to_imvec(tile_size));
@@ -1307,7 +1349,7 @@ public:
                         }
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                             if (m_paste->paste_once) {
-                                reset_m_paste();
+                                m_paste.reset();
                             } else {
                                 messenger::dot();
                             }
@@ -1337,7 +1379,6 @@ public:
             edit_pattern(canvas_hovered_or_held, show_op_window);
 
             assert(tile_size == m_torus.size());
-            assert(!m_torus.resized_since_last_check());
         }
     }
 
@@ -1356,12 +1397,8 @@ public:
                                    tile_size.x, tile_size.y, size.x, size.y);
                 return std::nullopt;
             } else {
-                m_ctrl.push_pause_for_m_paste();
-                m_paste = {.newly_assigned = true,
-                           .rule = aniso::extract_one_rule(header),
-                           .tile = aniso::tileT(aniso::vecT{.x = (int)size.x, .y = (int)size.y}),
-                           .beg = {0, 0},
-                           .mode = aniso::blitE::Copy};
+                m_paste.set(aniso::extract_one_rule(header),
+                            aniso::tileT(aniso::vecT{.x = (int)size.x, .y = (int)size.y}));
                 return m_paste->tile.data();
             }
         });
@@ -1522,16 +1559,11 @@ private:
                     self.m_sel->active = false;
                 }
                 if (self.m_paste) { // (Undocumented.)
-                    self.reset_m_paste();
+                    self.m_paste.reset();
                 } else {
                     assert(self.m_sel);
                     const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
-                    self.m_ctrl.push_pause_for_m_paste();
-                    self.m_paste = {.newly_assigned = true,
-                                    .rule = self.current_rule,
-                                    .tile = aniso::tileT(sel_area),
-                                    .beg = {0, 0},
-                                    .mode = aniso::blitE::Copy};
+                    self.m_paste.set(self.current_rule, aniso::tileT(sel_area));
                 }
             } //
         };
@@ -1574,7 +1606,7 @@ private:
                     self.m_sel->active = false;
                 }
                 if (self.m_paste) { // (Undocumented.)
-                    self.reset_m_paste();
+                    self.m_paste.reset();
                 } else if (const auto text = read_clipboard(); !text.empty()) {
                     self.load_pattern(text);
                 }

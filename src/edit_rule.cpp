@@ -962,8 +962,8 @@ public:
             });
             guide_mode::item_tooltip(
                 "This can be an arbitrary rule in [S]. (When [S] changes and no longer contains the rule, this will be reset to [R].)\n\n"
-                "Drag a rule to the label to apply the rule.\n"
-                "Drag the label to send the rule elsewhere.");
+                "Drag a rule here to apply the rule.\n"
+                "Drag to send the rule elsewhere.");
             // imgui_ItemTooltip([&] { previewer::preview(0, settings, m_rule.get()); }); // Will introduce a separator...
             if (ImGui::BeginItemTooltip()) {
                 previewer::preview(0, settings, m_rule.get());
