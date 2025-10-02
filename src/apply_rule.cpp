@@ -886,57 +886,6 @@ public:
             }
         };
 
-        const auto input_size = [&] {
-            static input_int input_x{}, input_y{};
-
-            const float total_w = item_width();
-            const float inner_spacing = imgui_ItemInnerSpacingX();
-            const aniso::vecT size = m_torus.size();
-
-            ImGui::AlignTextToFramePadding();
-            imgui_Str("Size ~");
-            ImGui::SameLine(0, inner_spacing);
-            ImGui::SetNextItemWidth(std::floor((total_w - inner_spacing) / 2));
-            const auto ix = input_x.input(5, "##Width", std::format("Width:{}", size.x).c_str());
-            ImGui::SameLine(0, inner_spacing);
-            ImGui::SetNextItemWidth(std::ceil((total_w - inner_spacing) / 2));
-            const auto iy = input_y.input(5, "##Height", std::format("Height:{}", size.y).c_str());
-            // Bruh...
-            // ImGui::SameLine();
-            // imgui_StrTooltip(
-            //     "(?)", "Press 'Enter' to resize; if only one side is specified, the other will use the current size.");
-
-            if (ix || iy) {
-                reset_pos();
-
-                // Both values will be flushed if either receives the enter key.
-                m_torus.set({.x = ix.value_or(input_x.flush().value_or(size.x)),
-                             .y = iy.value_or(input_y.flush().value_or(size.y))});
-            }
-        };
-
-        const auto select_zoom = [&] {
-            ImGui::AlignTextToFramePadding();
-            imgui_Str("Zoom ~");
-            for (const zoomT& z : zoomT::list()) {
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                // (`last_known_canvas_size` is 99.99% reliable here due to UI logic.)
-                if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
-                    reset_pos();
-                    m_torus.set(fullscreen_size(z, m_coord.last_known_canvas_size));
-                }
-                imgui_ItemTooltip([&] {
-                    const auto size = fullscreen_size(z, m_coord.last_known_canvas_size);
-                    ImGui::Text("%d*%d", size.x, size.y);
-                });
-            }
-            ImGui::SameLine();
-            if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the screen.\n\n"
-                                        "(Scroll in the editor to zoom in/out without resizing.)")) {
-                highlight_canvas = true;
-            }
-        };
-
         ImGui::PushItemWidth(item_width());
         ImGui::BeginGroup();
         {
@@ -1053,8 +1002,57 @@ public:
 
         ImGui::Spacing(); // To align with the separator.
 
-        input_size();
-        select_zoom();
+        // Input to resize.
+        {
+            static input_int input_x{}, input_y{};
+
+            const float total_w = item_width();
+            const float inner_spacing = imgui_ItemInnerSpacingX();
+            const aniso::vecT size = m_torus.size();
+
+            ImGui::AlignTextToFramePadding();
+            imgui_Str("Size ~");
+            ImGui::SameLine(0, inner_spacing);
+            ImGui::SetNextItemWidth(std::floor((total_w - inner_spacing) / 2));
+            const auto ix = input_x.input(5, "##Width", std::format("Width:{}", size.x).c_str());
+            ImGui::SameLine(0, inner_spacing);
+            ImGui::SetNextItemWidth(std::ceil((total_w - inner_spacing) / 2));
+            const auto iy = input_y.input(5, "##Height", std::format("Height:{}", size.y).c_str());
+            // Bruh...
+            // ImGui::SameLine();
+            // imgui_StrTooltip(
+            //     "(?)", "Press 'Enter' to resize; if only one side is specified, the other will use the current size.");
+
+            if (ix || iy) {
+                reset_pos();
+
+                // Both values will be flushed if either receives the enter key.
+                m_torus.set({.x = ix.value_or(input_x.flush().value_or(size.x)),
+                             .y = iy.value_or(input_y.flush().value_or(size.y))});
+            }
+        }
+        // Zoom buttons.
+        {
+            ImGui::AlignTextToFramePadding();
+            imgui_Str("Zoom ~");
+            for (const zoomT& z : zoomT::list()) {
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                // (`last_known_canvas_size` is 99.99% reliable here due to UI logic.)
+                if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
+                    reset_pos();
+                    m_torus.set(fullscreen_size(z, m_coord.last_known_canvas_size));
+                }
+                imgui_ItemTooltip([&] {
+                    const auto size = fullscreen_size(z, m_coord.last_known_canvas_size);
+                    ImGui::Text("%d*%d", size.x, size.y);
+                });
+            }
+            ImGui::SameLine();
+            if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the screen.\n\n"
+                                        "(Scroll in the editor to zoom in/out without resizing.)")) {
+                highlight_canvas = true;
+            }
+        }
 
         ImGui::EndGroup();
         ImGui::PopItemWidth();
@@ -1088,69 +1086,6 @@ public:
         // TODO: has no stable offset (can break hover)...
         // ImGui::SameLine();
         // imgui_StrTooltip("(?)", "Density of the selected area (or the entire space).");
-
-        if (m_paste) {
-            if (std::exchange(m_paste->newly_assigned, false)) {
-                ImGui::SetNextWindowFocus();
-            }
-            bool open = true;
-            ImGui::SetNextWindowPos(ImGui::GetCursorScreenPos(), ImGuiCond_Appearing);
-            imgui_Window::next_window_titlebar_tooltip = "Close the window to discard the pattern.";
-            const std::string title = std::format("Pattern:{}*{}###Pattern", m_paste->size().x, m_paste->size().y);
-            if (auto window = imgui_Window(title.c_str(), &open,
-                                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse |
-                                               ImGuiWindowFlags_AlwaysAutoResize)) {
-                imgui_Str("Double-click to paste.");
-                if (m_paste->rule && *(m_paste->rule) != m_rule) { // TODO: improve...
-                    ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
-                    imgui_StrWithID("[Rule]");
-                    pass_rule::source(*(m_paste->rule));
-                    imgui_ItemTooltip([&] {
-                        imgui_Str("The pattern specified a different rule.");
-                        previewer::preview(0, previewer::default_settings, *(m_paste->rule));
-                    });
-                    ImGui::SameLine();
-                    if (double_click_button_small("Apply")) {
-                        m_rule.set(*(m_paste->rule));
-                    }
-                }
-
-                // ImGui::Separator();
-
-                imgui_RadioButton("Once", &m_paste->paste_once, true);
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                imgui_RadioButton("Multi", &m_paste->paste_once, false);
-
-                ImGui::SameLine(0, 0), imgui_Str(" | "), ImGui::SameLine(0, 0);
-
-                imgui_RadioButton("Copy##Mode", &m_paste->mode, aniso::blitE::Copy);
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                imgui_RadioButton("Or##Mode", &m_paste->mode, aniso::blitE::Or);
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                imgui_RadioButton("And##Mode", &m_paste->mode, aniso::blitE::And);
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-                imgui_RadioButton("Xor##Mode", &m_paste->mode, aniso::blitE::Xor);
-                ImGui::SameLine();
-                imgui_StrTooltip("(?)", "Once:  Paste once (clear automatically after pasting).\n"
-                                        "Multi: Paste multiple times.\n\n"
-                                        "Copy:  Paste values directly.\n"
-                                        "Or/And/Xor: Perform binary op.\n"
-                                        "(Use Or/And to treat black/white cells as transparent bg.)\n\n"
-                                        "Right-click in the editor to switch between Copy/Or/And/Xor.");
-                if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-                    switch (m_paste->mode) {
-                        case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
-                        case aniso::blitE::Or: m_paste->mode = aniso::blitE::And; break;
-                        case aniso::blitE::And: m_paste->mode = aniso::blitE::Xor; break;
-                        case aniso::blitE::Xor: m_paste->mode = aniso::blitE::Copy; break;
-                        default: assert(false);
-                    }
-                }
-            }
-            if (!open) {
-                m_paste.reset();
-            }
-        }
 
         // ImGui::Separator();
 
@@ -1362,7 +1297,12 @@ public:
                 }
             }
 
-            edit_pattern(canvas_hovered_or_held, show_op_window);
+            const bool canvas_hovered_or_held_ex =
+                canvas_hovered_or_held && (active || !ImGui::IsAnyItemActive()) && hovered;
+            edit_pattern(canvas_hovered_or_held_ex, show_op_window);
+            if (m_paste) {
+                pattern_settings(canvas_hovered_or_held_ex, /*init pos*/ canvas_min);
+            }
 
             assert(tile_size == m_torus.size());
         }
@@ -1717,6 +1657,70 @@ private:
 
         if (op) {
             op->apply(*this);
+        }
+    }
+
+    void pattern_settings(const bool canvas_hovered_or_held, const ImVec2 init_pos) {
+        assert(m_paste);
+        if (std::exchange(m_paste->newly_assigned, false)) {
+            ImGui::SetNextWindowFocus();
+        }
+        bool open = true;
+        ImGui::SetNextWindowPos(init_pos, ImGuiCond_Appearing);
+        imgui_Window::next_window_titlebar_tooltip = "Close the window to discard the pattern.";
+        const std::string title = std::format("Pattern:{}*{}###Pattern", m_paste->size().x, m_paste->size().y);
+        if (auto window = imgui_Window(title.c_str(), &open,
+                                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse |
+                                           ImGuiWindowFlags_AlwaysAutoResize)) {
+            imgui_Str("Double-click to paste.");
+            if (m_paste->rule && *(m_paste->rule) != m_rule) { // TODO: improve...
+                ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
+                imgui_StrWithID("[Rule]");
+                pass_rule::source(*(m_paste->rule));
+                imgui_ItemTooltip([&] {
+                    imgui_Str("The pattern specified a different rule.");
+                    previewer::preview(0, previewer::default_settings, *(m_paste->rule));
+                });
+                ImGui::SameLine();
+                if (double_click_button_small("Apply")) {
+                    m_rule.set(*(m_paste->rule));
+                }
+            }
+
+            // ImGui::Separator();
+
+            imgui_RadioButton("Once", &m_paste->paste_once, true);
+            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            imgui_RadioButton("Multi", &m_paste->paste_once, false);
+
+            ImGui::SameLine(0, 0), imgui_Str(" | "), ImGui::SameLine(0, 0);
+
+            imgui_RadioButton("Copy##Mode", &m_paste->mode, aniso::blitE::Copy);
+            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            imgui_RadioButton("Or##Mode", &m_paste->mode, aniso::blitE::Or);
+            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            imgui_RadioButton("And##Mode", &m_paste->mode, aniso::blitE::And);
+            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            imgui_RadioButton("Xor##Mode", &m_paste->mode, aniso::blitE::Xor);
+            ImGui::SameLine();
+            imgui_StrTooltip("(?)", "Once:  Paste once (clear automatically after pasting).\n"
+                                    "Multi: Paste multiple times.\n\n"
+                                    "Copy:  Paste values directly.\n"
+                                    "Or/And/Xor: Perform binary op.\n"
+                                    "(Use Or/And to treat black/white cells as transparent bg.)\n\n"
+                                    "Right-click in the editor to switch between Copy/Or/And/Xor.");
+            if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                switch (m_paste->mode) {
+                    case aniso::blitE::Copy: m_paste->mode = aniso::blitE::Or; break;
+                    case aniso::blitE::Or: m_paste->mode = aniso::blitE::And; break;
+                    case aniso::blitE::And: m_paste->mode = aniso::blitE::Xor; break;
+                    case aniso::blitE::Xor: m_paste->mode = aniso::blitE::Copy; break;
+                    default: assert(false);
+                }
+            }
+        }
+        if (!open) {
+            m_paste.reset();
         }
     }
 };
