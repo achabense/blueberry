@@ -374,7 +374,7 @@ public:
             // The file exists, but cannot resolve with string comparison.
             // Used to resort to fs::equivalent (below), but that's too expensive...
             messenger::set_msg("Cannot resolve the name.");
-            return true;
+            return true; // Still successful.
 #else
             folderT temp;
             if (!temp.assign_dir(p / "..")) { // 'p' may contain trailing sep, so parent_path doesn't apply here.
@@ -435,19 +435,18 @@ public:
         }
     }
 
-    void input_path(std::optional<pathT>& target) {
+    void input_filter() { input_text("Filter", buf_filter, ".txt"); }
+
+private:
+    const folderT::entryT* input_path() {
+        const folderT::entryT* pos = nullptr;
         if (input_text("Open", buf_path, "Folder or file path", ImGuiInputTextFlags_EnterReturnsTrue) &&
             buf_path[0] != '\0') {
             // It's impressive that path has implicit c-str ctor... why?
             // Related: https://github.com/microsoft/STL/issues/909
             const auto p = cpp17_u8path(buf_path);
-            const folderT::entryT* pos = nullptr;
             if (p && m_current.assign_dir_or_file(*p, pos)) {
                 reset_scroll = true;
-                if (pos) {
-                    assert(pos->is_file);
-                    target = m_current / pos->name;
-                }
             } else {
                 std::error_code ec{};
                 messenger::set_msg(p && !std::filesystem::exists(*p, ec) ? "Path doesn't exist." : "Cannot open.");
@@ -455,11 +454,9 @@ public:
 
             buf_path[0] = '\0';
         }
+        return pos;
     }
 
-    void input_filter() { input_text("Filter", buf_filter, ".txt"); }
-
-private:
     enum typeE { File, Folder, Both };
     const folderT::entryT* select_entry(const typeE type, int& id, const pathT* current /*name*/ = nullptr) const {
         assert_implies(current, type == File); // (Due to `assign_dir_or_file`.)
@@ -547,7 +544,10 @@ public:
 
         const float default_w = item_width();
         ImGui::SetNextItemWidth(std::floor(default_w * 0.8));
-        input_path(target);
+        if (const folderT::entryT* pos = input_path()) {
+            assert(pos->is_file);
+            target = m_current / pos->name;
+        }
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
         ImGui::SetNextItemWidth(std::floor(default_w * 0.6));
         input_filter();
