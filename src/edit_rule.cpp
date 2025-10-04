@@ -136,6 +136,7 @@ static int fit_count(int avail, int size, int spacing) { //
 // support user-defined subsets in the gui part.
 class subset_selector : no_copy {
     aniso::subsetT m_current{};
+    bool set_changed = true;
 
     struct termT {
         const char* const title;
@@ -172,7 +173,9 @@ class subset_selector : no_copy {
         }
 
         for (termT& t : m_terms) {
-            t.includes = t.set->includes(m_current);
+            if (compare_update(t.includes, t.set->includes(m_current))) {
+                set_changed = true;
+            }
             assert_implies(t.includes, aniso::has_common(*t.set, m_current));
             t.has_common = t.includes /*perf*/ || aniso::has_common(*t.set, m_current);
 
@@ -188,7 +191,6 @@ class subset_selector : no_copy {
         update_current();
     }
 
-public:
     // `sel` should be either nullptr or address of one of members in `aniso::subsets`.
     void select_single(const aniso::subsetT* const sel) {
         assert_implies(sel, std::ranges::find(m_terms, sel, &termT::set) != m_terms.end());
@@ -198,6 +200,9 @@ public:
         }
         update_current();
     }
+
+public:
+    bool set_changed_since_last_check() { return std::exchange(set_changed, false); }
 
     explicit subset_selector(const aniso::subsetT* init_sel = nullptr) {
         using aniso::subsets;
@@ -378,17 +383,6 @@ public:
         select_single(init_sel);
     }
 
-    uint64_t rep() const {
-        assert(m_terms.size() <= 64);
-
-        uint64_t val = 0;
-        for (int i = 0; const termT& t : m_terms) {
-            val |= uint64_t(t.selected || t.includes) << i;
-            ++i;
-        }
-        return val;
-    }
-
 private:
     enum centerE { Selected, Includes, Disabled /*no-common*/, None };
 
@@ -450,7 +444,7 @@ public:
 
     const aniso::subsetT& get() const { return m_current; }
 
-    void clear() {
+    [[deprecated]] void clear() {
         for (termT& t : m_terms) {
             t.selected = false;
         }
@@ -743,7 +737,7 @@ public:
 };
 
 // 0/1-rev, approx and buffers...
-static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& working_set) {
+static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& working_set, bool& set_changed) {
     bool open = true;
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
@@ -815,7 +809,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
             ImGui::SameLine(0, group_spacing_x);
             const float cursor_pos = ImGui::GetCursorPosX();
 
-            if (rule_approx && !working_set.contains(*rule_approx)) {
+            if (std::exchange(set_changed, false)) {
                 rule_approx.reset();
             }
             ImGui::BeginGroup();
@@ -1002,7 +996,8 @@ public:
 
 // TODO: define as classes...
 // TODO: support separate context? e.g. random ~ totalistic & random-access ~ isotropic
-static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set, const aniso::ruleT& defl) {
+static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set, const aniso::ruleT& defl,
+                                  bool& set_changed) {
     bool open = true;
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
@@ -1015,15 +1010,9 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         static target_rule orderer{};
         static std::deque<aniso::ruleT> page{};
         static previewer::configT config{previewer::default_settings};
-        {
-            // TODO: unnecessarily expensive (can be replaced by selector.rep()).
-            static aniso::subsetT cmp_set = working_set;
-            if (compare_update(cmp_set, working_set)) {
-                page.clear();
-            }
-            if (orderer.sync(working_set, defl)) {
-                page.clear();
-            }
+        if (std::exchange(set_changed, false)) {
+            orderer.sync(working_set, defl);
+            page.clear();
         }
 
         enum roleE { First, Last };
@@ -1148,7 +1137,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
 }
 
 static open_state random_rule_window(const ImVec2& init_pos, const aniso::subsetT& working_set,
-                                     const aniso::ruleT& defl) {
+                                     const aniso::ruleT& defl, bool& set_changed) {
     bool open = true;
     ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
@@ -1160,7 +1149,9 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             imgui_Window("Random rules", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static target_rule target{};
         static previewer::configT config{previewer::default_settings};
-        target.sync(working_set, defl);
+        if (std::exchange(set_changed, false)) {
+            target.sync(working_set, defl);
+        }
 
         static bool exact_mode = false;
         static double rate = 0.29;
@@ -1282,11 +1273,6 @@ void edit_rule(frame_main_token) {
         ImGui::Checkbox("Collapse", &collapse);
 
         if (!collapse) {
-            // (Superseded by ctrl mode.)
-            // ImGui::SameLine();
-            // if (ImGui::Button("Reset##Sets")) {
-            //     select_working.select_single(&aniso::subsets.native_isotropic);
-            // }
             ImGui::Separator();
             select_working.select({.rule = pass_rule::peek(), .select = true, .tooltip = true});
         } else {
@@ -1295,14 +1281,20 @@ void edit_rule(frame_main_token) {
             menu_like_popup::popup([] { select_working.select({.select = true, .tooltip = true}); });
         }
     }
+    static std::array<bool, 5> set_changed_n{};
     const aniso::subsetT& working_set = select_working.get();
+    if (select_working.set_changed_since_last_check()) {
+        set_changed_n.fill(true);
+    }
 
     ImGui::Separator();
 
     // Select observing rule ([R]).
     static rule_selector select_rule;
     {
-        select_rule.sync(working_set);
+        if (std::exchange(set_changed_n[0], false)) {
+            select_rule.sync(working_set);
+        }
 
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip("(...)", rule_selector::about);
@@ -1324,7 +1316,7 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("0/1 reversal dual, approximation, and temp rules.");
         if (show_misc) {
             const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-            misc_window(init_pos, working_set).reset_if_closed(show_misc);
+            misc_window(init_pos, working_set, set_changed_n[1]).reset_if_closed(show_misc);
         }
     }
     ImGui::SameLine();
@@ -1336,7 +1328,7 @@ void edit_rule(frame_main_token) {
                                  "(This is mainly useful for small sets.)");
         if (show_trav) {
             const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-            traverse_window(init_pos, working_set, observer).reset_if_closed(show_trav);
+            traverse_window(init_pos, working_set, observer, set_changed_n[2]).reset_if_closed(show_trav);
         }
     }
     ImGui::SameLine();
@@ -1348,7 +1340,7 @@ void edit_rule(frame_main_token) {
                                  "(This is mainly useful for large sets.)");
         if (show_rand) {
             const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-            random_rule_window(init_pos, working_set, observer).reset_if_closed(show_rand);
+            random_rule_window(init_pos, working_set, observer, set_changed_n[3]).reset_if_closed(show_rand);
         }
     }
     ImGui::SameLine();
@@ -1363,7 +1355,9 @@ void edit_rule(frame_main_token) {
             messenger::dot();
         }
         if (show_random_access) {
-            target.sync(working_set, observer);
+            if (std::exchange(set_changed_n[4], false)) {
+                target.sync(working_set, observer);
+            }
 
             // TODO: use (?) or (...)? (It's getting unclear which is for which...)
             // TODO: the group button op seems unnecessary now...
