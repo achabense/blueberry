@@ -761,7 +761,8 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
 
         const auto clear_button = [](int& id, std::optional<aniso::ruleT>& rule) {
             ImGui::PushID(id++);
-            if (double_click_button_small("Clear") && messenger::dot()) {
+            if (double_click_button_small("Clear")) {
+                messenger::dot_if(!rule.has_value());
                 rule.reset();
             }
             ImGui::PopID();
@@ -1109,7 +1110,8 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             }
         }
         rclick_popup::for_text([] {
-            if (ImGui::Selectable("Clear") && messenger::dot()) {
+            if (ImGui::Selectable("Clear")) {
+                messenger::dot_if(page.empty());
                 page.clear();
             }
         });
@@ -1221,7 +1223,8 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
             ImGui::Text("Pages:%d At:N/A", calc_page());
         }
         rclick_popup::for_text([] {
-            if (ImGui::Selectable("Clear") && messenger::dot()) {
+            if (ImGui::Selectable("Clear")) {
+                messenger::dot_if(rules.empty());
                 rules.clear();
                 rules.shrink_to_fit();
                 page_no = 0;

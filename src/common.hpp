@@ -790,9 +790,11 @@ public:
         m_msg.set_str(std::format(fmt, args...));
     }
 
-    static bool dot() {
-        m_msg.set_dot();
-        return true;
+    static void dot() { m_msg.set_dot(); }
+    static void dot_if(bool d) {
+        if (d) {
+            m_msg.set_dot();
+        }
     }
 
     static void display_if_present(frame_main_token) { m_msg.display_if_present(); }
@@ -992,7 +994,7 @@ public:
                     keep_active = true;
                 }
                 rule = r;
-                assert(!ImGui::IsItemHovered()); // Blocked by source.
+                assert(!ImGui::IsItemHovered()); // Blocked by drag-source.
                 return true;
             }
         }

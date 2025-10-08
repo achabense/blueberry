@@ -754,7 +754,7 @@ public:
                 return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, false);
             };
 
-            const bool reset = ImGui::Button("Reset") && messenger::dot();
+            const bool reset = ImGui::Button("Reset");
             ImGui::SameLine();
             const bool restart = ImGui::Button("Restart") || item_shortcut(ImGuiKey_R);
             ImGui::SameLine();
@@ -875,6 +875,7 @@ public:
 
             // !!TODO: recheck...
             if (reset) {
+                messenger::dot();
                 m_torus.restart(torusT::init_init); // Or set?
                 m_ctrl.set_pause(true);
             } else if (restart) {
@@ -972,6 +973,7 @@ public:
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
         menu_like_popup::popup(set_init_state_in_popup);
+#if 0
         ImGui::SameLine();
         menu_like_popup::button("Reset");
         menu_like_popup::popup([&] {
@@ -993,8 +995,10 @@ public:
                 m_torus.set(torusT::init_size, torusT::init_init);
             }
         });
+#endif
         ImGui::SameLine();
-        if (ImGui::Button("Reset pos") && messenger::dot()) {
+        if (ImGui::Button("Reset pos")) {
+            messenger::dot();
             reset_pos();
         }
         guide_mode::item_tooltip(
@@ -1815,7 +1819,8 @@ void previewer::configT::_set(const bool can_resize) {
         // !!TODO: (v0.9.9) support both global and per-group setting mode?
         initT& init = _global_data::init;
         ImGui::SameLine();
-        if (ImGui::SmallButton("Reset") && messenger::dot()) {
+        if (ImGui::SmallButton("Reset")) {
+            messenger::dot();
             init = _global_data::init_init;
         }
 
@@ -1912,7 +1917,8 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                     "Equivalent to sending rule to the 'Edit-rule' checkbox (or '[Z]' if it's turned on).");
             }
             if (pattern_editor_avail) {
-                if (ImGui::Selectable("Pattern editor") && messenger::dot()) {
+                if (ImGui::Selectable("Pattern editor")) {
+                    messenger::dot();
                     runner.set_rule(rule);
                 }
                 guide_mode::item_tooltip(
@@ -1922,10 +1928,10 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             ImGui::EndMenu();
         }
         if (pattern_editor_avail) {
-            if (ImGui::Selectable("Mirror") && messenger::dot()) {
+            if (ImGui::Selectable("Mirror")) {
+                messenger::dot();
                 runner.set_rule(rule);
-                runner.set_state(tile_size, _global_data::init);
-                // runner.set_state(term.tile.size(), term.init);
+                runner.set_state(tile_size, term.init);
             }
             guide_mode::item_tooltip(
                 "Send rule to the pattern editor & duplicate the space state (so you can operate on the same patterns).");

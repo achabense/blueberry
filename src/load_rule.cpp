@@ -926,7 +926,8 @@ private:
             ImGui::Text("Total:%d At:N/A", total);
         }
         rclick_popup::for_text([&] {
-            if (ImGui::Selectable("Reset cursor") && messenger::dot()) {
+            if (ImGui::Selectable("Reset cursor")) {
+                messenger::dot_if(!m_pos.has_value());
                 m_pos.reset();
             }
         });
@@ -1204,10 +1205,11 @@ public:
         }
 
         ImGui::SameLine();
-        if (double_click_button_small("Clear") && messenger::dot()) {
+        if (double_click_button_small("Clear")) {
+            messenger::dot_if(text.empty());
             text.clear();
             last_str.clear();
-            // last_str.shrink_to_fit(); // TODO: whether to release memory?
+            last_str.shrink_to_fit();
         }
         if constexpr (debug_mode) {
             ImGui::SameLine();
