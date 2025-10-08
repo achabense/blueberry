@@ -278,6 +278,7 @@ namespace aniso {
         // <-> `a.includes(b) && b.includes(a)`:
         friend bool operator==(const subsetT& a, const subsetT& b) { return a.contains(b.rule) && a.p == b.p; }
 
+        bool is_universal() const { return p.k() == 512; }
         void reset() {
             rule.reset();
             p.reset();

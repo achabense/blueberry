@@ -140,7 +140,7 @@ class subset_selector : no_copy {
 
     struct termT {
         const char* const title;
-        const aniso::subsetT* const set;
+        const aniso::subsetT* const set; // !set->is_universal().
         const char* const desc;
 
         bool selected = false;
@@ -214,10 +214,14 @@ public:
             terms_ref& ref;
             terms_scope(terms_data& d, terms_ref& r) : data(d), ref(r) { ref.pos = data.size(); }
             ~terms_scope() { ref.size = data.size() - ref.pos; }
+
+            void append(const char* title, const aniso::subsetT* set, const char* desc) {
+                data.push_back(termT{.title = title, .set = set, .desc = desc});
+            }
         };
         {
             terms_scope scope(m_terms, terms_ignore);
-            m_terms.emplace_back(
+            scope.append(
                 "q", &subsets.ignore_q,
                 "Rules whose values are independent of 'q'. That is, for any two cases where only 'q' differs, the rule will map center cell to the same value.\n\n"
                 "    |0 w e|       |1 w e|\n"
@@ -225,10 +229,10 @@ public:
                 "    |z x c|       |z x c|\n\n"
                 "Therefore, these rules will behave as if the neighborhood does not include 'q'. The same applies to 'w/e/a/d/z/x/c', except for 's'.\n\n"
                 "('q/w/e/a/s/d/z/x/c' are named after keys in the 'qwerty' keyboard.)");
-            m_terms.emplace_back("w", &subsets.ignore_w, "Independent of 'w'. (See 'q' for details.)");
-            m_terms.emplace_back("e", &subsets.ignore_e, "Independent of 'e'. (See 'q' for details.)");
-            m_terms.emplace_back("a", &subsets.ignore_a, "Independent of 'a'. (See 'q' for details.)");
-            m_terms.emplace_back(
+            scope.append("w", &subsets.ignore_w, "Independent of 'w'. (See 'q' for details.)");
+            scope.append("e", &subsets.ignore_e, "Independent of 'e'. (See 'q' for details.)");
+            scope.append("a", &subsets.ignore_a, "Independent of 'a'. (See 'q' for details.)");
+            scope.append(
                 "s", &subsets.ignore_s_z,
                 "For any two cases where only 's' (the center cell itself) differs, the rule will map center cell to the same value.\n\n"
                 "    |q w e|       |q w e|\n"
@@ -236,15 +240,15 @@ public:
                 "    |z x c|       |z x c|\n\n"
                 "So when the surrounding cells are the same, there must be: either s:0->1, s:1->1 or s:0->0, s:1->0.\n\n"
                 "(It's not obvious what's special about this set; though this is defined in the same way as other independence sets, it's not suitable to treat this as \"independent of 's'\".)");
-            m_terms.emplace_back("d", &subsets.ignore_d, "Independent of 'd'. (See 'q' for details.)");
-            m_terms.emplace_back("z", &subsets.ignore_z, "Independent of 'z'. (See 'q' for details.)");
-            m_terms.emplace_back("x", &subsets.ignore_x, "Independent of 'x'. (See 'q' for details.)");
-            m_terms.emplace_back("c", &subsets.ignore_c, "Independent of 'c'. (See 'q' for details.)");
+            scope.append("d", &subsets.ignore_d, "Independent of 'd'. (See 'q' for details.)");
+            scope.append("z", &subsets.ignore_z, "Independent of 'z'. (See 'q' for details.)");
+            scope.append("x", &subsets.ignore_x, "Independent of 'x'. (See 'q' for details.)");
+            scope.append("c", &subsets.ignore_c, "Independent of 'c'. (See 'q' for details.)");
         }
         {
             terms_scope scope(m_terms, terms_misc);
             if constexpr (0) {
-                m_terms.emplace_back(
+                scope.append(
                     "s(*)", &subsets.ignore_s_i,
                     "Similar to 's' - for any two cases where only 's' differs, the rule will map the center cell to values so that the resulting \"flip-ness\" will be the same. That is:\n\n"
                     "     |q w e|             |q w e|\n"
@@ -253,19 +257,19 @@ public:
                     "So when the surrounding cells are the same, there must be: either s:0->0, s:1->1 (no flip in either case) or s:0->1, s:1->0 (flip in both cases).\n\n"
                     "(This is provided for completeness; it's not obvious what's special about this set.)");
             }
-            m_terms.emplace_back(
+            scope.append(
                 "Hex", &subsets.ignore_hex,
                 "Rules whose values are independent of 'e' and 'z'. As a result, they can emulate range-1 hexagonal neighborhood - for any rule in this set, there exists an actual rule in the hexagonal tiling with the same behavior.\n\n"
                 "To be exact, for any pattern, if evolved under such a rule, the dynamics will correspond to a projected version evolved under an actual rule in the hexagonal space. See the last line for illustration.\n\n"
                 "(For windows displaying such rules, you can hover and press '6' to see the projected view.)");
-            m_terms.emplace_back(
+            scope.append(
                 "Jvn", &subsets.ignore_jvn,
                 "Rules whose values are independent of 'q', 'e', 'z' and 'c'. As a result, they can emulate range-1 von Neumann neighborhood directly.\n\n"
                 "(This can work naturally with native-symmetry sets.)");
-            m_terms.emplace_back("Wadx", &subsets.ignore_wadx,
-                                 "Rules whose values are independent of 'w', 'a', 'd' and 'x'.\n\n"
-                                 "(This can work naturally with native-symmetry sets.)");
-            m_terms.emplace_back(
+            scope.append("Wadx", &subsets.ignore_wadx,
+                         "Rules whose values are independent of 'w', 'a', 'd' and 'x'.\n\n"
+                         "(This can work naturally with native-symmetry sets.)");
+            scope.append(
                 "0<>1", &subsets.self_complementary,
                 "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].\n\n"
                 "To achieve this, for any case and its complement, the rule will map center cell to values so that the resulting \"flip-ness\" are the same.\n\n"
@@ -288,16 +292,16 @@ public:
                                                 "!as!d"
                                                 "z!xc");
                 static const subsetT ckbd = make_subset({mp_xor_ckbd_a, mp_xor_ckbd_b}, rule_identity);
-                m_terms.emplace_back(
+                scope.append(
                     "Ckbd", &ckbd,
                     "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
             }
 
-            m_terms.emplace_back("00=11", &subsets.single_stable_state,
-                                 "Rules that map all-0 and all-1 cases to the same value.\n\n"
-                                 "    |0 0 0|       |1 1 1|\n"
-                                 "rule|0 0 0| = rule|1 1 1|\n"
-                                 "    |0 0 0|       |1 1 1|");
+            scope.append("00=11", &subsets.single_stable_state,
+                         "Rules that map all-0 and all-1 cases to the same value.\n\n"
+                         "    |0 0 0|       |1 1 1|\n"
+                         "rule|0 0 0| = rule|1 1 1|\n"
+                         "    |0 0 0|       |1 1 1|");
 
             if constexpr (0) {
                 // Stripe; not quite interesting...
@@ -317,67 +321,67 @@ public:
                                                "z!xc");
                 static const subsetT stp =
                     make_subset({mp_xor_stp_a, mp_xor_stp_b, mp_xor_stp_c, mp_xor_stp_d}, rule_identity);
-                m_terms.emplace_back("Stp", &stp, "(Debug mode) Stripe-xor invariance.");
+                scope.append("Stp", &stp, "(Debug mode) Stripe-xor invariance.");
             }
         }
         {
             terms_scope scope(m_terms, terms_native);
-            m_terms.emplace_back("Iso", &subsets.native_isotropic,
-                                 "Isotropic MAP rules, i.e. rules that preserve all symmetries.\n\n"
-                                 "(This is equal to the intersection of the following sets in this line.)");
-            m_terms.emplace_back(
+            scope.append("Iso", &subsets.native_isotropic,
+                         "Isotropic MAP rules, i.e. rules that preserve all symmetries.\n\n"
+                         "(This is equal to the intersection of the following sets in this line.)");
+            scope.append(
                 "|", &subsets.native_refl_wsx,
                 "Rules that preserve reflection symmetry, taking '|' as the axis.\n\n"
                 "For any pattern and its leftside-right mirror image, if evolved under such a rule they will remain in mirror.\n\n"
                 "For any leftside-right symmetric pattern, if evolved under such a rule it will remain leftside-right symmetric.");
-            m_terms.emplace_back("-", &subsets.native_refl_asd, "Similar to '|'; the axis is '-'.");
-            m_terms.emplace_back("\\", &subsets.native_refl_qsc, "Similar to '|'; the axis is '\\'.");
-            m_terms.emplace_back("/", &subsets.native_refl_esz, "Similar to '|'; the axis is '/'.");
-            m_terms.emplace_back("C2", &subsets.native_C2, "Rules that preserve 2-fold rotational symmetry.");
-            m_terms.emplace_back("C4", &subsets.native_C4,
-                                 "4-fold rotational symmetry. This is a strict subset of 'C2'.");
+            scope.append("-", &subsets.native_refl_asd, "Similar to '|'; the axis is '-'.");
+            scope.append("\\", &subsets.native_refl_qsc, "Similar to '|'; the axis is '\\'.");
+            scope.append("/", &subsets.native_refl_esz, "Similar to '|'; the axis is '/'.");
+            scope.append("C2", &subsets.native_C2, "Rules that preserve 2-fold rotational symmetry.");
+            scope.append("C4", &subsets.native_C4, "4-fold rotational symmetry. This is a strict subset of 'C2'.");
         }
         {
             terms_scope scope(m_terms, terms_totalistic);
-            m_terms.emplace_back(
+            scope.append(
                 "Tot", &subsets.native_tot_exc_s,
                 "Outer-totalistic MAP rules, i.e. rules whose values are only dependent on 's' and the sum of other cells. This is a strict subset of isotropic rules ('Iso').\n\n"
                 "(This is also known as life-like rules, and is where the B/S notation applies.)");
-            m_terms.emplace_back(
+            scope.append(
                 "Tot(+s)", &subsets.native_tot_inc_s,
                 "Inner-totalistic MAP rules, i.e. rules whose values are only dependent on the sum of all cells (including 's'). This is a strict subset of outer-totalistic rules ('Tot').");
-            m_terms.emplace_back("Hex", &subsets.hex_tot_exc_s, "Outer-totalistic hexagonal rules.");
-            m_terms.emplace_back("Hex(+s)", &subsets.hex_tot_inc_s, "Inner-totalistic hexagonal rules.");
-            m_terms.emplace_back("Jvn", &subsets.jvn_tot_exc_s, "Outer-totalistic von Neumann rules.");
-            m_terms.emplace_back("Jvn(+s)", &subsets.jvn_tot_inc_s, "Inner-totalistic von Neumann rules.");
+            scope.append("Hex", &subsets.hex_tot_exc_s, "Outer-totalistic hexagonal rules.");
+            scope.append("Hex(+s)", &subsets.hex_tot_inc_s, "Inner-totalistic hexagonal rules.");
+            scope.append("Jvn", &subsets.jvn_tot_exc_s, "Outer-totalistic von Neumann rules.");
+            scope.append("Jvn(+s)", &subsets.jvn_tot_inc_s, "Inner-totalistic von Neumann rules.");
         }
         {
             // q w -    q w
             // a s d ~ a s d
             // - x c    x c
             terms_scope scope(m_terms, terms_hex);
-            m_terms.emplace_back(
+            scope.append(
                 "Iso", &subsets.hex_isotropic,
                 "Rules that emulate isotropic hexagonal rules.\n\n"
                 "All sets in this line are strict subsets of 'Hex'; for windows displaying such rules, you can hover and press '6' to better view the symmetries in the hexagonal space.\n\n"
                 "(Some of these sets behave like subsets of native-symmetry sets; however, they are not conceptually related.)");
-            m_terms.emplace_back(
+            scope.append(
                 "a-d", &subsets.hex_refl_asd,
                 "Rules that emulate reflection symmetry in the hexagonal tiling, taking the axis from 'a' to 'd' (a-to-d).");
-            m_terms.emplace_back("q-c", &subsets.hex_refl_qsc, "Similar to 'a-d'; the axis is q-to-c.");
-            m_terms.emplace_back("w-x", &subsets.hex_refl_wsx, "Similar to 'a-d'; the axis is w-to-x.");
-            m_terms.emplace_back("a|q", &subsets.hex_refl_aq, "Similar to 'a-d'; the axis is vertical to a-to-q.");
-            m_terms.emplace_back("q|w", &subsets.hex_refl_qw, "Similar to 'a-d'; the axis is vertical to q-to-w.");
-            m_terms.emplace_back("w|d", &subsets.hex_refl_wd, "Similar to 'a-d'; the axis is vertical to w-to-d.");
-            m_terms.emplace_back("C2", &subsets.hex_C2,
-                                 "Rules that emulate 2-fold rotational symmetry in the hexagonal tiling.");
-            m_terms.emplace_back("C3", &subsets.hex_C3, "3-fold rotational symmetry.");
-            m_terms.emplace_back("C6", &subsets.hex_C6,
-                                 "6-fold rotational symmetry. This is a strict subset of both 'C2' and 'C3'.");
+            scope.append("q-c", &subsets.hex_refl_qsc, "Similar to 'a-d'; the axis is q-to-c.");
+            scope.append("w-x", &subsets.hex_refl_wsx, "Similar to 'a-d'; the axis is w-to-x.");
+            scope.append("a|q", &subsets.hex_refl_aq, "Similar to 'a-d'; the axis is vertical to a-to-q.");
+            scope.append("q|w", &subsets.hex_refl_qw, "Similar to 'a-d'; the axis is vertical to q-to-w.");
+            scope.append("w|d", &subsets.hex_refl_wd, "Similar to 'a-d'; the axis is vertical to w-to-d.");
+            scope.append("C2", &subsets.hex_C2,
+                         "Rules that emulate 2-fold rotational symmetry in the hexagonal tiling.");
+            scope.append("C3", &subsets.hex_C3, "3-fold rotational symmetry.");
+            scope.append("C6", &subsets.hex_C6,
+                         "6-fold rotational symmetry. This is a strict subset of both 'C2' and 'C3'.");
         }
         assert(m_terms.size() <= reserve_cap);
+        assert(m_current.is_universal());
         assert(std::ranges::all_of(m_terms, [](const termT& t) { //
-            return t.title && t.set && t.desc && !t.selected && !t.includes && t.has_common;
+            return t.title && t.set && !t.set->is_universal() && t.desc && !t.selected && !t.includes && t.has_common;
         }));
 
         select_single(init_sel);
