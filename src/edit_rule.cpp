@@ -192,13 +192,19 @@ class subset_selector : no_copy {
     }
 
     // `sel` should be either nullptr or address of one of members in `aniso::subsets`.
-    void select_single(const aniso::subsetT* const sel) {
+    bool select_single(const aniso::subsetT* const sel) {
         assert_implies(sel, std::ranges::find(m_terms, sel, &termT::set) != m_terms.end());
 
+        bool update = false;
         for (termT& t : m_terms) {
-            t.selected = t.set == sel;
+            if (compare_update(t.selected, t.set == sel)) {
+                update = true;
+            }
         }
-        update_current();
+        if (update) {
+            update_current();
+        }
+        return update;
     }
 
 public:
@@ -448,18 +454,30 @@ public:
 
     const aniso::subsetT& get() const { return m_current; }
 
-    [[deprecated]] void clear() {
+    [[deprecated]] bool clear() {
+        bool update = false;
         for (termT& t : m_terms) {
-            t.selected = false;
+            if (compare_update(t.selected, false)) {
+                update = true;
+            }
         }
-        update_current();
+        if (update) {
+            update_current();
+        }
+        return update;
     }
 
-    void match(const aniso::ruleT& rule) {
+    bool match(const aniso::ruleT& rule) {
+        bool update = false;
         for (termT& t : m_terms) {
-            t.selected = t.set->contains(rule);
+            if (compare_update(t.selected, t.set->contains(rule))) {
+                update = true;
+            }
         }
-        update_current();
+        if (update) {
+            update_current();
+        }
+        return update;
     }
 
     struct select_mode {
@@ -493,7 +511,8 @@ public:
                 ImGui::BeginDisabled(!selectable);
                 if (ImGui::InvisibleButton("Subset", square_size())) {
                     if (r_down) {
-                        select_single(term.set);
+                        const bool updated = select_single(term.set);
+                        messenger::dot_if(!updated);
                     } else if (term.has_common) {
                         toggle(term);
                     }
@@ -794,8 +813,9 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
                 ImGui::SameLine();
                 ImGui::BeginDisabled(!rule_01_rev.has_value());
                 if (ImGui::SmallButton("0/1##Rev") && rule_01_rev.has_value()) {
-                    rule_01_rev = aniso::trans_reverse(*rule_01_rev);
-                    // messenger::dot(); // TODO: whether to show dot? (Will have no effect if the rule is self-compl...)
+                    const aniso::ruleT r = aniso::trans_reverse(*rule_01_rev);
+                    messenger::dot_if(rule_01_rev == r);
+                    rule_01_rev = r;
                 }
                 ImGui::EndDisabled();
             }
@@ -806,8 +826,9 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
                 "(If the rule is self-complementary, this will result in the same rule.)");
             show_rule(id, rule_01_rev);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                rule_01_rev = aniso::trans_reverse(*deliv);
-                messenger::dot();
+                const aniso::ruleT r = aniso::trans_reverse(*deliv);
+                messenger::dot_if(rule_01_rev == r);
+                rule_01_rev = r;
             }
             ImGui::EndGroup();
 
@@ -826,8 +847,9 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
                                     "(If the rule already belongs to [S], this will result in the same rule.)");
             show_rule(id, rule_approx);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                rule_approx = aniso::approximate_v(working_set, *deliv);
-                messenger::dot();
+                const aniso::ruleT r = aniso::approximate_v(working_set, *deliv);
+                messenger::dot_if(rule_approx == r);
+                rule_approx = r;
             }
             ImGui::EndGroup();
 
@@ -850,8 +872,8 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
                 }
                 show_rule(id, rule);
                 if (const auto* deliv = pass_rule::dest().get_deliv()) {
+                    messenger::dot_if(rule == *deliv);
                     rule = *deliv;
-                    messenger::dot();
                 }
                 ImGui::EndGroup();
             }
@@ -1026,22 +1048,22 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
             const auto fill_next = [&] {
                 assert(!page.empty());
                 while (page.size() < adapter.page_size) {
-                    const aniso::ruleT rule = aniso::flatten::next(working_set, orderer, page.back());
-                    if (rule == page.back()) {
+                    const aniso::ruleT next = aniso::flatten::next(working_set, orderer, page.back());
+                    if (next == page.back()) {
                         return false; // Reaches the end of the sequence.
                     }
-                    page.push_back(rule);
+                    page.push_back(next);
                 }
                 return true;
             };
             const auto fill_prev = [&] {
                 assert(!page.empty());
                 while (page.size() < adapter.page_size) {
-                    const aniso::ruleT rule = aniso::flatten::prev(working_set, orderer, page.front());
-                    if (rule == page.front()) {
+                    const aniso::ruleT prev = aniso::flatten::prev(working_set, orderer, page.front());
+                    if (prev == page.front()) {
                         return false;
                     }
-                    page.push_front(rule);
+                    page.push_front(prev);
                 }
                 return true;
             };
@@ -1265,15 +1287,11 @@ void edit_rule(frame_main_token) {
         imgui_StrTooltip("(...)", subset_selector::about);
         ImGui::SameLine();
         imgui_Str("[S]");
-        guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
-        if (const auto pass = pass_rule::dest(); pass.rule) {
-            if (collapse && pass.hov_for_tooltip() && imgui_BeginTooltipFirstOnly()) {
-                select_working.select({.rule = pass.rule, .select = true, .tooltip = false});
-                ImGui::EndTooltip();
-            }
-            if (pass.deliv) {
-                select_working.match(*pass.rule);
-                messenger::dot();
+        if (!collapse) {
+            guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
+            if (const auto* deliv = pass_rule::dest().get_deliv()) {
+                const bool updated = select_working.match(*deliv);
+                messenger::dot_if(!updated);
             }
         }
         ImGui::SameLine();

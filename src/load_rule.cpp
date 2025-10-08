@@ -10,6 +10,11 @@
 
 using pathT = std::filesystem::path;
 
+// Direct path comparison (a == b) is expensive.
+static bool native_equal(const pathT& a, const pathT& b) /*noexcept*/ { //
+    return a.native() == b.native();
+}
+
 // It's unclear whether these functions can fail due to transcoding...
 
 // The direct conversion between path and utf8-encoded std::string was broken by this paper.
@@ -321,7 +326,7 @@ public:
             collect_maythrow(cp, dirs, files);
             if (same_dir) {
                 // (Compare str directly as both are canonical.)
-                *same_dir = cp.native() == m_path.native();
+                *same_dir = native_equal(cp, m_path);
             }
             m_path.swap(cp);
             m_dirs.swap(dirs);
@@ -369,7 +374,7 @@ public:
             }
 
             for (const pathT name = p.filename(); const entryT& file : m_files) {
-                if (name.native() == file.name.native()) {
+                if (native_equal(name, file.name)) {
                     file_pos = &file;
                     return true;
                 }
@@ -486,9 +491,7 @@ private:
                         continue;
                     }
                     any = true;
-                    // (Direct path comparison is expensive.)
-                    // const bool selected = current && entry.name == *current;
-                    const bool selected = current && entry.name.native() == current->native();
+                    const bool selected = current && native_equal(entry.name, *current);
                     const bool indent = type == Both && !entry.is_file;
                     if (indent) {
                         imgui_AddCursorPosX(indent_spacing);
@@ -1134,8 +1137,9 @@ public:
             const bool close = ImGui::SmallButton("Close");
             ImGui::SameLine();
             if (ImGui::SmallButton("Reload")) {
-                if (try_load(*file_path, /*reset-scroll*/ false)) {
-                    messenger::dot();
+                constexpr bool same_file = true;
+                if (try_load(*file_path, /*reset-scroll*/ !same_file)) {
+                    messenger::dot_if(same_file);
                 }
             }
             // guide_mode::item_tooltip("Reload from disk.");
@@ -1155,9 +1159,12 @@ public:
                 ImGui::SetNextWindowSize(ImVec2(imgui_CalcContentTotalWidth() + ImGui::GetStyle().ScrollbarSize,
                                                 8 * imgui_CalcSelectableStyledButtonHeight()));
                 const pathT name = file_path->filename();
-                std::optional<pathT> sel = nav.select_file(&name); // imgui_ChildWindow
-                if (sel && try_load(*sel, /*reset-scroll*/ true)) {
-                    file_path = std::move(*sel);
+                if (auto sel = nav.select_file(&name)) { // imgui_ChildWindow
+                    const bool same_file = native_equal(*file_path, *sel);
+                    if (try_load(*sel, /*reset-scroll*/ !same_file)) {
+                        messenger::dot_if(same_file);
+                        file_path = std::move(*sel);
+                    }
                 }
             });
             ImGui::SameLine();
