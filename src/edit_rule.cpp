@@ -216,7 +216,7 @@ public:
             ~terms_scope() { ref.size = data.size() - ref.pos; }
 
             void append(const char* title, const aniso::subsetT* set, const char* desc) {
-                data.push_back(termT{.title = title, .set = set, .desc = desc});
+                data.push_back({.title = title, .set = set, .desc = desc});
             }
         };
         {
@@ -417,8 +417,8 @@ private:
 public:
     // TODO: improve...
     static void about() {
-        const auto explain = [sqr_size = square_size()](bool contains_rule, centerE center, std::string_view desc) {
-            ImGui::Dummy(sqr_size);
+        const auto explain = [](bool contains_rule, centerE center, std::string_view desc) {
+            ImGui::Dummy(square_size());
             put_term(contains_rule, center, '\0');
             if constexpr (debug_mode_log_aware) {
                 if (GImGui->LogEnabled) {
@@ -1133,8 +1133,8 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
                     guide_mode::item_tooltip("Drag a rule here to get to its position.");
                 }
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
+                    messenger::dot_if(!page.empty() && *deliv == page[0]);
                     reset_page(First, *deliv);
-                    messenger::dot();
                 }
             }
         });

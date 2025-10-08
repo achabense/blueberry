@@ -309,7 +309,7 @@ public:
         assert(!valid());
     }
 
-    bool assign_dir(const pathT& path) noexcept {
+    bool assign_dir(const pathT& path, bool* same_dir = nullptr) noexcept {
         // Let's assume no real implementation will ever throw from `is_absolute()`...
         if (path.empty() || (m_path.empty() && !path.is_absolute())) {
             return false;
@@ -319,6 +319,10 @@ public:
             pathT cp = std::filesystem::canonical(m_path / path);
             std::vector<entryT> dirs, files;
             collect_maythrow(cp, dirs, files);
+            if (same_dir) {
+                // (Compare str directly as both are canonical.)
+                *same_dir = cp.native() == m_path.native();
+            }
             m_path.swap(cp);
             m_dirs.swap(dirs);
             m_files.swap(files);
@@ -344,7 +348,7 @@ public:
         }
     }
 
-    bool assign_dir_or_file(const pathT& path, const entryT*& file_pos) noexcept {
+    bool assign_dir_or_file(const pathT& path, const entryT*& file_pos, bool* same_dir = nullptr) noexcept {
         if (path.empty() || (m_path.empty() && !path.is_absolute())) {
             return false;
         }
@@ -357,10 +361,10 @@ public:
         }
 
         if (std::filesystem::is_directory(status)) {
-            return assign_dir(p);
+            return assign_dir(p, same_dir);
         } else if (std::filesystem::is_regular_file(status)) {
 #if 1
-            if (!assign_dir(p / "..")) {
+            if (!assign_dir(p / ".." /*, nullptr*/)) {
                 return false;
             }
 
@@ -417,9 +421,10 @@ public:
 
     void refresh_if_valid() {
         if (m_current.valid()) {
+            constexpr bool same_dir = true;
             if (m_current.refresh()) {
-                // reset_scroll = true;
-                messenger::dot();
+                messenger::dot_if(same_dir);
+                reset_scroll = !same_dir;
             } else {
                 messenger::set_msg("Cannot refresh.");
             }
@@ -445,8 +450,10 @@ private:
             // It's impressive that path has implicit c-str ctor... why?
             // Related: https://github.com/microsoft/STL/issues/909
             const auto p = cpp17_u8path(buf_path);
-            if (p && m_current.assign_dir_or_file(*p, pos)) {
-                reset_scroll = true;
+            bool same_dir = false;
+            if (p && m_current.assign_dir_or_file(*p, pos, &same_dir)) {
+                messenger::dot_if(same_dir);
+                reset_scroll = !same_dir;
             } else {
                 std::error_code ec{};
                 messenger::set_msg(p && !std::filesystem::exists(*p, ec) ? "Path doesn't exist." : "Cannot open.");
@@ -531,12 +538,11 @@ public:
     // Return one of file path in `m_current`.
     std::optional<pathT> display() {
         std::optional<pathT> target = std::nullopt;
-        const auto set_dir = [&](const pathT& path, const bool dot = false) {
-            if (m_current.assign_dir(path)) {
-                reset_scroll = true;
-                if (dot) {
-                    messenger::dot();
-                }
+        const auto set_dir = [&](const pathT& path) {
+            bool same_dir = false;
+            if (m_current.assign_dir(path, &same_dir)) {
+                messenger::dot_if(same_dir);
+                reset_scroll = !same_dir;
             } else {
                 messenger::set_msg("Cannot open.");
             }
@@ -560,7 +566,7 @@ public:
             if (!m_home.empty()) {
                 any = true;
                 if (imgui_SelectableStyledButtonEx(id++, "Home")) {
-                    set_dir(m_home, true /*show dot*/);
+                    set_dir(m_home);
                 }
                 rclick_popup::for_button([&] { // (Undocumented.)
                     // m_home ~ canonical ~ won't have trailing sep unless it's root path (nearly impossible).
