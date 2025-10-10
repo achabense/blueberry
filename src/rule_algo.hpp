@@ -5,6 +5,18 @@
 #include "rule.hpp"
 
 namespace aniso {
+    inline bool none_locked(const lockT& l) { //
+        return for_each_code_all_of([&](const codeT code) { return !l[code]; });
+    }
+
+    inline int count_locked(const lockT& l) {
+        int c = 0;
+        for (const codeT code : each_code) {
+            c += l[code];
+        }
+        return c;
+    }
+
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
     class equivT {
         mutable codeT::map_to<codeT> m_par;
@@ -108,9 +120,10 @@ namespace aniso {
     inline bool all_same_or_different_locked(const groupT& group, const ruleT& a, const ruleT& b, const lockT& l) {
         for (int v = -1; const codeT c : group) {
             if (l[c]) {
+                const int eq = a[c] == b[c];
                 if (v == -1) {
-                    v = a[c] == b[c];
-                } else if (v != (a[c] == b[c])) {
+                    v = eq;
+                } else if (v != eq) {
                     return false;
                 }
             }
@@ -153,6 +166,11 @@ namespace aniso {
         }
         auto heads() const { //
             return std::views::transform(m_groups, [&](const group_pos& pos) { return m_data[pos.pos]; });
+        }
+
+        std::vector<groupT> groups_to_vec() const {
+            const auto g = groups();
+            return std::vector<groupT>(g.begin(), g.end());
         }
 
         // <-> `std::ranges::all_of(groups(), pred)`:
@@ -262,6 +280,7 @@ namespace aniso {
     struct subsetT {
         ruleT rule{};
         partitionT p{};
+        // static constexpr lockT lock{};
 
         const partitionT* operator->() const { return &p; }
         bool contains(const ruleT& r) const {
@@ -283,6 +302,12 @@ namespace aniso {
             rule.reset();
             p.reset();
         }
+
+        // (To be compatible with `subsetT_v2`.)
+        const ruleT& get_rule() const { return rule; }
+        int free_k() const { return p.k(); }
+        auto free_heads() const { return p.heads(); }
+        auto free_groups() const { return p.groups(); }
     };
 
     // Look for a rule that belongs to both a and b.
@@ -378,46 +403,44 @@ namespace aniso {
         a.p |= b.p;
     }
 
-    inline int distance(const subsetT& subset, const ruleT& a, const ruleT& b) {
+    // const auto& subset ~ subsetT / subsetT_v2.
+    inline int distance(const auto& subset, const ruleT& a, const ruleT& b) {
         assert(subset.contains(a) && subset.contains(b));
         int dist = 0;
-        for (const codeT code : subset->heads()) {
+        for (const codeT code : subset.free_heads()) {
             dist += a[code] != b[code];
         }
         return dist;
     }
 
-    inline void approximate_r(const subsetT& subset, ruleT& rule) {
-        for (const groupT& group : subset->groups()) {
-            if (!all_same_or_different(group, subset.rule, rule)) {
+    inline ruleT approximate(const auto& subset, const ruleT& rule) {
+        ruleT r = subset.get_rule();
+        for (const groupT& group : subset.free_groups()) {
+            if (all_same_or_different(group, r, rule)) {
                 for (const codeT code : group) {
-                    rule[code] = subset.rule[code];
+                    r[code] = rule[code];
                 }
             }
         }
-    }
-
-    [[nodiscard]] inline ruleT approximate_v(const subsetT& subset, const ruleT& rule) {
-        ruleT r = rule;
-        approximate_r(subset, r);
+        assert(subset.contains(r));
         return r;
     }
 
-    inline ruleT transform(const subsetT& subset, const ruleT& rel, const ruleT* pos,
+    inline ruleT transform(const auto& subset, const ruleT& rel, const ruleT* pos,
                            const func_ref<void(bool*, bool*)> fn) {
         assert(subset.contains(rel));
         assert_implies(pos, subset.contains(*pos));
-        assert(subset->k() <= 512);
+        assert(subset->k() <= 512);   // free_k <= k <= 512.
         std::array<bool, 512> diff{}; // vector-bool.
         if (pos) {
-            for (int j = 0; const codeT code : subset->heads()) {
+            for (int j = 0; const codeT code : subset.free_heads()) {
                 diff[j++] = rel[code] != (*pos)[code];
             }
         }
-        fn(diff.data(), diff.data() + subset->k());
+        fn(diff.data(), diff.data() + subset.free_k());
 
         ruleT rule = rel;
-        for (int j = 0; const groupT& group : subset->groups()) {
+        for (int j = 0; const groupT& group : subset.free_groups()) {
             if (diff[j++]) {
                 flip_values_r(group, rule);
             }
@@ -426,7 +449,7 @@ namespace aniso {
         return rule;
     }
 
-    inline ruleT random_rule_c(const subsetT& subset, const ruleT& rel, std::mt19937& rand, int count) {
+    inline ruleT random_rule_c(const auto& subset, const ruleT& rel, std::mt19937& rand, int count) {
         return transform(subset, rel, nullptr, [&rand, count](bool* begin, bool* end) {
             const int c = std::clamp(count, 0, int(end - begin));
             std::fill_n(begin, c, bool(1));
@@ -435,7 +458,7 @@ namespace aniso {
         });
     }
 
-    inline ruleT random_rule_p(const subsetT& subset, const ruleT& rel, std::mt19937& rand, double p) {
+    inline ruleT random_rule_p(const auto& subset, const ruleT& rel, std::mt19937& rand, double p) {
         return transform(subset, rel, nullptr, [&rand, p](bool* begin, bool* end) {
             std::bernoulli_distribution dist(std::clamp(p, 0.0, 1.0));
             std::generate(begin, end, [&] { return dist(rand); });
@@ -443,16 +466,16 @@ namespace aniso {
     }
 
     struct flatten : no_create {
-        static ruleT first(const subsetT& subset, const ruleT& rel) {
+        static ruleT first(const auto& subset, const ruleT& rel) {
             return transform(subset, rel, nullptr, [](bool* begin, bool* end) { std::fill(begin, end, bool(0)); });
         }
 
-        static ruleT last(const subsetT& subset, const ruleT& rel) {
+        static ruleT last(const auto& subset, const ruleT& rel) {
             return transform(subset, rel, nullptr, [](bool* begin, bool* end) { std::fill(begin, end, bool(1)); });
         }
 
         // First rule with distance = d to `rel` in the sequence.
-        static ruleT first_d(const subsetT& subset, const ruleT& rel, int d) {
+        static ruleT first_d(const auto& subset, const ruleT& rel, int d) {
             return transform(subset, rel, nullptr, [d](bool* begin, bool* end) {
                 const int c = std::clamp(d, 0, int(end - begin));
                 std::fill_n(begin, c, bool(1));
@@ -460,7 +483,7 @@ namespace aniso {
             });
         }
 
-        static ruleT next(const subsetT& subset, const ruleT& rel, const ruleT& pos) {
+        static ruleT next(const auto& subset, const ruleT& rel, const ruleT& pos) {
             return transform(subset, rel, &pos, [](bool* begin, bool* end) {
                 if (!std::next_permutation(begin, end, std::greater<>{})) {
                     // 1100... -> 1110..., or stop at 111... (last())
@@ -472,7 +495,7 @@ namespace aniso {
             });
         }
 
-        static ruleT prev(const subsetT& subset, const ruleT& rel, const ruleT& pos) {
+        static ruleT prev(const auto& subset, const ruleT& rel, const ruleT& pos) {
             return transform(subset, rel, &pos, [](bool* begin, bool* end) {
                 if (!std::prev_permutation(begin, end, std::greater<>{})) {
                     // ...0111 -> ...0011, or stop at 000... (first())
@@ -800,11 +823,6 @@ namespace aniso {
         return ro;
     }
 
-    // !!TODO: (v0.9.9) re-support value constraints in the gui.
-    // -> Support intersection with subsetT (should be selectable in the set table).
-    // -> Support generating partialT from pattern & support random-access editing in the gui.
-
-    // (Previously `moldT`.)
     // A `partialT` stands for a another kind of MAP subset where, a rule belongs to the set iff it has the same "locked" values.
     // Take the "free" glider in gol for example. During all of its phases, the glider involves only a small subset of all cases (l), and a rule allows for the same glider iff it belongs to partialT(gol,l). (Not taking account of reactions with other patterns e.g. glider collision.)
     struct partialT {
@@ -833,6 +851,7 @@ namespace aniso {
             });
         }
 
+        bool is_universal() const { return none_locked(lock); }
         void reset() {
             rule.reset();
             lock.reset();
@@ -879,9 +898,22 @@ namespace aniso {
         bool includes(const subsetT_v2&) = delete;
         friend bool operator==(const subsetT_v2& a, const subsetT_v2& b) = delete;
 
+        bool is_universal() const { return s->k() == 512 && none_locked(lock); }
         void reset() {
             s.reset();
             lock.reset();
+        }
+
+        const ruleT& get_rule() const { return s.rule; }
+        // !!TODO: expensive...
+        int free_k() const { //
+            return std::ranges::count_if(s->heads(), [&](codeT c) { return !lock[c]; });
+        }
+        auto free_heads() const { //
+            return std::views::filter(s->heads(), [&](codeT c) { return !lock[c]; });
+        }
+        auto free_groups() const { //
+            return std::views::filter(s->groups(), [&](const groupT& g) { return !lock[g[0]]; });
         }
     };
 
@@ -941,5 +973,22 @@ namespace aniso {
 
     void operator&=(subsetT_v2& a, const subsetT& b) = delete;
     void operator&=(subsetT_v2& a, const partialT& b) = delete;
+
+#ifdef ENABLE_TESTS
+    namespace _tests {
+        inline const testT test_both_compiles = [] {
+            if /*constexpr*/ (0) {
+                const subsetT a{};
+                const subsetT_v2 b{};
+                (void)distance(a, {}, {});
+                (void)distance(b, {}, {});
+                (void)approximate(a, {});
+                (void)approximate(b, {});
+                (void)transform(a, {}, nullptr, [](bool*, bool*) {});
+                (void)transform(b, {}, nullptr, [](bool*, bool*) {});
+            }
+        };
+    } // namespace _tests
+#endif // ENABLE_TESTS
 
 } // namespace aniso

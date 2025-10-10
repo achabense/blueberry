@@ -121,10 +121,7 @@ static aniso::lockT capture_closed(const aniso::tile_const_ref tile, const aniso
     constexpr int limit = 120;
     for (int g = 0; g < limit; ++g) {
         aniso::lockT next = lock;
-        torus.run_torus([&](const aniso::codeT code) {
-            next[code] = true;
-            return rule[code];
-        });
+        torus.run_torus(rule, next);
         if (compare_update(lock, next)) {
             g = -1; // ++ -> 0
         }
@@ -153,6 +150,7 @@ struct identify_result {
     aniso::tileT pattern; // Smallest phase.
     aniso::vecT offset;
     int period;
+    aniso::lockT lock; // TODO: not suitable name...
 };
 static std::optional<identify_result> identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
                                                const aniso::vecT period_size, const bool require_matching_bg = true) {
@@ -197,6 +195,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
         aniso::tileT tile;
         aniso::rangeT range; // Range of pattern (including a layer of bg), relative to `tile`.
         aniso::vecT off;     // Pattern's begin pos, relative to the initial pattern.
+        aniso::lockT lock;
 
         aniso::tile_const_ref get_pattern() const { return tile.data(range); }
 
@@ -212,7 +211,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
             aniso::fill_outside(next.data(), relocate,
                                 aniso::realign_from_to(background, padding, {0, 0}) /*relative to `next`*/);
             aniso::copy(next.data(relocate), pattern);
-            next.run_torus(rule);
+            next.run_torus(rule, lock);
 
             tile.swap(next);
             if (const auto next_range = locate_pattern_with_bg(tile.data(), period_size); //
@@ -234,7 +233,8 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
     regionT region{.period_size = period_size,
                    .tile = aniso::tileT(init_pattern),
                    .range = {{0, 0}, init_pattern.size},
-                   .off = {0, 0}};
+                   .off = {0, 0},
+                   .lock = {}};
     aniso::tileT smallest = aniso::tileT(init_pattern);
 
     constexpr int limit = 4000; // Max period to deal with.
@@ -250,7 +250,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
         }
         if (aniso::equal(init_pattern, pattern)) {
             // TODO: pad an extra layer of bg pattern?
-            return {{.pattern = std::move(smallest), .offset = region.off, .period = g}};
+            return {{.pattern = std::move(smallest), .offset = region.off, .period = g, .lock = region.lock}};
         }
     }
     // For example, this can happen the object really has a huge period, or the initial area doesn't
@@ -1383,6 +1383,7 @@ private:
             } //
         };
 
+        // !!TODO: (v0.9.9) support variable p_size...
         static int background = 0; // TODO: -> enum.
         static constexpr op_term op_clear_inside{
             ImGuiKey_Backspace, "Backspace", check_sel,
@@ -1503,7 +1504,7 @@ private:
                 assert(self.m_sel);
                 const aniso::vecT p_size{2, 2};
                 if (const auto result = identify(self.m_torus.read_only(self.m_sel->to_range()), self.m_rule, p_size)) {
-                    const auto& [pattern, offset, period] = *result;
+                    const auto& [pattern, offset, period, _] = *result;
                     const bool no_offset = offset == aniso::vecT{0, 0};
                     std::string desc;
                     if (no_offset && period == 1) {
@@ -1541,12 +1542,30 @@ private:
             } //
         };
 
+        // TODO: combine with 'I'? (identify -> display a window to support both ops)
+        static constexpr op_term op_capture{
+            ImGuiKey_P, "P", check_sel,
+            [](runnerT& self) {
+                // TODO: conceptually should test "set-table-avail" (currently not necessary)...
+                if (!random_access_status::available()) {
+                    return;
+                }
+                assert(self.m_sel);
+                const aniso::vecT p_size{2, 2};
+                // !!TODO: support capturing pure bg...
+                if (const auto result = identify(self.m_torus.read_only(self.m_sel->to_range()), self.m_rule, p_size)) {
+                    load_capture(self.m_rule, result->lock);
+                }
+            } //
+        };
+
         const op_term* op = nullptr;
 
         if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
             static constexpr const op_term* op_list[]{
-                &op_random_flip,  &op_flip, &op_clear_inside, &op_clear_outside, &op_select_all,
-                &op_bounding_box, &op_copy, &op_extract,      &op_identify,      &op_paste};
+                &op_random_flip, &op_flip,    &op_clear_inside, &op_clear_outside, &op_select_all, &op_bounding_box,
+                &op_copy,        &op_extract, &op_identify,     &op_paste,         &op_capture,
+            };
             for (const op_term* t : op_list) {
                 if (shortcuts::test_pressed(t->key, false)) {
                     op = t;
@@ -1656,6 +1675,13 @@ private:
                     "Identify a single object (still life, oscillator or spaceship) in the area, and *copy* its smallest phase to the clipboard.");
                 term("Paste", op_paste);
                 guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.");
+
+                if (random_access_status::available()) {
+                    ImGui::Separator();
+
+                    term("Capture", op_capture);
+                    guide_mode::item_tooltip("(Experimental) !!TODO");
+                }
             }
         }
 

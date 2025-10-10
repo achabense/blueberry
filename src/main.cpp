@@ -202,6 +202,7 @@ int main(int, char**) {
     // Workaround to setup DPI unawareness (to let the system (Windows) do the scaling).
     // Without this the program will appear small by default, and users need to fix DPI settings manually (Compatibility/Change high DPI settings/Override high DPI scaling behavior->System).
     // (The `SDL_HINT_WINDOWS_DPI_AWARENESS` macro has been removed in the new SDL3 version, but the string still works.)
+    // Related: https://github.com/libsdl-org/SDL/pull/7145
     if constexpr (!scale_manually) {
         SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "unaware");
     }

@@ -59,6 +59,7 @@ namespace aniso {
         bool val{};
         /*implicit*/ ALWAYS_INLINE operator int() const { return val; }
         // (`operator==` is delegated to comparing `int()` result.)
+        // friend bool operator==(cellT, cellT) = default;
 
         // (Note: to allow for seamless switch between `bool`, `~` is not usable as bool(~bool(1)) == 1 instead of 0...)
         friend cellT operator!(cellT c) { return cellT(!c.val); }
@@ -97,6 +98,7 @@ namespace aniso {
     struct codeT {
         int16_t val{};
         /*implicit*/ ALWAYS_INLINE operator int() const { /*assert(0 <= val && val < 512);*/ return val; }
+        // friend bool operator==(codeT, codeT) = default;
 
         template <class T, int tag = 0>
         class map_to {
@@ -104,10 +106,10 @@ namespace aniso {
             std::conditional_t<debug_mode, T[512], std::array<T, 512>> m_map{};
 
         public:
-            const T& operator[](codeT code) const { return m_map[code]; }
-            T& operator[](codeT code) { return m_map[code]; }
+            const T& operator[](codeT code) const { return m_map[code.val]; }
+            T& operator[](codeT code) { return m_map[code.val]; }
 
-            void fill(const T& v) { std::ranges::fill(m_map, v); }
+            void fill(T v) { std::ranges::fill(m_map, v); }
             void reset() { fill(T{}); }
 
             friend bool operator==(const map_to&, const map_to&) = default;

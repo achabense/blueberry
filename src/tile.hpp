@@ -928,6 +928,12 @@ namespace aniso {
         void run_torus(const rule_like auto& rule) { //
             apply_rule_torus(rule, data());
         }
+        void run_torus(const ruleT& rule, lockT& lock) {
+            run_torus([&](const codeT c) {
+                lock[c] = true;
+                return rule(c);
+            });
+        }
 
         friend bool operator==(const tileT& a, const tileT& b) {
             if (a.m_size != b.m_size) {

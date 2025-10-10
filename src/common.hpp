@@ -611,7 +611,8 @@ public:
             return false;
         }
 
-        assert(v_min < v_max && v_step > 0 && ((v_max - v_min) % v_step) == 0);
+        // !!TODO: recheck `v_min == v_max` case... whether to begin-disabled?
+        assert(v_min <= v_max && v_step > 0 && ((v_max - v_min) % v_step) == 0);
         const int u_max = (v_max - v_min) / v_step; // > 0.
         const int u_init = std::clamp((*v - v_min) / v_step, 0, u_max);
         const auto to_v = [u_max, v_min, v_step](int u) { return std::clamp(u, 0, u_max) * v_step + v_min; };
@@ -1361,3 +1362,5 @@ using random_access_status = item_status<1>; // TODO: -> rule_editor_status.
 using pattern_editor_status = item_status<2>;
 bool has_pattern(std::string_view text);
 void load_pattern(std::string_view text);
+
+void load_capture(const aniso::ruleT& r, const aniso::lockT& l);

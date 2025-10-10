@@ -7,7 +7,6 @@
 // TODO: support toggling tooltips (subsets & rule tags & groups)?
 
 namespace aniso {
-    // !!TODO: (v0.9.9) when partialT is supported, add strobing-set (01 10) and the other 3 non-strobing cases (01 11, 00 10, 11 00).
     static const struct : no_copy {
         subsetT ignore_q = make_subset({mp_ignore_q});
         subsetT ignore_w = make_subset({mp_ignore_w});
@@ -24,13 +23,15 @@ namespace aniso {
         subsetT ignore_jvn = make_subset({mp_jvn_ignore});
         subsetT ignore_wadx = make_subset({mp_ignore_wadx});
 
-        // !!TODO: (v0.9.9) remove this when partialT is supported?
+        // !!TODO: (v0.9.9) support predefined p-sets (e.g. strobing-set (01 10) and the other 3 non-strobing cases (01 11, 00 10, 11 00))
+#if 0
         // rule[{0}] == rule[{511}].
         subsetT single_stable_state{.rule = rule_all_zero, .p = [] {
                                         equivT eq{};
                                         eq.add_eq({0}, {511});
                                         return eq;
                                     }()};
+#endif
         subsetT self_complementary = make_subset({mp_reverse}, rule_identity);
 
         subsetT native_isotropic = make_subset({mp_refl_wsx, mp_refl_qsc});
@@ -132,24 +133,76 @@ static int fit_count(int avail, int size, int spacing) { //
     return std::max(1, (avail + spacing) / (size + spacing));
 }
 
+class set_ptr {
+    const aniso::subsetT* s = nullptr;
+    std::unique_ptr<aniso::partialT> p = nullptr;
+
+public:
+    set_ptr(const aniso::subsetT* s) : s{s} { assert(s); }
+    set_ptr(const aniso::partialT& p) : p{new auto(p)} {}
+    const aniso::subsetT* get_s() const { return s; }
+    const aniso::partialT* get_p() const { return p.get(); }
+
+    bool is_universal() const { //
+        return s ? s->is_universal() : p->is_universal();
+    }
+    bool contains(const aniso::ruleT& rule) const { //
+        return s ? s->contains(rule) : p->contains(rule);
+    }
+    bool includes(const aniso::subsetT_v2& set) const { //
+        return s ? aniso::includes(*s, set) : aniso::includes(*p, set);
+    }
+    bool has_common(const aniso::subsetT_v2& set) const { //
+        return s ? aniso::has_common(*s, set) : aniso::has_common(*p, set);
+    }
+    void intersect(aniso::subsetT& s2, aniso::partialT& p2) const {
+        // (Working as both &= return void. (Otherwise should be `void(i &= j)`.))
+        s ? s2 &= * s : p2 &= *p;
+    }
+};
+
 // `subsetT` (and `mapperT` pair) are highly customizable. However, for sanity there is no plan to
 // support user-defined subsets in the gui part.
 class subset_selector : no_copy {
-    aniso::subsetT m_current{};
+    aniso::subsetT_v2 m_current{}; // Intersection of selected sets.
     bool set_changed = true;
 
-    struct termT {
-        const char* const title;
-        const aniso::subsetT* const set; // !set->is_universal().
-        const char* const desc;
+    class termT : public set_ptr { // !is_universal().
+        struct infoT {
+            const char* title;
+            const char* desc;
+            bool includes = false;  // includes(m_current).
+            bool has_common = true; // has_common(m_current).
+        } info;
 
+    public:
         bool selected = false;
-        bool includes = false;  // set->includes(m_current).
-        bool has_common = true; // has_common(*set, m_current).
+        explicit termT(set_ptr set, const char* title, const char* desc, const aniso::subsetT_v2* current = nullptr)
+            : set_ptr{std::move(set)}, info{.title = title, .desc = desc} {
+            assert(title && desc && !is_universal());
+            if (current) {
+                (void)update_info(*current);
+            }
+        }
+
+        const infoT* operator->() const { return &info; }
+        bool update_info(const aniso::subsetT_v2& current) {
+            const bool changed = compare_update(info.includes, includes(current));
+            assert_implies(info.includes, has_common(current));
+            info.has_common = info.includes /*perf*/ || has_common(current);
+
+            assert_implies(selected, info.includes);
+            assert_implies(!info.has_common, !selected);
+            return changed;
+        }
     };
 
     using terms_data = std::vector<termT>;
-    terms_data m_terms{};
+    // TODO: refactor if possible...
+    // (Ideally should be two regular members, but `std::views::concat` doesn't exist in real world...)
+    terms_data m_terms_ex[2]{};
+    terms_data& m_terms = m_terms_ex[0];    // subsetT only.
+    terms_data& m_partials = m_terms_ex[1]; // partialT only.
 
     struct terms_ref {
         int pos, size;
@@ -165,39 +218,32 @@ class subset_selector : no_copy {
     terms_ref terms_hex{};
 
     void update_current() {
-        m_current.reset();
-        for (const termT& t : m_terms) {
+        aniso::subsetT s{};
+        aniso::partialT p{};
+        for (const termT& t : std::views::join(m_terms_ex)) {
             if (t.selected) {
-                m_current &= *t.set;
+                t.intersect(s, p);
             }
         }
-
-        for (termT& t : m_terms) {
-            if (compare_update(t.includes, t.set->includes(m_current))) {
+        m_current = s & p;
+        for (termT& t : std::views::join(m_terms_ex)) {
+            if (t.update_info(m_current)) {
                 set_changed = true;
             }
-            assert_implies(t.includes, aniso::has_common(*t.set, m_current));
-            t.has_common = t.includes /*perf*/ || aniso::has_common(*t.set, m_current);
-
-            assert_implies(t.selected, t.includes);
-            assert_implies(!t.has_common, !t.selected);
         }
     }
 
-    void toggle(termT& t) {
-        assert(t.selected || t.has_common);
+    void toggle(termT& term) {
+        assert(term.selected || term->has_common);
 
-        t.selected = !t.selected;
+        term.selected = !term.selected;
         update_current();
     }
 
-    // `sel` should be either nullptr or address of one of members in `aniso::subsets`.
-    bool select_single(const aniso::subsetT* const sel) {
-        assert_implies(sel, std::ranges::find(m_terms, sel, &termT::set) != m_terms.end());
-
+    bool select_single(termT& term) {
         bool update = false;
-        for (termT& t : m_terms) {
-            if (compare_update(t.selected, t.set == sel)) {
+        for (termT& t : std::views::join(m_terms_ex)) {
+            if (compare_update(t.selected, &t == &term)) {
                 update = true;
             }
         }
@@ -210,10 +256,12 @@ class subset_selector : no_copy {
 public:
     bool set_changed_since_last_check() { return std::exchange(set_changed, false); }
 
-    explicit subset_selector(const aniso::subsetT* init_sel = nullptr) {
+    // `init_s` should be either nullptr or address of one of sets in `m_terms`.
+    explicit subset_selector(const aniso::subsetT* init_s = nullptr) {
         using aniso::subsets;
         constexpr int reserve_cap = 50;
         m_terms.reserve(reserve_cap);
+        assert(m_current.is_universal());
 
         struct terms_scope : no_copy {
             terms_data& data;
@@ -222,7 +270,7 @@ public:
             ~terms_scope() { ref.size = data.size() - ref.pos; }
 
             void append(const char* title, const aniso::subsetT* set, const char* desc) {
-                data.push_back({.title = title, .set = set, .desc = desc});
+                data.push_back(termT(set, title, desc /*, nullptr*/));
             }
         };
         {
@@ -303,12 +351,13 @@ public:
                     "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
             }
 
+#if 0
             scope.append("00=11", &subsets.single_stable_state,
                          "Rules that map all-0 and all-1 cases to the same value.\n\n"
                          "    |0 0 0|       |1 1 1|\n"
                          "rule|0 0 0| = rule|1 1 1|\n"
                          "    |0 0 0|       |1 1 1|");
-
+#endif
             if constexpr (0) {
                 // Stripe; not quite interesting...
                 // ({a+b/c+d, rule_identity} can represent invar in one direction.)
@@ -385,12 +434,32 @@ public:
                          "6-fold rotational symmetry. This is a strict subset of both 'C2' and 'C3'.");
         }
         assert(m_terms.size() <= reserve_cap);
-        assert(m_current.is_universal());
-        assert(std::ranges::all_of(m_terms, [](const termT& t) { //
-            return t.title && t.set && !t.set->is_universal() && t.desc && !t.selected && !t.includes && t.has_common;
-        }));
+        assert(m_partials.empty());
 
-        select_single(init_sel);
+        if (init_s) {
+            const auto pos = std::ranges::find_if(m_terms, [init_s](const termT& t) { return t.get_s() == init_s; });
+            assert(pos != m_terms.end());
+            if (pos != m_terms.end()) {
+                select_single(*pos);
+            }
+        }
+    }
+
+    // !!TODO: (v0.9.9) incomplete; should support multiple p-sets...
+    // TODO: use different colors?
+    void load_capture(const aniso::partialT& p) {
+        assert(m_partials.size() <= 1);
+        if (!p.is_universal()) {
+            if (!m_partials.empty() && m_partials[0].selected) {
+                m_partials[0].selected = false;
+                update_current();
+            }
+            m_partials.clear();
+            m_partials.push_back(termT(p, "P", "(Experimental) !!TODO", &m_current));
+            messenger::set_msg("Updated.");
+        } else {
+            assert(false);
+        }
     }
 
 private:
@@ -452,11 +521,11 @@ public:
         // explain(false, None, "The rule does not belong to this set.");
     }
 
-    const aniso::subsetT& get() const { return m_current; }
+    const aniso::subsetT_v2& get() const { return m_current; }
 
     [[deprecated]] bool clear() {
         bool update = false;
-        for (termT& t : m_terms) {
+        for (termT& t : std::views::join(m_terms_ex)) {
             if (compare_update(t.selected, false)) {
                 update = true;
             }
@@ -469,8 +538,8 @@ public:
 
     bool match(const aniso::ruleT& rule) {
         bool update = false;
-        for (termT& t : m_terms) {
-            if (compare_update(t.selected, t.set->contains(rule))) {
+        for (termT& t : std::views::join(m_terms_ex)) {
+            if (compare_update(t.selected, t.contains(rule))) {
                 update = true;
             }
         }
@@ -496,43 +565,49 @@ public:
             int id = 0;
             const auto check = [&, r_down = ImGui::IsMouseDown(ImGuiMouseButton_Right)](termT& term,
                                                                                         const bool show_title) {
-                const bool contains_rule = mode.rule && term.set->contains(*mode.rule);
-                const char title = show_title ? term.title[0] : '\0';
+                const bool contains_rule = mode.rule && term.contains(*mode.rule);
+                const char title = show_title ? term->title[0] : '\0';
                 if (!mode.select) {
                     ImGui::Dummy(square_size());
                     put_term(contains_rule, None, title);
                     return;
                 }
 
-                assert_implies(!term.has_common, !term.selected);
-                const bool selectable = r_down || term.has_common;
+                assert_implies(!term->has_common, !term.selected);
+                const bool selectable = r_down || term->has_common;
 
                 ImGui::PushID(id++);
                 ImGui::BeginDisabled(!selectable);
                 if (ImGui::InvisibleButton("Subset", square_size())) {
                     if (r_down) {
-                        const bool updated = select_single(term.set);
+                        const bool updated = select_single(term);
                         messenger::dot_if(!updated);
-                    } else if (term.has_common) {
+                    } else if (term->has_common) {
                         toggle(term);
                     }
                 }
                 ImGui::EndDisabled();
                 ImGui::PopID();
                 put_term(contains_rule,
-                         term.selected      ? Selected
-                         : term.includes    ? Includes
-                         : !term.has_common ? Disabled
-                                            : None,
+                         term.selected       ? Selected
+                         : term->includes    ? Includes
+                         : !term->has_common ? Disabled
+                                             : None,
                          title);
                 if (selectable && ImGui::IsItemHovered()) {
                     imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
                 }
                 if (mode.tooltip) {
                     imgui_ItemTooltip([&] {
-                        ImGui::Text("Groups:%d", term.set->p.k());
+                        if (const auto* s = term.get_s()) {
+                            ImGui::Text("Groups:%d", s->p.k());
+                        } else if (const auto* p = term.get_p()) {
+                            ImGui::Text("Locked:%d/512", aniso::count_locked(p->lock)); // !!TODO: improve...
+                        } else {
+                            assert(false);
+                        }
                         ImGui::Separator();
-                        imgui_Str(term.desc);
+                        imgui_Str(term->desc);
                     });
                 }
             };
@@ -543,12 +618,12 @@ public:
                         ImGui::SameLine();
                     }
                     ImGui::BeginGroup();
-                    const float title_w = imgui_CalcTextSize(t.title).x;
+                    const float title_w = imgui_CalcTextSize(t->title).x;
                     const float button_w = ImGui::GetFrameHeight();
                     if (title_w < button_w) {
                         imgui_AddCursorPosX((button_w - title_w) / 2);
                     }
-                    imgui_Str(t.title);
+                    imgui_Str(t->title);
                     if (button_w < title_w) {
                         imgui_AddCursorPosX((title_w - button_w) / 2);
                     }
@@ -582,6 +657,10 @@ public:
 
                 ImGui::SameLine();
                 checklist(terms_misc.get(m_terms));
+                if (!m_partials.empty()) {
+                    ImGui::SameLine();
+                    checklist(m_partials);
+                }
             });
 
             put_row("Native\nsymmetry", [&] { checklist(terms_native.get(m_terms)); });
@@ -594,14 +673,17 @@ public:
             ImGui::EndTable();
         }
     }
+
+    void show_belongs(const aniso::ruleT& rule) const {
+        const_cast<subset_selector*>(this)->select({.rule = &rule, .select = false, .tooltip = false});
+    }
 };
 
-// TODO: show whether belongs to the working set && dist to the observer?
-// TODO: share with `edit_rule` (`subset_selector`).
-void previewer::_show_belongs(const aniso::ruleT& rule) {
-    static subset_selector dummy{};
-    dummy.select({.rule = &rule, .select = false, .tooltip = false});
-}
+// TODO: remove...
+// (Workaround to avoid affecting too many lines.)
+#define subsetT subsetT_v2
+// !!TODO: recheck use of k() vs free_k(); free_k() can be 0...
+// !!TODO: update tooltips (free groups)...
 
 // (Used to require being used after regular tooltips; no longer necessary.)
 static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
@@ -686,7 +768,7 @@ public:
 
     void sync(const aniso::subsetT& working_set) {
         if (!working_set.contains(get())) {
-            set(working_set.rule);
+            set(working_set.get_rule());
         }
     }
 
@@ -755,7 +837,7 @@ public:
             }
         }
 
-        // assert(working_set.contains(get()));
+        assert(working_set.contains(get()));
     }
 };
 
@@ -847,7 +929,7 @@ static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& work
                                     "(If the rule already belongs to [S], this will result in the same rule.)");
             show_rule(id, rule_approx);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                const aniso::ruleT r = aniso::approximate_v(working_set, *deliv);
+                const aniso::ruleT r = aniso::approximate(working_set, *deliv);
                 messenger::dot_if(rule_approx == r);
                 rule_approx = r;
             }
@@ -1084,7 +1166,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         static input_int input_dist{};
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
-            "(...)",
+            "(...)", // !!TODO: -> largest dist = number of free groups...
             "The seq can iterate through all rules in [S] in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
             "The \"dist\" in this window refers to distance to [X]. For example, 'Go to dist' can get to the first rule with specified distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
             "(This is mainly useful for small sets (having only a few groups). For large sets, 'Random' and 'Edit-rule' may be more suitable tools.)");
@@ -1093,7 +1175,7 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
         imgui_Str("Go to dist ~ ");
         ImGui::SameLine(0, 0);
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
-        if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set->k()).c_str())) {
+        if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set.free_k()).c_str())) {
             reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
         }
         ImGui::SameLine();
@@ -1183,8 +1265,8 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 
         static bool exact_mode = false;
         static double rate = 0.29;
-        const int c_group = working_set->k();
-        const int c_free = c_group;                // TODO: temporarily preserved.
+        // const int c_group = working_set->k();
+        const int c_free = working_set.free_k();
         int free_dist = std::round(rate * c_free); // Intended distance.
 
         ImGui::AlignTextToFramePadding();
@@ -1199,6 +1281,7 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
         imgui_RadioButton("Exactly", &exact_mode, true);
         ImGui::SameLine();
         ImGui::SetNextItemWidth(std::floor(item_width() * 0.9));
+        // TODO: show different str if has-lock? "(Free) %d"
         if (imgui_StepSliderInt::fn("##Dist", &free_dist, 0, c_free) && c_free != 0) {
             rate = double(free_dist) / c_free;
             assert(std::round(rate * c_free) == free_dist);
@@ -1275,12 +1358,29 @@ static open_state random_rule_window(const ImVec2& init_pos, const aniso::subset
 // TODO: support random-access in a separate window?
 // static open_state random_access_window(const ImVec2& init_pos, const aniso::subsetT& working_set);
 
+// TODO: refactor... (should not be pointer...)
+static subset_selector* select_working_ptr = nullptr;
+
+// TODO: show whether belongs to the working set && dist to the observer?
+void previewer::_show_belongs(const aniso::ruleT& rule) {
+    if (select_working_ptr) {
+        select_working_ptr->show_belongs(rule);
+    }
+}
+
+void load_capture(const aniso::ruleT& r, const aniso::lockT& l) {
+    if (select_working_ptr) {
+        select_working_ptr->load_capture({.rule = r, .lock = l});
+    }
+}
+
 void edit_rule(frame_main_token) {
     static test_appearing appearing{};
     appearing.update();
 
     // Select working set ([S]).
     static subset_selector select_working{&aniso::subsets.native_isotropic};
+    select_working_ptr = &select_working;
     {
         static bool collapse = false;
         ImGui::AlignTextToFramePadding();
@@ -1306,7 +1406,7 @@ void edit_rule(frame_main_token) {
             menu_like_popup::popup([] { select_working.select({.select = true, .tooltip = true}); });
         }
     }
-    static std::array<bool, 5> set_changed_n{};
+    static std::array<bool, 6> set_changed_n{};
     const aniso::subsetT& working_set = select_working.get();
     if (select_working.set_changed_since_last_check()) {
         set_changed_n.fill(true);
@@ -1331,6 +1431,7 @@ void edit_rule(frame_main_token) {
     ImGui::Separator();
 
     static bool show_random_access = false;
+    const bool show_random_access_old = show_random_access;
     // appearing.reset_if_appearing(show_random_access);
     static target_rule target{}; // Random-access ('Edit-rule')
     static previewer::configT config{previewer::default_settings};
@@ -1411,9 +1512,18 @@ void edit_rule(frame_main_token) {
 
     enum class displayE { Observer, Target, Comp };
     static displayE disp_mode = displayE::Observer;
-
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Groups:%d", working_set->k());
+    bool all_free = true;
+    {
+        const int c_group = working_set->k();
+        const int c_free = working_set.free_k();
+        ImGui::AlignTextToFramePadding();
+        if (c_group == c_free) {
+            ImGui::Text("Groups:%d", c_group);
+        } else {
+            all_free = false;
+            ImGui::Text("(Free) groups:%d/%d", c_free, c_group); // !!TODO: improve...
+        }
+    }
     {
         using enum displayE;
         if (!show_random_access) {
@@ -1453,6 +1563,10 @@ void edit_rule(frame_main_token) {
 
     ImGui::Separator();
 
+    // !!TODO: whether to reset scroll in these cases?
+    if (std::exchange(set_changed_n[5], false) || show_random_access_old != show_random_access) {
+        ImGui::SetNextWindowScroll({0, 0});
+    }
     // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
@@ -1522,8 +1636,13 @@ void edit_rule(frame_main_token) {
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + (show_random_access ? 3 : 5);
         const int perline = fit_count(ImGui::GetContentRegionAvail().x, group_size_x, spacing_x);
 
-        // TODO: support sorting (partitioning)...
-        for (int n = 0; const aniso::groupT& group : working_set->groups()) {
+        // TODO: support sorting (partitioning) by values...
+        auto groups = working_set->groups_to_vec();
+        if (!all_free) {
+            // (Free groups come first. (pred() -> true precedes -> false))
+            std::ranges::stable_partition(groups, [&](const auto& group) { return !working_set.lock[group[0]]; });
+        }
+        for (int n = 0; const aniso::groupT& group : groups) {
             const int this_n = n++;
             if (this_n % perline != 0) {
                 ImGui::SameLine(0, spacing_x);
@@ -1532,27 +1651,34 @@ void edit_rule(frame_main_token) {
             }
 
             const aniso::codeT head = group[0];
+            const bool locked = working_set.lock[head];
             bool hov = false;
             if (show_random_access) {
                 const auto get_adjacent_rule = [&] { return aniso::flip_values_v(group, target); };
 
                 ImGui::BeginGroup();
+                ImGui::BeginDisabled(locked);
                 if (code_button_with_label(head, &hov)) {
                     const aniso::ruleT r = get_adjacent_rule();
                     target.try_set(&r, working_set); // Must succeed.
                 }
+                ImGui::EndDisabled();
                 random_access_status::begin_disabled();
                 previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
                 random_access_status::end_disabled();
                 ImGui::EndGroup();
             } else {
+                ImGui::BeginDisabled(locked);
                 code_image_with_label(head, &hov);
+                ImGui::EndDisabled();
             }
 
             // !!TODO: (v0.9.9) sometimes noisy; should be able to turn off this tooltip.
             if (hov && ImGui::BeginTooltip()) { // No text wrapping.
+                // !!TODO: whether to use disabled style if locked?
+                ImGui::BeginDisabled(locked);
                 const int group_size = group.size();
-                ImGui::Text("Cases:%d", group_size);
+                ImGui::Text("%s:%d", locked ? "(Locked) cases" : "Cases", group_size);
                 ImGui::Separator();
                 constexpr int perline2 = 8; // -Wshadow
                 constexpr int max_to_show = perline2 * 6;
@@ -1565,6 +1691,7 @@ void edit_rule(frame_main_token) {
                 if (group_size > max_to_show) {
                     imgui_Str("...");
                 }
+                ImGui::EndDisabled();
                 ImGui::EndTooltip();
             }
         }
@@ -1572,6 +1699,7 @@ void edit_rule(frame_main_token) {
     ImGui::PopStyleColor();
 }
 
+// !!TODO: (v0.9.9) apply or remove...
 [[maybe_unused]] static void static_constraints(aniso::partialT& out) {
     enum stateE { Any_background, O, I, O_background, I_background };
 
