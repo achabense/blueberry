@@ -508,10 +508,29 @@ namespace aniso {
         }
     };
 
+    // (Workaround for a nasty init-order bug in clang-cl...)
+    // (The set list is defined in edit_rule.cpp, but (without the function guard) initialized before `rule_identity`...)
+    // TODO: not ideal solution, should:
+    // 1. (& gol) define as plain functions returning const ruleT&, or
+    // 2. (& gol) define as constexpr ruleT (need to mark a lot of functions constexpr), or
+    // 3. move the set list to header file.
+
     // Any-rule ^ rule_all_zero -> diff shows the rule's actual values.
-    inline const ruleT rule_all_zero{};
+    // inline const ruleT rule_all_zero{};
+    inline constexpr struct : no_copy {
+        operator const ruleT&() const {
+            static const ruleT r = {};
+            return r;
+        }
+    } rule_all_zero;
     // Any-rule ^ rule_identity -> diff shows whether the cell will "flip" in each case.
-    inline const ruleT rule_identity{make_rule([](const codeT c) { return c.get(codeT::bpos_s); })};
+    // inline const ruleT rule_identity{make_rule([](const codeT c) { return c.get(codeT::bpos_s); })};
+    inline constexpr struct : no_copy {
+        operator const ruleT&() const {
+            static const ruleT r = make_rule([](const codeT c) { return c.get(codeT::bpos_s); });
+            return r;
+        }
+    } rule_identity;
 
     // A mapperT maps each codeT to another codeT.
     // Especially, mapperT{"qweasdzxc"} maps any codeT to the same value.

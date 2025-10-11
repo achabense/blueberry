@@ -104,6 +104,8 @@ namespace aniso {
             assert(jvn_tot_exc_s->k() == 5 * 2);    // 0...4
             assert(jvn_tot_inc_s->k() == 6);        // 0...5
 
+            assert(!self_complementary.contains(rule_all_zero));
+
             const ruleT gol = game_of_life();
             assert(native_isotropic.contains(gol));
             assert(native_tot_exc_s.contains(gol));
