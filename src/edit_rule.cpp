@@ -203,8 +203,8 @@ class subset_selector : no_copy {
     // TODO: refactor if possible...
     // (Ideally should be two regular members, but `std::views::concat` doesn't exist in real world...)
     terms_data m_terms_ex[2]{};
-    terms_data& m_terms = m_terms_ex[0];    // subsetT only.
-    terms_data& m_partials = m_terms_ex[1]; // partialT only.
+    terms_data& m_terms_s = m_terms_ex[0]; // subsetT only.
+    terms_data& m_terms_p = m_terms_ex[1]; // partialT only.
 
     struct terms_ref {
         int pos, size;
@@ -262,7 +262,7 @@ public:
     explicit subset_selector(const aniso::subsetT* init_s = nullptr) {
         using aniso::subsets;
         constexpr int reserve_cap = 50;
-        m_terms.reserve(reserve_cap);
+        m_terms_s.reserve(reserve_cap);
         assert(m_current.is_universal());
 
         struct terms_scope : no_copy {
@@ -276,7 +276,7 @@ public:
             }
         };
         {
-            terms_scope scope(m_terms, terms_ignore);
+            terms_scope scope(m_terms_s, terms_ignore);
             scope.append(
                 "q", &subsets.ignore_q,
                 "Rules whose values are independent of 'q'. That is, for any two cases where only 'q' differs, the rule will map center cell to the same value.\n\n"
@@ -302,7 +302,7 @@ public:
             scope.append("c", &subsets.ignore_c, "Independent of 'c'. (See 'q' for details.)");
         }
         {
-            terms_scope scope(m_terms, terms_misc);
+            terms_scope scope(m_terms_s, terms_misc);
             if constexpr (0) {
                 scope.append(
                     "s(*)", &subsets.ignore_s_i,
@@ -382,7 +382,7 @@ public:
             }
         }
         {
-            terms_scope scope(m_terms, terms_native);
+            terms_scope scope(m_terms_s, terms_native);
             scope.append("Iso", &subsets.native_isotropic,
                          "Isotropic MAP rules, i.e. rules that preserve all symmetries.\n\n"
                          "(This is equal to the intersection of the following sets in this line.)");
@@ -398,7 +398,7 @@ public:
             scope.append("C4", &subsets.native_C4, "4-fold rotational symmetry. This is a strict subset of 'C2'.");
         }
         {
-            terms_scope scope(m_terms, terms_totalistic);
+            terms_scope scope(m_terms_s, terms_totalistic);
             scope.append(
                 "Tot", &subsets.native_tot_exc_s,
                 "Outer-totalistic MAP rules, i.e. rules whose values are only dependent on 's' and the sum of other cells. This is a strict subset of isotropic rules ('Iso').\n\n"
@@ -415,7 +415,7 @@ public:
             // q w -    q w
             // a s d ~ a s d
             // - x c    x c
-            terms_scope scope(m_terms, terms_hex);
+            terms_scope scope(m_terms_s, terms_hex);
             scope.append(
                 "Iso", &subsets.hex_isotropic,
                 "Rules that emulate isotropic hexagonal rules.\n\n"
@@ -435,13 +435,13 @@ public:
             scope.append("C6", &subsets.hex_C6,
                          "6-fold rotational symmetry. This is a strict subset of both 'C2' and 'C3'.");
         }
-        assert(m_terms.size() <= reserve_cap);
-        assert(m_partials.empty());
+        assert(m_terms_s.size() <= reserve_cap);
+        assert(m_terms_p.empty());
 
         if (init_s) {
-            const auto pos = std::ranges::find_if(m_terms, [init_s](const termT& t) { return t.get_s() == init_s; });
-            assert(pos != m_terms.end());
-            if (pos != m_terms.end()) {
+            const auto pos = std::ranges::find_if(m_terms_s, [init_s](const termT& t) { return t.get_s() == init_s; });
+            assert(pos != m_terms_s.end());
+            if (pos != m_terms_s.end()) {
                 select_single(*pos);
             }
         }
@@ -450,14 +450,14 @@ public:
     // !!TODO: (v0.9.9) incomplete; should support multiple p-sets...
     // TODO: use different colors?
     void load_capture(const aniso::partialT& p) {
-        assert(m_partials.size() <= 1);
+        assert(m_terms_p.size() <= 1);
         if (!p.is_universal()) {
-            if (!m_partials.empty() && m_partials[0].selected) {
-                m_partials[0].selected = false;
+            if (!m_terms_p.empty() && m_terms_p[0].selected) {
+                m_terms_p[0].selected = false;
                 update_current();
             }
-            m_partials.clear();
-            m_partials.push_back(termT(p, "P", "(Experimental) !!TODO", &m_current));
+            m_terms_p.clear();
+            m_terms_p.push_back(termT(p, "P", "(Experimental) !!TODO", &m_current));
             messenger::set_msg("Updated.");
         } else {
             assert(false);
@@ -468,27 +468,24 @@ private:
     enum centerE { Selected, Includes, Disabled /*no-common*/, None };
 
     // (Follows `ImGui::Dummy` or `ImGui::InvisibleButton`.)
-    static void put_term(bool contains_rule, centerE center, char title /* '\0' ~ no title */) {
-        const ImU32 cent_col = center == Selected   ? IM_COL32(65, 150, 255, 255) // Roughly _ButtonHovered
-                               : center == Includes ? IM_COL32(25, 60, 100, 255)  // Roughly _Button
-                                                    : IM_COL32_BLACK_TRANS;
-        const ImU32 ring_col = contains_rule ? IM_COL32(0, 255, 0, 255)  // Light green
-                                             : IM_COL32(0, 100, 0, 255); // Dull green
-        ImU32 title_col = IM_COL32_WHITE;
-        if (center == Disabled) {
-            title_col = IM_COL32_GREY(150, 255);
-            if (!title) {
-                title = '-';
-            }
+    // TODO: use ImGuiCol_ colors?
+    static void put_term(bool contains_rule, centerE center, char icon /* '\0' ~ no icon */) {
+        if (center == Disabled && !icon) {
+            icon = '-';
         }
 
         imgui_ItemRectFilled(IM_COL32_BLACK);
-        if (title && (center == None || center == Disabled)) {
-            imgui_ItemStr(title_col, {&title, 1});
+        if (icon && (center == None || center == Disabled)) {
+            const ImU32 col = center != Disabled ? IM_COL32_WHITE : IM_COL32_GREY(150, 255);
+            imgui_ItemStr(col, {&icon, 1});
         } else {
-            imgui_ItemRectFilled(cent_col, 0.5f);
+            const ImU32 col = center == Selected   ? IM_COL32(65, 150, 255, 255) // Roughly _ButtonHovered
+                              : center == Includes ? IM_COL32(25, 60, 100, 255)  // Roughly _Button
+                                                   : IM_COL32_BLACK_TRANS;
+            imgui_ItemRectFilled(col, 0.5f);
         }
-        imgui_ItemRect(ring_col);
+        imgui_ItemRect(contains_rule ? IM_COL32(0, 255, 0, 255)   // Light green
+                                     : IM_COL32(0, 100, 0, 255)); // Dull green
     }
 
 public:
@@ -566,12 +563,12 @@ public:
                                   ImGuiTableFlags_NoKeepColumnsVisible)) {
             int id = 0;
             const auto check = [&, r_down = ImGui::IsMouseDown(ImGuiMouseButton_Right)](termT& term,
-                                                                                        const bool show_title) {
+                                                                                        const bool show_icon) {
                 const bool contains_rule = mode.rule && term.contains(*mode.rule);
-                const char title = show_title ? term->title[0] : '\0';
+                const char icon = show_icon ? term->title[0] : '\0';
                 if (!mode.select) {
                     ImGui::Dummy(square_size());
-                    put_term(contains_rule, None, title);
+                    put_term(contains_rule, None, icon);
                     return;
                 }
 
@@ -595,7 +592,7 @@ public:
                          : term->includes    ? Includes
                          : !term->has_common ? Disabled
                                              : None,
-                         title);
+                         icon);
                 if (selectable && ImGui::IsItemHovered()) {
                     imgui_ItemRectFilled(ImGui::IsItemActive() ? IM_COL32_GREY(255, 55) : IM_COL32_GREY(255, 45));
                 }
@@ -634,19 +631,19 @@ public:
                 }
             };
 
-            const auto put_row = [](const char* l_str, const auto& r_logic) {
+            const auto put_row = [](const char* l_str, const auto& r_contents) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 imgui_Str(l_str);
 
                 ImGui::TableNextColumn();
-                r_logic();
+                r_contents();
             };
 
             put_row("Neighborhood\n& misc", [&] {
                 ImGui::BeginGroup();
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2));
-                const std::span<termT> ignore = terms_ignore.get(m_terms);
+                const std::span<termT> ignore = terms_ignore.get(m_terms_s);
                 for (int l = 0; l < 3; ++l) {
                     check(ignore[l * 3 + 0], true);
                     ImGui::SameLine();
@@ -658,19 +655,19 @@ public:
                 ImGui::EndGroup();
 
                 ImGui::SameLine();
-                checklist(terms_misc.get(m_terms));
-                if (!m_partials.empty()) {
+                checklist(terms_misc.get(m_terms_s));
+                if (!m_terms_p.empty()) {
                     ImGui::SameLine();
-                    checklist(m_partials);
+                    checklist(m_terms_p);
                 }
             });
 
-            put_row("Native\nsymmetry", [&] { checklist(terms_native.get(m_terms)); });
-            put_row("Totalistic", [&] { checklist(terms_totalistic.get(m_terms)); });
+            put_row("Native\nsymmetry", [&] { checklist(terms_native.get(m_terms_s)); });
+            put_row("Totalistic", [&] { checklist(terms_totalistic.get(m_terms_s)); });
             put_row("q w -    q w\n"
                     "a s d ~ a s d\n"
                     "- x c    x c",
-                    [&] { checklist(terms_hex.get(m_terms)); });
+                    [&] { checklist(terms_hex.get(m_terms_s)); });
 
             ImGui::EndTable();
         }

@@ -32,7 +32,7 @@
 
 #if 1
 #if defined(__clang__)
-#pragma clang diagnostic ignored "-Wsign-compare" // Comparision between int & size_t etc.
+#pragma clang diagnostic ignored "-Wsign-compare" // Comparison between int & size_t etc.
 #elif defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #elif defined(_MSC_VER)
