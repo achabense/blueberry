@@ -12,8 +12,8 @@ namespace aniso {
         subsetT ignore_w = make_subset({mp_ignore_w});
         subsetT ignore_e = make_subset({mp_ignore_e});
         subsetT ignore_a = make_subset({mp_ignore_a});
-        subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero);
-        subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity);
+        subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero());
+        subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity());
         subsetT ignore_d = make_subset({mp_ignore_d});
         subsetT ignore_z = make_subset({mp_ignore_z});
         subsetT ignore_x = make_subset({mp_ignore_x});
@@ -23,16 +23,7 @@ namespace aniso {
         subsetT ignore_jvn = make_subset({mp_jvn_ignore});
         subsetT ignore_wadx = make_subset({mp_ignore_wadx});
 
-        // !!TODO: (v0.9.9) support predefined p-sets (e.g. strobing-set (01 10) and the other 3 non-strobing cases (01 11, 00 10, 11 00))
-#if 0
-        // rule[{0}] == rule[{511}].
-        subsetT single_stable_state{.rule = rule_all_zero, .p = [] {
-                                        equivT eq{};
-                                        eq.add_eq({0}, {511});
-                                        return eq;
-                                    }()};
-#endif
-        subsetT self_complementary = make_subset({mp_reverse}, rule_identity);
+        subsetT self_complementary = make_subset({mp_reverse}, rule_identity());
 
         subsetT native_isotropic = make_subset({mp_refl_wsx, mp_refl_qsc});
         subsetT native_refl_wsx = make_subset({mp_refl_wsx});
@@ -104,12 +95,11 @@ namespace aniso {
             assert(jvn_tot_exc_s->k() == 5 * 2);    // 0...4
             assert(jvn_tot_inc_s->k() == 6);        // 0...5
 
-            assert(!self_complementary.contains(rule_all_zero));
+            assert(!self_complementary.contains(rule_all_zero()));
 
-            const ruleT gol = game_of_life();
-            assert(native_isotropic.contains(gol));
-            assert(native_tot_exc_s.contains(gol));
-            assert(!native_tot_inc_s.contains(gol));
+            assert(native_isotropic.contains(game_of_life()));
+            assert(native_tot_exc_s.contains(game_of_life()));
+            assert(!native_tot_inc_s.contains(game_of_life()));
         }
     } subsets;
 
@@ -258,6 +248,7 @@ class subset_selector : no_copy {
 public:
     bool set_changed_since_last_check() { return std::exchange(set_changed, false); }
 
+    // !!TODO: (v0.9.9) support predefined p-sets (e.g. strobing-set (01 10) and (01 11, 00 10, 11 00))
     // `init_s` should be either nullptr or address of one of sets in `m_terms`.
     explicit subset_selector(const aniso::subsetT* init_s = nullptr) {
         using aniso::subsets;
@@ -347,23 +338,28 @@ public:
                 constexpr mapperT mp_xor_ckbd_b("q!we"
                                                 "!as!d"
                                                 "z!xc");
-                static const subsetT ckbd = make_subset({mp_xor_ckbd_a, mp_xor_ckbd_b}, rule_identity);
+                static const subsetT ckbd = make_subset({mp_xor_ckbd_a, mp_xor_ckbd_b}, rule_identity());
                 scope.append(
                     "Ckbd", &ckbd,
                     "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
             }
 
-#if 0
-            scope.append("00=11", &subsets.single_stable_state,
-                         "Rules that map all-0 and all-1 cases to the same value.\n\n"
-                         "    |0 0 0|       |1 1 1|\n"
-                         "rule|0 0 0| = rule|1 1 1|\n"
-                         "    |0 0 0|       |1 1 1|");
-#endif
             if constexpr (0) {
+                using namespace aniso;
+                // rule[{0}] == rule[{511}].
+                static subsetT single_stable_state{.rule = rule_all_zero(), .p = [] {
+                                                       equivT eq{};
+                                                       eq.add_eq({0}, {511});
+                                                       return eq;
+                                                   }()};
+                scope.append("00=11", &single_stable_state,
+                             "Rules that map all-0 and all-1 cases to the same value.\n\n"
+                             "    |0 0 0|       |1 1 1|\n"
+                             "rule|0 0 0| = rule|1 1 1|\n"
+                             "    |0 0 0|       |1 1 1|");
+
                 // Stripe; not quite interesting...
                 // ({a+b/c+d, rule_identity} can represent invar in one direction.)
-                using namespace aniso;
                 constexpr mapperT mp_xor_stp_a("!q!w!e"
                                                "asd"
                                                "!z!x!c");
@@ -377,7 +373,7 @@ public:
                                                "a!sd"
                                                "z!xc");
                 static const subsetT stp =
-                    make_subset({mp_xor_stp_a, mp_xor_stp_b, mp_xor_stp_c, mp_xor_stp_d}, rule_identity);
+                    make_subset({mp_xor_stp_a, mp_xor_stp_b, mp_xor_stp_c, mp_xor_stp_d}, rule_identity());
                 scope.append("Stp", &stp, "(Debug mode) Stripe-xor invariance.");
             }
         }
@@ -459,6 +455,7 @@ public:
             m_terms_p.clear();
             m_terms_p.push_back(termT(p, "P", "(Experimental) !!TODO", &m_current));
             messenger::set_msg("Updated.");
+            messenger::set_auto_disappear();
         } else {
             assert(false);
         }
@@ -729,15 +726,15 @@ class rule_selector : no_copy {
     };
 
     const aniso::ruleT& get_rule(tagE tag) const {
-        return tag == Zero       ? aniso::rule_all_zero //
-               : tag == Identity ? aniso::rule_identity
+        return tag == Zero       ? aniso::rule_all_zero() //
+               : tag == Identity ? aniso::rule_identity()
                                  : m_other;
     }
 
     void set(const aniso::ruleT& rule) {
-        if (rule == aniso::rule_all_zero) {
+        if (rule == aniso::rule_all_zero()) {
             m_tag = Zero;
-        } else if (rule == aniso::rule_identity) {
+        } else if (rule == aniso::rule_identity()) {
             m_tag = Identity;
         } else {
             m_tag = Other;

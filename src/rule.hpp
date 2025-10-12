@@ -221,8 +221,8 @@ namespace aniso {
     }
 
     // "Convay's Game of Life" (B3/S23)
-    inline ruleT game_of_life() {
-        return make_rule([](const codeT code) -> cellT {
+    inline const ruleT& game_of_life() {
+        static const ruleT r = make_rule([](const codeT code) -> cellT {
             const auto [q, w, e, a, s, d, z, x, c] = decode(code);
             switch (q + w + e + a + d + z + x + c) {
                 case 2: return s;   // 2:S ~ 0->0, 1->1 ~ equal to "s".
@@ -230,6 +230,7 @@ namespace aniso {
                 default: return {0};
             }
         });
+        return r;
     }
 
     // Works in combination with ruleT to represent value constraints; see `partialT` in "rule_algo.hpp" for usage.
@@ -459,12 +460,11 @@ namespace aniso {
                 // > rule = MAPARYXfhZofugWaH7oaIDogBZofuhogOiAaIDogIAAgAAWaH7oaIDogGiA6ICAAIAAaIDogIAAgACAAIAAAAAAAA
                 const std::string_view gol_str =
                     "MAPARYXfhZofugWaH7oaIDogBZofuhogOiAaIDogIAAgAAWaH7oaIDogGiA6ICAAIAAaIDogIAAgACAAIAAAAAAAA";
-                const ruleT gol = game_of_life();
-                assert(to_MAP_str(gol) == gol_str);
+                assert(to_MAP_str(game_of_life()) == gol_str);
 
                 const auto extr = extract_MAP_str(gol_str, true);
                 assert(extr.prefix == "" && extr.suffix == "");
-                assert(extr.get_rule() == gol);
+                assert(extr.get_rule() == game_of_life());
                 assert(!extr.has_lock());
             }
 

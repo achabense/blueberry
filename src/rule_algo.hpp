@@ -510,27 +510,20 @@ namespace aniso {
 
     // (Workaround for a nasty init-order bug in clang-cl...)
     // (The set list is defined in edit_rule.cpp, but (without the function guard) initialized before `rule_identity`...)
-    // TODO: not ideal solution, should:
-    // 1. (& gol) define as plain functions returning const ruleT&, or
-    // 2. (& gol) define as constexpr ruleT (need to mark a lot of functions constexpr), or
-    // 3. move the set list to header file.
+    // TODO: (& gol) define as constexpr ruleT? move the set list to header file?
 
     // Any-rule ^ rule_all_zero -> diff shows the rule's actual values.
     // inline const ruleT rule_all_zero{};
-    inline constexpr struct : no_copy {
-        operator const ruleT&() const {
-            static const ruleT r = {};
-            return r;
-        }
-    } rule_all_zero;
+    inline const ruleT& rule_all_zero() {
+        static const ruleT r = {};
+        return r;
+    }
     // Any-rule ^ rule_identity -> diff shows whether the cell will "flip" in each case.
     // inline const ruleT rule_identity{make_rule([](const codeT c) { return c.get(codeT::bpos_s); })};
-    inline constexpr struct : no_copy {
-        operator const ruleT&() const {
-            static const ruleT r = make_rule([](const codeT c) { return c.get(codeT::bpos_s); });
-            return r;
-        }
-    } rule_identity;
+    inline const ruleT& rule_identity() {
+        static const ruleT r = make_rule([](const codeT c) { return c.get(codeT::bpos_s); });
+        return r;
+    }
 
     // A mapperT maps each codeT to another codeT.
     // Especially, mapperT{"qweasdzxc"} maps any codeT to the same value.
@@ -743,7 +736,7 @@ namespace aniso {
                                               "awd"
                                               "0x0"); // swap(w,s); *C4 -> totalistic, including s
 
-    inline subsetT make_subset(std::initializer_list<mapperT> mappers, const ruleT& rule = rule_all_zero) {
+    inline subsetT make_subset(std::initializer_list<mapperT> mappers, const ruleT& rule = rule_all_zero()) {
         equivT eq{};
         for (const mapperT& m : mappers) {
             // add_eq(eq, m, mp_identity);
@@ -783,7 +776,7 @@ namespace aniso {
         };
 
         inline const testT test_subset_intersection = [] {
-            const subsetT sc = make_subset({mp_ignore_s}, rule_all_zero) & make_subset({mp_reverse}, rule_identity);
+            const subsetT sc = make_subset({mp_ignore_s}, rule_all_zero()) & make_subset({mp_reverse}, rule_identity());
 
             // (`maskT` used to refer to the discoverd rule.)
             // 2024/1/20 2AM
@@ -795,7 +788,7 @@ namespace aniso {
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_w); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_e); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_a); })));
-            assert(!sc.contains(rule_identity));
+            assert(!sc.contains(rule_identity()));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_d); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_z); })));
             assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_x); })));
