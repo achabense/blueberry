@@ -582,7 +582,7 @@ namespace aniso {
             for (takerT taker(text);;) {
                 const auto [n, c] = taker.take();
                 if (c == '!') {
-                    return prepareT{xmax, x == 0 ? y : y + 1};
+                    return prepareT{xmax, xmax == 0 ? 0 : x == 0 ? y : y + 1};
                 } else if (n <= 0 || c == '?') {
                     return prepareT{0, 0};
                 } else if (c == 'b' || c == 'o') {
@@ -646,7 +646,7 @@ namespace aniso {
         };
 
         inline const testT test_RLE_str_2 = [] {
-            for (const char* str : {"", "o", "b", "book", "0b!", "-1o!", "!", "b2!", "b1!"}) {
+            for (const char* str : {"", "o", "b", "book", "0b!", "-1o!", "!", "b2!", "b1!", "10$!"}) {
                 assert(!is_RLE_str(str));
             }
         };
