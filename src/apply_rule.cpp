@@ -105,32 +105,6 @@ static bool want_hex_mode(const aniso::ruleT& rule) {
     return false;
 }
 
-// !!TODO: (v0.9.9) not reliable way to capture patterns; should enhance `identify` instead.
-#if 0
-// Copy the subrange and run as a torus space, recording all invoked mappings.
-// This is only good at capturing simple, "self-contained" patterns (oscillators/spaceships).
-// For more complex situations, the program has "open-capture" (`fake_apply`) to record
-// areas frame-by-frame.
-static aniso::lockT capture_closed(const aniso::tile_const_ref tile, const aniso::ruleT& rule) {
-    aniso::lockT lock{};
-    aniso::tileT torus(tile);
-
-    // (This may fail to catch all invocations in rare cases, due to that `limit` is not large enough.)
-
-    // Loop until there has been `limit` generations without newly invoked mappings.
-    constexpr int limit = 120;
-    for (int g = 0; g < limit; ++g) {
-        aniso::lockT next = lock;
-        torus.run_torus(rule, next);
-        if (compare_update(lock, next)) {
-            g = -1; // ++ -> 0
-        }
-    }
-
-    return lock;
-}
-#endif
-
 static bool check_border(const aniso::tile_const_ref tile, const aniso::vecT p_size) {
     if (!tile.size.both_gt(p_size * 2)) {
         messenger::set_msg("The area is too small. (Should be larger than {}*{}.)", p_size.x * 2, p_size.y * 2);
@@ -141,6 +115,8 @@ static bool check_border(const aniso::tile_const_ref tile, const aniso::vecT p_s
     }
     return true;
 }
+
+// !!TODO: (v0.9.9) support sampling manually (`fake_apply`)...
 
 // Identify spaceships or oscillators in periodic (including pure) background. (Cannot deal with non-trivial
 // objects like guns, puffers etc.)
@@ -868,7 +844,7 @@ public:
                     imgui_ItemRect(IM_COL32_GREY(160, 255));
 
                     if (global_timer::test(200) && !std::exchange(delay, false)) {
-                        curr.run_torus(m_rule.get());
+                        curr.run_torus(m_rule);
                     }
                 }
             }

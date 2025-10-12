@@ -705,7 +705,7 @@ namespace aniso {
         };
     } // namespace _misc
 
-    inline void apply_rule_torus(const rule_like auto& rule, const tile_ref tile) {
+    inline void apply_rule_torus(const tile_ref tile, const rule_like auto& rule) {
         const vecT size = tile.size;
         const auto first_line = std::make_unique_for_overwrite<cellT[]>(size.x);
         std::copy_n(tile.line(0), size.x, first_line.get());
@@ -733,89 +733,16 @@ namespace aniso {
 
             for (int i = 0; i < 12; ++i) {
                 rotate_copy_00_to(compare, tile, {1, 1});
-                apply_rule_torus(copy_q, tile);
+                apply_rule_torus(tile, copy_q);
                 assert(tile == compare);
             }
         };
     } // namespace _tests
 #endif // ENABLE_TESTS
 
-#if 0
-    inline constexpr int calc_border_size(const vecT size) { return 2 * (size.x + size.y) + 4; }
-
-    namespace _misc {
-        template <bool is_const>
-        struct border_ref_ {
-            using ptrT = std::conditional_t<is_const, const cellT*, cellT*>;
-
-            vecT size; // For this size.
-            ptrT data; // [x][2]*(y+2)[x]
-
-            operator border_ref_<true>() const
-                requires(!is_const)
-            {
-                return std::bit_cast<border_ref_<true>>(*this);
-            }
-
-            ptrT up_line() const { return data; }
-            ptrT down_line() const { return data + size.x + 2 * size.y + 4; }
-
-            void set_lr(int y, cellT l, cellT r) const
-                requires(!is_const)
-            {
-                assert(y >= -1 && y <= size.y);
-                cellT* dest = data + size.x + 2 * (y + 1);
-                dest[0] = l, dest[1] = r;
-            }
-
-            std::pair<cellT, cellT> get_lr(int y) const {
-                assert(y >= -1 && y <= size.y);
-                const cellT* dest = data + size.x + 2 * (y + 1);
-                return {dest[0], dest[1]};
-            }
-
-            void collect_from(const tile_const_ref q, const tile_const_ref w, const tile_const_ref e, //
-                              const tile_const_ref a, /*        s          */ const tile_const_ref d, //
-                              const tile_const_ref z, const tile_const_ref x, const tile_const_ref c) const
-                requires(!is_const)
-            {
-                std::copy_n(w.line(w.size.y - 1), size.x, up_line());
-                std::copy_n(x.line(0), size.x, down_line());
-                set_lr(-1, q.at(q.size.x - 1, q.size.y - 1), e.at(0, e.size.y - 1));
-                set_lr(size.y, z.at(z.size.x - 1, 0), c.at(0, 0));
-                for (int y = 0; y < size.y; ++y) {
-                    set_lr(y, a.at(a.size.x - 1, y), d.at(0, y));
-                }
-            }
-        };
-    } // namespace _misc
-
-    using border_ref = _misc::border_ref_<false /* !is_const */>;
-    using border_const_ref = _misc::border_ref_<true /* is_const */>;
-
-    inline void apply_rule(const rule_like auto& rule, const tile_ref dest, const tile_const_ref source,
-                           const border_const_ref source_border) {
-        assert(non_overlapping_or_same_area(source, dest));
-        assert(source.size == dest.size);
-        assert(source.size == source_border.size);
-        const vecT size = source.size;
-
-        _misc::encoding_buf encoder(size.x);
-        {
-            const auto [up_l, up_r] = source_border.get_lr(-1);
-            encoder.feed(up_l, up_r, source_border.up_line());
-            const auto [cn_l, cn_r] = source_border.get_lr(0);
-            encoder.feed(cn_l, cn_r, source.line(0));
-        }
-        for (int y = 0; y < size.y; ++y) {
-            const cellT* const dw = y == size.y - 1 ? source_border.down_line() : source.line(y + 1);
-            const auto [dw_l, dw_r] = source_border.get_lr(y + 1);
-            encoder.feed(dw_l, dw_r, dw, dest.line(y), rule);
-        }
-    }
-
-    inline void fake_apply(const tile_const_ref tile, lockT& lock) {
-        if (tile.size.x <= 2 || tile.size.y <= 2) {
+    // TODO: optimize like `apply_rule_torus`?
+    [[deprecated]] inline void fake_apply(const tile_const_ref tile, lockT& lock) {
+        if (!tile.size.both_gt({2, 2})) {
             return;
         }
 
@@ -832,28 +759,6 @@ namespace aniso {
             }
         }
     }
-
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_apply_1 = [] {
-            const ruleT rule = make_rule([](codeT) { return cellT(testT::rand() & 1); });
-
-            for (const codeT code : each_code) {
-                const auto make_ref = [](cellT& c) { return tile_ref{&c, {1, 1}}; };
-                auto [q, w, e, a, s, d, z, x, c] = decode(code);
-
-                cellT dest{}, border_data[calc_border_size({1, 1})]{};
-                const border_ref border{.size = {1, 1}, .data = border_data};
-                border.collect_from(make_ref(q), make_ref(w), make_ref(e), make_ref(a), make_ref(d), make_ref(z),
-                                    make_ref(x), make_ref(c));
-
-                apply_rule(rule, make_ref(dest), make_ref(s), border);
-                assert(dest == rule[code]);
-            }
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
-#endif
 
     class tileT {
         vecT m_size;
@@ -925,11 +830,11 @@ namespace aniso {
         tile_ref data(const rangeT& range) { return data().clip(range); }
         tile_const_ref data(const rangeT& range) const { return data().clip(range); }
 
-        void run_torus(const rule_like auto& rule) { //
-            apply_rule_torus(rule, data());
+        void run_torus(const ruleT& rule) { //
+            apply_rule_torus(data(), rule);
         }
         void run_torus(const ruleT& rule, lockT& lock) {
-            run_torus([&](const codeT c) {
+            apply_rule_torus(data(), [&](const codeT c) {
                 lock[c] = true;
                 return rule(c);
             });
