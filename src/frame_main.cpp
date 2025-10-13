@@ -22,31 +22,29 @@ static open_state intro_window(frame_main_token) {
         ImGui::PushTextWrapPos(wrap_len());
         if (page == 0) {
             ImGui::Bullet();
-            imgui_Str("Use 'Open' and 'Paste' to load rules.");
-            ImGui::Bullet();
             imgui_Str("Use the left panel to generate rules.");
             ImGui::SameLine();
             imgui_StrTooltip("(?)",
-                             "It's recommended to try the 'Random' window first (press '>>>' to generate rules).");
+                             "It's recommended to try the 'Random' window first (press '>>' to generate rules).");
             ImGui::Bullet();
             imgui_Str("Use the right panel to operate on patterns.");
             ImGui::Bullet();
+            imgui_Str("Use 'Open' and 'Paste' to load rules.");
+            ImGui::Bullet();
             imgui_Str("See 'Documents' for more information.");
 
-            ImGui::SeparatorText("Misc controls");
+            // ImGui::SeparatorText("Misc controls");
+            ImGui::Separator();
 
             if constexpr (debug_mode_double_esc_to_close) {
                 ImGui::Bullet();
-                // ImGui::SameLine(); // Not needed.
-                imgui_Str("Double-press 'Esc' to close the focused window (or popup).");
+                imgui_Str("Double-press 'Esc' to close the focused window."); // (Or popup.)
             }
 
             ImGui::Bullet();
             imgui_Str("Press 'H' to toggle on/off additional tooltips.");
-            guide_mode::item_tooltip("...");
-            ImGui::SameLine();
-            imgui_StrTooltip("(?)", "Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
-                                    "All the other shortcuts (like this) require Ctrl not to be pressed.");
+            guide_mode::item_tooltip("Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
+                                     "All the other shortcuts (like 'H') require Ctrl not to be pressed.");
             // & Ctrl+C to copy tooltip (debug mode)
 
             ImGui::Bullet();
@@ -73,25 +71,23 @@ static open_state intro_window(frame_main_token) {
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "The following can serve as rule sources:\n"
                                     "1. Preview windows.\n"
-                                    "2. The MAP-string for (the rule shown in) the main window.\n"
+                                    "2. The MAP-string for (the rule shown in) the pattern editor.\n"
                                     "3. Other items that display a preview window in tooltip.");
             ImGui::Bullet();
             imgui_Str("Press left/right arrow keys to control '</>' in the focused window.");
 
             ImGui::Bullet();
-            imgui_Str("Make sure you can save discoveries (rules and patterns).");
+            imgui_Str("Make sure you can save discoveries.");
             ImGui::SameLine();
-            imgui_StrTooltip( // !!TODO: about auto-saving...
+            imgui_StrTooltip(
                 "(?)",
                 "The program relies on the clipboard to save rules and patterns.\n\n"
-                "To copy rule to the clipboard: open menu -> 'Copy rule', or equivalently, send the rule to '[C]' (after 'Clipboard').\n\n"
-                "The method will:\n"
-                "1. Copy rule to the clipboard.\n"
-                "2. Save rule to the \"autosaved\" folder (if possible). However, it's recommended you deal with the copied rules yourselves.\n\n"
-                "For more details, see !!TODO...");
+                "To verify, copy the following rule (open menu -> 'Copy rule'), and see whether you can paste it elsewhere.");
+
+            // ImGui::Separator();
 
             // (Selected from "Documents/Rules in different sets")
-            // !!TODO: better examples.
+            // !!TODO: better examples (should include gol)...
             static const auto rules = aniso::extract_all_rules(
                 "MAPAAAAAQABARcAAQEXARcXfwABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
                 "MAPIIAAAYABARcAAQEXARcXf4ABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
