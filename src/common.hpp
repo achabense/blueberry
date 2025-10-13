@@ -37,9 +37,9 @@ class frame_main_token : no_copy {
     /*implicit*/ frame_main_token() = default;
 };
 
-open_state load_file(ImVec2 init_pos, frame_main_token);
-open_state load_clipboard(ImVec2, frame_main_token);
-open_state load_doc(ImVec2, frame_main_token);
+open_state load_file(frame_main_token);
+open_state load_clipboard(frame_main_token);
+open_state load_doc(frame_main_token);
 
 void edit_rule(frame_main_token);
 void edit_pattern(frame_main_token);
@@ -1189,15 +1189,12 @@ public:
             return;
         }
 
+        // TODO: the effect should be more obvious...
         if (std::exchange(m_updated, false)) {
             ImGui::SetNextWindowCollapsed(false);
             ImGui::SetNextWindowFocus();
-            if (ImGui::IsMousePosValid()) {
-                // TODO: should clamp pos based on size...
-                const float h = ImGui::GetFrameHeight();
-                ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, std::floor(h / 2)});
-            }
         }
+        imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
         bool open = true;
         if (auto window =

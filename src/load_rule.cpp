@@ -1304,10 +1304,10 @@ public:
     }
 };
 
-static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& init_pos, const char* tooltip) {
+static imgui_Window prepare_window(const char* title, bool& open, const char* tooltip) {
     // assert(open);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
-    ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
+    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
     const float h = ImGui::GetFontSize();
     ImGui::SetNextWindowSize(ImVec2(h * 48, h * 32), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(h * 36, h * 24), ImVec2(FLT_MAX, FLT_MAX));
@@ -1318,28 +1318,28 @@ static imgui_Window prepare_window(const char* title, bool& open, const ImVec2& 
     return imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings);
 }
 
-open_state load_file(const ImVec2 init_pos, frame_main_token) {
+open_state load_file(frame_main_token) {
     static load_file_impl loader(get_home_path());
     bool open = true;
-    if (auto window = prepare_window("Files", open, init_pos, loader.window_tooltip())) {
+    if (auto window = prepare_window("Files", open, loader.window_tooltip())) {
         loader.display();
     }
     return {open};
 }
 
-open_state load_clipboard(const ImVec2 init_pos, frame_main_token) {
+open_state load_clipboard(frame_main_token) {
     static load_clipboard_impl loader;
     bool open = true;
-    if (auto window = prepare_window("Clipboard", open, init_pos, loader.window_tooltip())) {
+    if (auto window = prepare_window("Clipboard", open, loader.window_tooltip())) {
         loader.display();
     }
     return {open};
 }
 
-open_state load_doc(const ImVec2 init_pos, frame_main_token) {
+open_state load_doc(frame_main_token) {
     static load_doc_impl loader;
     bool open = true;
-    if (auto window = prepare_window("Documents", open, init_pos, loader.window_tooltip())) {
+    if (auto window = prepare_window("Documents", open, loader.window_tooltip())) {
         loader.display();
     }
     return {open};

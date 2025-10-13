@@ -1561,9 +1561,7 @@ private:
         }
         if (show_op_window) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
-            if (ImGui::IsMousePosValid()) {
-                ImGui::SetNextWindowPos(ImGui::GetMousePos() + ImVec2(2, 2), ImGuiCond_Appearing);
-            }
+            imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
             imgui_Window::next_window_titlebar_tooltip =
                 "The shortcuts work only when the editor is hovered (and this window doesn't need to stay open).";
             if (auto window = imgui_Window("Edit pattern (settings)", &show_op_window,

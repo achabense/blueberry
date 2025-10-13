@@ -6,8 +6,8 @@
 // !!TODO: unfinished...
 static open_state intro_window(frame_main_token) {
     bool open = true;
-    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
     imgui_Window::next_window_titlebar_tooltip =
         "Click the collapse button, or double click the title bar to collapse/uncollapse.";
@@ -168,8 +168,7 @@ void frame_main() {
             ImGui::Checkbox("Open##Files", &show_file);
             guide_mode::item_tooltip("Load text/rules from files.");
             if (show_file) {
-                const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
-                load_file(init_pos, {}).reset_if_closed(show_file);
+                load_file({}).reset_if_closed(show_file);
             }
         }
         ImGui::SameLine();
@@ -178,8 +177,7 @@ void frame_main() {
             ImGui::Checkbox("Paste##Clipboard", &show_clipboard);
             guide_mode::item_tooltip("Load text/rules from the clipboard.");
             if (show_clipboard) {
-                const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
-                load_clipboard(init_pos, {}).reset_if_closed(show_clipboard);
+                load_clipboard({}).reset_if_closed(show_clipboard);
             }
         }
         ImGui::SameLine();
@@ -188,8 +186,7 @@ void frame_main() {
             ImGui::Checkbox("Documents", &show_doc);
             guide_mode::item_tooltip("Concepts, example rules, etc.");
             if (show_doc) {
-                const ImVec2 init_pos = ImGui::GetItemRectMin() + ImVec2(0, ImGui::GetFrameHeight() + 4);
-                load_doc(init_pos, {}).reset_if_closed(show_doc);
+                load_doc({}).reset_if_closed(show_doc);
             }
         }
 

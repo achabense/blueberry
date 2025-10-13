@@ -838,10 +838,10 @@ public:
 };
 
 // 0/1-rev, approx and buffers...
-static open_state misc_window(const ImVec2& init_pos, const aniso::subsetT& working_set, bool& set_changed) {
+static open_state misc_window(const aniso::subsetT& working_set, bool& set_changed) {
     bool open = true;
-    ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
     static previewer::configT config{previewer::default_settings};
     const int group_spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
@@ -1074,10 +1074,7 @@ public:
 
         if (m_window) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
-            if (ImGui::IsMousePosValid()) {
-                const float h = ImGui::GetFrameHeight();
-                ImGui::SetNextWindowPos(ImGui::GetMousePos() - ImVec2{h * 2, std::floor(h / 2)}, ImGuiCond_Appearing);
-            }
+            imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
             // TODO: ideally, should always appear above the source window.
             if (auto window = imgui_Window(label, &m_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
@@ -1101,11 +1098,10 @@ public:
 
 // TODO: define as classes...
 // TODO: support separate context? e.g. random ~ totalistic & random-access ~ isotropic
-static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& working_set, const aniso::ruleT& defl,
-                                  bool& set_changed) {
+static open_state traverse_window(const aniso::subsetT& working_set, const aniso::ruleT& defl, bool& set_changed) {
     bool open = true;
-    ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
@@ -1242,11 +1238,10 @@ static open_state traverse_window(const ImVec2& init_pos, const aniso::subsetT& 
     return {open};
 }
 
-static open_state random_rule_window(const ImVec2& init_pos, const aniso::subsetT& working_set,
-                                     const aniso::ruleT& defl, bool& set_changed) {
+static open_state random_rule_window(const aniso::subsetT& working_set, const aniso::ruleT& defl, bool& set_changed) {
     bool open = true;
-    ImGui::SetNextWindowPos(init_pos, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
@@ -1437,8 +1432,7 @@ void edit_rule(frame_main_token) {
         ImGui::Checkbox("Misc", &show_misc);
         guide_mode::item_tooltip("0/1 reversal dual, approximation, and temp rules.");
         if (show_misc) {
-            const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-            misc_window(init_pos, working_set, set_changed_n[1]).reset_if_closed(show_misc);
+            misc_window(working_set, set_changed_n[1]).reset_if_closed(show_misc);
         }
     }
     ImGui::SameLine();
@@ -1449,8 +1443,7 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Iterate through all rules in [S].\n\n"
                                  "(This is mainly useful for small sets.)");
         if (show_trav) {
-            const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-            traverse_window(init_pos, working_set, observer, set_changed_n[2]).reset_if_closed(show_trav);
+            traverse_window(working_set, observer, set_changed_n[2]).reset_if_closed(show_trav);
         }
     }
     ImGui::SameLine();
@@ -1461,8 +1454,7 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Get random rules in [S].\n\n"
                                  "(This is mainly useful for large sets.)");
         if (show_rand) {
-            const ImVec2 init_pos = ImGui::GetItemRectMax() + ImVec2(30, -100);
-            random_rule_window(init_pos, working_set, observer, set_changed_n[3]).reset_if_closed(show_rand);
+            random_rule_window(working_set, observer, set_changed_n[3]).reset_if_closed(show_rand);
         }
     }
     ImGui::SameLine();
