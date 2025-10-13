@@ -107,7 +107,6 @@ inline constexpr bool init_show_intro = true;
 inline constexpr bool init_extra_tooltips = true;
 inline constexpr bool init_compact_mode = false;
 inline constexpr bool init_selectables_use_button_color = false;
-inline constexpr bool init_auto_focus = false; // (Not quite "init" related) affects popups & drop-target
 
 inline void highlight_item() { ImGui::NavHighlightActivated(ImGui::GetItemID()); }
 inline void highlight_item(ImGuiID id) { ImGui::NavHighlightActivated(id); }
@@ -209,16 +208,16 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
 // However, the parent window will be brought to foreground immediately, while the popup will appear at next frame due to auto-resize...
 class popup_with_focus : no_create {
 public:
-    static_assert(!init_auto_focus); // TODO: whether to focus at all? The impl is too tricky...
+    // !!TODO: should apply in release mode...
     static constexpr bool appear_at_same_frame = debug_mode;
 
     static void open_popup(const ImGuiID popup_id, const ImGuiPopupFlags popup_flags) {
-        if constexpr (init_auto_focus && !appear_at_same_frame) {
+        if constexpr (!appear_at_same_frame) {
             ImGui::SetWindowFocus();
         }
         ImGui::OpenPopupEx(popup_id, popup_flags);
         assert(imgui_IsPopupOpen(popup_id));
-        if constexpr (init_auto_focus && appear_at_same_frame) {
+        if constexpr (appear_at_same_frame) {
             auto& popup_ref = GImGui->OpenPopupStack.back();
             assert(popup_ref.PopupId == popup_id);
             popup_ref.RestoreNavWindow = GImGui->CurrentWindow->RootWindow;
@@ -227,8 +226,9 @@ public:
 
     // Must be called inside popup.
     static void set_focus(const ImGuiID popup_id, const ImGuiWindow* source) {
-        if constexpr (init_auto_focus && appear_at_same_frame) {
+        if constexpr (appear_at_same_frame) {
             const auto& popup_ref = GImGui->BeginPopupStack.back();
+            // (BeginPopup should be called after OpenPopup.)
             if (popup_ref.OpenFrameCount + 1 == GImGui->FrameCount) { // Visually appearing.
                 assert(popup_ref.PopupId == popup_id);
                 assert(popup_ref.RestoreNavWindow == source->RootWindow);
@@ -285,6 +285,7 @@ public:
 
         const ImGuiWindow* source_window = GImGui->CurrentWindow;
         if (!imgui_IsPopupOpen(popup_id) && imgui_IsItemOrNoneActive() && imgui_IsItemHoveredForTooltip()) {
+            // !!TODO: whether to focus automatically?
             popup_with_focus::open_popup(popup_id, ImGuiPopupFlags_NoReopen);
             ImGui::SetNextWindowPos(item_rect.GetTR(), ImGuiCond_Appearing); // Like a menu.
         }
@@ -1055,7 +1056,7 @@ public:
                 render_rect(true);
                 if (deliv) {
                     active = false;
-                    if constexpr (init_auto_focus) {
+                    if constexpr (0) {
                         ImGui::SetWindowFocus();
                     }
                 }
