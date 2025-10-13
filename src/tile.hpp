@@ -445,27 +445,25 @@ namespace aniso {
         inline void append_RLE(std::string& str, const tile_const_ref tile) {
             class putT {
                 std::string& str;
-                size_t last_nl;
                 int n = 0;
                 char ch = 'b'; // 'b', 'o', '$'.
+
             public:
-                putT(std::string& str) : str(str), last_nl(str.size()) { assert(str.empty() || str.back() == '\n'); }
+                putT(std::string& str) : str(str) { assert(str.empty() || str.back() == '\n'); }
                 void flush() {
                     if (n != 0) {
-                        // (58 is an arbitrary value that satisfies the line-length limit.)
-                        if (str.size() > last_nl + 58) {
-                            str += '\n';
-                            last_nl = str.size();
-                        }
-
-                        if (n != 1) {
-                            str += std::to_string(n);
+                        if (n > 1) {
+                            std::string num = std::to_string(n);
+                            prepare(num.size() + 1);
+                            str += num;
+                        } else {
+                            prepare(1);
                         }
                         str += ch;
                         n = 0;
                     }
                 }
-                void append(int n2, char ch2) {
+                void append(const int n2, const char ch2) {
                     assert(ch2 == 'b' || ch2 == 'o' || ch2 == '$');
                     if (ch == ch2) {
                         n += n2;
@@ -474,6 +472,28 @@ namespace aniso {
                         n = n2;
                         ch = ch2;
                     }
+                }
+                void end() {
+                    flush();
+                    // prepare(1);
+                    str += '!';
+                }
+
+            private:
+                // The website says "Lines in the RLE file must not exceed 70 characters"...
+                // ... which makes no sense to me; implement only for conformance.
+                // According to some examples (website & golly), the limit doesn't include \r\n (but includes '!'), and
+                // doesn't (cannot) apply to headers (a single MAP-str already exceeds 70 chars).
+                // const int limit = 70; // `static` doesn't work here.
+                const int limit = 69; // No need to split '!' to a separate line.
+                int cap = limit;
+                void prepare(const int len) {
+                    assert(len <= limit);
+                    if (cap < len) {
+                        str += '\n';
+                        cap = limit;
+                    }
+                    cap -= len;
                 }
             };
 
@@ -496,7 +516,7 @@ namespace aniso {
                     }
                 }
             });
-            put.flush();
+            put.end();
         }
     } // namespace _misc
 
@@ -504,7 +524,6 @@ namespace aniso {
         std::string str = rule ? std::format("x = {}, y = {}, rule = {}\n", tile.size.x, tile.size.y, to_MAP_str(*rule))
                                : std::format("x = {}, y = {}\n", tile.size.x, tile.size.y);
         _misc::append_RLE(str, tile);
-        str += '!';
         return str;
     }
 
@@ -530,6 +549,8 @@ namespace aniso {
         return header;
     }
 
+    // TODO: use optional<vecT> instead?
+    // TODO: for "b10$!", should the size be 1*1 or 1*10?
     struct prepareT {
         long long x, y;
 

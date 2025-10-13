@@ -1369,7 +1369,7 @@ private:
                 if (background == 0 || background == 1) {
                     aniso::fill(sel_area, aniso::cellT(background));
                 } else {
-                    const aniso::vecT p_size{2, 2};
+                    constexpr aniso::vecT p_size{2, 2};
                     if (check_border(sel_area, p_size)) {
                         aniso::self_repeat(sel_area, p_size);
                     }
@@ -1385,7 +1385,7 @@ private:
                 } else {
                     const aniso::rangeT sel_range = self.m_sel->to_range();
                     const auto sel_area = self.m_torus.read_only(sel_range);
-                    const aniso::vecT p_size{2, 2};
+                    constexpr aniso::vecT p_size{2, 2};
                     if (check_border(sel_area, p_size)) {
                         aniso::fill_outside(
                             self.m_torus.write_only(), sel_range,
@@ -1413,7 +1413,7 @@ private:
                 assert(self.m_sel);
                 const aniso::rangeT sel_range = self.m_sel->to_range();
                 const auto sel_area = self.m_torus.read_only(sel_range);
-                const aniso::vecT p_size{2, 2};
+                constexpr aniso::vecT p_size{2, 2};
                 if (check_border(sel_area, p_size)) {
                     const aniso::rangeT bound = aniso::bounding_box(sel_area, p_size);
                     if (!bound.empty()) {
@@ -1456,7 +1456,16 @@ private:
             [](runnerT& self) {
                 assert(self.m_sel);
                 const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
-                set_clipboard_and_notify(aniso::to_RLE_str(sel_area, add_rule ? &self.m_rule.get() : nullptr));
+                const std::string rle_str = aniso::to_RLE_str(sel_area, add_rule ? &self.m_rule.get() : nullptr);
+                set_clipboard_and_notify(rle_str);
+#ifdef YDEBUG
+                aniso::tileT test(sel_area.size);
+                aniso::from_RLE_str(rle_str, [&](const aniso::prepareT size) {
+                    assert(size.x == sel_area.size.x && size.y == sel_area.size.y);
+                    return test.data();
+                });
+                assert(aniso::equal(test.data(), sel_area));
+#endif // YDEBUG
             } //
         };
         static constexpr op_term op_extract{
@@ -1478,7 +1487,7 @@ private:
             ImGuiKey_I, "I (i)", check_sel,
             [](runnerT& self) {
                 assert(self.m_sel);
-                const aniso::vecT p_size{2, 2};
+                constexpr aniso::vecT p_size{2, 2};
                 if (const auto result = identify(self.m_torus.read_only(self.m_sel->to_range()), self.m_rule, p_size)) {
                     const auto& [pattern, offset, period, _] = *result;
                     const bool no_offset = offset == aniso::vecT{0, 0};
@@ -1504,6 +1513,7 @@ private:
             } //
         };
 
+        // TODO: support pasting rule directly (if the text contains only map-str)?
         static constexpr op_term op_paste{
             ImGuiKey_V, "V", check_nothing,
             [](runnerT& self) {
@@ -1527,7 +1537,7 @@ private:
                     return;
                 }
                 assert(self.m_sel);
-                const aniso::vecT p_size{2, 2};
+                constexpr aniso::vecT p_size{2, 2};
                 // !!TODO: support capturing pure bg...
                 if (const auto result = identify(self.m_torus.read_only(self.m_sel->to_range()), self.m_rule, p_size)) {
                     load_capture(self.m_rule, result->lock);
