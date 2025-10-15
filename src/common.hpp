@@ -536,6 +536,10 @@ public:
         // (Used to require `may_scroll` to avoid previewed rule being changed by shortcut; perhaps no longer needed.)
         const bool shortcut_avail = not_disabled && imgui_IsWindowFocused() // Not including popup hierarchy.
                                     && may_scroll() && shortcuts::no_active_and_no_ctrl() && imgui_IsWindowHoverable();
+
+        // TODO: use `shortcut_avail` directly?
+        // (Ideally should highlight iff the window's title bar uses `ImGuiCol_TitleBgActive` (see `RenderWindowDecorations`).)
+        // (This can't always produce exact match, but very close and the condition is not easy to emulate...)
         const bool shortcut_visible =
             not_disabled && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows); // Including popup.
         assert_implies(shortcut_avail, shortcut_visible);
@@ -1167,8 +1171,9 @@ class rule_snapshot : no_copy {
     previewer::configT m_settings{previewer::default_settings};
 
     dataT m_data{};
-    int m_pos{}; // ∈ [0, m_data.size())
+    int m_pos{}; // !empty() -> ∈ [0, m_data.size())
     bool m_updated{};
+    // std::string m_source{}; // TODO: show source?
 
 public:
     explicit rule_snapshot() = default;
@@ -1179,10 +1184,12 @@ public:
 
     void update(dataT data, const previewer::configT& settings) {
         assert(!data.empty());
-        m_settings = settings;
-        m_data = std::move(data);
-        m_pos = 0;
-        m_updated = true;
+        if (!data.empty()) { // Defensive.
+            m_settings = settings;
+            m_data = std::move(data);
+            m_pos = m_data.size() - 1;
+            m_updated = true;
+        }
     }
 
     void display_if_present(const char* label) {
@@ -1240,14 +1247,14 @@ public:
     bool contains(const aniso::compressT& rule) const { return find(rule) != m_data.end(); }
 
     // LRU; inefficient but no problem as `m_capacity` is small enough.
-    // [0] ~ most recent.
+    // back() ~ most recent.
     void add(const aniso::compressT& rule) {
-        if (const auto found = find(rule); found != m_data.end()) {
-            m_data.erase(found);
+        if (const auto pos = find(rule); pos != m_data.end()) {
+            m_data.erase(pos);
         } else if (m_data.size() == m_capacity) {
-            m_data.pop_back();
+            m_data.erase(m_data.begin());
         }
-        m_data.insert(m_data.begin(), rule);
+        m_data.push_back(rule);
     }
 
     // (Workaround; defined here for convenience.)
