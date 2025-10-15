@@ -1052,12 +1052,10 @@ public:
                     m_window = true;
                 }
                 guide_mode::item_tooltip("Display the rule in a regular window.");
-
-                if constexpr (debug_mode_support_snapshot) {
-                    if (ImGui::Selectable("Dump")) {
-                        m_rule.rec().dump(settings);
-                    }
+                if (ImGui::Selectable("Dump")) {
+                    m_rule.rec().dump(settings);
                 }
+                guide_mode::item_tooltip("!!TODO");
             });
             guide_mode::item_tooltip(
                 "This can be an arbitrary rule in [S]. (If [S] changes and no longer contains the rule, this will be reset to [R].)\n\n"
@@ -1078,10 +1076,9 @@ public:
             // TODO: ideally, should always appear above the source window.
             if (auto window = imgui_Window(label, &m_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                if constexpr (debug_mode_support_snapshot) {
-                    if (double_click_button_small("Dump")) {
-                        m_rule.rec().dump(settings);
-                    }
+                // !!TODO: improve...
+                if (double_click_button_small("Dump")) {
+                    m_rule.rec().dump(settings);
                 }
 
                 previewer::preview(0, settings, m_rule.get());

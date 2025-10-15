@@ -707,11 +707,10 @@ public:
                         pass_rule::set_extra(m_rule, random_access_status::rule_id);
                     }
                 }
-                if constexpr (debug_mode_support_snapshot) {
-                    if (ImGui::Selectable("Dump")) {
-                        m_rule.rec().dump(previewer::default_settings);
-                    }
+                if (ImGui::Selectable("Dump")) {
+                    m_rule.rec().dump(previewer::default_settings);
                 }
+                guide_mode::item_tooltip("!!TODO");
             });
             guide_mode::item_tooltip("This is the MAP-string for the displayed rule.\n\n"
                                      "Drag a rule here to apply the rule.\n"

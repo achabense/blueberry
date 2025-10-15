@@ -1163,9 +1163,6 @@ struct rule_and_hash {
 static_assert(std::is_trivially_copyable_v<rule_and_hash>);
 #endif
 
-// !!TODO: (v0.9.9) support in release mode...
-inline constexpr bool debug_mode_support_snapshot = debug_mode;
-
 class rule_snapshot : no_copy {
     using dataT = std::vector<aniso::compressT>;
     previewer::configT m_settings{previewer::default_settings};
@@ -1259,13 +1256,11 @@ public:
 
     // (Workaround; defined here for convenience.)
     void dump(const previewer::configT& settings) const {
-        assert(debug_mode_support_snapshot);
         assert(!empty());
         snapshot.update(data(), settings);
     }
 
-    static void display_if_present(frame_main_token, const char* label) {
-        assert(debug_mode_support_snapshot);
+    static void display_if_present(frame_main_token, const char* label) { //
         snapshot.display_if_present(label);
     }
 
