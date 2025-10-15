@@ -454,7 +454,17 @@ private:
             buf_path[0] != '\0') {
             // It's impressive that path has implicit c-str ctor... why?
             // Related: https://github.com/microsoft/STL/issues/909
-            const auto p = cpp17_u8path(buf_path);
+            auto p = cpp17_u8path(buf_path);
+            if (p) {
+                // (Prevent some strange '.'-related behaviors on Windows...)
+                // (Not defined in `assign_dir_or_file`, for use by the `exists` check.)
+                // Related: https://github.com/microsoft/STL/issues/5748
+                const auto filename = p->filename();
+                if (!filename.empty() && std::ranges::all_of(filename.native(), [](auto c) { return c == '.'; })) {
+                    *p /= ""; // Guaranteed to end with sep.
+                    assert(!p->has_filename());
+                }
+            }
             bool same_dir = false;
             if (p && m_current.assign_dir_or_file(*p, pos, &same_dir)) {
                 messenger::dot_if(same_dir);
