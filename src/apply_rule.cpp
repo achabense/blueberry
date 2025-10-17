@@ -1676,6 +1676,7 @@ private:
     void pattern_settings(const bool canvas_hovered_or_held, const ImVec2 init_pos) {
         assert(m_paste);
         if (std::exchange(m_paste->newly_assigned, false)) {
+            // ImGui::SetNextWindowCollapsed(false);
             ImGui::SetNextWindowFocus();
         }
         bool open = true;

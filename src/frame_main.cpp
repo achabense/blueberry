@@ -7,7 +7,7 @@
 static open_state intro_window(frame_main_token) {
     bool open = true;
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
-    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
+    imgui_CenterNextWindow(ImGuiCond_FirstUseEver); // TODO: or _Appearing?
 
     imgui_Window::next_window_titlebar_tooltip =
         "Click the collapse button, or double click the title bar to collapse/uncollapse.";

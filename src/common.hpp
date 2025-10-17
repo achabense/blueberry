@@ -285,7 +285,8 @@ public:
 
         const ImGuiWindow* source_window = GImGui->CurrentWindow;
         if (!imgui_IsPopupOpen(popup_id) && imgui_IsItemOrNoneActive() && imgui_IsItemHoveredForTooltip()) {
-            // !!TODO: whether to focus automatically?
+            // TODO: whether to focus automatically?
+            // (Or require the source window to be focused?)
             popup_with_focus::open_popup(popup_id, ImGuiPopupFlags_NoReopen);
             ImGui::SetNextWindowPos(item_rect.GetTR(), ImGuiCond_Appearing); // Like a menu.
         }

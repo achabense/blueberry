@@ -699,19 +699,20 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
     }
 }
 
-// TODO: simplify if possible...
+// !!TODO: update tooltips...
 class rule_selector : no_copy {
-    enum tagE { Zero, Identity, Other, None };
+    enum tagE { Zero, Identity, Other, Default, None };
     tagE m_tag = Zero;
 
     aniso::ruleT m_other = aniso::game_of_life(); // (!= 'Zero' or 'Identity'.)
+    aniso::ruleT m_default = {};
 
     struct termT {
         tagE tag;
         const char* label;
         const char* desc;
     };
-    static constexpr termT terms[3]{
+    static constexpr termT terms[4]{
         {Zero, "Zero", // TODO: about distance to 'Zero'...
          "The all-0 rule, i.e. the rule that maps cell to 0 in all cases.\n\n"
          "For any rule in any case, being same as this rule means the rule maps cell to 0, and being different means the rule maps cell to 1."},
@@ -723,23 +724,24 @@ class rule_selector : no_copy {
         {Other, "Other",
          "Another rule that's neither 'Zero' nor 'Identity' (initially the Game of Life rule).\n\n"
          "Sometimes neither 'Zero' nor 'Identity' belongs to [S], and this will be updated to guarantee there is at least one rule available in [S]. (For example, try '0<>1 & Total(+s)'.)"},
+
+        {Default, "Default", "!!TODO"},
     };
 
     const aniso::ruleT& get_rule(tagE tag) const {
+        assert(tag != None);
         return tag == Zero       ? aniso::rule_all_zero() //
                : tag == Identity ? aniso::rule_identity()
-                                 : m_other;
+               : tag == Other    ? m_other
+                                 : m_default;
     }
 
-    void set(const aniso::ruleT& rule) {
-        if (rule == aniso::rule_all_zero()) {
-            m_tag = Zero;
-        } else if (rule == aniso::rule_identity()) {
-            m_tag = Identity;
-        } else {
-            m_tag = Other;
-            m_other = rule;
-        }
+    // Non-`Default`.
+    tagE resolve_tag(const aniso::ruleT& rule) const {
+        return rule == aniso::rule_all_zero()   ? Zero //
+               : rule == aniso::rule_identity() ? Identity
+               : rule == m_other                ? Other
+                                                : None;
     }
 
 public:
@@ -756,20 +758,33 @@ public:
 
     bool try_set(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
         if (const auto* deliv = get_deliv(pass, working_set)) {
-            set(*deliv);
+            if (const tagE tag = resolve_tag(*deliv); tag != None) {
+                m_tag = tag;
+            } else {
+                m_other = *deliv;
+                m_tag = Other;
+            }
             return true;
         }
         return false;
     }
 
     void sync(const aniso::subsetT& working_set) {
-        if (!working_set.contains(get())) {
-            set(working_set.get_rule());
+        m_default = working_set.get_rule();
+        if (m_tag != Default && !working_set.contains(get())) {
+            m_tag = Default;
         }
     }
 
+    // !!TODO: support resolving default-tag in gui?
+    // if (const tagE tag = resolve_tag(m_default); tag != None) {
+    //     m_tag = tag;
+    // }
     void select(const aniso::subsetT& working_set) {
+        assert(working_set.contains(m_default));
         assert(working_set.contains(get()));
+
+        // TODO: improve...
         // (Used to require being used after regular tooltips; no longer necessary.)
         const auto peek_dist = [&](const aniso::ruleT& rule) {
             if (const aniso::ruleT* peek = pass_rule::peek()) {
@@ -798,6 +813,10 @@ public:
         imgui_Str(" ~");
         for (const auto& term : terms) {
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            if (term.tag == Default) {
+                imgui_Str("|");
+                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            }
 
             const aniso::ruleT& rule = get_rule(term.tag);
             const bool belongs = working_set.contains(rule);
@@ -1022,10 +1041,9 @@ public:
 
     // !!TODO: (v0.9.9) reconsider this design (resetting rules silently)...
     // -> require manually specifying a rule?
-    bool sync(const aniso::subsetT& working_set, const aniso::ruleT& defl) {
+    bool sync(const aniso::subsetT& working_set) {
         if (!m_rule.assigned() || !working_set.contains(m_rule.get())) {
-            assert(working_set.contains(defl));
-            m_rule.set(defl);
+            m_rule.set(working_set.get_rule());
             return true;
         }
         return false;
@@ -1058,7 +1076,7 @@ public:
                 guide_mode::item_tooltip("!!TODO");
             });
             guide_mode::item_tooltip(
-                "This can be an arbitrary rule in [S]. (If [S] changes and no longer contains the rule, this will be reset to [R].)\n\n"
+                "This can be an arbitrary rule in [S]. (If [S] changes and no longer contains the rule, this will be reset to 'Default'.)\n\n"
                 "Drag a rule here to apply the rule.\n"
                 "Drag to send the rule elsewhere.");
             // imgui_ItemTooltip([&] { previewer::preview(0, settings, m_rule.get()); }); // Will introduce a separator...
@@ -1095,7 +1113,7 @@ public:
 
 // TODO: define as classes...
 // TODO: support separate context? e.g. random ~ totalistic & random-access ~ isotropic
-static open_state traverse_window(const aniso::subsetT& working_set, const aniso::ruleT& defl, bool& set_changed) {
+static open_state traverse_window(const aniso::subsetT& working_set, bool& set_changed) {
     bool open = true;
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
@@ -1109,7 +1127,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, const aniso
         static std::deque<aniso::ruleT> page{};
         static previewer::configT config{previewer::default_settings};
         if (std::exchange(set_changed, false)) {
-            orderer.sync(working_set, defl);
+            orderer.sync(working_set);
             page.clear();
         }
 
@@ -1235,7 +1253,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, const aniso
     return {open};
 }
 
-static open_state random_rule_window(const aniso::subsetT& working_set, const aniso::ruleT& defl, bool& set_changed) {
+static open_state random_rule_window(const aniso::subsetT& working_set, bool& set_changed) {
     bool open = true;
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
@@ -1248,7 +1266,7 @@ static open_state random_rule_window(const aniso::subsetT& working_set, const an
         static target_rule target{};
         static previewer::configT config{previewer::default_settings};
         if (std::exchange(set_changed, false)) {
-            target.sync(working_set, defl);
+            target.sync(working_set);
         }
 
         static bool exact_mode = false;
@@ -1342,9 +1360,6 @@ static open_state random_rule_window(const aniso::subsetT& working_set, const an
     }
     return {open};
 }
-
-// TODO: support random-access in a separate window?
-// static open_state random_access_window(const ImVec2& init_pos, const aniso::subsetT& working_set);
 
 // TODO: refactor... (should not be pointer...)
 static subset_selector* select_working_ptr = nullptr;
@@ -1440,7 +1455,7 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Iterate through all rules in [S].\n\n"
                                  "(This is mainly useful for small sets.)");
         if (show_trav) {
-            traverse_window(working_set, observer, set_changed_n[2]).reset_if_closed(show_trav);
+            traverse_window(working_set, set_changed_n[2]).reset_if_closed(show_trav);
         }
     }
     ImGui::SameLine();
@@ -1451,7 +1466,7 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Get random rules in [S].\n\n"
                                  "(This is mainly useful for large sets.)");
         if (show_rand) {
-            random_rule_window(working_set, observer, set_changed_n[3]).reset_if_closed(show_rand);
+            random_rule_window(working_set, set_changed_n[3]).reset_if_closed(show_rand);
         }
     }
     ImGui::SameLine();
@@ -1467,7 +1482,7 @@ void edit_rule(frame_main_token) {
         }
         if (show_random_access) {
             if (std::exchange(set_changed_n[4], false)) {
-                target.sync(working_set, observer);
+                target.sync(working_set);
             }
 
             // TODO: use (?) or (...)? (It's getting unclear which is for which...)
