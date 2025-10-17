@@ -754,13 +754,13 @@ public:
 
             if (ImGui::TreeNodeEx("Background", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap |
                                                     ImGuiTreeNodeFlags_NoAutoOpenOnLog)) {
-                ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
-                imgui_StrTooltip("(?)", "Left-click a cell to flip its value (drag to color more cells).\n\n"
-                                        "Hold right mouse button + left-click to resize.");
-                ImGui::SameLine();
+                ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
                 if (ImGui::SmallButton("Flip")) {
                     aniso::flip(init.background.data());
                 }
+                ImGui::SameLine();
+                imgui_StrTooltip("(?)", "Left-click a cell to flip its value (drag to color more cells).\n\n"
+                                        "Hold right mouse button + left-click to resize.");
 
                 // There are:
                 // demo_size.z is a multiple of any i <= max_period.z, and
@@ -1823,16 +1823,16 @@ void previewer::configT::_set(const bool can_resize) {
     ImGui::Separator();
     if (ImGui::TreeNodeEx("Init state", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap |
                                             ImGuiTreeNodeFlags_NoAutoOpenOnLog)) {
-        ImGui::SameLine(0, imgui_ItemSpacingX() * 2);
-        imgui_StrTooltip("(?)", "These settings are shared by all preview windows.");
+        ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
 
         // !!TODO: (v0.9.9) support both global and per-group setting mode?
         initT& init = _global_data::init;
-        ImGui::SameLine();
         if (ImGui::SmallButton("Reset")) {
-            messenger::dot();
+            messenger::dot_if(init == _global_data::init_init);
             init = _global_data::init_init;
         }
+        ImGui::SameLine();
+        imgui_StrTooltip("(?)", "These settings are shared by all preview windows.");
 
         imgui_StepSliderInt::fn("Seed", &init.seed, 0, 9);
         init.density.step_slide("Density", 10, 100, 10);

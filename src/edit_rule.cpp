@@ -507,7 +507,7 @@ public:
             "[S] stands for the intersection of selected sets.\n"
             "A rule belongs to [S] iff it belongs to every selected set.\n\n"
             "Left-click a set to toggle selection. Multiple sets can be selected as long as their intersection is not empty. If no sets are selected, [S] will be the entire MAP set.\n\n"
-            "Hold right mouse button + left-click to select only one set.\n\n"); // TODO: or just right-click?
+            "Hold right mouse button + left-click to select a single set.\n\n");
 
         explain(false, None, "Not selected.");
         explain(false, Selected, "Selected.");
@@ -1675,7 +1675,7 @@ void edit_rule(frame_main_token) {
 
             // !!TODO: (v0.9.9) sometimes noisy; should be able to turn off this tooltip.
             if (hov && ImGui::BeginTooltip()) { // No text wrapping.
-                // !!TODO: whether to use disabled style if locked?
+                // TODO: whether to use disabled style if locked?
                 ImGui::BeginDisabled(locked);
                 const int group_size = group.size();
                 ImGui::Text("%s:%d", locked ? "(Locked) cases" : "Cases", group_size);

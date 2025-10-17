@@ -208,7 +208,7 @@ inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGu
 // However, the parent window will be brought to foreground immediately, while the popup will appear at next frame due to auto-resize...
 class popup_with_focus : no_create {
 public:
-    // !!TODO: should apply in release mode...
+    // TODO: should apply in release mode...
     static constexpr bool appear_at_same_frame = debug_mode;
 
     static void open_popup(const ImGuiID popup_id, const ImGuiPopupFlags popup_flags) {
@@ -617,7 +617,7 @@ public:
             return false;
         }
 
-        // !!TODO: recheck `v_min == v_max` case... whether to begin-disabled?
+        // TODO: whether to begin-disabled when `v_min == v_max`?
         assert(v_min <= v_max && v_step > 0 && ((v_max - v_min) % v_step) == 0);
         const int u_max = (v_max - v_min) / v_step; // > 0.
         const int u_init = std::clamp((*v - v_min) / v_step, 0, u_max);

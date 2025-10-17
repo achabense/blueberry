@@ -1263,8 +1263,11 @@ class load_doc_impl : no_copy {
     void select() {
         for (int i = 0; docs[i][0] != nullptr; ++i) {
             const auto [title, contents] = docs[i];
-            if (imgui_SelectableStyledButtonEx(i, title, doc_title == title) && compare_update(doc_title, title)) {
-                text.assign(/*reset-scroll*/ true, contents, "@@");
+            if (imgui_SelectableStyledButtonEx(i, title, doc_title == title)) {
+                messenger::dot_if(doc_title == title);
+                if (compare_update(doc_title, title)) {
+                    text.assign(/*reset-scroll*/ true, contents, "@@");
+                }
             }
         }
     };
