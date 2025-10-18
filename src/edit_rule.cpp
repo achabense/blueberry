@@ -862,23 +862,17 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& set_chang
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
-    static previewer::configT config{previewer::default_settings};
-    const int group_spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
-    const ImVec2 min_size = [&] {
-        const auto& style = ImGui::GetStyle();
-        const int min_size_x = config.width() * 2 + group_spacing_x + style.ScrollbarSize;
-        const int min_size_y =
-            ImGui::GetFrameHeight() + style.ItemSpacing.y * 3 + ImGui::GetTextLineHeight() * 2 + config.height();
-        return ImVec2(min_size_x, min_size_y) + style.WindowPadding * 2;
-    }();
-
-    ImGui::SetNextWindowSizeConstraints(min_size, {min_size.x + 120, 500});
-    ImGui::SetNextWindowSize(min_size, ImGuiCond_FirstUseEver);
-    if (auto window = imgui_Window("Misc utils", &open, ImGuiWindowFlags_NoSavedSettings)) {
+    if (auto window =
+            imgui_Window("Misc utils", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        static previewer::configT config{previewer::default_settings};
         static std::optional<aniso::ruleT> rule_01_rev = aniso::trans_reverse(aniso::game_of_life());
         static std::optional<aniso::ruleT> rule_approx;
         static std::optional<aniso::ruleT> rule_temp[8];
+        if (std::exchange(set_changed, false)) {
+            rule_approx.reset();
+        }
 
+        const int group_spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
         const auto clear_button = [](int& id, std::optional<aniso::ruleT>& rule) {
             ImGui::PushID(id++);
             if (double_click_button_small("Clear")) {
@@ -892,13 +886,26 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& set_chang
             previewer::preview_or_dummy(id++, config, rule ? &*rule : nullptr);
         };
 
-        config.set("Settings", true /*small*/);
+        config.set("Settings");
 
         ImGui::Separator();
 
+        // `_AutoResizeX` doesn't work with `imgui_CenterNextWindow`...
+        const auto child_size = [&]() -> ImVec2 {
+            const auto& style = ImGui::GetStyle();
+            const int header_l =
+                imgui_CalcTextSize("Clear0/1 reversal0/1(?)").x + style.FramePadding.x * 4 + style.ItemSpacing.x * 3;
+            const int header_r =
+                imgui_CalcTextSize("ClearApprox(?)").x + style.FramePadding.x * 2 + style.ItemSpacing.x * 2;
+            const int child_width = std::max(config.width(), header_l) + group_spacing_x +
+                                    std::max(config.width(), header_r) + style.ScrollbarSize;
+            const int child_height = config.height() * 2 + ImGui::GetTextLineHeight() * 2 + style.ItemSpacing.y * 4;
+            return ImVec2(child_width, child_height);
+        }();
+
         // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
-        if (auto child = imgui_ChildWindow("Page")) {
+        if (auto child = imgui_ChildWindow("Page", child_size)) {
             int id = 0;
 
             // ImGui::Separator();
@@ -932,9 +939,6 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& set_chang
             ImGui::SameLine(0, group_spacing_x);
             const float cursor_pos = ImGui::GetCursorPosX();
 
-            if (std::exchange(set_changed, false)) {
-                rule_approx.reset();
-            }
             ImGui::BeginGroup();
             clear_button(id, rule_approx);
             ImGui::SameLine();
@@ -1656,6 +1660,9 @@ void edit_rule(frame_main_token) {
             if (show_random_access) {
                 const auto get_adjacent_rule = [&] { return aniso::flip_values_v(group, target); };
 
+                // !!TODO: (v0.9.9) support exploring rules in locked groups...
+                // Support flipping locked values directly? (But how should [Z] be specified?)
+                // Or support disabling the sorting? (So users can unselect p-set without losing track.)
                 ImGui::BeginGroup();
                 ImGui::BeginDisabled(locked);
                 if (code_button_with_label(head, &hov)) {

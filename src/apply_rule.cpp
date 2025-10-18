@@ -805,6 +805,7 @@ public:
 
                         const bool l_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
                         if (l_clicked && ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                            messenger::dot_if(init.background.size() == hover_pos->plus(1, 1));
                             init.background.resize(hover_pos->plus(1, 1));
                             col.reset();
                         } else if (hover_pos->both_lt(data.size)) {

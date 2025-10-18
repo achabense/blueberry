@@ -886,8 +886,8 @@ public:
         int height() const { return height_; }
         ImVec2 size_imvec() const { return ImVec2(width_, height_); }
 
-        void set(const char* label, bool small = false) {
-            menu_like_popup::button(label, small);
+        void set(const char* label) {
+            menu_like_popup::button(label);
             menu_like_popup::popup([&] { _set(true); });
         }
     };
