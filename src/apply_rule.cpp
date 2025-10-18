@@ -1248,10 +1248,9 @@ public:
                             drawlist.AddRectFilled(paste_min, paste_max, IM_COL32(255, 0, 0, 60));
                         }
                         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                            messenger::dot_if(!m_paste->paste_once);
                             if (m_paste->paste_once) {
                                 m_paste.reset();
-                            } else {
-                                messenger::dot();
                             }
                             return true;
                         } else { // Restore.
@@ -1604,6 +1603,7 @@ private:
                         "C:   If the area is enclosed in 2*2 periodic bg, fill area with the bg; otherwise do nothing.\n\n"
                         "2*2 periodic bg:");
 
+                    // TODO: use font-based size...
                     static constexpr std::array<aniso::cellT, 4> bg_data[]{
                         {{{0}, {0}, {0}, {0}}}, {{{1}, {1}, {1}, {1}}}, {{{0}, {1}, {1}, {0}}}, {{{1}, {0}, {0}, {0}}},
                         {{{0}, {1}, {1}, {1}}}, {{{1}, {0}, {1}, {0}}}, {{{1}, {1}, {0}, {0}}},

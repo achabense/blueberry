@@ -690,8 +690,15 @@ namespace aniso {
             encoding_buf(const int l) : vec_p6(new uint8_t[l]{}), len(l) {}
             ~encoding_buf() { delete[] vec_p6; }
 
-            // (The two functions can be impl-ed as a single template (class F = int); however, as tested the debug perf will be nasty.)
-            void feed(const cellT l, const cellT r, const cellT* const line) {
+            // `= 0` is ok here as long as not used... But why?
+            // (The closest thing seems to be N4950 [temp.inst]/12...)
+            template <class D = int, class R = int>
+            void feed(const cellT l, const cellT r, const cellT* const line, //
+                      const D dest = 0, const R& rule = 0) {
+                constexpr bool has_rule = rule_like<R>;
+                static_assert(has_rule == std::is_same_v<D, cellT*>);
+                // if constexpr (has_rule) { assert(dest); }
+
                 const int len_minus_1 = len - 1; // (For better debug-mode codegen.)
                 uint8_t* const vec_p6_local = vec_p6;
 
@@ -700,36 +707,24 @@ namespace aniso {
                     p3 = (p3 << 1) | line[x + 1]; // 0b...[x-1][x][x+1]
                     const int code_raw = (vec_p6_local[x] << 3) | (p3 & 0b111);
                     vec_p6_local[x] = code_raw;
+                    if constexpr (has_rule) {
+                        dest[x] = rule(codeT(code_raw & 0b111'111'111));
+                    }
                 }
                 p3 = (p3 << 1) | r;
                 const int code_raw = (vec_p6_local[len_minus_1] << 3) | (p3 & 0b111);
                 vec_p6_local[len_minus_1] = code_raw;
-            }
-
-            void feed(const cellT l, const cellT r, const cellT* const line, cellT* const dest,
-                      const rule_like auto& rule) {
-                const int len_minus_1 = len - 1; // (For better debug-mode codegen.)
-                uint8_t* const vec_p6_local = vec_p6;
-
-                int p3 = (l << 1) | line[0];
-                for (int x = 0; x < len_minus_1; ++x) {
-                    p3 = (p3 << 1) | line[x + 1]; // 0b...[x-1][x][x+1]
-                    const int code_raw = (vec_p6_local[x] << 3) | (p3 & 0b111);
-                    vec_p6_local[x] = code_raw;
-                    dest[x] = rule(codeT(code_raw & 0b111'111'111));
+                if constexpr (has_rule) {
+                    dest[len_minus_1] = rule(codeT(code_raw & 0b111'111'111));
                 }
-                p3 = (p3 << 1) | r;
-                const int code_raw = (vec_p6_local[len_minus_1] << 3) | (p3 & 0b111);
-                vec_p6_local[len_minus_1] = code_raw;
-                dest[len_minus_1] = rule(codeT(code_raw & 0b111'111'111));
             }
         };
     } // namespace _misc
 
     inline void apply_rule_torus(const tile_ref tile, const rule_like auto& rule) {
         const vecT size = tile.size;
-        const auto first_line = std::make_unique_for_overwrite<cellT[]>(size.x);
-        std::copy_n(tile.line(0), size.x, first_line.get());
+        const auto line_0 = std::make_unique_for_overwrite<cellT[]>(size.x);
+        std::copy_n(tile.line(0), size.x, line_0.get());
 
         _misc::encoding_buf encoder(size.x);
         {
@@ -739,7 +734,7 @@ namespace aniso {
             encoder.feed(cn[size.x - 1], cn[0], cn);
         }
         for (int y = 0; y < size.y; ++y) {
-            const cellT* const dw = y + 1 < size.y ? tile.line(y + 1) : first_line.get();
+            const cellT* const dw = y + 1 < size.y ? tile.line(y + 1) : line_0.get();
             encoder.feed(dw[size.x - 1], dw[0], dw, tile.line(y), rule);
         }
     }
