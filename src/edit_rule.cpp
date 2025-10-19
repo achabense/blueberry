@@ -699,13 +699,15 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
     }
 }
 
-// !!TODO: update tooltips...
+// TODO: improve tooltips...
 class rule_selector : no_copy {
     enum tagE { Zero, Identity, Other, Default, None };
-    tagE m_tag = Zero;
+    tagE m_tag = Default;
 
     aniso::ruleT m_other = aniso::game_of_life(); // (!= 'Zero' or 'Identity'.)
     aniso::ruleT m_default = {};
+
+    tagE m_highlight = None;
 
     struct termT {
         tagE tag;
@@ -722,10 +724,12 @@ class rule_selector : no_copy {
          "For any rule in any case, being same as this rule means the cell will stay unchanged (0->0 or 1->1), and being different means the cell will \"flip\" (0->1 or 1->0)."},
 
         {Other, "Other",
-         "Another rule that's neither 'Zero' nor 'Identity' (initially the Game of Life rule).\n\n"
-         "Sometimes neither 'Zero' nor 'Identity' belongs to [S], and this will be updated to guarantee there is at least one rule available in [S]. (For example, try '0<>1 & Total(+s)'.)"},
+         "Another rule that's neither 'Zero' nor 'Identity'.\n\n"
+         "This is initially the Game of Life rule, and can be updated by dragging a rule to [R]. The updating logic is: if the rule equals 'Zero' or 'Identity', select directly; otherwise update and select this."},
 
-        {Default, "Default", "!!TODO"},
+        {Default, "Default",
+         "A rule predefined in [S]. Depending on [S], this may equal 'Zero' or 'Identity', or sometimes neither. (For example, try '0<>1 & Total(+s)'.)\n\n"
+         "If [S] changes and no longer contains [R], this will be selected automatically."},
     };
 
     const aniso::ruleT& get_rule(tagE tag) const {
@@ -736,11 +740,9 @@ class rule_selector : no_copy {
                                  : m_default;
     }
 
-    // Non-`Default`.
     tagE resolve_tag(const aniso::ruleT& rule) const {
         return rule == aniso::rule_all_zero()   ? Zero //
                : rule == aniso::rule_identity() ? Identity
-               : rule == m_other                ? Other
                                                 : None;
     }
 
@@ -748,38 +750,21 @@ public:
     static void about() {
         imgui_Str(
             "[S] divides all cases into disjoint groups, and any two rules in [S] must have either all-same or all-different values in each group. Due to this structure, the \"distance\" between rules can be defined as the number of groups where they have different values.\n\n"
-            "[R] stands for an arbitrary rule in [S] to measure relative distance and compare values with other rules. It doesn't affect rule generation directly, but serves as the default rule for [X]/[Y]/[Z] (for 'Traverse', 'Random' and 'Edit-rule' respectively).\n\n"
-            // "(If you select 'Zero' or 'Identity', being same or different than [R] has natural interpretations.)"
-            // "('Other' won't be updated when you switch with the radio buttons.)"
-            "You can update [R] by dragging a rule to it. If [S] changes and no longer contains [R], [R] will be updated to an unspecified rule. In both cases, the updating logic is: if the rule equals 'Zero' or 'Identity', select directly without updating 'Other'; otherwise, update and select 'Other'.");
+            "[R] stands for an arbitrary rule in [S] to \"observe\" other rules (measure relative distance and compare values). It doesn't affect rule generation directly.");
+        // "(If you select 'Zero' or 'Identity', being same or different than [R] has natural interpretations.)"
     }
 
     const aniso::ruleT& get() const { return get_rule(m_tag); }
 
-    bool try_set(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
-        if (const auto* deliv = get_deliv(pass, working_set)) {
-            if (const tagE tag = resolve_tag(*deliv); tag != None) {
-                m_tag = tag;
-            } else {
-                m_other = *deliv;
-                m_tag = Other;
-            }
-            return true;
-        }
-        return false;
-    }
-
     void sync(const aniso::subsetT& working_set) {
+        // TODO: whether to highlight when selecting `Default` but the rule is updated?
         m_default = working_set.get_rule();
         if (m_tag != Default && !working_set.contains(get())) {
             m_tag = Default;
+            m_highlight = Default;
         }
     }
 
-    // !!TODO: support resolving default-tag in gui?
-    // if (const tagE tag = resolve_tag(m_default); tag != None) {
-    //     m_tag = tag;
-    // }
     void select(const aniso::subsetT& working_set) {
         assert(working_set.contains(m_default));
         assert(working_set.contains(get()));
@@ -798,14 +783,20 @@ public:
             }
         };
 
-        tagE highlight = None;
         ImGui::AlignTextToFramePadding();
         imgui_StrWithID("[R]");
-        guide_mode::item_tooltip("Drag a rule here to update [R] (will also update 'Other' if necessary).");
+        guide_mode::item_tooltip("Drag a rule here to update [R]. (See 'Other' for details.)");
         // pass_rule::source(get());
-        if (try_set(pass_rule::dest(), working_set)) {
-            messenger::dot();
-            highlight = m_tag;
+        if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
+            // TODO: whether (when) to show dot?
+            // messenger::dot_if(...);
+            if (const tagE tag = resolve_tag(*deliv); tag != None) {
+                m_tag = tag;
+            } else {
+                m_other = *deliv;
+                m_tag = Other;
+            }
+            m_highlight = m_tag;
         }
         peek_dist(get());
 
@@ -831,8 +822,9 @@ public:
             if (ImGui::RadioButton(term.label, m_tag == term.tag) && belongs) {
                 m_tag = term.tag;
             }
-            if (highlight == term.tag) {
+            if (m_highlight == term.tag) {
                 highlight_item();
+                m_highlight = None;
             }
             if (!belongs) {
                 ImGui::PopStyleColor(4);
@@ -849,6 +841,12 @@ public:
             });
             if (belongs) {
                 peek_dist(rule);
+            }
+
+            if (term.tag == Default) {
+                const tagE tag = resolve_tag(m_default); // TODO: cache...
+                ImGui::SameLine();
+                imgui_StrDisabled(tag == Zero ? "(= Zero)" : tag == Identity ? "(= Identity)" : "(= neither)");
             }
         }
 
