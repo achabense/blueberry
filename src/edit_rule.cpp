@@ -598,7 +598,7 @@ public:
                         if (const auto* s = term.get_s()) {
                             ImGui::Text("Groups:%d", s->p.k());
                         } else if (const auto* p = term.get_p()) {
-                            ImGui::Text("Locked:%d/512", aniso::count_locked(p->lock)); // !!TODO: improve...
+                            ImGui::Text("Locked:%d/512", aniso::count_locked(p->lock)); // TODO: improve...
                         } else {
                             assert(false);
                         }
@@ -867,7 +867,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
         static std::optional<aniso::ruleT> rules[10];
         static rec_for_rule rec{}; // TODO: whether to share the same recorder?
         if (rec.empty()) {
-            const aniso::ruleT& r = aniso::trans_reverse(aniso::game_of_life());
+            const aniso::ruleT r = aniso::trans_reverse(aniso::game_of_life());
             rules[0] = r;
             rec.add(r);
         }
@@ -942,6 +942,9 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
 
                 // https://stackoverflow.com/questions/73817020/why-is-there-no-built-in-way-to-get-a-pointer-from-an-stdoptional
                 previewer::preview_or_dummy(this_i, config, rule ? &*rule : nullptr);
+                if (this_i == 1 && !rule.has_value()) {
+                    guide_mode::item_tooltip("Drag a rule here for later use.");
+                }
                 if (const auto* deliv = pass_rule::dest().get_deliv()) {
                     messenger::dot_if(rule == *deliv);
                     rule = *deliv;

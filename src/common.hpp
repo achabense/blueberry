@@ -1269,6 +1269,7 @@ private:
     inline static rule_snapshot snapshot{}; // (Only) gcc requires {} here due to explicit default ctor (likely a bug)
 };
 
+// !!TODO: (v0.9.9) support cursor (undoing/redoing)? (But how to update the record when adding new rules?)
 class rule_with_rec : no_copy {
     aniso::ruleT m_rule{};
     rec_for_rule m_rec{};
@@ -1290,8 +1291,6 @@ public:
     }
 
     const rec_for_rule& rec() const { return m_rec; }
-
-    // !!TODO: (v0.9.9) support cursor (undoing/redoing)? (But how to update the record when adding new rules?)
 };
 
 // TODO: support recording copied rules? (The problem is, where to expose in UI...)
