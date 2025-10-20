@@ -855,48 +855,38 @@ public:
 };
 
 // 0/1-rev, approx and buffers...
-static open_state misc_window(const aniso::subsetT& working_set, bool& set_changed) {
+static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_changed*/) {
     bool open = true;
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
+    // !!TODO: rename...
     if (auto window =
             imgui_Window("Misc utils", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
         static previewer::configT config{previewer::default_settings};
-        static std::optional<aniso::ruleT> rule_01_rev = aniso::trans_reverse(aniso::game_of_life());
-        static std::optional<aniso::ruleT> rule_approx;
-        static std::optional<aniso::ruleT> rule_temp[8];
-        if (std::exchange(set_changed, false)) {
-            rule_approx.reset();
+        static std::optional<aniso::ruleT> rules[10];
+        static rec_for_rule rec{}; // TODO: whether to share the same recorder?
+        if (rec.empty()) {
+            const aniso::ruleT& r = aniso::trans_reverse(aniso::game_of_life());
+            rules[0] = r;
+            rec.add(r);
         }
 
-        const int group_spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
-        const auto clear_button = [](int& id, std::optional<aniso::ruleT>& rule) {
-            ImGui::PushID(id++);
-            if (double_click_button_small("Clear")) {
-                messenger::dot_if(!rule.has_value());
-                rule.reset();
-            }
-            ImGui::PopID();
-        };
-        const auto show_rule = [](int& id, std::optional<aniso::ruleT>& rule) {
-            // https://stackoverflow.com/questions/73817020/why-is-there-no-built-in-way-to-get-a-pointer-from-an-stdoptional
-            previewer::preview_or_dummy(id++, config, rule ? &*rule : nullptr);
-        };
-
-        config.set("Settings");
+        if (double_click_button_small("Dump")) {
+            rec.dump(config);
+        }
+        guide_mode::item_tooltip("!!TODO");
+        ImGui::SameLine();
+        config.set("Settings", true /*small*/);
 
         ImGui::Separator();
 
         // `_AutoResizeX` doesn't work with `imgui_CenterNextWindow`...
+        const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
         const auto child_size = [&]() -> ImVec2 {
             const auto& style = ImGui::GetStyle();
-            const int header_l =
-                imgui_CalcTextSize("Clear0/1 reversal0/1(?)").x + style.FramePadding.x * 4 + style.ItemSpacing.x * 3;
-            const int header_r =
-                imgui_CalcTextSize("ClearApprox(?)").x + style.FramePadding.x * 2 + style.ItemSpacing.x * 2;
-            const int child_width = std::max(config.width(), header_l) + group_spacing_x +
-                                    std::max(config.width(), header_r) + style.ScrollbarSize;
+            const int header_width = imgui_CalcTextSize("Clear0/1").x + style.FramePadding.x * 4 + style.ItemSpacing.x;
+            const int child_width = 2 * std::max(config.width(), header_width) + spacing_x + style.ScrollbarSize;
             const int child_height = config.height() * 2 + ImGui::GetTextLineHeight() * 2 + style.ItemSpacing.y * 4;
             return ImVec2(child_width, child_height);
         }();
@@ -904,75 +894,58 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& set_chang
         // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Page", child_size)) {
-            int id = 0;
-
-            // ImGui::Separator();
-            ImGui::BeginGroup();
-            clear_button(id, rule_01_rev);
-            ImGui::SameLine();
-            imgui_Str("0/1 reversal"); // TODO: add record?
-            {
-                ImGui::SameLine();
-                ImGui::BeginDisabled(!rule_01_rev.has_value());
-                if (ImGui::SmallButton("0/1##Rev") && rule_01_rev.has_value()) {
-                    const aniso::ruleT r = aniso::trans_reverse(*rule_01_rev);
-                    messenger::dot_if(rule_01_rev == r);
-                    rule_01_rev = r;
-                }
-                ImGui::EndDisabled();
-            }
-            ImGui::SameLine();
-            imgui_StrTooltip(
-                "(?)",
-                "Drag a rule here to get the 0/1 reversal dual for it. That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].\n\n"
-                "(If the rule is self-complementary, this will result in the same rule.)");
-            show_rule(id, rule_01_rev);
-            if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                const aniso::ruleT r = aniso::trans_reverse(*deliv);
-                messenger::dot_if(rule_01_rev == r);
-                rule_01_rev = r;
-            }
-            ImGui::EndGroup();
-
-            ImGui::SameLine(0, group_spacing_x);
-            const float cursor_pos = ImGui::GetCursorPosX();
-
-            ImGui::BeginGroup();
-            clear_button(id, rule_approx);
-            ImGui::SameLine();
-            imgui_Str("Approx");
-            ImGui::SameLine();
-            imgui_StrTooltip("(?)", "Drag a rule here to get a similar rule in [S].\n\n"
-                                    "(If the rule already belongs to [S], this will result in the same rule.)");
-            show_rule(id, rule_approx);
-            if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                const aniso::ruleT r = aniso::approximate(working_set, *deliv);
-                messenger::dot_if(rule_approx == r);
-                rule_approx = r;
-            }
-            ImGui::EndGroup();
-
-            for (int i = 0; auto& rule : rule_temp) {
-                const int this_i = ++i;
-                if (this_i & 1) {
+            constexpr int perline = 2;
+            for (int i = 0; auto& rule : rules) {
+                const int this_i = i++;
+                if (this_i % perline != 0) {
+                    ImGui::SameLine(0, spacing_x);
+                } else if (this_i != 0) {
                     ImGui::Spacing(); // ImGui::Separator();
-                } else {
-                    // (`SameLine(0, group_spacing_x)` doesn't align well when preview windows are too small.)
-                    ImGui::SameLine(cursor_pos);
                 }
 
                 ImGui::BeginGroup();
-                clear_button(id, rule);
-                ImGui::SameLine();
-                ImGui::Text("Temp %d", this_i);
-                if (this_i == 1) {
-                    ImGui::SameLine();
-                    imgui_StrTooltip("(?)", "Drag a rule here for later use.");
+                ImGui::PushID(this_i);
+                ImGui::BeginDisabled(!rule.has_value());
+                if (double_click_button_small("Clear")) {
+                    rule.reset();
                 }
-                show_rule(id, rule);
+                ImGui::SameLine();
+                if (ImGui::SmallButton("0/1##Rev") && rule.has_value()) {
+                    const aniso::ruleT r = aniso::trans_reverse(*rule);
+                    messenger::dot_if(rule == r);
+                    rule = r;
+                    rec.add(r);
+                }
+                if (this_i == 0) {
+                    guide_mode::item_tooltip(
+                        "Get the 0/1 reversal dual for the rule. That is, for any pattern, [applying the original rule -> flipping all values] has the same effect as [flipping all values -> applying the dual].\n\n"
+                        "(If the rule is self-complementary, this will result in the same rule.)");
+                }
+                if constexpr (0) {
+                    // !!TODO: (v0.9.9) not supported in this version, as the effect is very tricky...
+                    // (This is mainly useful for fitting a rule to p-set; not quite meaningful in other cases.)
+                    ImGui::SameLine();
+                    if (double_click_button_small("Approx") && rule.has_value()) {
+                        const aniso::ruleT r = aniso::approximate(working_set, *rule);
+                        messenger::dot_if(rule == r);
+                        rule = r;
+                        rec.add(r);
+                    }
+                    if (this_i == 0) {
+                        guide_mode::item_tooltip(
+                            "Get an unspecified rule in [S] with all groups satisfying the constraints unchanged.\n\n"
+                            "(If the rule already belongs to [S], this will result in the same rule.)");
+                    }
+                }
+                ImGui::EndDisabled();
+                ImGui::PopID();
+
+                // https://stackoverflow.com/questions/73817020/why-is-there-no-built-in-way-to-get-a-pointer-from-an-stdoptional
+                previewer::preview_or_dummy(this_i, config, rule ? &*rule : nullptr);
                 if (const auto* deliv = pass_rule::dest().get_deliv()) {
                     messenger::dot_if(rule == *deliv);
                     rule = *deliv;
+                    rec.add(*deliv);
                 }
                 ImGui::EndGroup();
             }
@@ -1051,7 +1024,7 @@ public:
         return false;
     }
 
-    bool display(const char* label, const previewer::configT& settings, const aniso::subsetT& working_set) {
+    bool display(const char* label, previewer::configT& settings, const aniso::subsetT& working_set) {
         if (m_appearing.update()) {
             m_window = false;
         }
@@ -1096,10 +1069,11 @@ public:
             // TODO: ideally, should always appear above the source window.
             if (auto window = imgui_Window(label, &m_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                // !!TODO: improve...
                 if (double_click_button_small("Dump")) {
                     m_rule.rec().dump(settings);
                 }
+                ImGui::SameLine();
+                settings.set("Settings", true /*small*/);
 
                 previewer::preview(0, settings, m_rule.get());
                 if (try_set(pass_rule::dest(), working_set)) {
@@ -1227,10 +1201,11 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             }
         }
         rclick_popup::for_text([] {
+            ImGui::BeginDisabled(page.empty());
             if (ImGui::Selectable("Clear")) {
-                messenger::dot_if(page.empty());
                 page.clear();
             }
+            ImGui::EndDisabled();
         });
 
         ImGui::Separator();
@@ -1340,12 +1315,13 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
             ImGui::Text("Pages:%d At:N/A", calc_page());
         }
         rclick_popup::for_text([] {
+            ImGui::BeginDisabled(rules.empty());
             if (ImGui::Selectable("Clear")) {
-                messenger::dot_if(rules.empty());
                 rules.clear();
                 rules.shrink_to_fit();
                 page_no = 0;
             }
+            ImGui::EndDisabled();
         });
 
         ImGui::Separator();

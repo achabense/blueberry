@@ -945,10 +945,11 @@ private:
             ImGui::Text("Total:%d At:N/A", total);
         }
         rclick_popup::for_text([&] {
+            ImGui::BeginDisabled(!m_pos.has_value());
             if (ImGui::Selectable("Reset cursor")) {
-                messenger::dot_if(!m_pos.has_value());
                 m_pos.reset();
             }
+            ImGui::EndDisabled();
         });
         return pos;
     }
@@ -1228,12 +1229,13 @@ public:
         }
 
         ImGui::SameLine();
+        ImGui::BeginDisabled(text.empty());
         if (double_click_button_small("Clear")) {
-            messenger::dot_if(text.empty());
             text.clear();
             last_str.clear();
             last_str.shrink_to_fit();
         }
+        ImGui::EndDisabled();
         if constexpr (debug_mode) {
             ImGui::SameLine();
             ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 0);
