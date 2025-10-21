@@ -317,7 +317,7 @@ public:
                          "Rules whose values are independent of 'w', 'a', 'd' and 'x'.\n\n"
                          "(This can work naturally with native-symmetry sets.)");
             scope.append(
-                "0<>1", &subsets.self_complementary,
+                "0v1", &subsets.self_complementary,
                 "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].\n\n"
                 "To achieve this, for any case and its complement, the rule will map center cell to values so that the resulting \"flip-ness\" are the same.\n\n"
                 "     |q w e|             |!q!w!e|\n"
@@ -453,9 +453,10 @@ public:
                 update_current();
             }
             m_terms_p.clear();
-            m_terms_p.push_back(termT(p, "P", "(Experimental) !!TODO", &m_current));
-            messenger::set_msg("Updated.");
-            messenger::set_auto_disappear();
+            m_terms_p.push_back(termT(
+                p, "P", "(Experimental) rules that can reproduce the captured pattern in all phases.", &m_current));
+            messenger::set_msg("Captured. (See 'P' in the set table.)", aniso::count_locked(p.lock));
+            // messenger::set_auto_disappear();
         } else {
             assert(false);
         }
@@ -728,7 +729,7 @@ class rule_selector : no_copy {
          "This is initially the Game of Life rule, and can be updated by dragging a rule to [R]. The updating logic is: if the rule equals 'Zero' or 'Identity', select directly; otherwise update and select this."},
 
         {Default, "Default",
-         "A rule predefined in [S]. Depending on [S], this may equal 'Zero' or 'Identity', or sometimes neither. (For example, try '0<>1 & Total(+s)'.)\n\n"
+         "A rule predefined in [S]. Depending on [S], this may equal 'Zero' or 'Identity', or sometimes neither. (For example, try '0v1 & Total(+s)'.)\n\n"
          "If [S] changes and no longer contains [R], this will be selected automatically."},
     };
 
@@ -1156,7 +1157,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             "The seq can iterate through all rules in [S] in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
             "The \"dist\" in this window refers to distance to [X]. For example, 'Go to dist' can get to the first rule with specified distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
             "(This is mainly useful for small sets (having only a few groups). For large sets, 'Random' and 'Edit-rule' may be more suitable tools.)");
-        //"(Some small subsets include self-complementary totalistic rules ('0<>1 & Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All & Jvn') and so on.)"
+        //"(Some small subsets include self-complementary totalistic rules ('0v1 & Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All & Jvn') and so on.)"
         ImGui::SameLine();
         imgui_Str("Go to dist ~ ");
         ImGui::SameLine(0, 0);

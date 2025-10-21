@@ -1059,6 +1059,13 @@ public:
         } else {
             imgui_Str("Selected:N/A");
         }
+        rclick_popup::for_text([&] {
+            ImGui::BeginDisabled(!m_sel.has_value());
+            if (ImGui::Selectable("Clear")) {
+                m_sel.reset();
+            }
+            ImGui::EndDisabled();
+        });
         // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
         ImGui::SameLine(cursor_pos);
         ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(),
