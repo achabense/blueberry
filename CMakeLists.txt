@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.25)
 
+project(Blueberry LANGUAGES CXX)
+
+# Get rid of absolute paths (via __FILE__; most are introduced by `SDL_assert_release`, some are hard-coded...)
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/experimental:deterministic>)
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/pathmap:${CMAKE_SOURCE_DIR}=project>)
+add_compile_options($<$<CXX_COMPILER_ID:Clang,GNU>:-ffile-prefix-map=${CMAKE_SOURCE_DIR}=project>)
+
 # I wasted many hours trying to find a "reliable way" to avoid repeated cloning for different configurations. Now I'd rather let it go.
 # Note to self: don't bother with this problem anymore.
 include(FetchContent)
@@ -14,9 +21,8 @@ FetchContent_Declare(
 )
 set(SDL_SHARED FALSE CACHE BOOL "" FORCE)
 set(SDL_STATIC TRUE CACHE BOOL "" FORCE) # Necessary for SDL3-static.
+# add_compile_definitions($<$<CONFIG:Release>:SDL_ASSERT_LEVEL=0>)
 FetchContent_MakeAvailable(SDL3)
-
-project(Blueberry LANGUAGES CXX)
 
 if (MSVC)
     string(REPLACE "/Ob0" "/Ob1" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}") # Otherwise, force-inline doesn't work.
@@ -29,15 +35,13 @@ add_executable(${PROJECT_NAME} WIN32 ${SOURCE_LIST})
 
 target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/utf-8> # https://stackoverflow.com/questions/47690822
-    $<$<CXX_COMPILER_ID:Clang>:-finput-charset=utf-8 -fexec-charset=utf-8>
-    $<$<CXX_COMPILER_ID:GNU>:-finput-charset=utf-8 -fexec-charset=utf-8>
+    $<$<CXX_COMPILER_ID:Clang,GNU>:-finput-charset=utf-8 -fexec-charset=utf-8>
 
     # -Wreturn-type is neither enabled by default nor implied by -Wall or -Wextra... That's ridiculous...
     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof -Wshadow -Werror=return-type> # -Wconversion
 
 #   $<$<CXX_COMPILER_ID:MSVC>:/WX>
-#   $<$<CXX_COMPILER_ID:Clang>:-Werror>
-#   $<$<CXX_COMPILER_ID:GNU>:-Werror>
+#   $<$<CXX_COMPILER_ID:Clang,GNU>:-Werror>
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
