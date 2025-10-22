@@ -1061,7 +1061,7 @@ public:
         }
         rclick_popup::for_text([&] {
             ImGui::BeginDisabled(!m_sel.has_value());
-            if (ImGui::Selectable("Clear")) {
+            if (ImGui::Selectable("Unselect")) { // "Clear" would be misleading here.
                 m_sel.reset();
             }
             ImGui::EndDisabled();

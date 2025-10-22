@@ -934,7 +934,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
                     }
                     if (this_i == 0) {
                         guide_mode::item_tooltip(
-                            "Get an unspecified rule in [S] with all groups satisfying the constraints unchanged.\n\n"
+                            "Get a rule in [S] with all groups satisfying the constraints unchanged.\n\n"
                             "(If the rule already belongs to [S], this will result in the same rule.)");
                     }
                 }

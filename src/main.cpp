@@ -278,7 +278,7 @@ int main(int, char**) {
     ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer3_Init(renderer);
     ImGui::GetPlatformIO().Platform_OpenInShellFn = [](ImGuiContext*, const char* u8path) {
-        return SDL_OpenURL(u8path) == 0;
+        return SDL_OpenURL(u8path);
     };
 
     if constexpr (0) {
