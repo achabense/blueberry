@@ -453,8 +453,8 @@ public:
                 update_current();
             }
             m_terms_p.clear();
-            m_terms_p.push_back(termT(
-                p, "P", "(Experimental) rules that can reproduce the captured pattern in all phases.", &m_current));
+            m_terms_p.push_back(termT( // TODO: when to use "pattern" vs "object"?
+                p, "P", "(Experimental) rules that can reproduce the captured object in all phases.", &m_current));
             messenger::set_msg("Captured. (See 'P' in the set table.)", aniso::count_locked(p.lock));
             // messenger::set_auto_disappear();
         } else {

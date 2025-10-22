@@ -126,7 +126,7 @@ struct identify_result {
     aniso::tileT pattern; // Smallest phase.
     aniso::vecT offset;
     int period;
-    aniso::lockT lock; // TODO: not suitable name...
+    aniso::lockT rec;
 };
 static std::optional<identify_result> identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
                                                const aniso::vecT period_size, const bool require_matching_bg = true) {
@@ -171,7 +171,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
         aniso::tileT tile;
         aniso::rangeT range; // Range of pattern (including a layer of bg), relative to `tile`.
         aniso::vecT off;     // Pattern's begin pos, relative to the initial pattern.
-        aniso::lockT lock;
+        aniso::lockT rec;
 
         aniso::tile_const_ref get_pattern() const { return tile.data(range); }
 
@@ -187,7 +187,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
             aniso::fill_outside(next.data(), relocate,
                                 aniso::realign_from_to(background, padding, {0, 0}) /*relative to `next`*/);
             aniso::copy(next.data(relocate), pattern);
-            next.run_torus(rule, lock);
+            next.run_torus(rule, rec);
 
             tile.swap(next);
             if (const auto next_range = locate_pattern_with_bg(tile.data(), period_size); //
@@ -210,7 +210,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
                    .tile = aniso::tileT(init_pattern),
                    .range = {{0, 0}, init_pattern.size},
                    .off = {0, 0},
-                   .lock = {}};
+                   .rec = {}};
     aniso::tileT smallest = aniso::tileT(init_pattern);
 
     constexpr int limit = 4000; // Max period to deal with.
@@ -226,7 +226,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
         }
         if (aniso::equal(init_pattern, pattern)) {
             // TODO: pad an extra layer of bg pattern?
-            return {{.pattern = std::move(smallest), .offset = region.off, .period = g, .lock = region.lock}};
+            return {{.pattern = std::move(smallest), .offset = region.off, .period = g, .rec = region.rec}};
         }
     }
     // For example, this can happen the object really has a huge period, or the initial area doesn't
@@ -1543,10 +1543,22 @@ private:
                     return;
                 }
                 assert(self.m_sel);
+                const auto sel_area = self.m_torus.read_only(self.m_sel->to_range());
                 constexpr aniso::vecT p_size{2, 2};
-                // !!TODO: support capturing pure bg...
+                // TODO: should be dealt-with in `identify` directly...
+                // (Workaround to support capturing pure bg.)
+                if (!check_border(sel_area, p_size)) {
+                    return;
+                } else if (aniso::is_spatially_periodic(sel_area, p_size)) {
+                    aniso::lockT rec{};
+                    if (aniso::torus_period(self.m_rule, sel_area.clip_corner(p_size), 20, &rec)) {
+                        load_capture(self.m_rule, rec);
+                        return;
+                    }
+                }
+
                 if (const auto result = identify(self.m_torus.read_only(self.m_sel->to_range()), self.m_rule, p_size)) {
-                    load_capture(self.m_rule, result->lock);
+                    load_capture(self.m_rule, result->rec);
                 }
             } //
         };
@@ -1671,7 +1683,10 @@ private:
                     ImGui::Separator();
 
                     term("Capture", op_capture);
-                    guide_mode::item_tooltip("(Experimental) !!TODO");
+                    guide_mode::item_tooltip(
+                        "The area should be enclosed in 2*2 periodic background.\n\n"
+                        "(Experimental) identify a single object in the area (or the bg itself if the area contains nothing), and record all invocations.\n\n"
+                        "The record can serve to generate rules that can reproduce the same object (in all phases).");
                 }
             }
         }

@@ -339,6 +339,10 @@ namespace aniso {
                _misc::has_period_y(tile.right(period.x), period.y);
     }
 
+    inline bool is_spatially_periodic(const tile_const_ref tile, const vecT period) { //
+        return _misc::has_period_x(tile, period.x) && _misc::has_period_y(tile, period.y);
+    }
+
     inline std::optional<vecT> spatial_period_full_area(const tile_const_ref tile, const vecT max_period) {
         const vecT limit = min(tile.size / 2, max_period);
         int period_x = 0;
@@ -757,7 +761,7 @@ namespace aniso {
 #endif // ENABLE_TESTS
 
     // TODO: optimize like `apply_rule_torus`?
-    [[deprecated]] inline void fake_apply(const tile_const_ref tile, lockT& lock) {
+    [[deprecated]] inline void fake_apply(const tile_const_ref tile, lockT& rec) {
         if (!tile.size.both_gt({2, 2})) {
             return;
         }
@@ -767,7 +771,7 @@ namespace aniso {
             const cellT* const cn = tile.line(y);
             const cellT* const dw = tile.line(y + 1);
             for (int x = 1; x < tile.size.x - 1; ++x) {
-                lock[encode({
+                rec[encode({
                     up[x - 1], up[x], up[x + 1], //
                     cn[x - 1], cn[x], cn[x + 1], //
                     dw[x - 1], dw[x], dw[x + 1], //
@@ -849,9 +853,9 @@ namespace aniso {
         void run_torus(const ruleT& rule) { //
             apply_rule_torus(data(), rule);
         }
-        void run_torus(const ruleT& rule, lockT& lock) {
+        void run_torus(const ruleT& rule, lockT& rec) {
             apply_rule_torus(data(), [&](const codeT c) {
-                lock[c] = true;
+                rec[c] = true;
                 return rule(c);
             });
         }
@@ -868,10 +872,15 @@ namespace aniso {
         }
     };
 
-    inline std::optional<int> torus_period(const ruleT& rule, const tile_const_ref init, const int max_period) {
+    inline std::optional<int> torus_period(const ruleT& rule, const tile_const_ref init, const int max_period,
+                                           lockT* const rec = nullptr) {
         tileT torus(init);
         for (int g = 1; g <= max_period; ++g) {
-            torus.run_torus(rule);
+            if (rec) {
+                torus.run_torus(rule, *rec);
+            } else {
+                torus.run_torus(rule);
+            }
             if (equal(init, torus.data())) {
                 return g;
             }

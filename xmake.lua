@@ -1,3 +1,5 @@
+-- TODO: should prevent __FILE__ from being absolute path (especially in release mode)...
+
 -- https://xmake.io/guide/quick-start.html
 -- xmake config -o build
 -- xmake config -m release

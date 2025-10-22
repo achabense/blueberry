@@ -91,15 +91,11 @@ public:
 };
 
 ImTextureID backend_fn::to_texture(const aniso::_misc::tile_ref_<const aniso::cellT> tile, const scaleE scale) {
+    assert(scale == scaleE::Nearest || scale == scaleE::Linear);
+
     SDL_Texture* texture = texture_pool::get(tile.size.x, tile.size.y);
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
-    if (scale == scaleE::Nearest) {
-        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
-    } else {
-        assert(scale == scaleE::Linear);
-        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
-    }
-
+    SDL_SetTextureScaleMode(texture, scale == scaleE::Nearest ? SDL_SCALEMODE_NEAREST : SDL_SCALEMODE_LINEAR);
     void* pixels = nullptr;
     int pitch = 0;
     if (!SDL_LockTexture(texture, nullptr, &pixels, &pitch)) {
