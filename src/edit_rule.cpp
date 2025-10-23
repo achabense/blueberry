@@ -1010,37 +1010,38 @@ class target_rule : no_copy {
 public:
     operator const aniso::ruleT&() const { return m_rule.get(); }
     const aniso::ruleT& get() const { return m_rule.get(); }
-    bool try_set(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
-        if (const auto* deliv = get_deliv(pass, working_set)) {
-            m_rule.set(*deliv);
-            return true;
-        }
-        return false;
-    }
 
-    // !!TODO: (v0.9.9) reconsider this design (resetting rules silently)...
-    // -> require manually specifying a rule?
-    bool sync(const aniso::subsetT& working_set) {
+    // !!TODO: (v0.9.9) redesign; should not reset silently...
+    // (Instead, should invalidate the rule and update to get_rule() only if actually used.)
+    void sync(const aniso::subsetT& working_set) {
         if (!m_rule.assigned() || !working_set.contains(m_rule.get())) {
             m_rule.set(working_set.get_rule());
-            return true;
         }
-        return false;
     }
 
-    bool display(const char* label, previewer::configT& settings, const aniso::subsetT& working_set) {
+    // !!TODO: recheck dot-if for this; simplify if possible...
+    enum effectE { None = 0, Same, Diff };
+    effectE try_set(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
+        if (const auto* deliv = get_deliv(pass, working_set)) {
+            if (!m_rule.assigned() || m_rule.get() != *deliv) {
+                m_rule.set(*deliv);
+                return Diff;
+            }
+            return Same;
+        }
+        return None;
+    }
+
+    effectE display(const char* label, previewer::configT& settings, const aniso::subsetT& working_set) {
         if (m_appearing.update()) {
             m_window = false;
         }
 
-        bool updated = false;
+        effectE effect = None;
         if (!m_window) {
             imgui_StrWithID(label);
             pass_rule::source(m_rule.get());
-            if (try_set(pass_rule::dest(), working_set)) {
-                messenger::dot();
-                updated = true;
-            }
+            effect = try_set(pass_rule::dest(), working_set);
             rclick_popup::for_text([&] {
                 if (ImGui::Selectable("Copy rule")) {
                     copy_rule::copy(m_rule.get());
@@ -1065,9 +1066,7 @@ public:
             }
         } else {
             imgui_StrDisabled(label);
-        }
 
-        if (m_window) {
             ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
             imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
             // TODO: ideally, should always appear above the source window.
@@ -1080,15 +1079,13 @@ public:
                 settings.set("Settings", true /*small*/);
 
                 previewer::preview(0, settings, m_rule.get());
-                if (try_set(pass_rule::dest(), working_set)) {
-                    messenger::dot();
-                    updated = true;
-                }
+                effect = try_set(pass_rule::dest(), working_set);
             }
         }
-
-        return updated;
+        return effect;
     }
+
+    bool window_mode() const { return m_window; }
 };
 
 // TODO: define as classes...
@@ -1166,8 +1163,12 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
         }
         ImGui::SameLine();
-        if (orderer.display("[X]", config, working_set)) {
-            page.clear();
+        if (const auto effect = orderer.display("[X]", config, working_set)) {
+            // TODO: always show dot in label mode?
+            messenger::dot_if(effect == target_rule::Same /*|| !orderer.window_mode()*/);
+            if (effect == target_rule::Diff) { // TODO: whether to clear unconditionally?
+                page.clear();
+            }
         }
 
         switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
@@ -1274,7 +1275,10 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
             assert(std::round(rate * c_free) == free_dist);
         }
         ImGui::SameLine();
-        target.display("[Y]", config, working_set);
+        if (const auto effect = target.display("[Y]", config, working_set)) {
+            // TODO: always show dot in label mode?
+            messenger::dot_if(effect == target_rule::Same /*|| !target.window_mode()*/);
+        }
 
         static std::vector<aniso::compressT> rules{};
         static int page_no = 0;
@@ -1457,10 +1461,10 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Edit rules in [S] (by flipping values).\n\n"
                                  "(This is mainly useful for large sets.)");
         random_access_status::update();
-        if (target.try_set(pass_rule::dest(/*accept drop if*/ !show_random_access, random_access_status::rule_id),
-                           working_set)) {
+        if (const auto effect = target.try_set(
+                pass_rule::dest(/*accept drop if*/ !show_random_access, random_access_status::rule_id), working_set)) {
+            messenger::dot_if(show_random_access && effect == target_rule::Same);
             show_random_access = true;
-            messenger::dot();
         }
         if (show_random_access) {
             if (std::exchange(set_changed_n[4], false)) {
@@ -1481,7 +1485,9 @@ void edit_rule(frame_main_token) {
 
             ImGui::SameLine();
             random_access_status::begin_disabled();
-            target.display("[Z]", config, working_set);
+            if (const auto effect = target.display("[Z]", config, working_set)) {
+                messenger::dot_if(effect == target_rule::Same);
+            }
             random_access_status::end_disabled();
             ImGui::SameLine();
             config.set("Settings");
@@ -1645,7 +1651,9 @@ void edit_rule(frame_main_token) {
                 ImGui::BeginDisabled(locked);
                 if (code_button_with_label(head, &hov)) {
                     const aniso::ruleT r = get_adjacent_rule();
-                    target.try_set(&r, working_set); // Must succeed.
+                    if (!target.try_set(&r, working_set)) { // Must succeed.
+                        assert(false);
+                    }
                 }
                 ImGui::EndDisabled();
                 random_access_status::begin_disabled();
