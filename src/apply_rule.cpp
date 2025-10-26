@@ -949,29 +949,6 @@ public:
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
         menu_like_popup::popup(set_init_state_in_popup);
-#if 0
-        ImGui::SameLine();
-        menu_like_popup::button("Reset");
-        menu_like_popup::popup([&] {
-            int id = 0;
-            if (imgui_SelectableStyledButtonEx(id++, "Pos") && messenger::dot()) {
-                reset_pos();
-            }
-            static_assert(torusT::init_size == aniso::vecT{600, 400});
-            if (imgui_SelectableStyledButtonEx(id++, "Size (600*400)") && messenger::dot()) {
-                reset_pos();
-                m_torus.set(torusT::init_size);
-            }
-            if (imgui_SelectableStyledButtonEx(id++, "Init state") && messenger::dot()) {
-                // reset_pos();
-                m_torus.set(torusT::init_init);
-            }
-            if (imgui_SelectableStyledButtonEx(id++, "Size & state") && messenger::dot()) {
-                reset_pos();
-                m_torus.set(torusT::init_size, torusT::init_init);
-            }
-        });
-#endif
         ImGui::SameLine();
         if (ImGui::Button("Reset pos")) {
             messenger::dot();

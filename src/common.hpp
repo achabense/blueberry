@@ -1190,7 +1190,7 @@ public:
         }
     }
 
-    void display_if_present(const char* label) {
+    void display_if_present(const char* title) {
         if (m_data.empty()) {
             return;
         }
@@ -1204,7 +1204,7 @@ public:
 
         bool open = true;
         if (auto window =
-                imgui_Window(label, &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
+                imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
             switch (sequence::seq("<|", "<", ">", "|>")) {
                 case 0: m_pos = 0; break;
                 case 1: --m_pos; break;
