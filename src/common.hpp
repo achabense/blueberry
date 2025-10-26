@@ -541,9 +541,9 @@ public:
         // TODO: use `shortcut_avail` directly?
         // (Ideally should highlight iff the window's title bar uses `ImGuiCol_TitleBgActive` (see `RenderWindowDecorations`).)
         // (This can't always produce exact match, but very close and the condition is not easy to emulate...)
-        const bool shortcut_visible =
-            not_disabled && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows); // Including popup.
-        assert_implies(shortcut_avail, shortcut_visible);
+        // const bool shortcut_visible =
+        //     not_disabled && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows); // Including popup.
+        // assert_implies(shortcut_avail, shortcut_visible);
         const auto item_shortcut = [shortcut_avail](ImGuiKey key) {
             return shortcut_avail && shortcuts::test_pressed_and_highlight(key);
         };
@@ -559,18 +559,18 @@ public:
             tag = Prev;
         }
         ImGui::GetStyle().FramePadding.x -= extra_padding;
-        if (shortcut_visible) {
-            imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive /*, shortcut_avail ? 1.0f : 0.7f*/));
-        }
+        // if (shortcut_visible) {
+        //     imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive /*, shortcut_avail ? 1.0f : 0.7f*/));
+        // }
         ImGui::SameLine(0, 0), imgui_Str("/"), ImGui::SameLine(0, 0);
         ImGui::GetStyle().FramePadding.x += extra_padding;
         if (ImGui::Button(label_next) || item_shortcut(ImGuiKey_RightArrow)) {
             tag = Next;
         }
         ImGui::GetStyle().FramePadding.x -= extra_padding;
-        if (shortcut_visible) {
-            imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive /*, shortcut_avail ? 1.0f : 0.7f*/));
-        }
+        // if (shortcut_visible) {
+        //     imgui_ItemRect(ImGui::GetColorU32(ImGuiCol_ButtonActive /*, shortcut_avail ? 1.0f : 0.7f*/));
+        // }
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         if (ImGui::Button(label_last)) {
             tag = Last;
