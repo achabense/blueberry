@@ -1133,17 +1133,10 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         imgui_StrTooltip(
             "(...)", // !!TODO: -> largest dist = number of free groups...
             "The seq can iterate through all rules in [S] in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
-            "The \"dist\" in this window refers to distance to [X]. For example, 'Go to dist' can get to the first rule with specified distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
-            "(This is mainly useful for small sets (having only a few groups). For large sets, 'Random' and 'Edit-rule' may be more suitable tools.)");
+            "\"Dist\" in this window refers to distance to [X]. You can input a distance to get to the first rule with that distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
+            "(This is mainly useful for sets with only a few groups. For larger sets, 'Random' and 'Edit-rule' may be more suitable tools.)");
         //"(Some small subsets include self-complementary totalistic rules ('0v1 & Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All & Jvn') and so on.)"
         ImGui::SameLine();
-        imgui_Str("Go to dist ~ ");
-        ImGui::SameLine(0, 0);
-        ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
-        if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set.free_k()).c_str())) {
-            reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
-        }
-
         switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
             case 0: reset_page(First, aniso::flatten::first(working_set, orderer)); break;
             case 1:
@@ -1185,6 +1178,13 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             }
             ImGui::EndDisabled();
         });
+        ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
+        imgui_Str("To ~");
+        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+        ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
+        if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set.free_k()).c_str())) {
+            reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
+        }
 
         ImGui::Separator();
 
@@ -1285,6 +1285,7 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
             page_no = (rules.size() / adapter.page_size) - 1; // == last_page().
         };
 
+        // ImGui::SameLine();
         switch (sequence::seq("<|", "<##Prev", ">>##Next", "|>")) {
             case 0: page_no = 0; break;
             case 1: page_no = std::max(page_no - 1, 0); break;
