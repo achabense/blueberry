@@ -710,7 +710,7 @@ public:
                 if (ImGui::Selectable("Dump")) {
                     m_rule.rec().dump(previewer::default_settings);
                 }
-                guide_mode::item_tooltip("!!TODO");
+                guide_mode::item_tooltip(rec_for_rule::about_dump);
             });
             guide_mode::item_tooltip("This is the MAP-string for the displayed rule.\n\n"
                                      "Drag a rule here to apply the rule.\n"

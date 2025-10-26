@@ -1255,6 +1255,8 @@ public:
         m_data.push_back(rule);
     }
 
+    static constexpr const char* about_dump = "(Experimental) recheck recent rules.";
+
     // (Workaround; defined here for convenience.)
     void dump(const previewer::configT& settings) const {
         assert(!empty());

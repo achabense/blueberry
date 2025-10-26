@@ -876,7 +876,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
         if (double_click_button_small("Dump")) {
             rec.dump(config);
         }
-        guide_mode::item_tooltip("!!TODO");
+        guide_mode::item_tooltip(rec_for_rule::about_dump);
         ImGui::SameLine();
         config.set("Settings", true /*small*/);
 
@@ -1003,9 +1003,6 @@ struct page_adapter {
 
 class target_rule : no_copy {
     rule_with_rec m_rule{};
-    bool m_window = false;
-
-    test_appearing m_appearing{};
 
 public:
     operator const aniso::ruleT&() const { return m_rule.get(); }
@@ -1032,60 +1029,32 @@ public:
         return None;
     }
 
-    effectE display(const char* label, previewer::configT& settings, const aniso::subsetT& working_set) {
-        if (m_appearing.update()) {
-            m_window = false;
-        }
+    // TODO: ideally should always appear above the source window.
+    effectE display(const char* title, previewer::configT& settings, const aniso::subsetT& working_set) {
+        ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+        imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
         effectE effect = None;
-        if (!m_window) {
-            imgui_StrWithID(label);
-            pass_rule::source(m_rule.get());
+        if (auto window =
+                imgui_Window(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+            imgui_StrTooltip(
+                "(...)",
+                "This can be an arbitrary rule in [S].\n\n"
+                "Drag a rule to the preview window to apply the rule. If [S] changes and no longer contains the rule, this will be reset to 'Default'.");
+            ImGui::SameLine();
+            if (double_click_button_small("Dump")) {
+                m_rule.rec().dump(settings);
+            }
+            guide_mode::item_tooltip(rec_for_rule::about_dump);
+            ImGui::SameLine(); // TODO: whether to enable settings in this window?
+            settings.set("Settings", true /*small*/);
+
+            previewer::preview(0, settings, m_rule.get());
             effect = try_set(pass_rule::dest(), working_set);
-            rclick_popup::for_text([&] {
-                if (ImGui::Selectable("Copy rule")) {
-                    copy_rule::copy(m_rule.get());
-                }
-                if (ImGui::Selectable("Show in window")) {
-                    m_window = true;
-                }
-                guide_mode::item_tooltip("Display the rule in a regular window.");
-                if (ImGui::Selectable("Dump")) {
-                    m_rule.rec().dump(settings);
-                }
-                guide_mode::item_tooltip("!!TODO");
-            });
-            guide_mode::item_tooltip(
-                "This can be an arbitrary rule in [S]. (If [S] changes and no longer contains the rule, this will be reset to 'Default'.)\n\n"
-                "Drag a rule here to apply the rule.\n"
-                "Drag to send the rule elsewhere.");
-            // imgui_ItemTooltip([&] { previewer::preview(0, settings, m_rule.get()); }); // Will introduce a separator...
-            if (ImGui::BeginItemTooltip()) {
-                previewer::preview(0, settings, m_rule.get());
-                ImGui::EndTooltip();
-            }
-        } else {
-            imgui_StrDisabled(label);
-
-            ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
-            imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
-            // TODO: ideally, should always appear above the source window.
-            if (auto window = imgui_Window(label, &m_window,
-                                           ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-                if (double_click_button_small("Dump")) {
-                    m_rule.rec().dump(settings);
-                }
-                ImGui::SameLine();
-                settings.set("Settings", true /*small*/);
-
-                previewer::preview(0, settings, m_rule.get());
-                effect = try_set(pass_rule::dest(), working_set);
-            }
+            messenger::dot_if(effect == Same);
         }
         return effect;
     }
-
-    bool window_mode() const { return m_window; }
 };
 
 // TODO: define as classes...
@@ -1098,13 +1067,18 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
-    if (auto window =
-            imgui_Window("Traverse [S]", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
+    // (Using `ImGuiWindowFlags_NoFocusOnAppearing` to prevent spurious focus (should focus target-rule window directly).)
+    if (auto window = imgui_Window("Traverse [S]", &open,
+                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
+                                       ImGuiWindowFlags_NoFocusOnAppearing)) {
         static target_rule orderer{};
         static std::deque<aniso::ruleT> page{};
         static previewer::configT config{previewer::default_settings};
         if (std::exchange(set_changed, false)) {
             orderer.sync(working_set);
+            page.clear();
+        }
+        if (orderer.display("[X]", config, working_set) == target_rule::Diff) {
             page.clear();
         }
 
@@ -1161,14 +1135,6 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
         if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set.free_k()).c_str())) {
             reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
-        }
-        ImGui::SameLine();
-        if (const auto effect = orderer.display("[X]", config, working_set)) {
-            // TODO: always show dot in label mode?
-            messenger::dot_if(effect == target_rule::Same /*|| !orderer.window_mode()*/);
-            if (effect == target_rule::Diff) { // TODO: whether to clear unconditionally?
-                page.clear();
-            }
         }
 
         switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
@@ -1243,13 +1209,15 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
-    if (auto window =
-            imgui_Window("Random rules", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
+    if (auto window = imgui_Window("Random rules", &open,
+                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
+                                       ImGuiWindowFlags_NoFocusOnAppearing)) {
         static target_rule target{};
         static previewer::configT config{previewer::default_settings};
         if (std::exchange(set_changed, false)) {
             target.sync(working_set);
         }
+        target.display("[Y]", config, working_set);
 
         static bool exact_mode = false;
         static double rate = 0.29;
@@ -1273,11 +1241,6 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
         if (imgui_StepSliderInt::fn("##Dist", &free_dist, 0, c_free) && c_free != 0) {
             rate = double(free_dist) / c_free;
             assert(std::round(rate * c_free) == free_dist);
-        }
-        ImGui::SameLine();
-        if (const auto effect = target.display("[Y]", config, working_set)) {
-            // TODO: always show dot in label mode?
-            messenger::dot_if(effect == target_rule::Same /*|| !target.window_mode()*/);
         }
 
         static std::vector<aniso::compressT> rules{};
@@ -1470,6 +1433,9 @@ void edit_rule(frame_main_token) {
             if (std::exchange(set_changed_n[4], false)) {
                 target.sync(working_set);
             }
+            random_access_status::begin_disabled();
+            target.display("[Z]", config, working_set);
+            random_access_status::end_disabled();
 
             // TODO: use (?) or (...)? (It's getting unclear which is for which...)
             // TODO: the group button op seems unnecessary now...
@@ -1480,15 +1446,7 @@ void edit_rule(frame_main_token) {
                 "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group.\n\n"
                 "1. Click the same button again to undo the change.\n"
                 "2. Collapse the set table ('Collapse') to leave more room.\n"
-                "3. Use the 'Misc' window to temporarily store the rule.\n"
-                "4. Display [Z] in a regular window (from [Z]'s menu) for better control.");
-
-            ImGui::SameLine();
-            random_access_status::begin_disabled();
-            if (const auto effect = target.display("[Z]", config, working_set)) {
-                messenger::dot_if(effect == target_rule::Same);
-            }
-            random_access_status::end_disabled();
+                "3. Use the 'Misc' window to temporarily store the rule.");
             ImGui::SameLine();
             config.set("Settings");
         }
