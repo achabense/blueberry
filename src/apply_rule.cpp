@@ -374,7 +374,7 @@ class runnerT : no_copy {
         const rec_for_rule& rec() const { return rule.rec(); }
 
         void set(const aniso::ruleT& r) {
-            if (rule.get() != r) { // TODO: whether to compare? (Whether to always restart?)
+            if (rule.get() != r) { // !!TODO: whether to compare? (Whether to always restart?)
                 rule.set(r);
                 m_handler.on_rule_changed(); // -> restart
             }
@@ -472,7 +472,6 @@ class runnerT : no_copy {
             restart(init_size);
         }
 
-        // TODO: whether to try to avoid repeated init?
         void restart() {
             m_gen = 0;
             m_init.initialize(m_tile);
@@ -491,6 +490,17 @@ class runnerT : no_copy {
         void restart(const aniso::vecT& size, const initT& init) {
             m_init = init;
             restart(size);
+        }
+
+        // TODO: whether to try to avoid repeated init?
+        bool restart_has_effect() const { return m_gen != 0 || m_written; }
+
+        bool try_resize(const aniso::vecT& size) {
+            if (m_tile.size() != align(size)) {
+                restart(size);
+                return true;
+            }
+            return false;
         }
 
         aniso::tile_const_ref read_only() const { return m_tile.data(); }
@@ -541,30 +551,6 @@ class runnerT : no_copy {
         }
 
         const initT& get_init() const { return m_init; }
-
-        // !!TODO: whether to restart if `m_written`?
-        // (Whether to restart if the space is edited and user use 'Reset', 'Mirror' etc?)
-        bool set(const aniso::vecT& size) {
-            if (m_tile.size() != align(size)) {
-                restart(size);
-                return true;
-            }
-            return false;
-        }
-        bool set(const initT& init) {
-            if (m_init != init) {
-                restart(init);
-                return true;
-            }
-            return false;
-        }
-        bool set(const aniso::vecT& size, const initT& init) {
-            if (m_init != init || m_tile.size() != align(size)) {
-                restart(size, init);
-                return true;
-            }
-            return false;
-        }
 
         void run(const aniso::ruleT& rule, ctrlT& ctrl) {
             const int step = ctrl.calc_step(rule, std::exchange(m_restarted, false), std::exchange(m_delay, false));
@@ -673,11 +659,15 @@ class runnerT : no_copy {
 public:
     runnerT() { m_handler.enable(); }
 
-    void set_rule(const aniso::ruleT& rule) { m_rule.set(rule); }
-
-    void set_state(const aniso::vecT& size, const initT& init) {
+    void set_rule(const aniso::ruleT& rule) {
+        messenger::dot_if(m_rule == rule);
+        m_rule.set(rule);
+    }
+    void set_rule_and_state(const aniso::ruleT& rule, const aniso::vecT& size, const initT& init) {
         reset_pos();
-        m_torus.set(size, init);
+        m_ctrl.set_pause(false);
+        m_rule.set(rule);
+        m_torus.restart(size, init);
     }
 
     // Not designed to support multiple instances. (For example, some settings use static variables.)
@@ -702,8 +692,8 @@ public:
             imgui_StrWithID(aniso::to_MAP_str(m_rule), ImGui::GetID("MAP-str"));
             pass_rule::source(m_rule);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
+                messenger::dot_if(m_rule == *deliv);
                 m_rule.set(*deliv);
-                messenger::dot();
             }
             rclick_popup::for_text([&] {
                 if (ImGui::Selectable("Copy rule")) {
@@ -736,8 +726,6 @@ public:
                 return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, false);
             };
 
-            const bool reset = ImGui::Button("Reset");
-            ImGui::SameLine();
             const bool restart = ImGui::Button("Restart") || item_shortcut(ImGuiKey_R);
             ImGui::SameLine();
             if (imgui_CheckboxV("Pause", m_ctrl.get_pause()) || item_shortcut(ImGuiKey_Space)) {
@@ -856,12 +844,8 @@ public:
                 }
             }
 
-            // !!TODO: recheck...
-            if (reset) {
-                messenger::dot();
-                m_torus.restart(torusT::init_init); // Or set?
-                m_ctrl.set_pause(true);
-            } else if (restart) {
+            if (restart) {
+                messenger::dot_if(m_ctrl.get_pause() && !m_torus.restart_has_effect());
                 m_torus.restart();
                 m_ctrl.set_pause(true);
             } else if (m_torus.get_init() != init) {
@@ -890,6 +874,7 @@ public:
             }
             ImGui::SameLine();
             if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false)) {
+                messenger::dot_if(m_ctrl.get_pause() && !m_torus.restart_has_effect());
                 m_torus.restart();
             }
             ImGui::SameLine();
@@ -986,10 +971,11 @@ public:
 
             if (ix || iy) {
                 reset_pos();
-
                 // Both values will be flushed if either receives the enter key.
-                m_torus.set({.x = ix.value_or(input_x.flush().value_or(size.x)),
-                             .y = iy.value_or(input_y.flush().value_or(size.y))});
+                if (!m_torus.try_resize({.x = ix.value_or(input_x.flush().value_or(size.x)),
+                                         .y = iy.value_or(input_y.flush().value_or(size.y))})) {
+                    messenger::dot();
+                }
             }
         }
         // Zoom buttons.
@@ -1001,7 +987,8 @@ public:
                 // (`last_known_canvas_size` is 99.99% reliable here due to UI logic.)
                 if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
                     reset_pos();
-                    m_torus.set(fullscreen_size(z, m_coord.last_known_canvas_size));
+                    m_torus.try_resize(fullscreen_size(z, m_coord.last_known_canvas_size));
+                    // No need for dot.
                 }
                 imgui_ItemTooltip([&] {
                     const auto size = fullscreen_size(z, m_coord.last_known_canvas_size);
@@ -1828,16 +1815,10 @@ void previewer::configT::_set(const bool can_resize) {
     if (ImGui::TreeNodeEx("Init state", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap |
                                             ImGuiTreeNodeFlags_NoAutoOpenOnLog)) {
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
+        imgui_StrTooltip("(?)", "These settings are shared by all preview windows.");
 
         // !!TODO: (v0.9.9) support both global and per-group setting mode?
         initT& init = _global_data::init;
-        if (ImGui::SmallButton("Reset")) {
-            messenger::dot_if(init == _global_data::init_init);
-            init = _global_data::init_init;
-        }
-        ImGui::SameLine();
-        imgui_StrTooltip("(?)", "These settings are shared by all preview windows.");
-
         imgui_StepSliderInt::fn("Seed", &init.seed, 0, 9);
         init.density.step_slide("Density", 10, 100, 10);
         init.area.step_slide("Area", 10, 100, 10);
@@ -1923,8 +1904,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
 
         if ((rule_editor_avail || pattern_editor_avail) && imgui_BeginMenuFromPopup("Send to")) {
             if (rule_editor_avail) {
-                // !!TODO: (v0.9.9) recheck calling convention; only handlers are responsible for showing the dot...
-                if (ImGui::Selectable("Rule editor") /*XX messenger::dot()*/) {
+                if (ImGui::Selectable("Rule editor")) {
                     pass_rule::set_extra(rule, random_access_status::rule_id);
                 }
                 guide_mode::item_tooltip(
@@ -1932,7 +1912,6 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             }
             if (pattern_editor_avail) {
                 if (ImGui::Selectable("Pattern editor")) {
-                    messenger::dot();
                     runner.set_rule(rule);
                 }
                 guide_mode::item_tooltip(
@@ -1943,9 +1922,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
         }
         if (pattern_editor_avail) {
             if (ImGui::Selectable("Mirror")) {
-                messenger::dot();
-                runner.set_rule(rule);
-                runner.set_state(tile_size, term.init);
+                runner.set_rule_and_state(rule, tile_size, term.init);
             }
             guide_mode::item_tooltip(
                 "Send rule to the pattern editor & duplicate the space state (so you can operate on the same patterns).");
