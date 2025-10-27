@@ -388,7 +388,8 @@ class runnerT : no_copy {
         int step = 1; // Auto mode.
         global_timer::intervalT interval = global_timer::default_interval;
 
-        int extra_step = 0; // Workaround for +s/+1/+!.
+        enum stepE { None, Ps, P1, Pf }; // Workaround for +s/+1/+!.
+        stepE extra_step = None;
         bool extra_pause = false;
 
     private:
@@ -401,7 +402,7 @@ class runnerT : no_copy {
         ctrlT(handlerT& m_handler) : m_handler{m_handler} {}
 
         int calc_step(const aniso::ruleT& rule, const bool newly_restarted, const bool ex_delay) {
-            const int ex_step = std::exchange(extra_step, 0);
+            const stepE ex_step = std::exchange(extra_step, None);
             const bool ex_pause = std::exchange(extra_pause, false) || pause;
             if (ex_pause || ex_delay) {
                 delay = true;
@@ -411,9 +412,15 @@ class runnerT : no_copy {
                 // (Unless paused) skip displaying initial state for better visual.
                 delay = true;
                 return adjust_step(step, strobing(rule));
-            } else if (ex_step) {
+            } else if (ex_pause && ex_step == Ps) {
                 delay = true;
-                return ex_step;
+                return adjust_step(step, strobing(rule));
+            } else if (ex_step == P1) {
+                delay = true;
+                return 1;
+            } else if (ex_step == Pf) {
+                delay = true;
+                return adjust_step(step_fast, strobing(rule));
             } else if (!ex_pause && interval.test() && !std::exchange(delay, false)) {
                 return adjust_step(step, strobing(rule));
             } else {
@@ -875,9 +882,9 @@ public:
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip("(...)", "Restart : R\n"
                                           "Pause   : Space\n"
-                                          "+s/+1/+!: S/D/F (repeatable)\n"
-                                          "-/+ Step    : 1/2 (repeatable)\n"
-                                          "-/+ Interval: 3/4 (repeatable)\n\n"
+                                          "+s/+1/+!: S/D/F\n"
+                                          "-/+ Step    : 1/2\n"
+                                          "-/+ Interval: 3/4\n\n"
                                           "These shortcuts work only when the editor is hovered.")) {
                 highlight_canvas = true;
             }
@@ -892,25 +899,22 @@ public:
             ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
             ImGui::SameLine();
             if (ImGui::Button("+s") || item_shortcut(ImGuiKey_S, true)) {
-                m_ctrl.extra_step = m_ctrl.get_pause() ? adjust_step(m_ctrl.step, strobing(m_rule)) : 0;
-                m_ctrl.set_pause(true);
+                m_ctrl.extra_step = ctrlT::Ps;
             }
             ImGui::SameLine();
             if (ImGui::Button("+1") || item_shortcut(ImGuiKey_D, true)) {
-                m_ctrl.extra_step = 1;
+                m_ctrl.extra_step = ctrlT::P1;
             }
             ImGui::SameLine();
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
                 (enable_shortcuts && shortcuts::test_down_and_highlight(ImGuiKey_F))) {
-                m_ctrl.extra_step = adjust_step(step_fast, strobing(m_rule));
+                m_ctrl.extra_step = ctrlT::Pf;
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
             ImGui::SameLine();
             imgui_StrTooltip("(?)", [] {
-                imgui_StrPair(
-                    "+s: ",
-                    "Run manually, i.e. firstly pause the space, then advance generation by 'Step' afterwards.");
+                imgui_StrPair("+s: ", "Run manually, i.e. advance generation by 'Step' (only if paused).");
                 imgui_StrPair("+1: ", "Advance generation by 1 (instead of 'Step').");
                 imgui_StrPair("+!: ", "Speed up manually, i.e. advance generation by 10 in every frame.");
             });
@@ -1878,7 +1882,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                                   "(Press 'A' to apply to the entire group.)\n"
                                   "Hold to pause.\n"
                                   "'R' to restart.\n"
-                                  "Pause + 'S' to run manually.\n"
+                                  "'S' to run manually.\n"
                                   "'D' to advance generation by 1.\n"
                                   "'F' to speed up manually.");
         ImGui::SameLine();
