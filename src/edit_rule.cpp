@@ -1028,13 +1028,15 @@ public:
     }
 
     // TODO: ideally should always appear above the source window.
-    effectE display(const char* title, previewer::configT& settings, const aniso::subsetT& working_set) {
+    // TODO: the closing effect is under-documented in ui... (Will turn off checkbox directly.)
+    effectE display(bool& open, const char* title, previewer::configT& settings, const aniso::subsetT& working_set) {
+        assert(open);
         ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
         imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
         effectE effect = None;
         if (auto window =
-                imgui_Window(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                imgui_Window(title, &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
             imgui_StrTooltip(
                 "(...)",
                 "This can be an arbitrary rule in [S].\n\n"
@@ -1058,7 +1060,7 @@ public:
 // TODO: define as classes...
 // TODO: support separate context? e.g. random ~ totalistic & random-access ~ isotropic
 static open_state traverse_window(const aniso::subsetT& working_set, bool& set_changed) {
-    bool open = true;
+    bool open[2]{true, true}; // (Using separate flags for better sync.)
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
@@ -1067,7 +1069,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
     // (Using `ImGuiWindowFlags_NoFocusOnAppearing` to prevent spurious focus (to focus target-rule window directly).)
     // (Using `BringWindowToDisplayFront()` as the flag also disables bringing to front.)
-    if (auto window = imgui_Window("Traverse [S]", &open,
+    if (auto window = imgui_Window("Traverse [S]", &open[0],
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
                                        ImGuiWindowFlags_NoFocusOnAppearing)) {
         if (ImGui::IsWindowAppearing()) {
@@ -1080,7 +1082,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             orderer.sync(working_set);
             page.clear();
         }
-        if (orderer.display("[X]", config, working_set) == target_rule::Diff) {
+        if (orderer.display(open[1], "[X]", config, working_set) == target_rule::Diff) {
             page.clear();
         }
 
@@ -1206,18 +1208,18 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             }
         });
     }
-    return {open};
+    return {open[0] && open[1]};
 }
 
 static open_state random_rule_window(const aniso::subsetT& working_set, bool& set_changed) {
-    bool open = true;
+    bool open[2]{true, true};
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
-    if (auto window = imgui_Window("Random rules", &open,
+    if (auto window = imgui_Window("Random rules", &open[0],
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
                                        ImGuiWindowFlags_NoFocusOnAppearing)) {
         if (ImGui::IsWindowAppearing()) {
@@ -1228,7 +1230,7 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
         if (std::exchange(set_changed, false)) {
             target.sync(working_set);
         }
-        target.display("[Y]", config, working_set);
+        target.display(open[1], "[Y]", config, working_set);
 
         static bool exact_mode = false;
         static double rate = 0.29;
@@ -1319,7 +1321,7 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
             previewer::preview_or_dummy(j, config, r < rules.size() ? &rules[r] : nullptr);
         });
     }
-    return {open};
+    return {open[0] && open[1]};
 }
 
 // TODO: refactor... (should not be pointer...)
@@ -1395,9 +1397,10 @@ void edit_rule(frame_main_token) {
     ImGui::Separator();
 
     static bool show_random_access = false;
-    const bool show_random_access_old = show_random_access;
     // appearing.reset_if_appearing(show_random_access);
-    static target_rule target{}; // Random-access ('Edit-rule')
+    static bool group_table_reset_scroll = false;
+    bool show_random_access_window_open = true; // (Delay close effect for better sync.)
+    static target_rule target{};
     static previewer::configT config{previewer::default_settings};
     {
         static bool show_misc = false;
@@ -1432,6 +1435,7 @@ void edit_rule(frame_main_token) {
     }
     ImGui::SameLine();
     {
+        const bool show_random_access_old = show_random_access;
         ImGui::Checkbox("Edit-rule", &show_random_access);
         guide_mode::item_tooltip("Edit rules in [S] (by flipping values).\n\n"
                                  "(This is mainly useful for large sets.)");
@@ -1441,12 +1445,15 @@ void edit_rule(frame_main_token) {
             messenger::dot_if(show_random_access && effect == target_rule::Same);
             show_random_access = true;
         }
+        if (show_random_access != show_random_access_old) {
+            group_table_reset_scroll = true;
+        }
         if (show_random_access) {
             if (std::exchange(set_changed_n[4], false)) {
                 target.sync(working_set);
             }
             random_access_status::begin_disabled();
-            target.display("[Z]", config, working_set);
+            target.display(show_random_access_window_open, "[Z]", config, working_set);
             random_access_status::end_disabled();
 
             // TODO: use (?) or (...)? (It's getting unclear which is for which...)
@@ -1521,8 +1528,10 @@ void edit_rule(frame_main_token) {
 
     ImGui::Separator();
 
-    // !!TODO: whether to reset scroll in these cases?
-    if (std::exchange(set_changed_n[5], false) || show_random_access_old != show_random_access) {
+    if (std::exchange(set_changed_n[5], false)) {
+        group_table_reset_scroll = true;
+    }
+    if (std::exchange(group_table_reset_scroll, false)) {
         ImGui::SetNextWindowScroll({0, 0});
     }
     // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
@@ -1660,6 +1669,10 @@ void edit_rule(frame_main_token) {
         }
     }
     ImGui::PopStyleColor();
+    if (show_random_access && !show_random_access_window_open) {
+        show_random_access = false;
+        group_table_reset_scroll = true;
+    }
 }
 
 // !!TODO: (v0.9.9) apply or remove...

@@ -370,6 +370,10 @@ class [[nodiscard]] imgui_Window : no_copy {
 public:
     // (Without this, to show tooltip unconditionally, the window have to be declared outside of if scope.)
     inline static const char* next_window_titlebar_tooltip = nullptr;
+#if 0
+    // (Experimental) normally the window will remain visible for one extra frame when `*p_open` is set to 0...
+    inline static bool next_window_fast_close = false;
+#endif
 
     const bool visible;
     explicit imgui_Window(const char* name, bool* p_open = nullptr, ImGuiWindowFlags flags = {})
@@ -382,6 +386,12 @@ public:
                 *p_open = false;
             }
         }
+#if 0
+        if (std::exchange(next_window_fast_close, false) && p_open && !*p_open) {
+            GImGui->CurrentWindow->Hidden = true;
+            // Shouldn't change `visible`; otherwise will mess with sizing...
+        }
+#endif
     }
     ~imgui_Window() {
         ImGui::End(); // Unconditional.
