@@ -1062,21 +1062,16 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
-    // Workaround to prevent spurious focus effect when appearing (should only focus target-rule window)...
-    // Initially I thought `ImGuiWindowFlags_NoFocusOnAppearing` would work, but it also disables bringing to front...
-    // !!TODO: (v0.9.9) recheck... there seems no way to bring to front on appearing without taking focus?
-    static test_appearing appearing{};
-    appearing.update();
-    if (appearing) {
-        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-    }
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
-    if (auto window =
-            imgui_Window("Traverse [S]", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
-        if (appearing) {
-            ImGui::PopStyleColor();
+    // (Using `ImGuiWindowFlags_NoFocusOnAppearing` to prevent spurious focus (to focus target-rule window directly).)
+    // (Using `BringWindowToDisplayFront()` as the flag also disables bringing to front.)
+    if (auto window = imgui_Window("Traverse [S]", &open,
+                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
+                                       ImGuiWindowFlags_NoFocusOnAppearing)) {
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
         }
         static target_rule orderer{};
         static std::deque<aniso::ruleT> page{};
@@ -1183,7 +1178,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
         static input_int input_dist{};
         static test_appearing input_appearing{};
-        if (input_appearing.update()) { // (Unlike outer `appearing`, this includes window-uncollapsed.)
+        if (input_appearing.update()) { // (Unlike `IsWindowAppearing()`, this includes window-uncollapsed.)
             input_dist.clear();
         }
         if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set.free_k()).c_str())) {
@@ -1210,8 +1205,6 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                 }
             }
         });
-    } else if (appearing) {
-        ImGui::PopStyleColor();
     }
     return {open};
 }
@@ -1221,18 +1214,14 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
-    static test_appearing appearing{};
-    appearing.update();
-    if (appearing) {
-        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-    }
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
-    if (auto window =
-            imgui_Window("Random rules", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
-        if (appearing) {
-            ImGui::PopStyleColor();
+    if (auto window = imgui_Window("Random rules", &open,
+                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
+                                       ImGuiWindowFlags_NoFocusOnAppearing)) {
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
         }
         static target_rule target{};
         static previewer::configT config{previewer::default_settings};
@@ -1329,8 +1318,6 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
             assert(r >= 0);
             previewer::preview_or_dummy(j, config, r < rules.size() ? &rules[r] : nullptr);
         });
-    } else if (appearing) {
-        ImGui::PopStyleColor();
     }
     return {open};
 }
