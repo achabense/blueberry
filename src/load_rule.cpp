@@ -409,11 +409,12 @@ public:
 // TODO: support filtering folder names as well?
 // TODO: support recording recently-opened folders/files?
 class file_nav : no_copy {
-    char buf_path[200]{};
+    char buf_path[260]{};
     char buf_filter[20]{}; // For files and folders.
 
     pathT m_home{};
     folderT m_current{};
+    test_appearing m_appearing{};
 
     bool reset_scroll = true;
 
@@ -550,6 +551,11 @@ public:
 
     // Return one of file path in `m_current`.
     std::optional<pathT> display() {
+        if (m_appearing.update()) {
+            buf_path[0] = '\0';
+            // buf_filter[0] = '\0';
+        }
+
         std::optional<pathT> target = std::nullopt;
         const auto set_dir = [&](const pathT& path) {
             bool same_dir = false;
@@ -754,7 +760,7 @@ public:
     void select_line() {
         static input_int input_line{};
         if (ImGui::IsWindowAppearing()) {
-            (void)input_line.flush();
+            input_line.clear();
             if (!m_highlighted.empty()) {
                 // Workaround to guarantee correct size when visually appearing.
                 // Related: https://github.com/ocornut/imgui/issues/8959

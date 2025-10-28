@@ -1125,6 +1125,8 @@ class input_int : no_copy {
     char m_buf[max_digit + 1 /*'\0'*/]{};
 
 public:
+    void clear() { m_buf[0] = '\0'; }
+
     std::optional<int> flush() {
         if (m_buf[0] != '\0') {
             int v = 0;

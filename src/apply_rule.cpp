@@ -950,7 +950,12 @@ public:
 
         // Input to resize.
         {
+            // TODO: technically should not be static.
             static input_int input_x{}, input_y{};
+            if (m_appearing) {
+                input_x.clear();
+                input_y.clear();
+            }
 
             const float total_w = item_width();
             const float inner_spacing = imgui_ItemInnerSpacingX();

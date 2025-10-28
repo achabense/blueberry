@@ -1128,7 +1128,6 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             }
         };
 
-        static input_int input_dist{};
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)", // !!TODO: -> largest dist = number of free groups...
@@ -1182,8 +1181,15 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         imgui_Str("To ~");
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
+        static input_int input_dist{};
+        static test_appearing input_appearing{};
+        if (input_appearing.update()) { // (Unlike outer `appearing`, this includes window-uncollapsed.)
+            input_dist.clear();
+        }
         if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set.free_k()).c_str())) {
-            reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
+            const auto first = aniso::flatten::first_d(working_set, orderer, *dist);
+            messenger::dot_if(!page.empty() && page[0] == first);
+            reset_page(First, first);
         }
 
         ImGui::Separator();
