@@ -570,10 +570,13 @@ class runnerT : no_copy {
         ImVec2 corner_pos = {0, 0}; // Space.
         ImVec2 to_space(ImVec2 canvas_pos) const { return corner_pos + canvas_pos / zoom; }
         ImVec2 to_canvas(ImVec2 space_pos) const { return (space_pos - corner_pos) * zoom; }
-        void bind(const ImVec2 space_pos, const ImVec2 canvas_pos) { corner_pos = space_pos - canvas_pos / zoom; }
+        bool bind(const ImVec2 space_pos, const ImVec2 canvas_pos) {
+            return compare_update(corner_pos, space_pos - canvas_pos / zoom);
+        }
 
         ImVec2 to_rotate = {0, 0};
         bool reset_pos = true;
+        bool dot_if_no_effect = false; // Workaround for dot feedback.
 
         // Cannot serve to reset pos immediately (needs up-to-date size).
         ImVec2 last_known_canvas_size = {0, 0};
@@ -581,7 +584,10 @@ class runnerT : no_copy {
 
     coordT m_coord{};
 
-    void reset_pos() { m_coord.reset_pos = true; }
+    void reset_pos(const bool dot_if_no_effect = false) {
+        m_coord.reset_pos = true;
+        m_coord.dot_if_no_effect = dot_if_no_effect;
+    }
 
     aniso::vecT fullscreen_size(const zoomT& z, ImVec2 canvas_size) const {
         // TODO: using {70, 70} so that 220*160 (via 'Mirror') can select zoom = 2 by default...
@@ -940,8 +946,7 @@ public:
         menu_like_popup::popup(set_init_state_in_popup);
         ImGui::SameLine();
         if (ImGui::Button("Reset pos")) {
-            messenger::dot();
-            reset_pos();
+            reset_pos(true);
         }
         guide_mode::item_tooltip(
             "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
@@ -1072,17 +1077,18 @@ public:
             const aniso::vecT tile_size = m_torus.size();
 
             if (std::exchange(m_coord.reset_pos, false)) {
-                // Select the largest zoom that can hold the entire tile.
-                m_coord.zoom = zoomT::min();
+                // Select the largest zoom that can hold the entire space.
+                zoomT largest = zoomT::min();
                 for (const zoomT& z : std::views::reverse(zoomT::list())) {
                     if (fullscreen_size(z, canvas_size).both_gteq(tile_size)) {
-                        m_coord.zoom = z;
+                        largest = z;
                         break;
                     }
                 }
-                // Locate center.
-                m_coord.bind(to_imvec(tile_size) / 2, canvas_size / 2);
-                m_coord.to_rotate = {0, 0};
+                const bool a = compare_update(m_coord.zoom, largest);
+                // Center the space.
+                const bool b = m_coord.bind(to_imvec(tile_size) / 2, canvas_size / 2);
+                messenger::dot_if(m_coord.dot_if_no_effect && !a && !b);
             }
 
             if (m_sel && m_sel->active && (!r_down || m_paste || ImGui::IsItemDeactivated())) {
@@ -1097,6 +1103,9 @@ public:
             std::optional<aniso::vecT> zoom_center = std::nullopt; // Not clamped.
             bool hex_mode = false;
 
+            if (!active || !hovered) {
+                m_coord.to_rotate = {0, 0};
+            }
             if (hovered && ImGui::IsMousePosValid()) {
                 const auto& io = ImGui::GetIO();
                 const ImVec2 mouse_pos = io.MousePos - canvas_min;

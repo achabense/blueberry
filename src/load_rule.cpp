@@ -1019,6 +1019,7 @@ private:
                         pass.sel = {m_sel->beg, this_l};
                     }
                 }
+                // TODO: skip AddXXX when invisible...
                 if (m_sel && m_sel->contains(this_l)) {
                     drawlist.AddRectFilled(str_min, {region_max_x, str_max.y}, IM_COL32_GREY(255, 16));
                     drawlist.AddRectFilled(str_min, str_max, IM_COL32_GREY(255, 40));

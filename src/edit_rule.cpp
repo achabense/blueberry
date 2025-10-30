@@ -1516,6 +1516,7 @@ void edit_rule(frame_main_token) {
             imgui_StrPair("R: ", "Display values of [R] (0/1).");
             imgui_StrPair("Z: ", "Display values of [Z] (for 'Edit-rule').");
             imgui_StrPair("C: ", "Compare whether [Z] is same (O) or different (I) than [R].");
+            // "For example, when [R] ~ 'Identity', O/I can be interpreted as whether cell will flip (I ~ will flip)."
         });
     }
     if (show_random_access) {
@@ -1638,6 +1639,9 @@ void edit_rule(frame_main_token) {
                 random_access_status::begin_disabled();
                 previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
                 random_access_status::end_disabled();
+                if (locked && ImGui::IsItemVisible()) { // TODO: improve...
+                    imgui_ItemRectFilled(IM_COL32_GREY(128, 64 /*48*/));
+                }
                 ImGui::EndGroup();
             } else {
                 ImGui::BeginDisabled(locked);
