@@ -93,22 +93,25 @@ static open_state intro_window(frame_main_token) {
                 "MAPIIAAAYABARcAAQEXARcXf4ABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
                 "MAPAAEAAAEBABcAEQEHARcXfwABARcBFxd/AVcXPxd/f/8AAQEXAxcVfwEXF38Xf3//ARcXfx9/d/8X/39///9//w "
                 "MAPAAAAEQAREXcAAAARABERdwAREXcRd3f/ABERdxF3d/8AERF3EXd3/wAREXcRd3f/EXd3/3f///8Rd3f/d////w ");
-            static int at = 0;
             static previewer::configT config{previewer::default_settings};
+            static int at = 0;
             const int total = rules.size();
-            assert(total == 4);
+            assert(total == 4 && 0 <= at && at < total);
+            const auto set_pos = [&](const int pos) {
+                if (!compare_update(at, std::clamp(pos, 0, total - 1))) {
+                    messenger::dot();
+                }
+            };
 
             ImGui::AlignTextToFramePadding();
             ImGui::Bullet();
             ImGui::BeginGroup();
             switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
-                case 0: at = 0; break;
-                case 1: --at; break;
-                case 2: ++at; break;
-                case 3: at = INT_MAX; break;
+                case 0: set_pos(0); break;
+                case 1: set_pos(at - 1); break;
+                case 2: set_pos(at + 1); break;
+                case 3: set_pos(INT_MAX); break;
             }
-            at = std::clamp(at, 0, total - 1);
-
             ImGui::SameLine();
             config.set("Settings");
             ImGui::SameLine();

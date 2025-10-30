@@ -1260,17 +1260,20 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
         static int page_no = 0;
 
         const auto calc_page = [&]() -> int { return (rules.size() + adapter.page_size - 1) / adapter.page_size; };
-        const auto last_page = [&]() -> int { return rules.empty() ? 0 : calc_page() - 1; };
+        const auto last_page = [&]() -> int { return rules.empty() ? 0 : calc_page() - 1; }; // ]
         assert(0 <= page_no && page_no <= last_page());
-
-        const auto set_last_page = [&] { page_no = last_page(); };
+        const auto set_page = [&](const int page) {
+            if (!compare_update(page_no, std::clamp(page, 0, last_page()))) {
+                messenger::dot();
+            }
+        };
         const auto set_next_page = [&] {
             if (page_no < last_page()) {
                 ++page_no;
                 return;
             }
 
-            const int count = (rules.size() / adapter.page_size) * adapter.page_size + adapter.page_size - rules.size();
+            const int count = (1 + (rules.size() / adapter.page_size)) * adapter.page_size - rules.size();
             assert(1 <= count && count <= adapter.page_size);
             static std::mt19937 rand = rand_source::create();
             rand_source::perturb(rand); // Additional entropy.
@@ -1284,10 +1287,10 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
 
         // ImGui::SameLine();
         switch (sequence::seq("<|", "<##Prev", ">>##Next", "|>")) {
-            case 0: page_no = 0; break;
-            case 1: page_no = std::max(page_no - 1, 0); break;
+            case 0: set_page(0); break;
+            case 1: set_page(page_no - 1); break;
             case 2: set_next_page(); break;
-            case 3: set_last_page(); break;
+            case 3: set_page(INT_MAX); break;
         }
 
         ImGui::SameLine();
@@ -1313,7 +1316,7 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
 
         // TODO: reconsider page-resized logic (seeking to the last page may still be confusing).
         if (adapter.try_resize(config.size_imvec())) {
-            set_last_page();
+            page_no = last_page();
         }
         adapter.display([&](const int j) {
             const int r = page_no * adapter.page_size + j;

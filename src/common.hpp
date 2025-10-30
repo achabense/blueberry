@@ -1207,14 +1207,19 @@ public:
         bool open = true;
         if (auto window =
                 imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
-            switch (sequence::seq("<|", "<", ">", "|>")) {
-                case 0: m_pos = 0; break;
-                case 1: --m_pos; break;
-                case 2: ++m_pos; break;
-                case 3: m_pos = INT_MAX; break;
-            }
             const int total = m_data.size();
-            m_pos = std::clamp(m_pos, 0, total - 1);
+            assert(0 <= m_pos && m_pos < total);
+            const auto set_pos = [&](const int pos) {
+                if (!compare_update(m_pos, std::clamp(pos, 0, total - 1))) {
+                    messenger::dot();
+                }
+            };
+            switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
+                case 0: set_pos(0); break;
+                case 1: set_pos(m_pos - 1); break;
+                case 2: set_pos(m_pos + 1); break;
+                case 3: set_pos(INT_MAX); break;
+            }
 
             ImGui::SameLine();
             m_settings.set("Settings");
