@@ -3,8 +3,9 @@ cmake_minimum_required(VERSION 3.25)
 project(Blueberry LANGUAGES CXX)
 
 # Get rid of absolute paths (via __FILE__; most are introduced by `SDL_assert_release`, some are hard-coded...)
-add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/experimental:deterministic>)
-add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/pathmap:${CMAKE_SOURCE_DIR}=project>)
+# MSVC has no __FILE_NAME__ / -ffile-prefix-map equivalence... /pathmap looks close but will invalidate breakpoints, so have to be excluded in debug mode...
+# (Have to write this way as MSVC doesn't split ' '-separated list automatically.)
+add_compile_options("$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:/experimental:deterministic;/pathmap:${CMAKE_SOURCE_DIR}=project>")
 add_compile_options($<$<CXX_COMPILER_ID:Clang,GNU>:-ffile-prefix-map=${CMAKE_SOURCE_DIR}=project>)
 
 # I wasted many hours trying to find a "reliable way" to avoid repeated cloning for different configurations. Now I'd rather let it go.
@@ -28,6 +29,8 @@ if (MSVC)
     string(REPLACE "/Ob0" "/Ob1" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}") # Otherwise, force-inline doesn't work.
 #   string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
+# This works, but there seems no good way to silence /Obx overriding warning...
+# target_compile_options(... $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Debug>>:/Ob1>)
 
 file(GLOB SOURCE_LIST CONFIGURE_DEPENDS src/*.cpp imgui/*.cpp imgui/backends/*.cpp)
 
