@@ -1,5 +1,3 @@
-#include <deque>
-
 #include "rule_algo.hpp"
 
 #include "common.hpp"
@@ -1076,7 +1074,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
         }
         static target_rule orderer{};
-        static std::deque<aniso::ruleT> page{};
+        static std::vector<aniso::ruleT> page{};
         static previewer::configT config{previewer::default_settings};
         if (std::exchange(set_changed, false)) {
             orderer.sync(working_set);
@@ -1105,13 +1103,15 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                 return page.size() == adapter.page_size;
             };
             const auto fill_prev = [&] {
+                std::ranges::reverse(page); // To prevent repeated push-front.
                 while (page.size() < adapter.page_size) {
-                    const auto prev = aniso::flatten::prev(working_set, orderer, page.front());
-                    if (prev == page.front()) {
+                    const auto prev = aniso::flatten::prev(working_set, orderer, page.back());
+                    if (prev == page.back()) {
                         break;
                     }
-                    page.push_front(prev);
+                    page.push_back(prev);
                 }
+                std::ranges::reverse(page);
                 return page.size() == adapter.page_size;
             };
             if (role == First) {
@@ -1172,6 +1172,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             ImGui::BeginDisabled(page.empty());
             if (ImGui::Selectable("Clear")) {
                 page.clear();
+                page.shrink_to_fit();
             }
             ImGui::EndDisabled();
         });
