@@ -1089,33 +1089,31 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         enum roleE { First, Last };
         const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/, const bool dot = true) {
             assert(working_set.contains(rule));
-            const aniso::ruleT old_front = !page.empty() ? page.front() : aniso::ruleT{};
-            const int old_size = page.size();
+            const auto old_size = page.size();
+            const auto old_front = !page.empty() ? page.front() : aniso::ruleT{};
+            page.clear();
+            page.push_back(rule);
+
             const auto fill_next = [&] {
-                assert(!page.empty());
                 while (page.size() < adapter.page_size) {
-                    const aniso::ruleT next = aniso::flatten::next(working_set, orderer, page.back());
-                    if (next == page.back()) {
-                        return false; // Reaches the end of the sequence.
+                    const auto next = aniso::flatten::next(working_set, orderer, page.back());
+                    if (next == page.back()) { // Reaches the end of the sequence.
+                        break;
                     }
                     page.push_back(next);
                 }
-                return true;
+                return page.size() == adapter.page_size;
             };
             const auto fill_prev = [&] {
-                assert(!page.empty());
                 while (page.size() < adapter.page_size) {
-                    const aniso::ruleT prev = aniso::flatten::prev(working_set, orderer, page.front());
+                    const auto prev = aniso::flatten::prev(working_set, orderer, page.front());
                     if (prev == page.front()) {
-                        return false;
+                        break;
                     }
                     page.push_front(prev);
                 }
-                return true;
+                return page.size() == adapter.page_size;
             };
-
-            page.clear();
-            page.push_back(rule);
             if (role == First) {
                 if (!fill_next()) {
                     fill_prev();
@@ -1125,7 +1123,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                     fill_next();
                 }
             }
-            messenger::dot_if(dot && page.front() == old_front && page.size() == old_size);
+            messenger::dot_if(dot && page.size() == old_size && page.front() == old_front);
         };
 
         ImGui::AlignTextToFramePadding();
