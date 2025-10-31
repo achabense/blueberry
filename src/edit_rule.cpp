@@ -1087,8 +1087,10 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         }
 
         enum roleE { First, Last };
-        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/) {
+        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/, const bool dot = true) {
             assert(working_set.contains(rule));
+            const aniso::ruleT old_front = !page.empty() ? page.front() : aniso::ruleT{};
+            const int old_size = page.size();
             const auto fill_next = [&] {
                 assert(!page.empty());
                 while (page.size() < adapter.page_size) {
@@ -1123,6 +1125,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                     fill_next();
                 }
             }
+            messenger::dot_if(dot && page.front() == old_front && page.size() == old_size);
         };
 
         ImGui::AlignTextToFramePadding();
@@ -1184,15 +1187,13 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             input_dist.clear();
         }
         if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set.free_k()).c_str())) {
-            const auto first = aniso::flatten::first_d(working_set, orderer, *dist);
-            messenger::dot_if(!page.empty() && page[0] == first);
-            reset_page(First, first);
+            reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
         }
 
         ImGui::Separator();
 
         if (adapter.try_resize(config.size_imvec()) && !page.empty()) {
-            reset_page(First, page.front());
+            reset_page(First, page.front(), false);
         }
         adapter.display([&](const int j) {
             assert(j >= 0);
@@ -1202,7 +1203,6 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                     guide_mode::item_tooltip("Drag a rule here to get to its position.");
                 }
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-                    messenger::dot_if(!page.empty() && *deliv == page[0]);
                     reset_page(First, *deliv);
                 }
             }
