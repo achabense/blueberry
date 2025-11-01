@@ -10,7 +10,7 @@
         "strategy": "external"
       },
       "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "installDir": "${sourceDir}/out/install/${presetName}",
+      "installDir": "${sourceDir}/out/install/${presetName}"
     },
     {
       "name": "x64-debug-msvc",

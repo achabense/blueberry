@@ -965,6 +965,11 @@ private:
         std::optional<selT> sel = std::nullopt;
     };
 
+    // !!TODO: (v0.9.9) simplify (currently too convoluted...) & remove mutable...
+    // Workaround for dot-feedback. (ImGui::SetScrollHereY doesn't change scroll value immediately.)
+    mutable std::optional<int> old_scroll = std::nullopt;
+    static int window_scroll() { return std::round(ImGui::GetCurrentWindowRead()->Scroll.y); }
+
     [[nodiscard]] passT display_page(const int locate_rule, const int locate_line) const {
         const bool locating = locate_rule >= 0 || locate_line >= 0;
         assert_implies(m_sel, !locating);
@@ -973,6 +978,10 @@ private:
         // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Content")) {
+            if (old_scroll) {
+                messenger::dot_if(*old_scroll == window_scroll());
+                old_scroll.reset();
+            }
             const bool test_hover = !menu_opened && (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
             const float region_max_x = imgui_GetContentRegionMaxAbsX();
@@ -1052,8 +1061,13 @@ private:
                     }
 
                     // It's ok to test fully-visible even if the region is not large enough.
-                    if (rule.pos == locate_rule && !imgui_IsItemFullyVisible()) {
-                        ImGui::SetScrollHereY();
+                    if (rule.pos == locate_rule) {
+                        if (m_pos && locate_rule == *m_pos) {
+                            old_scroll = window_scroll();
+                        }
+                        if (!imgui_IsItemFullyVisible()) {
+                            ImGui::SetScrollHereY();
+                        }
                     }
                 }
             }

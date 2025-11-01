@@ -1177,7 +1177,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             ImGui::EndDisabled();
         });
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
-        imgui_Str("To ~");
+        imgui_Str("To ~"); // TODO: improve...
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
         static input_int input_dist{};
