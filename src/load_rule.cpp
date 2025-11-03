@@ -751,9 +751,12 @@ public:
     }
 
     void reset_scroll() { do_rewind = true; }
-    void to_line(int l /*starting from 0*/) {
+    void to_line(int l /*starting from 0*/, bool dot = false) {
         if (!m_lines.empty()) {
+            dot_if_no_effect = dot;
             go_line = std::clamp(l, 0, (int)m_lines.size() - 1);
+        } else {
+            messenger::dot_if(dot);
         }
     }
 
@@ -769,21 +772,26 @@ public:
         }
 
         ImGui::AlignTextToFramePadding();
-        imgui_Str("Go to line ~ ");
-        ImGui::SameLine(0, 0); // TODO: show "Max:N/A" if m_lines.empty?
+        imgui_Str("Go to line ~");
+        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("MAX:000000").x);
-        if (auto l = input_line.input(6, "##Line", std::format("Max:{}", m_lines.size()).c_str())) {
-            to_line(*l - 1);
+        if (auto l = input_line.input(6, "##Line",
+                                      ("Max:" + (m_lines.empty() ? "N/A" : std::to_string(m_lines.size()))).c_str())) {
+            to_line(*l - 1, true);
         }
-        if (!m_highlighted.empty()) {
-            ImGui::Separator();
 
-            constexpr int limit = 10;
-            const float h = std::min((int)m_highlighted.size(), limit) * imgui_CalcSelectableStyledButtonHeight();
-            if (auto child = imgui_ChildWindow("Sections", {0, h}, ImGuiChildFlags_AutoResizeX)) {
-                for (int id = 0; const int l : m_highlighted) {
-                    if (imgui_SelectableStyledButtonEx(id++, m_lines[l].str.get(m_text))) {
-                        go_line = l;
+        // TODO: whether to support this? Currently lacking highlight for "current" section...
+        if constexpr (0) {
+            if (!m_highlighted.empty()) {
+                ImGui::Separator();
+
+                constexpr int limit = 10;
+                const float h = std::min((int)m_highlighted.size(), limit) * imgui_CalcSelectableStyledButtonHeight();
+                if (auto child = imgui_ChildWindow("Sections", {0, h}, ImGuiChildFlags_AutoResizeX)) {
+                    for (int id = 0; const int l : m_highlighted) {
+                        if (imgui_SelectableStyledButtonEx(id++, m_lines[l].str.get(m_text))) {
+                            to_line(l, true);
+                        }
                     }
                 }
             }
@@ -968,6 +976,7 @@ private:
     // !!TODO: (v0.9.9) simplify (currently too convoluted...) & remove mutable...
     // Workaround for dot-feedback. (ImGui::SetScrollHereY doesn't change scroll value immediately.)
     mutable std::optional<int> old_scroll = std::nullopt;
+    bool dot_if_no_effect = false;
     static int window_scroll() { return std::round(ImGui::GetCurrentWindowRead()->Scroll.y); }
 
     [[nodiscard]] passT display_page(const int locate_rule, const int locate_line) const {
@@ -1000,6 +1009,9 @@ private:
 
                 ImGui::TextDisabled("%*d ", digit_width, this_l + 1);
                 if (locate_line == this_l) {
+                    if (dot_if_no_effect) {
+                        old_scroll = window_scroll();
+                    }
                     ImGui::SetScrollHereY(0);
                 }
                 ImGui::SameLine();

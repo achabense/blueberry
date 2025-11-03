@@ -584,9 +584,9 @@ class runnerT : no_copy {
 
     coordT m_coord{};
 
-    void reset_pos(const bool dot_if_no_effect = false) {
+    void reset_pos(const bool dot = false) {
         m_coord.reset_pos = true;
-        m_coord.dot_if_no_effect = dot_if_no_effect;
+        m_coord.dot_if_no_effect = dot;
     }
 
     aniso::vecT fullscreen_size(const zoomT& z, ImVec2 canvas_size) const {
