@@ -1017,37 +1017,38 @@ private:
                     ImGui::PopStyleColor();
                 }
 
-                const auto [str_min, str_max] = imgui_GetItemRect();
-                const bool line_hovered = test_hover && mouse_pos.y >= str_min.y && mouse_pos.y < str_max.y;
-                // `line_hovered` may become true for two adjacent lines if using `mouse_pos.y <= str_max.y`.
+                if (ImGui::IsItemVisible()) {
+                    const auto [str_min, str_max] = imgui_GetItemRect();
+                    const bool line_hovered = test_hover && mouse_pos.y >= str_min.y && mouse_pos.y < str_max.y;
+                    // `line_hovered` may become true for two adjacent lines if using `mouse_pos.y <= str_max.y`.
 
-                if (!locating && line_hovered) {
-                    if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-                        pass.sel = {this_l, this_l};
-                    } else if (m_sel && ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                        pass.sel = {m_sel->beg, this_l};
+                    if (!locating && line_hovered) {
+                        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                            pass.sel = {this_l, this_l};
+                        } else if (m_sel && ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                            pass.sel = {m_sel->beg, this_l};
+                        }
                     }
-                }
-                // TODO: skip AddXXX when invisible...
-                if (m_sel && m_sel->contains(this_l)) {
-                    drawlist.AddRectFilled(str_min, {region_max_x, str_max.y}, IM_COL32_GREY(255, 16));
-                    drawlist.AddRectFilled(str_min, str_max, IM_COL32_GREY(255, 40));
+                    if (m_sel && m_sel->contains(this_l)) {
+                        drawlist.AddRectFilled(str_min, {region_max_x, str_max.y}, IM_COL32_GREY(255, 16));
+                        drawlist.AddRectFilled(str_min, str_max, IM_COL32_GREY(255, 40));
+                    }
+                    if (rule.has_value()) {
+                        constexpr bool has_lock = false; // TODO: temporarily preserved.
+                        if (rule.pos == m_pos) {
+                            drawlist.AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 60));
+                        }
+                        if (!m_sel &&
+                            (line_hovered && mouse_pos.x >= str_min.x && mouse_pos.x < str_max.x /*str-hovered*/)) {
+                            drawlist.AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 30));
+                            if (!locating && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                                pass.pos = rule.pos;
+                            }
+                        }
+                    }
                 }
 
                 if (rule.has_value()) {
-                    constexpr bool has_lock = false; // TODO: temporarily preserved.
-
-                    if (rule.pos == m_pos) {
-                        drawlist.AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 60));
-                    }
-                    if (!m_sel &&
-                        (line_hovered && mouse_pos.x >= str_min.x && mouse_pos.x < str_max.x /*str-hovered*/)) {
-                        drawlist.AddRectFilled(str_min, str_max, IM_COL32(has_lock ? 196 : 0, 255, 0, 30));
-                        if (!locating && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                            pass.pos = rule.pos;
-                        }
-                    }
-
                     // TODO: ideally should not split RLE blob from header....
                     if (m_preview.inline_mode) {
                         imgui_StrDisabled("-: ");
