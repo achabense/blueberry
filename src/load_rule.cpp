@@ -1215,7 +1215,7 @@ public:
             ImGui::SameLine();
             display_filename(*file_path);
             ImGui::SameLine();
-            menu_like_popup::small_button(">");
+            menu_like_popup::small_button("To");
             menu_like_popup::popup([&] { text.select_line(); });
 
             ImGui::Separator();
@@ -1279,7 +1279,7 @@ public:
         // ImGui::SameLine();
         // imgui_Str("Clipboard");
         ImGui::SameLine();
-        menu_like_popup::small_button(">");
+        menu_like_popup::small_button("To");
         menu_like_popup::popup([&] { text.select_line(); });
 
         ImGui::Separator();
@@ -1336,7 +1336,7 @@ public:
             ImGui::SameLine();
             imgui_Str(doc_title);
             ImGui::SameLine();
-            menu_like_popup::small_button(">");
+            menu_like_popup::small_button("To");
             menu_like_popup::popup([&] { text.select_line(); });
 
             ImGui::Separator();

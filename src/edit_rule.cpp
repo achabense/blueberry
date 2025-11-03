@@ -1130,7 +1130,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         imgui_StrTooltip(
             "(...)", // !!TODO: -> largest dist = number of free groups...
             "The seq can iterate through all rules in [S] in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
-            "\"Dist\" in this window refers to distance to [X]. You can input a distance to get to the first rule with that distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
+            "\"Dist\" in this window refers to distance to [X]. You can input a distance ('To') to get to the first rule with that distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
             "(This is mainly useful for sets with only a few groups. For larger sets, 'Random' and 'Edit-rule' may be more suitable tools.)");
         //"(Some small subsets include self-complementary totalistic rules ('0v1 & Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All & Jvn') and so on.)"
         ImGui::SameLine();
@@ -1176,18 +1176,22 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             }
             ImGui::EndDisabled();
         });
-        ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
-        imgui_Str("To ~"); // TODO: improve...
-        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-        ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
-        static input_int input_dist{};
-        static test_appearing input_appearing{};
-        if (input_appearing.update()) { // (Unlike `IsWindowAppearing()`, this includes window-uncollapsed.)
-            input_dist.clear();
-        }
-        if (const auto dist = input_dist.input(5, "##Seek", std::format("Max:{}", working_set.free_k()).c_str())) {
-            reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
-        }
+        ImGui::SameLine();
+        menu_like_popup::button("To");
+        menu_like_popup::popup([&] {
+            static input_int input_dist{};
+            if (ImGui::IsWindowAppearing()) {
+                input_dist.clear();
+            }
+
+            ImGui::AlignTextToFramePadding();
+            imgui_Str("Go to dist ~");
+            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
+            if (const auto dist = input_dist.input(5, "##Dist", std::format("Max:{}", working_set.free_k()).c_str())) {
+                reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
+            };
+        });
 
         ImGui::Separator();
 
