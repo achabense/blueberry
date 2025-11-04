@@ -668,6 +668,7 @@ public:
     }
 };
 
+// !!TODO: (v0.9.9) when to display dot? (Whether to support dot feedback at all?)
 class messenger : no_create {
     class messageT {
         using clockT = std::chrono::steady_clock;
@@ -749,6 +750,7 @@ class messenger : no_create {
                 if (!m_min) {
                     m_count = 12;
                     m_time = now + std::chrono::milliseconds(400);
+                    // TODO: `GetMousePos` may remain valid (with unclamped values) when mouse is moved outside the program...
                     m_min = ImGui::IsMousePosValid() ? ImGui::GetMousePos() : ImGui::GetStyle().WindowPadding;
                 }
                 assert(m_time >= now);
@@ -1263,7 +1265,7 @@ public:
         m_data.push_back(rule);
     }
 
-    static constexpr const char* about_dump = "(Experimental) recheck recent rules.";
+    static constexpr const char* about_dump = "Recheck recent rules.";
 
     // (Workaround; defined here for convenience.)
     void dump(const previewer::configT& settings) const {

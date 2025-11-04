@@ -36,6 +36,8 @@ namespace aniso {
     struct rangeT {
         vecT begin, end; // [)
 
+        friend bool operator==(const rangeT&, const rangeT&) = default;
+
         vecT size() const {
             assert(begin.both_lteq(end));
             return end - begin;

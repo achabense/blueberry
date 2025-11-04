@@ -265,6 +265,7 @@ public:
             }
         };
         {
+            // TODO: confusing for non-qwerty keyboard users...
             terms_scope scope(m_terms_s, terms_ignore);
             scope.append(
                 "q", &subsets.ignore_q,

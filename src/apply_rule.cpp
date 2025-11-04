@@ -1405,9 +1405,11 @@ private:
                 if (check_border(sel_area, p_size)) {
                     const aniso::rangeT bound = aniso::bounding_box(sel_area, p_size);
                     if (!bound.empty()) {
-                        self.m_sel = {.active = false,
-                                      .beg = sel_range.begin + bound.begin - p_size,
-                                      .end = sel_range.begin + bound.end.minus(1, 1) + p_size};
+                        const aniso::rangeT range{.begin = sel_range.begin + bound.begin - p_size,
+                                                  .end = sel_range.begin + bound.end + p_size};
+                        // Then whether to show dot for clear functions? No way...
+                        // messenger::dot_if(self.m_sel && self.m_sel->to_range() == range);
+                        self.m_sel = {.active = false, .beg = range.begin, .end = range.end.minus(1, 1)};
                     } else {
                         // m_sel.reset();
                         messenger::set_msg("The area contains nothing.");

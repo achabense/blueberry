@@ -838,11 +838,13 @@ public:
                             return str;
                         };
                         if (ImGui::Selectable("Copy text")) {
+                            // TODO: disable directly?
                             // (Won't copy if `str` contains '\0' (should't appear in regular utf8 text files).)
                             set_clipboard_and_notify(get_str());
                         }
                         // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
                         if constexpr (debug_mode) {
+                            // TODO: also support load-rule?
                             static bool can_load_pattern = false;
                             if (ImGui::IsWindowAppearing()) {
                                 can_load_pattern = pattern_editor_status::available() && has_pattern(get_str());
