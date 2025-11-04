@@ -3,7 +3,6 @@
 // TODO: when to use '? ('Ctrl' vs Ctrl, 'Clipboard' vs Clipboard, '0' vs 0 etc.)
 // TODO: whether to require no-ctrl for shortcuts?
 
-// !!TODO: unfinished...
 static open_state intro_window(frame_main_token) {
     bool open = true;
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
@@ -13,28 +12,14 @@ static open_state intro_window(frame_main_token) {
         "Click the collapse button, or double click the title bar to collapse/uncollapse.";
     if (auto window =
             imgui_Window("Introduction", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-        static int page = 0;
-        imgui_RadioButton("Overview", &page, 0);
-        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-        imgui_RadioButton("Preview windows", &page, 1);
-        ImGui::Separator();
-
         ImGui::PushTextWrapPos(wrap_len());
-        if (page == 0) {
+        // ImGui::SeparatorText("...");
+        {
             ImGui::Bullet();
-            imgui_Str("Use the left panel to generate rules.");
-            ImGui::SameLine();
-            imgui_StrTooltip("(?)",
-                             "It's recommended to try the 'Random' window first (press '>>' to generate rules).");
-            ImGui::Bullet();
-            imgui_Str("Use the right panel to operate on patterns.");
-            ImGui::Bullet();
-            imgui_Str("Use 'Open' and 'Paste' to load rules.");
-            ImGui::Bullet();
-            imgui_Str("See 'Documents' for more information.");
-
-            // ImGui::SeparatorText("Misc controls");
-            ImGui::Separator();
+            imgui_Str("Press 'H' to toggle on/off additional tooltips.");
+            guide_mode::item_tooltip("Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
+                                     "All the other shortcuts (including 'H') require Ctrl not to be pressed.");
+            // & Ctrl+C to copy tooltip (debug mode)
 
             if constexpr (debug_mode_double_esc_to_close) {
                 ImGui::Bullet();
@@ -42,10 +27,7 @@ static open_state intro_window(frame_main_token) {
             }
 
             ImGui::Bullet();
-            imgui_Str("Press 'H' to toggle on/off additional tooltips.");
-            guide_mode::item_tooltip("Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
-                                     "All the other shortcuts (like 'H') require Ctrl not to be pressed.");
-            // & Ctrl+C to copy tooltip (debug mode)
+            imgui_Str("Press left/right arrow keys to control '</>' in the focused window.");
 
             ImGui::Bullet();
             imgui_Str("Right-click underlined text (like this) to open menu.");
@@ -63,7 +45,9 @@ static open_state intro_window(frame_main_token) {
             }
             ImGui::SameLine(0, 0);
             imgui_Str(" require double-clicking.");
-        } else if (page == 1) {
+        }
+        ImGui::SeparatorText("Preview windows");
+        {
             ImGui::Bullet();
             imgui_Str("Right-click to open menu.");
             ImGui::Bullet();
@@ -73,8 +57,6 @@ static open_state intro_window(frame_main_token) {
                                     "1. Preview windows.\n"
                                     "2. The MAP-string for (the rule shown in) the pattern editor.\n"
                                     "3. Other items that display a preview window in tooltip.");
-            ImGui::Bullet();
-            imgui_Str("Press left/right arrow keys to control '</>' in the focused window.");
 
             ImGui::Bullet();
             imgui_Str("Make sure you can save discoveries.");
@@ -86,17 +68,14 @@ static open_state intro_window(frame_main_token) {
 
             // ImGui::Separator();
 
-            // (Selected from "Documents/Rules in different sets")
-            // !!TODO: better examples (should include gol)...
+            // !!TODO: more examples...
             static const auto rules = aniso::extract_all_rules(
                 "MAPAAAAAQABARcAAQEXARcXfwABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
-                "MAPIIAAAYABARcAAQEXARcXf4ABARcBFxd/ARcXfxd/f/8AAQEXARcXfwEXF38Xf3//ARcXfxd/f/8Xf3//f////w "
-                "MAPAAEAAAEBABcAEQEHARcXfwABARcBFxd/AVcXPxd/f/8AAQEXAxcVfwEXF38Xf3//ARcXfx9/d/8X/39///9//w "
-                "MAPAAAAEQAREXcAAAARABERdwAREXcRd3f/ABERdxF3d/8AERF3EXd3/wAREXcRd3f/EXd3/3f///8Rd3f/d////w ");
-            static previewer::configT config{previewer::default_settings};
+                "MAPARYXfhZofugWaH7oaIDogBZofuhogOiAaIDogIAAgAAWaH7oaIDogGiA6ICAAIAAaIDogIAAgACAAIAAAAAAAA ");
+            static previewer::configT settings{previewer::default_settings};
             static int at = 0;
             const int total = rules.size();
-            assert(total == 4 && 0 <= at && at < total);
+            assert(total == 2 && 0 <= at && at < total);
             const auto set_pos = [&](const int pos) {
                 if (!compare_update(at, std::clamp(pos, 0, total - 1))) {
                     messenger::dot();
@@ -113,11 +92,11 @@ static open_state intro_window(frame_main_token) {
                 case 3: set_pos(INT_MAX); break;
             }
             ImGui::SameLine();
-            config.set("Settings");
+            settings.set("Settings");
             ImGui::SameLine();
             ImGui::Text("Total:%d At:%d", total, at + 1);
 
-            previewer::preview(0, config, rules[at]);
+            previewer::preview(0, settings, rules[at]);
             ImGui::EndGroup();
         }
         ImGui::PopTextWrapPos();

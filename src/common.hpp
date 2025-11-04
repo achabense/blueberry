@@ -797,6 +797,7 @@ public:
         m_msg.set_str(std::format(fmt, args...));
     }
 
+    // TODO: looks strange when triggered by shortcuts... (Should use item pos instead of mouse pos...)
     static void dot() { m_msg.set_dot(); }
     static void dot_if(bool d) {
         if (d) {
