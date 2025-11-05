@@ -1646,7 +1646,7 @@ void edit_rule(frame_main_token) {
                 random_access_status::begin_disabled();
                 previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
                 random_access_status::end_disabled();
-                if (locked && ImGui::IsItemVisible()) { // TODO: improve...
+                if (locked && ImGui::IsItemVisible()) { // !!TODO: (v0.9.9) improve...
                     imgui_ItemRectFilled(IM_COL32_GREY(128, 64 /*48*/));
                 }
                 ImGui::EndGroup();

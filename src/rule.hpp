@@ -306,7 +306,7 @@ namespace aniso {
             }
         }
 
-        inline void from_MAP(std::string_view str, auto& dest /* ruleT or lockT */) {
+        inline void from_MAP(const std::string_view str, auto& dest /* ruleT or lockT */) {
             assert(str.size() >= MAP_length);
 
             std::array<bool, 512> MAP_data{};
@@ -386,43 +386,42 @@ namespace aniso {
         static constexpr int lock_len = MAP_len + 3; // " [...]"
 
     public:
-        // data = prefix + rule_str + lock_str + suffix.
-        // !has-rule -> data = prefix
-        extrT(const std::span<const char> data, const bool with_lock) {
-            const char* const begin = data.data();
-            const char* const end = begin + data.size();
-            std::string_view str{begin, end};
+        // str = prefix + rule_str + lock_str + suffix.
+        // !has-rule -> str = prefix
+        extrT(std::string_view str, const bool with_lock) {
+            const char* const begin = str.data();
+            const char* const end = begin + str.size();
             for (;;) {
                 if (const auto pos = str.find("MAP"); pos != str.npos && str.size() - pos >= rule_len) {
                     str.remove_prefix(pos);
                 } else { // Not found.
-                    this->prefix = {begin, end};
+                    prefix = {begin, end};
                     return;
                 }
 
                 if (const int len = _misc::count_base64(str.substr(3 /*MAP*/, MAP_len)); len < MAP_len) {
                     str.remove_prefix(3 /*MAP*/ + len);
                 } else { // Matched.
-                    this->prefix = {begin, str.data()};
-                    this->rule_str = {str.data(), rule_len};
+                    prefix = {begin, str.data()};
+                    rule_str = {str.data(), rule_len};
                     str.remove_prefix(rule_len);
                     if (with_lock && str.size() >= lock_len && str.starts_with(" [") &&
                         str[2 /* [*/ + MAP_len] == ']') {
                         if (_misc::count_base64(str.substr(2 /* [*/, MAP_len)) == MAP_len) {
-                            this->lock_str = {str.data(), lock_len};
+                            lock_str = {str.data(), lock_len};
                             str.remove_prefix(lock_len);
                         }
                     }
                     assert(str.data() + str.size() == end);
-                    this->suffix = str;
+                    suffix = str;
                     return;
                 }
             }
         }
     };
 
-    inline extrT extract_MAP_str(std::span<const char> data, bool with_lock = false) { //
-        return extrT(data, with_lock);
+    inline extrT extract_MAP_str(std::string_view str, bool with_lock = false) { //
+        return extrT(str, with_lock);
     }
 
     inline std::optional<ruleT> extract_one_rule(std::string_view str) {
