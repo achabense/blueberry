@@ -17,6 +17,14 @@ namespace aniso {
         return c;
     }
 
+    inline void normalize_r(ruleT& r, const lockT& l) {
+        for (const codeT code : each_code) {
+            if (!l[code]) {
+                r[code] = {0};
+            }
+        }
+    }
+
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
     class equivT {
         mutable codeT::map_to<codeT> m_par;

@@ -444,9 +444,11 @@ public:
 
     // !!TODO: (v0.9.9) incomplete; should support multiple p-sets...
     // TODO: use different colors?
-    void load_capture(const aniso::partialT& p) {
+    void load_capture(const aniso::ruleT& r, const aniso::lockT& l, const char* msg = nullptr) {
         assert(m_terms_p.size() <= 1);
+        const aniso::partialT p{.rule = r, .lock = l};
         if (!p.is_universal()) {
+            // aniso::normalize_r(p.rule, p.lock);
             if (!m_terms_p.empty() && m_terms_p[0].selected) {
                 m_terms_p[0].selected = false;
                 update_current();
@@ -454,10 +456,40 @@ public:
             m_terms_p.clear();
             m_terms_p.push_back(termT( // TODO: when to use "pattern" vs "object"?
                 p, "P", "(Experimental) rules that can reproduce the captured object in all phases.", &m_current));
-            messenger::set_msg("Captured. (See 'P' in the set table.)", aniso::count_locked(p.lock));
-            // messenger::set_auto_disappear();
+            messenger::set_msg(msg ? msg : "Captured. (See 'P' in the set table.)");
         } else {
-            assert(false);
+            messenger::set_msg("Ignored. (Universal set.)");
+        }
+    }
+
+    void debug_capture_in_popup() {
+        assert(debug_mode);
+        if (ImGui::Selectable("Example (gliders)")) {
+            // Gliders in all directions. (Capture a glider & 'Iso' -> Copy)
+            constexpr const char* str =
+                "MAPARYSZhYAPEgQYBCgAAAAgABAEsAIAIgAQIDgAIAAgAACAAIAKACggACAAICAAIAACICogIAAAACAAAAAAAAAAA [//Z65r4SvEjQ4JCgABAQgIDRksSLAIwAwKDgAIDAwACKAIICqAKggICAAKCAAKAAiICoiKCIAACAIAAAIAAAAA]";
+            const auto extr = aniso::extract_MAP_str(str, true);
+            assert(extr.has_rule() && extr.has_lock());
+            // TODO: should redesign desc & message...
+            load_capture(extr.get_rule(), extr.get_lock(), "Updated.");
+        }
+        ImGui::BeginDisabled(aniso::none_locked(m_current.lock));
+        if (ImGui::Selectable("Copy")) {
+            aniso::ruleT rule = m_current.get_rule();
+            normalize_r(rule, m_current.lock); // TODO: whether to normalize?
+            set_clipboard_and_notify(aniso::to_MAP_str(rule, &m_current.lock));
+        }
+        ImGui::EndDisabled();
+        if (ImGui::Selectable("Paste")) {
+            // TODO: read_clipboard vs load_clipboard(frame_main_token) are confusing names...
+            if (const auto str = read_clipboard(); !str.empty()) {
+                const auto extr = aniso::extract_MAP_str(str, true);
+                if (extr.has_rule() && extr.has_lock()) {
+                    load_capture(extr.get_rule(), extr.get_lock(), "Updated.");
+                } else {
+                    messenger::set_msg("Invalid.");
+                }
+            }
         }
     }
 
@@ -1343,7 +1375,7 @@ void previewer::_show_belongs(const aniso::ruleT& rule) {
 
 void load_capture(const aniso::ruleT& r, const aniso::lockT& l) {
     if (select_working_ptr) {
-        select_working_ptr->load_capture({.rule = r, .lock = l});
+        select_working_ptr->load_capture(r, l);
     }
 }
 
@@ -1369,6 +1401,11 @@ void edit_rule(frame_main_token) {
         }
         ImGui::SameLine();
         ImGui::Checkbox("Collapse", &collapse);
+        if constexpr (debug_mode) {
+            ImGui::SameLine();
+            menu_like_popup::small_button("Exp");
+            menu_like_popup::popup([] { select_working.debug_capture_in_popup(); });
+        }
 
         if (!collapse) {
             ImGui::Separator();
