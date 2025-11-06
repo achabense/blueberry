@@ -15,16 +15,16 @@ static open_state intro_window(frame_main_token) {
         ImGui::PushTextWrapPos(wrap_len());
         // ImGui::SeparatorText("...");
         {
+            if constexpr (init_double_esc_to_close) {
+                ImGui::Bullet();
+                imgui_Str("Double-press 'Esc' to close all windows."); // & popups if possible.
+            }
+
             ImGui::Bullet();
             imgui_Str("Press 'H' to toggle on/off additional tooltips.");
             guide_mode::item_tooltip("Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
                                      "All the other shortcuts (including 'H') require Ctrl not to be pressed.");
             // & Ctrl+C to copy tooltip (debug mode)
-
-            if constexpr (debug_mode_double_esc_to_close) {
-                ImGui::Bullet();
-                imgui_Str("Double-press 'Esc' to close the focused window."); // (Or popup.)
-            }
 
             ImGui::Bullet();
             imgui_Str("Press left/right arrow keys to control '</>' in the focused window.");
@@ -123,8 +123,26 @@ void frame_main() {
     previewer::begin_frame({});
     pass_rule::begin_frame({});
 
-    if (shortcuts::no_active_and_no_ctrl() && shortcuts::test_pressed(ImGuiKey_H)) {
-        guide_mode::flip_enable({});
+    if (shortcuts::no_active_and_no_ctrl()) {
+        if constexpr (init_double_esc_to_close) {
+            want_close_windows = false;
+            if (shortcuts::test_pressed(ImGuiKey_Escape)) {
+                static double last = 0;
+                const double now = ImGui::GetTime();
+                if (now < last + ImGui::GetIO().MouseDoubleClickTime) { // Double-pressed.
+                    last = 0;
+                    want_close_windows = true;
+                } else {
+                    last = now;
+                }
+            }
+        } else {
+            assert(!want_close_windows);
+        }
+
+        if (shortcuts::test_pressed(ImGuiKey_H)) {
+            guide_mode::flip_enable({});
+        }
     }
 
     constexpr ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
@@ -205,6 +223,11 @@ void frame_main() {
             if (show_demo) {
                 ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
                 ImGui::ShowDemoWindow(&show_demo);
+                if constexpr (init_double_esc_to_close) {
+                    if (want_close_windows) {
+                        show_demo = false;
+                    }
+                }
             }
 
             using clockT = std::chrono::steady_clock;

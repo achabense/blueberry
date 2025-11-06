@@ -242,6 +242,12 @@ public:
     }
 };
 
+// Workaround to prevent flicker (to let popups & windows disappear at the same frame).
+// (`CloseCurrentPopup()` seems to hide popups immediately, while regular windows will remain open for one extra frame when closed.)
+inline bool source_window_has_no_close_button() { //
+    return !GImGui->CurrentWindow->RootWindowPopupTree->HasCloseButton;
+}
+
 // Looks like a common popup, and will appear like a menu (but with more consistent closing behavior).
 // (Can be called recursively.)
 class menu_like_popup : no_create {
@@ -314,9 +320,12 @@ public:
                                                              !item_rect.ContainsWithPad(mouse_pos, pad * 1.5) &&
                                                              !window_rect.ContainsWithPad(mouse_pos, pad * 2.5)) {
                     ImGui::CloseCurrentPopup();
-                } else if constexpr (debug_mode_double_esc_to_close) {
-                    if (!item_rect.Contains(mouse_pos) && test_esc()) {
-                        ImGui::CloseCurrentPopup();
+                } else if constexpr (init_double_esc_to_close) {
+                    if (want_close_windows && source_window_has_no_close_button()) {
+                        // (Not sharing closing logic in `imgui_BeginPopupRecycled` due to this check...)
+                        if (!item_rect.Contains(mouse_pos)) {
+                            ImGui::CloseCurrentPopup();
+                        }
                     }
                 }
             }
@@ -358,8 +367,8 @@ public:
 
             lock_scroll();
             fn();
-            if constexpr (debug_mode_double_esc_to_close) {
-                if (test_esc()) {
+            if constexpr (init_double_esc_to_close) {
+                if (want_close_windows && source_window_has_no_close_button()) {
                     ImGui::CloseCurrentPopup();
                 }
             }

@@ -343,28 +343,9 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
     window.SkipItems = old_skip;
 }
 
-inline constexpr bool debug_mode_double_esc_to_close = debug_mode;
-
-// (Not general enough to add 'imgui' prefix...)
-inline bool test_esc_single_hit() {
-    static int frame = 0; // Avoid closing multiple windows within one frame.
-    return !GImGui->IO.KeyCtrl && !GImGui->ActiveId && !GImGui->IO.WantTextInput && imgui_IsWindowFocused() &&
-           !ImGui::IsMouseDown(ImGuiMouseButton_Left) && imgui_IsWindowHoverable() &&
-           ImGui::IsKeyPressed(ImGuiKey_Escape) && compare_update(frame, ImGui::GetFrameCount());
-}
-
-inline bool test_esc() { // Double-hit.
-    if (test_esc_single_hit()) {
-        static double last = 0;
-        const double now = ImGui::GetTime();
-        if (now < last + ImGui::GetIO().MouseDoubleClickTime) {
-            last = 0;
-            return true;
-        }
-        last = now;
-    }
-    return false;
-}
+// TODO: workaround to support closing with double-esc; ideally should not be defined here / this way.
+inline constexpr bool init_double_esc_to_close = true;
+inline bool want_close_windows = false;
 
 class [[nodiscard]] imgui_Window : no_copy {
 public:
@@ -381,8 +362,8 @@ public:
         if (const char* tooltip = std::exchange(next_window_titlebar_tooltip, nullptr)) {
             imgui_StrTooltipForTitleBar("(?)", tooltip, name);
         }
-        if constexpr (debug_mode_double_esc_to_close) {
-            if (p_open && test_esc()) {
+        if constexpr (init_double_esc_to_close) {
+            if (p_open && want_close_windows) {
                 *p_open = false;
             }
         }

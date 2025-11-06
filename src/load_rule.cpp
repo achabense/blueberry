@@ -806,65 +806,62 @@ public:
 
     void display() {
         assert_implies(m_lines.empty(), m_text.empty() && m_rules.empty());
+        assert_implies(menu_opened, m_sel);
 
-        if (m_sel) {
-            if (ImGui::IsWindowAppearing()) {
-                // This should not happen, as the interaction to the parent window will be blocked
-                // when there are selected lines.
-                assert(false);
-                m_sel.reset(); // Defensive.
-                menu_opened = false;
-            } else {
-                const ImGuiID popup_id = ImGui::GetID("Menu");
-                if (!menu_opened && !ImGui::IsMouseDown(ImGuiMouseButton_Right) /* Released from anywhere */) {
-                    // Note: `IsMouseReleased` may fail to catch release event in rare cases. For example:
-                    // [right-down] -> left-click the program-window's title bar [both-down] ->
-                    // release right mouse [left-down], then a menu will appear -> minimize and restore the program.
-                    ImGui::OpenPopup(popup_id);
-                    menu_opened = true;
-                }
-                if (menu_opened) {
-                    if (imgui_BeginPopupRecycled(popup_id)) {
-                        lock_scroll();
-                        const auto get_str = [&] {
-                            const auto [min, max] = m_sel->minmax();
-                            std::string str;
-                            for (int i = min; i <= max; ++i) {
-                                if (i != min) {
-                                    str += '\n';
-                                }
-                                str += m_lines[i].str.get(m_text);
+        if (m_sel && ImGui::IsWindowAppearing()) {
+            // This may happen if the parent window is closed with double-esc.
+            m_sel.reset();
+            menu_opened = false;
+        } else if (m_sel) {
+            const ImGuiID popup_id = ImGui::GetID("Menu");
+            if (!menu_opened && !ImGui::IsMouseDown(ImGuiMouseButton_Right) /* Released from anywhere */) {
+                // Note: `IsMouseReleased` may fail to catch release event in rare cases. For example:
+                // [right-down] -> left-click the program-window's title bar [both-down] ->
+                // release right mouse [left-down], then a menu will appear -> minimize and restore the program.
+                ImGui::OpenPopup(popup_id);
+                menu_opened = true;
+            }
+            if (menu_opened) {
+                if (imgui_BeginPopupRecycled(popup_id)) {
+                    lock_scroll();
+                    const auto get_str = [&] {
+                        const auto [min, max] = m_sel->minmax();
+                        std::string str;
+                        for (int i = min; i <= max; ++i) {
+                            if (i != min) {
+                                str += '\n';
                             }
-                            return str;
-                        };
-                        if (ImGui::Selectable("Copy text")) {
-                            // TODO: disable directly?
-                            // (Won't copy if `str` contains '\0' (should't appear in regular utf8 text files).)
-                            set_clipboard_and_notify(get_str());
+                            str += m_lines[i].str.get(m_text);
                         }
-                        // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
-                        if constexpr (debug_mode) {
-                            // TODO: also support load-rule?
-                            static bool can_load_pattern = false;
-                            if (ImGui::IsWindowAppearing()) {
-                                can_load_pattern = pattern_editor_status::available() && has_pattern(get_str());
-                            }
-                            if (can_load_pattern) {
-                                if (ImGui::Selectable("Load pattern")) {
-                                    load_pattern(get_str());
-                                }
-                            }
-                        }
-                        if constexpr (debug_mode_double_esc_to_close) {
-                            if (test_esc()) {
-                                ImGui::CloseCurrentPopup();
-                            }
-                        }
-                        ImGui::EndPopup();
-                    } else {
-                        menu_opened = false;
-                        m_sel.reset();
+                        return str;
+                    };
+                    if (ImGui::Selectable("Copy text")) {
+                        // TODO: disable directly?
+                        // (Won't copy if `str` contains '\0' (should't appear in regular utf8 text files).)
+                        set_clipboard_and_notify(get_str());
                     }
+                    // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
+                    if constexpr (debug_mode) {
+                        // TODO: also support load-rule?
+                        static bool can_load_pattern = false;
+                        if (ImGui::IsWindowAppearing()) {
+                            can_load_pattern = pattern_editor_status::available() && has_pattern(get_str());
+                        }
+                        if (can_load_pattern) {
+                            if (ImGui::Selectable("Load pattern")) {
+                                load_pattern(get_str());
+                            }
+                        }
+                    }
+                    if constexpr (init_double_esc_to_close) {
+                        if (want_close_windows && source_window_has_no_close_button()) {
+                            ImGui::CloseCurrentPopup();
+                        }
+                    }
+                    ImGui::EndPopup();
+                } else {
+                    menu_opened = false;
+                    m_sel.reset();
                 }
             }
         }
