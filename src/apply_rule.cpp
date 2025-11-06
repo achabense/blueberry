@@ -729,7 +729,7 @@ public:
 
         const auto set_init_state_in_popup = [&] {
             const auto item_shortcut = [enable_shortcuts = shortcuts::no_active_and_no_ctrl()](ImGuiKey key) {
-                return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, false);
+                return enable_shortcuts && shortcuts::test_pressed(key, false) && highlight_item();
             };
 
             const bool restart = ImGui::Button("Restart") || item_shortcut(ImGuiKey_R);
@@ -865,7 +865,7 @@ public:
         {
             const bool enable_shortcuts = canvas_hovered_or_held && shortcuts::no_ctrl();
             const auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
-                return enable_shortcuts && shortcuts::test_pressed_and_highlight(key, repeat);
+                return enable_shortcuts && shortcuts::test_pressed(key, repeat) && highlight_item();
             };
 
             // !!TODO: (v0.9.9) support keeping tooltips open? (Or just display in regular windows?)
@@ -899,7 +899,7 @@ public:
             ImGui::SameLine();
             ImGui::Button("+!");
             if ((ImGui::IsItemActive() && ImGui::IsItemHovered() /* && ImGui::IsMouseDown(ImGuiMouseButton_Left)*/) ||
-                (enable_shortcuts && shortcuts::test_down_and_highlight(ImGuiKey_F))) {
+                (enable_shortcuts && shortcuts::test_down(ImGuiKey_F) && highlight_item())) {
                 m_ctrl.extra_step = ctrlT::Pf;
             }
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat

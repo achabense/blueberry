@@ -110,7 +110,11 @@ inline constexpr bool init_selectables_use_button_color = false;
 // TODO: cannot decide test_down vs test_pressed / dy...
 inline constexpr bool init_set_scroll_with_up_down = debug_mode;
 
-inline void highlight_item() { ImGui::NavHighlightActivated(ImGui::GetItemID()); }
+// (Return true for && chaining.)
+inline bool highlight_item() {
+    ImGui::NavHighlightActivated(ImGui::GetItemID());
+    return true;
+}
 inline void highlight_item(ImGuiID id) { ImGui::NavHighlightActivated(id); }
 
 // TODO: consider using ImGui::Shortcut?
@@ -130,49 +134,21 @@ public:
 private:
     inline static ImGuiKey occupied = ImGuiKey_None;
 
+public:
+    static void begin_frame(frame_main_token) { occupied = ImGuiKey_None; }
+
     // Resolve shortcut competition when multiple keys are pressed.
-    static bool filter(ImGuiKey key) {
+    static bool test_down(ImGuiKey key) {
         assert(key != ImGuiKey_None);
-        if (occupied == ImGuiKey_None) {
-            if (ImGui::IsKeyDown(key)) {
-                occupied = key;
-            }
+        if (occupied == ImGuiKey_None && ImGui::IsKeyDown(key)) {
+            occupied = key;
             return true;
         }
         return occupied == key;
     }
 
-public:
-    static void begin_frame(frame_main_token) { occupied = ImGuiKey_None; }
-
-    template <bool highlight = false>
     static bool test_pressed(ImGuiKey key, bool repeat = false) { //
-        const bool pressed = filter(key) && ImGui::IsKeyPressed(key, repeat);
-        if constexpr (highlight) {
-            if (pressed) {
-                highlight_item();
-            }
-        }
-        return pressed;
-    }
-
-    static bool test_pressed_and_highlight(ImGuiKey key, bool repeat = false) { //
-        return test_pressed<true>(key, repeat);
-    }
-
-    template <bool highlight = false>
-    static bool test_down(ImGuiKey key) { //
-        const bool down = filter(key) && ImGui::IsKeyDown(key);
-        if constexpr (highlight) {
-            if (down) {
-                highlight_item();
-            }
-        }
-        return down;
-    }
-
-    static bool test_down_and_highlight(ImGuiKey key) { //
-        return test_down<true>(key);
+        return test_down(key) && ImGui::IsKeyPressed(key, repeat);
     }
 };
 
@@ -216,6 +192,7 @@ inline bool first_of_this_window() {
     return compare_update(prev, GImGui->CurrentWindow->RootWindow);
 }
 
+// TODO: whether to highlight scroll bar?
 // There can be at most one call in each window.
 inline void set_scroll_with_up_down() {
     assert(first_of_this_window<set_scroll_with_up_down>());
@@ -591,7 +568,7 @@ public:
         //     not_disabled && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows); // Including popup.
         // assert_implies(shortcut_avail, shortcut_visible);
         const auto item_shortcut = [shortcut_avail](ImGuiKey key) {
-            return shortcut_avail && shortcuts::test_pressed_and_highlight(key);
+            return shortcut_avail && shortcuts::test_pressed(key) && highlight_item();
         };
 
         if (ImGui::Button(label_first)) {
@@ -691,13 +668,13 @@ public:
         ImGui::SameLine(0, s);
         // (`InputScalar` makes .FramePadding.x = y for these buttons, not added here.)
         if (ImGui::Button("-", ImVec2(r, r)) ||
-            (minus != ImGuiKey_None && shortcuts::test_pressed_and_highlight(minus, true))) {
+            (minus != ImGuiKey_None && shortcuts::test_pressed(minus, true) && highlight_item())) {
             --u;
         }
         // imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init - 1))); }); // (too noisy)
         ImGui::SameLine(0, s);
         if (ImGui::Button("+", ImVec2(r, r)) ||
-            (plus != ImGuiKey_None && shortcuts::test_pressed_and_highlight(plus, true))) {
+            (plus != ImGuiKey_None && shortcuts::test_pressed(plus, true) && highlight_item())) {
             ++u;
         }
         // imgui_ItemTooltip([&] { imgui_Str(to_str(to_v(u_init + 1))); });
