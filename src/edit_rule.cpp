@@ -463,7 +463,6 @@ public:
     }
 
     void debug_capture_in_popup() {
-        assert(debug_mode);
         if (ImGui::Selectable("Example (gliders)")) {
             // Gliders in all directions. (Capture a glider & 'Iso' -> Copy)
             constexpr const char* str =
@@ -926,6 +925,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
         // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Page", child_size)) {
+            set_scroll_with_up_down();
             constexpr int perline = 2;
             for (int i = 0; auto& rule : rules) {
                 const int this_i = i++;
@@ -1582,6 +1582,7 @@ void edit_rule(frame_main_token) {
     // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
+        set_scroll_with_up_down();
         const bool comp_mode = disp_mode == displayE::Comp;
         const auto disp = [&] {
             aniso::codeT::map_to<bool> disp{};

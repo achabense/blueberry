@@ -26,6 +26,12 @@ static open_state intro_window(frame_main_token) {
                                      "All the other shortcuts (including 'H') require Ctrl not to be pressed.");
             // & Ctrl+C to copy tooltip (debug mode)
 
+            if constexpr (init_set_scroll_with_up_down) {
+                // TODO: lacks example in this window.
+                ImGui::Bullet();
+                imgui_Str("Press up/down arrow keys to set scroll in the focused window.");
+            }
+
             ImGui::Bullet();
             imgui_Str("Press left/right arrow keys to control '</>' in the focused window.");
 

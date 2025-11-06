@@ -107,6 +107,8 @@ inline constexpr bool init_show_intro = true;
 inline constexpr bool init_extra_tooltips = true;
 inline constexpr bool init_compact_mode = false;
 inline constexpr bool init_selectables_use_button_color = false;
+// TODO: cannot decide test_down vs test_pressed / dy...
+inline constexpr bool init_set_scroll_with_up_down = debug_mode;
 
 inline void highlight_item() { ImGui::NavHighlightActivated(ImGui::GetItemID()); }
 inline void highlight_item(ImGuiID id) { ImGui::NavHighlightActivated(id); }
@@ -203,6 +205,32 @@ inline void lock_scroll() {
 }
 
 inline bool may_scroll() { return ImGui::TestKeyOwner(ImGuiKey_MouseWheelY, ImGuiKeyOwner_NoOwner); }
+
+template <auto>
+inline bool first_of_this_window() {
+    static const ImGuiWindow* prev = nullptr;
+    static int frame = -1;
+    if (compare_update(frame, ImGui::GetFrameCount())) {
+        prev = nullptr;
+    }
+    return compare_update(prev, GImGui->CurrentWindow->RootWindow);
+}
+
+// There can be at most one call in each window.
+inline void set_scroll_with_up_down() {
+    assert(first_of_this_window<set_scroll_with_up_down>());
+    if constexpr (init_set_scroll_with_up_down) {
+        if (imgui_IsWindowFocused() && may_scroll() && shortcuts::no_active_and_no_ctrl() &&
+            imgui_IsWindowHoverable()) {
+            constexpr int dy = 1;
+            if (shortcuts::test_down(ImGuiKey_UpArrow)) {
+                ImGui::SetScrollY(ImGui::GetScrollY() - dy);
+            } else if (shortcuts::test_down(ImGuiKey_DownArrow)) {
+                ImGui::SetScrollY(ImGui::GetScrollY() + dy);
+            }
+        }
+    }
+}
 
 // It's enough to focus the source window by calling `SetWindowFocus` before `OpenPopup`.
 // However, the parent window will be brought to foreground immediately, while the popup will appear at next frame due to auto-resize...
@@ -454,6 +482,10 @@ inline bool imgui_SelectableStyledButton(const char* label, const bool selected 
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 
     static ImGuiID prev_id = 0;
+    static int frame = -1;
+    if (compare_update(frame, ImGui::GetFrameCount())) {
+        prev_id = 0;
+    }
     if (prev_id != 0 && prev_id == ImGui::GetItemID()) {
         // As if the last call used `ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0)`.
         // (PushStyleVar-ItemSpacing affects the spacing to the next item. See `ImGui::ItemSize` for details.)
@@ -506,6 +538,10 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 
     static ImGuiID prev_id = 0;
+    static int frame = -1;
+    if (compare_update(frame, ImGui::GetFrameCount())) {
+        prev_id = 0;
+    }
     if (prev_id != 0 && prev_id == ImGui::GetItemID()) {
         // As if the last call used `ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0)`.
         // (PushStyleVar-ItemSpacing affects the spacing to the next item. See `ImGui::ItemSize` for details.)
@@ -536,9 +572,10 @@ inline int imgui_CalcSelectableStyledButtonHeight() { return ImGui::GetFontSize(
 // (No longer need to be a class.)
 class sequence : no_create {
 public:
-    // There can be at most one seq in each window hierarchy.
+    // There can be at most one call in each window.
     // 0:first, 1:prev, 2:next, 3:last
     static int seq(const char* label_first, const char* label_prev, const char* label_next, const char* label_last) {
+        assert(first_of_this_window<seq>());
         enum tagE : int { None = -1, First, Prev, Next, Last };
         tagE tag = None;
 

@@ -485,6 +485,7 @@ private:
         assert_implies(current, type == File); // (Due to `assign_dir_or_file`.)
         const folderT::entryT* sel = nullptr;
         if (auto child = imgui_ChildWindow("Entries")) {
+            set_scroll_with_up_down();
             bool any = false;
 
             // To distinguish files and folders.
@@ -788,6 +789,7 @@ public:
                 constexpr int limit = 10;
                 const float h = std::min((int)m_highlighted.size(), limit) * imgui_CalcSelectableStyledButtonHeight();
                 if (auto child = imgui_ChildWindow("Sections", {0, h}, ImGuiChildFlags_AutoResizeX)) {
+                    set_scroll_with_up_down();
                     for (int id = 0; const int l : m_highlighted) {
                         if (imgui_SelectableStyledButtonEx(id++, m_lines[l].str.get(m_text))) {
                             to_line(l, true);
@@ -986,6 +988,7 @@ private:
         // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
         if (auto child = imgui_ChildWindow("Content")) {
+            set_scroll_with_up_down();
             if (old_scroll) {
                 messenger::dot_if(*old_scroll == window_scroll());
                 old_scroll.reset();
