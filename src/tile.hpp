@@ -435,7 +435,9 @@ namespace aniso {
             return;
         }
 
-        for_assertion(const cellT test = source.at(0, 0));
+#ifdef YDEBUG
+        const cellT test = source.at(0, 0);
+#endif
         source.for_each_line([&](const int y, const cellT* const line) {
             cellT* const dest_ = dest.line((y + to.y) % size.y);
             std::copy_n(line, size.x - to.x, dest_ + to.x);

@@ -11,10 +11,8 @@
 
 #ifndef NDEBUG
 #define YDEBUG
-#define for_assertion(v) v
 inline constexpr bool debug_mode = true;
 #else
-#define for_assertion(v)
 inline constexpr bool debug_mode = false;
 #endif
 

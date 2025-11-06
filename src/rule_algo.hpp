@@ -350,7 +350,9 @@ namespace aniso {
             }
         };
 
-        for_assertion(const partitionT p_ab = a.p | b.p);
+#ifdef YDEBUG
+        const partitionT p_ab = a.p | b.p;
+#endif
         if (a_lock) {
             for (const codeT code : each_code) {
                 if ((*a_lock)[code] && !assigned[code]) {
