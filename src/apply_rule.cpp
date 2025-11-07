@@ -1045,7 +1045,8 @@ public:
             ImGui::EndDisabled();
         });
         // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
-        ImGui::SameLine(cursor_pos);
+        // ImGui::SameLine(cursor_pos); // Relying on window context; see https://github.com/ocornut/imgui/issues/9057
+        ImGui::SameLine(0, 0), ImGui::SetCursorPosX(cursor_pos);
         ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(),
                     m_sel ? m_torus.density(m_sel->to_range()) : m_torus.density());
         // TODO: has no stable offset (can break hover)...

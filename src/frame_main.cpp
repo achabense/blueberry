@@ -263,7 +263,7 @@ void frame_main() {
             constexpr float min_w = 8;
             if (show_edit_rule) {
                 ImGui::TableNextColumn();
-                // TODO: is child window still necessary? (Was for stable scrolling.)
+                // (Child window seems no longer necessary (except that it prevents auto-fitting).)
                 if (auto child = imgui_ChildWindow("Rule", {}, 0, ImGuiWindowFlags_NoScrollbar)) {
                     edit_rule({});
                     if (ImGui::GetContentRegionAvail().x < min_w) {

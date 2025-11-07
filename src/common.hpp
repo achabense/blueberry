@@ -107,7 +107,6 @@ inline constexpr bool init_show_intro = true;
 inline constexpr bool init_extra_tooltips = true;
 inline constexpr bool init_compact_mode = false;
 inline constexpr bool init_selectables_use_button_color = false;
-// TODO: cannot decide test_down vs test_pressed / dy...
 inline constexpr bool init_set_scroll_with_up_down = debug_mode;
 
 // (Return true for && chaining.)
@@ -192,18 +191,19 @@ inline bool first_of_this_window() {
     return compare_update(prev, GImGui->CurrentWindow->RootWindow);
 }
 
-// TODO: whether to highlight scroll bar?
+// TODO: cannot decide test_down vs test_pressed / dy...
 // There can be at most one call in each window.
 inline void set_scroll_with_up_down() {
     assert(first_of_this_window<set_scroll_with_up_down>());
     if constexpr (init_set_scroll_with_up_down) {
         if (imgui_IsWindowFocused() && may_scroll() && shortcuts::no_active_and_no_ctrl() &&
             imgui_IsWindowHoverable()) {
-            constexpr int dy = 1;
-            if (shortcuts::test_down(ImGuiKey_UpArrow)) {
-                ImGui::SetScrollY(ImGui::GetScrollY() - dy);
-            } else if (shortcuts::test_down(ImGuiKey_DownArrow)) {
+            const int dy = shortcuts::test_down(ImGuiKey_UpArrow)     ? -1
+                           : shortcuts::test_down(ImGuiKey_DownArrow) ? 1
+                                                                      : 0;
+            if (dy != 0) {
                 ImGui::SetScrollY(ImGui::GetScrollY() + dy);
+                highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
             }
         }
     }
