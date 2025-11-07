@@ -120,15 +120,11 @@ inline void highlight_item(ImGuiID id) { ImGui::NavHighlightActivated(id); }
 // Some features cannot easily be satisfied with `ImGui::Shortcut` and `ImGui::SetNextItemShortcut`.
 class shortcuts : no_create {
 public:
-    static bool ctrl() { return GImGui->IO.KeyCtrl; }
-    static bool no_ctrl() { return !GImGui->IO.KeyCtrl; }
-
     static bool no_input() { return !GImGui->IO.WantTextInput; }
     static bool global_flag(ImGuiKey key) { return no_input() && ImGui::IsKeyDown(key); }
 
     // (`IO.WantCaptureKeyboard` is for notifying non-imgui parts.)
     static bool no_active() { return !GImGui->ActiveId && no_input(); }
-    static bool no_active_and_no_ctrl() { return no_active() && no_ctrl(); }
 
 private:
     inline static ImGuiKey occupied = ImGuiKey_None;
@@ -196,8 +192,7 @@ inline bool first_of_this_window() {
 inline void set_scroll_with_up_down() {
     assert(first_of_this_window<set_scroll_with_up_down>());
     if constexpr (init_set_scroll_with_up_down) {
-        if (imgui_IsWindowFocused() && may_scroll() && shortcuts::no_active_and_no_ctrl() &&
-            imgui_IsWindowHoverable()) {
+        if (imgui_IsWindowFocused() && may_scroll() && shortcuts::no_active() && imgui_IsWindowHoverable()) {
             const int dy = shortcuts::test_down(ImGuiKey_UpArrow)     ? -1
                            : shortcuts::test_down(ImGuiKey_DownArrow) ? 1
                                                                       : 0;
@@ -557,9 +552,10 @@ public:
         tagE tag = None;
 
         const bool not_disabled = !imgui_TestItemFlag(ImGuiItemFlags_Disabled);
+        // TODO: does focused imply hoverable?
         // (Used to require `may_scroll` to avoid previewed rule being changed by shortcut; perhaps no longer needed.)
         const bool shortcut_avail = not_disabled && imgui_IsWindowFocused() // Not including popup hierarchy.
-                                    && may_scroll() && shortcuts::no_active_and_no_ctrl() && imgui_IsWindowHoverable();
+                                    && may_scroll() && shortcuts::no_active() && imgui_IsWindowHoverable();
 
         // TODO: use `shortcut_avail` directly?
         // (Ideally should highlight iff the window's title bar uses `ImGuiCol_TitleBgActive` (see `RenderWindowDecorations`).)

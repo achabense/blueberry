@@ -93,7 +93,7 @@ static void hex_image(const aniso::tile_const_ref source, const aniso::vecT /*so
 }
 
 static bool want_hex_mode(const aniso::ruleT& rule) {
-    if (shortcuts::no_ctrl() && shortcuts::global_flag(ImGuiKey_6)) {
+    if (shortcuts::global_flag(ImGuiKey_6)) {
         if (!rule_algo::is_hexagonal_rule(rule)) {
             // (But actually, the projection still corresponds to a range-2 hex rule.)
             messenger::set_msg("The rule does not belong to 'Hex'.");
@@ -728,7 +728,7 @@ public:
         const bool canvas_hovered_or_held = imgui_IsItemOrNoneActive(canvas_id) && (ImGui::GetHoveredID() == canvas_id);
 
         const auto set_init_state_in_popup = [&] {
-            const auto item_shortcut = [enable_shortcuts = shortcuts::no_active_and_no_ctrl()](ImGuiKey key) {
+            const auto item_shortcut = [enable_shortcuts = shortcuts::no_active()](ImGuiKey key) {
                 return enable_shortcuts && shortcuts::test_pressed(key, false) && highlight_item();
             };
 
@@ -863,7 +863,7 @@ public:
         ImGui::PushItemWidth(item_width());
         ImGui::BeginGroup();
         {
-            const bool enable_shortcuts = canvas_hovered_or_held && shortcuts::no_ctrl();
+            const bool enable_shortcuts = canvas_hovered_or_held;
             const auto item_shortcut = [enable_shortcuts](ImGuiKey key, bool repeat) {
                 return enable_shortcuts && shortcuts::test_pressed(key, repeat) && highlight_item();
             };
@@ -1550,7 +1550,7 @@ private:
 
         const op_term* op = nullptr;
 
-        if (canvas_hovered_or_held && shortcuts::no_ctrl()) {
+        if (canvas_hovered_or_held) {
             static constexpr const op_term* op_list[]{
                 &op_random_flip, &op_flip,    &op_clear_inside, &op_clear_outside, &op_select_all, &op_bounding_box,
                 &op_copy,        &op_extract, &op_identify,     &op_paste,         &op_capture,
@@ -1953,13 +1953,12 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     _global_data::opT op = has_group_op ? _global_data::group_op.op : _global_data::opT{};
     if (hovered && (active || shortcuts::no_active())) {
         // (Using unfiltered shortcut for `p_f` for smoother inter with seq op (<</>>).)
-        const bool no_ctrl = shortcuts::no_ctrl();
         const _global_data::opT op2 = {.pause = active,
-                                       .restart = no_ctrl && shortcuts::test_pressed(ImGuiKey_R),
-                                       .p_s = no_ctrl && shortcuts::test_pressed(ImGuiKey_S, true),
-                                       .p_1 = no_ctrl && shortcuts::test_pressed(ImGuiKey_D, true),
-                                       .p_f = no_ctrl && shortcuts::global_flag(ImGuiKey_F)};
-        if (no_ctrl && shortcuts::global_flag(ImGuiKey_A)) {
+                                       .restart = shortcuts::test_pressed(ImGuiKey_R),
+                                       .p_s = shortcuts::test_pressed(ImGuiKey_S, true),
+                                       .p_1 = shortcuts::test_pressed(ImGuiKey_D, true),
+                                       .p_f = shortcuts::global_flag(ImGuiKey_F)};
+        if (shortcuts::global_flag(ImGuiKey_A)) {
             _global_data::group_op_next = {.owner = uintptr_t(&config), .op = op2};
         } else if (!has_group_op) {
             op = op2;
