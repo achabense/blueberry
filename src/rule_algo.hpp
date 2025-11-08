@@ -87,12 +87,6 @@ namespace aniso {
         }
     }
 
-    [[nodiscard]] inline ruleT flip_values_v(const groupT& group, const ruleT& r) {
-        ruleT rule = r;
-        flip_values_r(group, rule);
-        return rule;
-    }
-
     inline const codeT* find_locked(const groupT& group, const lockT& l, const bool v = true) {
         for (const codeT& c : group) {
             if (l[c] == v) {

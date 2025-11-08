@@ -1069,7 +1069,7 @@ private:
                         ImGui::SameLine();
 
                         ImGui::PopStyleVar(); // (Workaround to avoid affecting popup & tooltip.)
-                        previewer::preview(rule.pos, m_preview.settings, rule.get(m_rules) /*cheap call*/);
+                        previewer::preview(rule.pos, m_preview.settings, rule.get(m_rules));
                         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
                         ImGui::EndGroup();

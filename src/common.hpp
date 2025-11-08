@@ -928,7 +928,8 @@ public:
 
     // (Note: type-erasure doesn't apply here.)
     // (`const ruleT&()` cannot adapt `ruleT()` calls, while `ruleT()` is unnecessarily costly for `const ruleT&()` calls.)
-    static void preview(const uint32_t id, const configT& config, const auto& rule_or_get_rule) {
+    // const auto& rule ~ implicitly convertible to const ruleT&.
+    static void preview(const uint32_t id, const configT& config, const auto& rule) {
         ImGui::PushID(id);
         ImGui::InvisibleButton("Preview", config.size_imvec());
         ImGui::PopID();
@@ -939,15 +940,7 @@ public:
             imgui_ItemRect(default_border_color());
         } else {
             const uint64_t id2 = (uint64_t(ImGui::GetItemID()) << 32) | id;
-            if constexpr (implicitly_convertible_to<decltype(rule_or_get_rule), const aniso::ruleT&>) {
-                _preview(id2, config, rule_or_get_rule);
-            } else if constexpr (requires {
-                                     { rule_or_get_rule() } -> implicitly_convertible_to<const aniso::ruleT&>;
-                                 }) {
-                _preview(id2, config, rule_or_get_rule());
-            } else {
-                static_assert(always_false_v<decltype(rule_or_get_rule)>);
-            }
+            _preview(id2, config, rule);
         }
     }
 

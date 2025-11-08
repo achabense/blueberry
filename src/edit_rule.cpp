@@ -1583,6 +1583,7 @@ void edit_rule(frame_main_token) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
     if (auto child = imgui_ChildWindow("Groups")) {
         set_scroll_with_up_down();
+        aniso::ruleT temp_target = show_random_access ? target.get() : aniso::ruleT{};
         const bool comp_mode = disp_mode == displayE::Comp;
         const auto disp = [&] {
             aniso::codeT::map_to<bool> disp{};
@@ -1667,27 +1668,26 @@ void edit_rule(frame_main_token) {
             const bool locked = working_set.lock[head];
             bool hov = false;
             if (show_random_access) {
-                const auto get_adjacent_rule = [&] { return aniso::flip_values_v(group, target); };
-
+                aniso::flip_values_r(group, temp_target);
                 // !!TODO: (v0.9.9) support exploring rules in locked groups...
                 // Support flipping locked values directly? (But how should [Z] be specified?)
                 // Or support disabling the sorting? (So users can unselect p-set without losing track.)
                 ImGui::BeginGroup();
                 ImGui::BeginDisabled(locked);
                 if (code_button_with_label(head, &hov)) {
-                    const aniso::ruleT r = get_adjacent_rule();
-                    if (!target.try_set(&r, working_set)) { // Must succeed.
+                    if (!target.try_set(&temp_target, working_set)) { // Must succeed.
                         assert(false);
                     }
                 }
                 ImGui::EndDisabled();
                 random_access_status::begin_disabled();
-                previewer::preview(/*id ~*/ this_n, config, get_adjacent_rule /*()*/);
+                previewer::preview(/*id ~*/ this_n, config, temp_target);
                 random_access_status::end_disabled();
                 if (locked && ImGui::IsItemVisible()) { // !!TODO: (v0.9.9) improve...
                     imgui_ItemRectFilled(IM_COL32_GREY(128, 64 /*48*/));
                 }
                 ImGui::EndGroup();
+                aniso::flip_values_r(group, temp_target); // Restore.
             } else {
                 ImGui::BeginDisabled(locked);
                 code_image_with_label(head, &hov);
