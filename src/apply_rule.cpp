@@ -322,8 +322,6 @@ class runnerT : no_copy {
         runnerT& self;
         bool enabled = false; // Disabled during member init.
 
-        std::optional<bool> stashed_pause = std::nullopt;
-
     public:
         handlerT(runnerT& self) : self{self} {}
         void enable() { enabled = true; }
@@ -343,20 +341,7 @@ class runnerT : no_copy {
 
         void on_pattern_set() {
             assert(enabled);
-            const bool p = self.m_ctrl.get_pause();
             self.m_ctrl.set_pause(true);
-            stashed_pause = p;
-        }
-        void on_pause_written() {
-            assert(enabled);
-            stashed_pause.reset();
-        }
-        void on_pattern_reset() {
-            assert(enabled);
-            if (stashed_pause) {
-                self.m_ctrl.set_pause(*stashed_pause); // -> on_pause_written
-                assert(!stashed_pause);
-            }
         }
     };
 
@@ -393,14 +378,10 @@ class runnerT : no_copy {
         bool extra_pause = false;
 
     private:
-        bool pause = false;
+        bool pause = false; // TODO: needn't be private now.
         bool delay = false; // Affects only auto mode.
 
-        handlerT& m_handler;
-
     public:
-        ctrlT(handlerT& m_handler) : m_handler{m_handler} {}
-
         int calc_step(const aniso::ruleT& rule, const bool newly_restarted, const bool ex_delay) {
             const stepE ex_step = std::exchange(extra_step, None);
             const bool ex_pause = std::exchange(extra_pause, false) || pause;
@@ -429,14 +410,11 @@ class runnerT : no_copy {
         }
 
         bool get_pause() const { return pause; }
-        void set_pause(bool p) {
-            pause = p;
-            m_handler.on_pause_written();
-        }
-        void flip_pause() { set_pause(!pause); }
+        void set_pause(bool p) { pause = p; }
+        void flip_pause() { pause = !pause; }
     };
 
-    ctrlT m_ctrl{m_handler};
+    ctrlT m_ctrl{};
 
     class torusT : no_copy {
     public:
@@ -634,7 +612,6 @@ class runnerT : no_copy {
         void reset() {
             if (std::exchange(has_value, false)) {
                 data.tile.clear();
-                m_handler.on_pattern_reset();
             }
         }
     };
