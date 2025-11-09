@@ -1009,27 +1009,34 @@ public:
         m_appearing.reset_if_appearing(show_op_window);
         ImGui::Checkbox("Edit-pattern", &show_op_window);
         const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
-        ImGui::SameLine(0, wide_spacing);
-        if (m_sel) {
-            ImGui::Text("Selected:%d*%d", m_sel->width(), m_sel->height());
-        } else {
-            imgui_Str("Selected:N/A");
-        }
-        rclick_popup::for_text([&] {
-            ImGui::BeginDisabled(!m_sel.has_value());
-            if (ImGui::Selectable("Unselect")) { // "Clear" would be misleading here.
-                m_sel.reset();
+
+        // !!TODO: (v0.9.9) workaround to display updated info. (`m_torus.run()` happens after canvas button.)
+        // (Currently the sync logic is messy and heavily constrained; should redesign if possible...)
+        // ImGui::SameLine(0, wide_spacing);
+        const ImVec2 supposed_abs_pos = imgui_GetItemRect().GetTR() + ImVec2(wide_spacing, 0);
+        const auto unfortunately_delayed = [&] {
+            ImGui::AlignTextToFramePadding(); // Line context has been lost. Need to realign.
+            if (m_sel) {
+                ImGui::Text("Selected:%d*%d", m_sel->width(), m_sel->height());
+            } else {
+                imgui_Str("Selected:N/A");
             }
-            ImGui::EndDisabled();
-        });
-        // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
-        // ImGui::SameLine(cursor_pos); // Relying on window context; see https://github.com/ocornut/imgui/issues/9057
-        ImGui::SameLine(0, 0), ImGui::SetCursorPosX(cursor_pos);
-        ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(),
-                    m_sel ? m_torus.density(m_sel->to_range()) : m_torus.density());
-        // TODO: has no stable offset (can break hover)...
-        // ImGui::SameLine();
-        // imgui_StrTooltip("(?)", "Density of the selected area (or the entire space).");
+            rclick_popup::for_text([&] {
+                ImGui::BeginDisabled(!m_sel.has_value());
+                if (ImGui::Selectable("Unselect")) { // "Clear" would be misleading here.
+                    m_sel.reset();
+                }
+                ImGui::EndDisabled();
+            });
+            // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
+            // ImGui::SameLine(cursor_pos); // Relying on window context; see https://github.com/ocornut/imgui/issues/9057
+            ImGui::SameLine(0, 0), ImGui::SetCursorPosX(cursor_pos);
+            ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(),
+                        m_sel ? m_torus.density(m_sel->to_range()) : m_torus.density());
+            // TODO: has no stable offset (can break hover)...
+            // ImGui::SameLine();
+            // imgui_StrTooltip("(?)", "Density of the selected area (or the entire space).");
+        };
 
         // ImGui::Separator();
 
@@ -1252,6 +1259,10 @@ public:
             }
 
             assert(tile_size == m_torus.size());
+
+            ImGui::SetCursorScreenPos(supposed_abs_pos);
+            unfortunately_delayed();
+            // Note: next widget will have wrong pos. (Working as nothing follows.)
         }
     }
 
