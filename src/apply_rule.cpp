@@ -1870,7 +1870,8 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                                   "Restart : R\n"
                                   "Pause   : Space\n"
                                   "+s/+1/+!: S/D/F\n\n"
-                                  "Press 'A' to apply shortcuts to the entire group.");
+                                  "Press 'A' to apply shortcuts to all preview windows.\n"
+                                  "Press 'G' to apply to the entire group.");
         ImGui::SameLine();
         // imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
         imgui_StrDisabled("Belongs");
@@ -1937,7 +1938,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
 
     const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
-    const bool has_group_op = _global_data::group_op.owner == uintptr_t(&config);
+    const bool has_group_op = _global_data::group_op.owner == 1 || _global_data::group_op.owner == uintptr_t(&config);
     _global_data::opT op = has_group_op ? _global_data::group_op.op : _global_data::opT{};
     if (hovered && (active || shortcuts::no_active())) {
         // (Using unfiltered shortcut for `p_f` for smoother inter with seq op (<</>>).)
@@ -1948,6 +1949,8 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                                        .p_1 = shortcuts::test_pressed(ImGuiKey_D, true),
                                        .p_f = shortcuts::global_flag(ImGuiKey_F)};
         if (shortcuts::global_flag(ImGuiKey_A)) {
+            _global_data::group_op_next = {.owner = 1, .op = op2};
+        } else if (shortcuts::global_flag(ImGuiKey_G)) {
             _global_data::group_op_next = {.owner = uintptr_t(&config), .op = op2};
         } else if (!has_group_op) {
             op = op2;
