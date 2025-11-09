@@ -393,8 +393,9 @@ class runnerT : no_copy {
                 // (Unless paused) skip displaying initial state for better visual.
                 delay = true;
                 return adjust_step(step, strobing(rule));
-            } else if (ex_pause && ex_step == Ps) {
+            } else if (ex_step == Ps) {
                 delay = true;
+                set_pause(true);
                 return adjust_step(step, strobing(rule));
             } else if (ex_step == P1) {
                 delay = true;
@@ -882,7 +883,7 @@ public:
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
             ImGui::SameLine();
             imgui_StrTooltip("(?)", [] {
-                imgui_StrPair("+s: ", "Run manually, i.e. advance generation by 'Step' (only if paused).");
+                imgui_StrPair("+s: ", "Run manually, i.e. pause and advance generation by 'Step'.");
                 imgui_StrPair("+1: ", "Advance generation by 1 (instead of 'Step').");
                 imgui_StrPair("+!: ", "Speed up manually, i.e. advance generation by 10 in every frame.");
             });
@@ -1743,6 +1744,7 @@ struct previewer::_global_data : no_create {
 
     struct termT {
         bool active = false;
+        bool pause = false;
         bool delay = false;     // (Affects only auto mode.)
         initT init = init_init; // (Whichever is ok; just to allow for default construction.)
         aniso::ruleT rule = {};
@@ -1753,7 +1755,7 @@ struct previewer::_global_data : no_create {
 
     // (Workaround to support group op; configT should live across frames.)
     struct opT {
-        bool pause = false, restart = false, p_s = false, p_1 = false, p_f = false;
+        bool extra_pause = false, restart = false, flip_pause = false, p_s = false, p_1 = false, p_f = false;
     };
     struct opT_ex {
         uintptr_t owner = 0; // (To avoid storing invalid ptr.)
@@ -1854,12 +1856,10 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     const rclick_popup::hoverE hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
         // & '6' to see the projected view in hexagonal space.
         imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n\n"
-                                  "(Press 'A' to apply to the entire group.)\n"
-                                  "Hold to pause.\n"
-                                  "'R' to restart.\n"
-                                  "'S' to run manually.\n"
-                                  "'D' to advance generation by 1.\n"
-                                  "'F' to speed up manually.");
+                                  "Restart : R\n"
+                                  "Pause   : Space\n"
+                                  "+s/+1/+!: S/D/F\n\n"
+                                  "Press 'A' to apply shortcuts to the entire group.");
         ImGui::SameLine();
         // imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
         imgui_StrDisabled("Belongs");
@@ -1930,8 +1930,9 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     _global_data::opT op = has_group_op ? _global_data::group_op.op : _global_data::opT{};
     if (hovered && (active || shortcuts::no_active())) {
         // (Using unfiltered shortcut for `p_f` for smoother inter with seq op (<</>>).)
-        const _global_data::opT op2 = {.pause = active,
+        const _global_data::opT op2 = {.extra_pause = active,
                                        .restart = shortcuts::test_pressed(ImGuiKey_R),
+                                       .flip_pause = shortcuts::test_pressed(ImGuiKey_Space),
                                        .p_s = shortcuts::test_pressed(ImGuiKey_S, true),
                                        .p_1 = shortcuts::test_pressed(ImGuiKey_D, true),
                                        .p_f = shortcuts::global_flag(ImGuiKey_F)};
@@ -1946,11 +1947,17 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                          term.tile.resize(tile_size) + compare_update(term.init, _global_data::init) +
                          compare_update(term.rule, rule);
     if (restart) {
+        // !!TODO: let pattern editor resume on restart (unconditionally) as well?
+        // (Required here so A+R can resume all preview windows; otherwise users have to do A+S+Space.)
+        term.pause = false;
         term.init.initialize(term.tile);
+    }
+    if (op.flip_pause) {
+        term.pause = !term.pause;
     }
 
     const int step = [&] {
-        const bool pause = op.pause || passing;
+        const bool pause = op.extra_pause || passing || term.pause;
         if (pause) {
             term.delay = true;
         }
@@ -1959,8 +1966,9 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             // (Unless paused, skip displaying initial state for better visual.)
             term.delay = true;
             return adjust_step(config.step, strobing(rule));
-        } else if (pause && op.p_s) {
+        } else if (op.p_s) {
             term.delay = true;
+            term.pause = true;
             return adjust_step(config.step, strobing(rule));
         } else if (op.p_1) {
             term.delay = true;
@@ -1986,6 +1994,8 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     imgui_ItemRect(has_group_op                ? rclick_popup::highlight_col(false)
                    : hov == rclick_popup::None ? default_border_color()
                                                : rclick_popup::highlight_col(hov == rclick_popup::PopupVisible));
+    // TODO: add visual for pause state...
+    // (Some rules converge fast, then it's not obvious whether the space is paused or not...)
 
     const bool popup_hidden = hov == rclick_popup::PopupHidden;
     const bool tooltip = !has_group_op && (hovered || popup_hidden) &&
