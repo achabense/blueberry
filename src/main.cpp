@@ -3,6 +3,7 @@
 
 // Unfortunately, SDL2-renderer backend doesn't support docking features...
 // https://github.com/ocornut/imgui/issues/5835
+// TODO: what about SDL3?
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>

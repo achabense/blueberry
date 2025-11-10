@@ -1014,7 +1014,7 @@ public:
         // (Currently the sync logic is messy and heavily constrained; should redesign if possible...)
         // ImGui::SameLine(0, wide_spacing);
         const ImVec2 supposed_abs_pos = imgui_GetItemRect().GetTR() + ImVec2(wide_spacing, 0);
-        const auto unfortunately_delayed = [&] {
+        const auto unfortunately_deferred = [&] {
             ImGui::AlignTextToFramePadding(); // Line context has been lost. Need to realign.
             if (m_sel) {
                 ImGui::Text("Selected:%d*%d", m_sel->width(), m_sel->height());
@@ -1261,7 +1261,7 @@ public:
             assert(tile_size == m_torus.size());
 
             ImGui::SetCursorScreenPos(supposed_abs_pos);
-            unfortunately_delayed();
+            unfortunately_deferred();
             // Note: next widget will have wrong pos. (Working as nothing follows.)
         }
     }
@@ -1870,8 +1870,8 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                                   "Restart : R\n"
                                   "Pause   : Space\n"
                                   "+s/+1/+!: S/D/F\n\n"
-                                  "Press 'A' to apply shortcuts to all preview windows.\n"
-                                  "Press 'G' to apply to the entire group.");
+                                  "Press 'G' to apply shortcuts to the entire group.\n"
+                                  "Press 'A' to apply to all preview windows.");
         ImGui::SameLine();
         // imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
         imgui_StrDisabled("Belongs");
