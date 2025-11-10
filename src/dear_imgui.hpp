@@ -330,9 +330,10 @@ inline void imgui_StrTooltipForTitleBar(const std::string_view str, const std::s
         const bool has_collapse_button =
             !(window.Flags & ImGuiWindowFlags_NoCollapse) && (GImGui->Style.WindowMenuButtonPosition == ImGuiDir_Left);
         const ImVec2 old_pos = ImGui::GetCursorScreenPos();
-        ImGui::SetCursorPos({ImGui::CalcTextSize(window_name, nullptr, true).x +
-                                 ImGui::GetFrameHeight() * (has_collapse_button ? 2 : 1),
-                             0});
+        const float off =
+            ImGui::CalcTextSize(window_name, nullptr, true).x + ImGui::GetFrameHeight() * (has_collapse_button ? 2 : 1);
+        // (Shouldn't be `SetCursorPos(...)`; it's affected by window-scroll.)
+        ImGui::SetCursorScreenPos(window.Pos + ImVec2{off, 0});
         ImGui::AlignTextToFramePadding();
         imgui_StrColored(
             str, ImLerp(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), ImGui::GetStyleColorVec4(ImGuiCol_Text), 0.5));
@@ -453,6 +454,16 @@ inline float imgui_CalcContentTotalWidth() {
 }
 
 // (Referring to `ImGui::Get/SetCursorScreenPos(...)`.)
+inline float imgui_GetCursorScreenPosX() { //
+    return GImGui->CurrentWindow->DC.CursorPos.x;
+}
+
+inline void imgui_SetCursorScreenPosX(float x) {
+    auto& DC = ImGui::GetCurrentWindow()->DC;
+    DC.CursorPos.x = std::floor(x);
+    DC.IsSetPos = true;
+}
+
 inline void imgui_AddCursorPosX(float dx) {
     auto& DC = ImGui::GetCurrentWindow()->DC;
     DC.CursorPos.x = std::floor(DC.CursorPos.x + dx);

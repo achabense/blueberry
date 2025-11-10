@@ -915,7 +915,7 @@ public:
         ImGui::EndGroup();
 
         ImGui::SameLine(0, imgui_ItemSpacingX() * 5);
-        const float cursor_pos = ImGui::GetCursorPosX();
+        const float right_col_abs_pos = imgui_GetCursorScreenPosX();
 
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
@@ -1032,7 +1032,7 @@ public:
             });
             // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
             // ImGui::SameLine(cursor_pos); // Relying on window context; see https://github.com/ocornut/imgui/issues/9057
-            ImGui::SameLine(0, 0), ImGui::SetCursorPosX(cursor_pos);
+            ImGui::SameLine(0, 0), imgui_SetCursorScreenPosX(right_col_abs_pos);
             ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(),
                         m_sel ? m_torus.density(m_sel->to_range()) : m_torus.density());
             // TODO: has no stable offset (can break hover)...
