@@ -654,6 +654,8 @@ public:
     void display() {
         if (m_appearing.update()) {
             reset_pos();
+            m_ctrl.set_pause(false);
+            m_torus.restart();
             m_paste.reset();
             m_sel.reset();
         }
@@ -854,6 +856,7 @@ public:
             ImGui::SameLine();
             if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false)) {
                 messenger::dot_if(m_ctrl.get_pause() && !m_torus.restart_has_effect());
+                // m_ctrl.set_pause(false);
                 m_torus.restart();
             }
             ImGui::SameLine();
@@ -955,8 +958,10 @@ public:
             if (ix || iy) {
                 reset_pos();
                 // Both values will be flushed if either receives the enter key.
-                if (!m_torus.try_resize({.x = ix.value_or(input_x.flush().value_or(size.x)),
-                                         .y = iy.value_or(input_y.flush().value_or(size.y))})) {
+                if (m_torus.try_resize({.x = ix.value_or(input_x.flush().value_or(size.x)),
+                                        .y = iy.value_or(input_y.flush().value_or(size.y))})) {
+                    // m_ctrl.set_pause(false);
+                } else {
                     messenger::dot();
                 }
             }
@@ -970,7 +975,9 @@ public:
                 // (`last_known_canvas_size` is 99.99% reliable here due to UI logic.)
                 if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
                     reset_pos();
-                    m_torus.try_resize(fullscreen_size(z, m_coord.last_known_canvas_size));
+                    if (m_torus.try_resize(fullscreen_size(z, m_coord.last_known_canvas_size))) {
+                        // m_ctrl.set_pause(false);
+                    }
                     // No need for dot.
                 }
                 imgui_ItemTooltip([&] {
@@ -1749,6 +1756,7 @@ struct previewer::_global_data : no_create {
     inline static initT init = init_init; // Globally shared.
 
     struct termT {
+        // bool appearing = true; // (Implied by `tile.empty()`.)
         bool active = false;
         bool pause = false;
         bool delay = false;     // (Affects only auto mode.)
@@ -1956,9 +1964,8 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                          term.tile.resize(tile_size) + compare_update(term.init, _global_data::init) +
                          compare_update(term.rule, rule);
     if (restart) {
-        // !!TODO: let pattern editor resume on restart (unconditionally) as well?
-        // (Required here so A+R can resume all preview windows; otherwise users have to do A+S+Space.)
-        term.pause = false;
+        // TODO: let pattern editor resume unconditionally as well (especially by shortcut)?
+        term.pause = false; // So A+R can resume all preview windows.
         term.init.initialize(term.tile);
     }
     if (op.flip_pause) {
