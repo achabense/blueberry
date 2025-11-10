@@ -333,12 +333,6 @@ class runnerT : no_copy {
             }
         }
 
-        void on_rule_changed() {
-            assert(enabled);
-            self.m_torus.restart();
-            self.m_ctrl.set_pause(false);
-        }
-
         void on_pattern_set() {
             assert(enabled);
             self.m_ctrl.set_pause(true);
@@ -349,24 +343,22 @@ class runnerT : no_copy {
 
     class targetT : no_copy {
         rule_with_rec rule = aniso::game_of_life();
-        handlerT& m_handler;
 
     public:
-        targetT(handlerT& m_handler) : m_handler{m_handler} {}
-
         operator const aniso::ruleT&() const { return rule.get(); }
         const aniso::ruleT& get() const { return rule.get(); }
         const rec_for_rule& rec() const { return rule.rec(); }
 
-        void set(const aniso::ruleT& r) {
-            if (rule.get() != r) { // !!TODO: whether to compare? (Whether to always restart?)
+        bool compare_update(const aniso::ruleT& r) {
+            if (rule.get() != r) {
                 rule.set(r);
-                m_handler.on_rule_changed(); // -> restart
+                return true;
             }
+            return false;
         }
     };
 
-    targetT m_rule{m_handler};
+    targetT m_rule{};
 
     class ctrlT : no_copy {
     public:
@@ -644,13 +636,17 @@ public:
     runnerT() { m_handler.enable(); }
 
     void set_rule(const aniso::ruleT& rule) {
-        messenger::dot_if(m_rule == rule);
-        m_rule.set(rule);
+        if (m_rule.compare_update(rule)) {
+            m_ctrl.set_pause(false);
+            m_torus.restart();
+        } else {
+            messenger::dot();
+        }
     }
     void set_rule_and_state(const aniso::ruleT& rule, const aniso::vecT& size, const initT& init) {
         reset_pos();
+        m_rule.compare_update(rule);
         m_ctrl.set_pause(false);
-        m_rule.set(rule);
         m_torus.restart(size, init);
     }
 
@@ -676,8 +672,7 @@ public:
             imgui_StrWithID(aniso::to_MAP_str(m_rule), ImGui::GetID("MAP-str"));
             pass_rule::source(m_rule);
             if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                messenger::dot_if(m_rule == *deliv);
-                m_rule.set(*deliv);
+                set_rule(*deliv);
             }
             rclick_popup::for_text([&] {
                 if (ImGui::Selectable("Copy rule")) {
@@ -1251,6 +1246,10 @@ public:
                 }
             }
 
+            ImGui::SetCursorScreenPos(supposed_abs_pos);
+            unfortunately_deferred();
+            // Note: next widget will have wrong pos. (Working as nothing follows in this window.)
+
             const bool canvas_hovered_or_held_ex =
                 canvas_hovered_or_held && (active || !ImGui::IsAnyItemActive()) && hovered;
             edit_pattern(canvas_hovered_or_held_ex, show_op_window);
@@ -1259,10 +1258,6 @@ public:
             }
 
             assert(tile_size == m_torus.size());
-
-            ImGui::SetCursorScreenPos(supposed_abs_pos);
-            unfortunately_deferred();
-            // Note: next widget will have wrong pos. (Working as nothing follows.)
         }
     }
 
@@ -1694,7 +1689,7 @@ private:
                 });
                 ImGui::SameLine();
                 if (double_click_button_small("Apply")) {
-                    m_rule.set(*(m_paste->rule));
+                    set_rule(*(m_paste->rule));
                 }
             }
 
