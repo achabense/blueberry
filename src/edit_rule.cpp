@@ -924,8 +924,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
             return ImVec2(child_width, child_height);
         }();
 
-        // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
+        imgui_FillAvailRect(IM_COL32_GREY(24, 255)); // Child bg.
         if (auto child = imgui_ChildWindow("Page", child_size)) {
             set_scroll_with_up_down();
             constexpr int perline = 2;
@@ -988,7 +987,6 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
                 ImGui::EndGroup();
             }
         }
-        ImGui::PopStyleColor();
     };
     return {open};
 }
@@ -1011,7 +1009,7 @@ struct page_adapter {
     }
 
     void display(const func_ref<void(int)> item) {
-        imgui_FillAvailRect(IM_COL32_GREY(24, 255)); // Background
+        imgui_FillAvailRect(IM_COL32_GREY(24, 255)); // Background.
 
         // (The same value as in `edit_rule`.)
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
@@ -1590,8 +1588,7 @@ void edit_rule(frame_main_token) {
     if (std::exchange(group_table_reset_scroll, false)) {
         ImGui::SetNextWindowScroll({0, 0});
     }
-    // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
+    imgui_FillAvailRect(IM_COL32_GREY(24, 255)); // Child bg.
     if (auto child = imgui_ChildWindow("Groups")) {
         set_scroll_with_up_down();
         aniso::ruleT temp_target = show_random_access ? target.get() : aniso::ruleT{};
@@ -1728,7 +1725,6 @@ void edit_rule(frame_main_token) {
             }
         }
     }
-    ImGui::PopStyleColor();
     if (show_random_access && !show_random_access_window_open) {
         show_random_access = false;
         group_table_reset_scroll = true;

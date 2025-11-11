@@ -1163,7 +1163,7 @@ public:
 
                 ImDrawList& drawlist = *ImGui::GetWindowDrawList();
                 drawlist.PushClipRect(canvas_min, canvas_max);
-                drawlist.AddRectFilled(canvas_min, canvas_max, IM_COL32_GREY(24, 255));
+                drawlist.AddRectFilled(canvas_min, canvas_max, IM_COL32_GREY(24, 255)); // Background.
 
                 const scaleE scale_mode = m_coord.zoom < 1 ? scaleE::Linear : scaleE::Nearest;
                 if (!m_paste) {

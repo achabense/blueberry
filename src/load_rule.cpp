@@ -985,8 +985,7 @@ private:
         assert_implies(m_sel, !locating);
         passT pass{};
 
-        // TODO: ?`imgui_FillAvailRect(IM_COL32_GREY(24, 255));`
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32_GREY(24, 255));
+        imgui_FillAvailRect(IM_COL32_GREY(24, 255)); // Child bg.
         if (auto child = imgui_ChildWindow("Content")) {
             set_scroll_with_up_down();
             if (old_scroll) {
@@ -1088,7 +1087,6 @@ private:
             }
             ImGui::PopStyleVar();
         }
-        ImGui::PopStyleColor();
 
         assert_implies(locating, !pass.pos && !pass.sel);
         return pass;
