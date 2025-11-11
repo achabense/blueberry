@@ -916,6 +916,8 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
         const int spacing_x = ImGui::GetStyle().ItemSpacing.x + 3;
         const auto child_size = [&]() -> ImVec2 {
             const auto& style = ImGui::GetStyle();
+            // const int header_width =
+            //    imgui_CalcTextSize("Clear0/1Approx").x + style.FramePadding.x * 6 + style.ItemSpacing.x * 2;
             const int header_width = imgui_CalcTextSize("Clear0/1").x + style.FramePadding.x * 4 + style.ItemSpacing.x;
             const int child_width = 2 * std::max(config.width(), header_width) + spacing_x + style.ScrollbarSize;
             const int child_height = config.height() * 2 + ImGui::GetTextLineHeight() * 2 + style.ItemSpacing.y * 4;
@@ -956,6 +958,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
                 if constexpr (0) {
                     // !!TODO: (v0.9.9) not supported in this version, as the effect is very tricky...
                     // (This is mainly useful for fitting a rule to p-set; not quite meaningful in other cases.)
+                    // (Ideally should take only one step (instead of dragging to update -> double-clicking)...)
                     ImGui::SameLine();
                     if (double_click_button_small("Approx") && rule.has_value()) {
                         const aniso::ruleT r = aniso::approximate(working_set, *rule);
@@ -1363,6 +1366,8 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
     return {open[0] && open[1]};
 }
 
+static open_state capture_still_life();
+
 // TODO: refactor... (should not be pointer...)
 static subset_selector* select_working_ptr = nullptr;
 
@@ -1403,8 +1408,14 @@ void edit_rule(frame_main_token) {
         ImGui::Checkbox("Collapse", &collapse);
         if constexpr (debug_mode) {
             ImGui::SameLine();
-            menu_like_popup::small_button("Exp");
+            menu_like_popup::small_button("Exp1");
             menu_like_popup::popup([] { select_working.debug_capture_in_popup(); });
+            ImGui::SameLine();
+            static bool show_exp_2 = false;
+            ImGui::Checkbox("Exp2", &show_exp_2);
+            if (show_exp_2) {
+                capture_still_life().reset_if_closed(show_exp_2);
+            }
         }
 
         if (!collapse) {
@@ -1724,27 +1735,36 @@ void edit_rule(frame_main_token) {
     }
 }
 
-// !!TODO: (v0.9.9) apply or remove...
-[[maybe_unused]] static void static_constraints(aniso::partialT& out) {
+// !!TODO: (v0.9.9) support in release mode...
+static void capture_still_life_impl() {
     enum stateE { Any_background, O, I, O_background, I_background };
 
     // (Follows `ImGui::Dummy` or `ImGui::InvisibleButton`.)
-    static const auto put_col = [](stateE state, bool disabled = false) {
-        static const ImU32 cols[5]{IM_COL32_GREY(80, 255),   //
-                                   IM_COL32_BLACK,           //
-                                   IM_COL32_WHITE,           //
-                                   IM_COL32(80, 0, 80, 255), //
-                                   IM_COL32(200, 0, 200, 255)};
+    static const auto put_col = [](stateE state, bool disabled = false, ImVec2 min = ImGui::GetItemRectMin(),
+                                   ImVec2 max = ImGui::GetItemRectMax()) {
+        static constexpr ImU32 cols[5]{IM_COL32_GREY(80, 255),      // Any_bg
+                                       IM_COL32_BLACK,              // O
+                                       IM_COL32_WHITE,              // I
+                                       IM_COL32(80, 0, 80, 255),    // O_bg
+                                       IM_COL32(200, 0, 200, 255)}; // I_bg
         assert_implies(disabled, state == Any_background);
-        imgui_ItemRectFilled(disabled ? IM_COL32_GREY(60, 255) : cols[state]);
-        imgui_ItemRect(IM_COL32_GREY(160, 255));
+        auto& drawlist = *ImGui::GetWindowDrawList();
+        drawlist.AddRectFilled(min, max, disabled ? IM_COL32_GREY(60, 255) : cols[state]);
+        drawlist.AddRect(min, max, IM_COL32_GREY(160, 255));
     };
 
-    constexpr int r = 10; // TODO: use separate values for w and h?
-    static stateE board[r][r]{/* Any_background... */};
+    constexpr int r = 8;
+    // static stateE board[r][r]{/* Any_background... */};
+    // Infuriatingly UB due to strict aliasing rule:
+    // std::ranges::fill(&board[0][0], &board[0][0] + r * r, Any_background);
+    static std::array<stateE, r * r> board_data{/* Any_background... */};
+    const auto board = [](int y, int x) -> stateE& { return board_data[y * r + x]; };
+
     static stateE state_lbutton = I;
     constexpr stateE state_rbutton = Any_background;
-    const auto description = [] {
+
+    // ImGui::AlignTextToFramePadding();
+    imgui_StrTooltip("(...)", [] {
         const auto term = [](stateE s, const char* desc) {
             ImGui::Dummy(square_size());
             put_col(s);
@@ -1753,6 +1773,7 @@ void edit_rule(frame_main_token) {
             imgui_Str(desc);
         };
 
+        // TODO: rewrite...
         imgui_Str("Operations:\n"
                   "Left-click a cell to set the value.\n"
                   "Right-click to set back to any-background.\n"
@@ -1762,137 +1783,127 @@ void edit_rule(frame_main_token) {
         term(O_background, ": Background 0.");
         term(I_background, ": Background 1.");
         term(Any_background, ": Any background.");
-        imgui_Str("By 'Adopt', you will get a rule-lock pair that can satisfy the constraints represented by the "
+        imgui_Str("By 'Apply', you will get a rule-lock pair that can satisfy the constraints represented by the "
                   "arrangements. (For example, a pattern of white cells surrounded by any-background cells will keep "
-                  "stable whatever its surroundings are. You can right-click this '(...)' to get an example.)");
-    };
+                  "stable whatever its surroundings are.)");
+    });
+    ImGui::SameLine();
+    if (double_click_button_small("Example")) {
+        static_assert(r == 8);
+        const auto old_data = board_data;
+        board_data.fill(Any_background);
+        for (int y = 0; y < 4; ++y) {
+            for (int x = 0; x < 4; ++x) {
+                board(y + 2, x + 2) = ((x == 1 || x == 2) && (y == 1 || y == 2)) ? O : I;
+            }
+        }
+        messenger::dot_if(old_data == board_data);
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(std::ranges::all_of(board_data, [](const auto s) { return s == Any_background; }));
+    if (double_click_button_small("Clear")) {
+        board_data.fill(Any_background);
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(std::ranges::none_of(board_data, [](const auto s) { return s == O || s == I; }));
+    const bool apply = double_click_button_small("Apply");
+    ImGui::EndDisabled();
 
-    ImGui::AlignTextToFramePadding();
-    imgui_StrTooltip("(...)", description);
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-        for (auto& l : board) {
-            for (auto& s : l) {
-                s = Any_background;
-            }
-        }
-        for (int y = 1; y <= 4; ++y) {
-            for (int x = 1; x <= 4; ++x) {
-                board[y][x] = ((x == 2 || x == 3) && (y == 2 || y == 3)) ? O : I;
-            }
-        }
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Clear")) {
-        for (auto& l : board) {
-            for (auto& s : l) {
-                s = Any_background;
-            }
-        }
-    }
-    ImGui::SameLine();
-    const bool empty = [] {
-        for (const auto& l : board) {
-            for (const auto& s : l) {
-                if (s != Any_background) {
-                    return false;
+    ImGui::Separator();
+
+    const ImVec2 cell_button_size = square_size();
+    ImGui::InvisibleButton("Board", cell_button_size * ImVec2(r, r),
+                           ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+    {
+        const ImVec2 button_min = ImGui::GetItemRectMin();
+        const bool button_hovered = ImGui::IsItemHovered();
+        const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
+        assert_implies(button_hovered, !apply);
+        for (int y = 0; y < r; ++y) {
+            for (int x = 0; x < r; ++x) {
+                const ImVec2 cell_min = button_min + cell_button_size * ImVec2(x, y);
+                const ImVec2 cell_max = cell_min + cell_button_size;
+                const bool editable = y >= 1 && y < r - 1 && x >= 1 && x < r - 1;
+                stateE& state = board(y, x);
+                if (editable && button_hovered && ImRect(cell_min, cell_max).Contains(mouse_pos)) {
+                    if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                        state = state_rbutton;
+                    } else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                        state = state_lbutton;
+                    }
                 }
+                put_col(state, !editable /*-> disabled*/, cell_min, cell_max);
             }
         }
-        return true;
-    }();
-    if (empty) {
-        ImGui::BeginDisabled();
-    }
-    const bool ret = ImGui::Button("Adopt");
-    if (empty) {
-        ImGui::EndDisabled();
-        imgui_ItemTooltip("Empty.");
+        if (button_hovered) {
+            if (imgui_MouseScrollingDown()) {
+                state_lbutton = (stateE)std::min((int)I_background, state_lbutton + 1);
+            } else if (imgui_MouseScrollingUp()) {
+                state_lbutton = (stateE)std::max((int)O, state_lbutton - 1);
+            }
+        }
     }
 
-    // Display-only; the value of `state_lbutton` is controlled by mouse-scrolling.
-    ImGui::BeginDisabled();
+    ImGui::SameLine();
+    ImGui::BeginGroup();
     for (const stateE s : {O, I, O_background, I_background}) {
-        if (s != O) {
-            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-        }
-        // No need for unique ID here (as the return value is not used).
-        ImGui::RadioButton("##Radio", s == state_lbutton);
-        // TODO: show message?
-        // imgui_ItemTooltip("Scroll in the board to change the value for left-click.");
+        ImGui::PushID(s);
+        imgui_RadioButton("##State", &state_lbutton, s);
+        ImGui::PopID();
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
         ImGui::Dummy(square_size());
         put_col(s);
     }
-    ImGui::EndDisabled();
-
-    ImGui::BeginGroup();
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 0});
-    for (int y = 0; y < r; ++y) {
-        for (int x = 0; x < r; ++x) {
-            if (x != 0) {
-                ImGui::SameLine();
-            }
-            const bool editable = y >= 1 && y < r - 1 && x >= 1 && x < r - 1;
-            stateE& state = board[y][x];
-
-            // No need for unique ID here (as IsItemHovered + IsMouseDown doesn't rely on ID).
-            ImGui::InvisibleButton("##Invisible", square_size(),
-                                   ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
-            if (editable && ImGui::IsItemHovered()) {
-                if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                    state = state_rbutton;
-                } else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                    state = state_lbutton;
-                }
-            }
-            put_col(state, !editable /*-> disabled*/);
-        }
-    }
-    ImGui::PopStyleVar();
     ImGui::EndGroup();
-    if (ImGui::IsItemHovered()) {
-        if (imgui_MouseScrollingDown()) {
-            state_lbutton = (stateE)std::min((int)I_background, state_lbutton + 1);
-        } else if (imgui_MouseScrollingUp()) {
-            state_lbutton = (stateE)std::max((int)O, state_lbutton - 1);
-        }
-    }
 
-    if (ret) {
-        aniso::partialT partial{};
+    if (apply && select_working_ptr) {
+        aniso::partialT p{};
         for (int y = 1; y < r - 1; ++y) {
             for (int x = 1; x < r - 1; ++x) {
-                if (board[y][x] == O || board[y][x] == I) {
-                    // For example:
-                    //  O   O_b  I                  001       001
-                    // [Any] O   O  will result in [0]00 and [1]00 being set.
-                    //  I_b  I  I_b                 111       111
-                    for (const auto code : aniso::each_code) {
-                        const auto imbue = [](aniso::cellT& c, stateE state) {
-                            if (state == O || state == O_background) {
-                                c = {0};
-                            } else if (state == I || state == I_background) {
-                                c = {1};
-                            }
-                        };
+                if (!(board(y, x) == O || board(y, x) == I)) {
+                    continue;
+                }
 
-                        aniso::situT situ = aniso::decode(code);
+                // For example:
+                //  O   O_b  I                 001       001
+                // [Any] O   O  will set both [0]00 and [1]00
+                //  I_b  I  I_b                111       111
+                for (const auto code : aniso::each_code) {
+                    const auto imbue = [](aniso::cellT& c, stateE state) {
+                        if (state == O || state == O_background) {
+                            c = {0};
+                        } else if (state == I || state == I_background) {
+                            c = {1};
+                        }
+                    };
 
-                        imbue(situ.q, board[y - 1][x - 1]);
-                        imbue(situ.w, board[y - 1][x]);
-                        imbue(situ.e, board[y - 1][x + 1]);
-                        imbue(situ.a, board[y][x - 1]);
-                        imbue(situ.s, board[y][x]);
-                        imbue(situ.d, board[y][x + 1]);
-                        imbue(situ.z, board[y + 1][x - 1]);
-                        imbue(situ.x, board[y + 1][x]);
-                        imbue(situ.c, board[y + 1][x + 1]);
-
-                        partial.set(aniso::encode(situ), aniso::cellT(board[y][x] == O ? 0 : 1));
-                    }
+                    aniso::situT situ = aniso::decode(code);
+                    imbue(situ.q, board(y - 1, x - 1));
+                    imbue(situ.w, board(y - 1, x));
+                    imbue(situ.e, board(y - 1, x + 1));
+                    imbue(situ.a, board(y, x - 1));
+                    imbue(situ.s, board(y, x));
+                    imbue(situ.d, board(y, x + 1));
+                    imbue(situ.z, board(y + 1, x - 1));
+                    imbue(situ.x, board(y + 1, x));
+                    imbue(situ.c, board(y + 1, x + 1));
+                    p.set(aniso::encode(situ), aniso::cellT(board(y, x) == O ? 0 : 1));
                 }
             }
         }
-        out = partial;
+        select_working_ptr->load_capture(p.rule, p.lock, "Updated.");
+        // board_data.fill(Any_background); // TODO: whether to clear?
     }
+}
+
+static open_state capture_still_life() {
+    bool open = true;
+    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
+    if (auto window = imgui_Window("Capture (still life)", &open,
+                                   ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        capture_still_life_impl();
+    }
+    return {open};
 }
