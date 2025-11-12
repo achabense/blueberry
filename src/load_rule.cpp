@@ -995,7 +995,7 @@ private:
             const bool test_hover = !menu_opened && (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
             const float region_max_x = imgui_GetContentRegionMaxAbsX();
-            const float min_wrap = item_width();
+            const float wrap_width = std::max(item_width(), ImGui::GetContentRegionAvail().x);
             ImDrawList& drawlist = *ImGui::GetWindowDrawList();
 
             // (Inefficient, but not worth bothering.)
@@ -1025,7 +1025,9 @@ private:
                 }
                 // (`ImGui::TextWrapped` has no problem rendering long single-lines now.)
                 // (Related: https://github.com/ocornut/imgui/issues/7496)
-                imgui_StrWrapped(line.str.get(m_text), min_wrap);
+                imgui_PushTextWrapWidth(wrap_width);
+                imgui_Str(line.str.get(m_text));
+                imgui_PopTextWrapWidth();
                 if (line.highlight) {
                     ImGui::PopStyleColor();
                 }

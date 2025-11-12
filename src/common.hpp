@@ -78,20 +78,17 @@ inline namespace backend_fn {
     void set_frame_rate(); // Shown in popup.
 } // namespace backend_fn
 
+// The same as the size of checkbox square.
 inline ImVec2 square_size(/*const float r = ImGui::GetFrameHeight()*/) {
     const float r = ImGui::GetFrameHeight();
     return ImVec2(r, r);
 }
 
-inline float item_width() {
-    // The same as the default width for tooltips.
-    return ImGui::GetFontSize() * 16.0f;
-}
-
-inline float wrap_len() {
-    // The same as the one in `HelpMarker` in "imgui_demo.cpp".
-    return ImGui::GetFontSize() * 35.0f;
-}
+// TODO: too general to be global names...
+// The same as the default item width in tooltip windows (search `16.0f` in "imgui.cpp").
+inline float item_width() { return ImGui::GetFontSize() * 16.0f; }
+// The same as the wrap width in `HelpMarker` in "imgui_demo.cpp".
+inline float wrap_len() { return ImGui::GetFontSize() * 35.0f; }
 
 inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
     const ImVec2 padding = ImGui::GetStyle().WindowPadding;
