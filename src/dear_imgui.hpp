@@ -254,12 +254,11 @@ inline void imgui_StrPair(std::string_view left, std::string_view right) {
 }
 
 // This does work exactly, see `GetCursorPosX` and `CalcWrapWidthForPos` (quite in-di-re-ct-ly...)
-// `width + CursorPos.x - Pos.x + Scroll.x + Pos.x - Scroll.x - CursorPos.x`
-inline void imgui_PushTextWrapWidth(float width) { ImGui::PushTextWrapPos(width + ImGui::GetCursorPosX()); }
+inline void imgui_PushTextWrapWidth(float width) { ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width); }
 
 inline void imgui_PopTextWrapWidth() { ImGui::PopTextWrapPos(); }
 
-[[deprecated]] inline void imgui_StrWrapped(std::string_view str, float min_width) {
+inline void imgui_StrWrapped(std::string_view str, float min_width) {
     imgui_PushTextWrapWidth(std::max(min_width, ImGui::GetContentRegionAvail().x));
     imgui_Str(str);
     imgui_PopTextWrapWidth();
