@@ -253,15 +253,14 @@ inline void imgui_StrPair(std::string_view left, std::string_view right) {
     imgui_Str(right);
 }
 
-// This does work exactly, see `GetCursorPosX` and `CalcWrapWidthForPos` (quite in-di-re-ct-ly...)
-inline void imgui_PushTextWrapWidth(float width) { ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width); }
+// Cannot reliably introduce a scope... (As `GetCursorPosX()` may change.)
+// inline void imgui_PushTextWrapWidth(float width) { ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width); }
+// inline void imgui_PopTextWrapWidth() { ImGui::PopTextWrapPos(); }
 
-inline void imgui_PopTextWrapWidth() { ImGui::PopTextWrapPos(); }
-
-inline void imgui_StrWrapped(std::string_view str, float min_width) {
-    imgui_PushTextWrapWidth(std::max(min_width, ImGui::GetContentRegionAvail().x));
+inline void imgui_StrWrapped(std::string_view str, float width) {
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width);
     imgui_Str(str);
-    imgui_PopTextWrapWidth();
+    ImGui::PopTextWrapPos();
 }
 
 inline void imgui_StrColored(std::string_view str, const ImVec4& col) {

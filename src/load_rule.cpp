@@ -1027,7 +1027,7 @@ private:
                 }
                 // (`ImGui::TextWrapped` has no problem rendering long single-lines now.)
                 // (Related: https://github.com/ocornut/imgui/issues/7496)
-                imgui_StrWrapped(line.str.get(m_text), min_wrap);
+                imgui_StrWrapped(line.str.get(m_text), std::max(min_wrap, ImGui::GetContentRegionAvail().x));
                 if (line.highlight) {
                     ImGui::PopStyleColor();
                 }
