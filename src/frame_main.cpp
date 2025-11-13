@@ -24,7 +24,6 @@ static open_state intro_window(frame_main_token) {
             imgui_Str("Press 'H' to toggle on/off additional tooltips.");
             guide_mode::item_tooltip("Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
                                      "All the other shortcuts (including these) don't require Ctrl to be pressed.");
-            // & Ctrl+C to copy tooltip (debug mode)
 
             if constexpr (init_set_scroll_with_up_down) {
                 // TODO: lacks example in this window.

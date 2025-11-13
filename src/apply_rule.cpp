@@ -1622,11 +1622,6 @@ private:
                                      ImVec2(1, float(i + 1) / total));
                         // TODO: use image border (ImGuiStyleVar_ImageBorderSize) instead?
                         imgui_ItemRect(IM_COL32_GREY(160, 255));
-                        if constexpr (debug_mode_log_aware) {
-                            if (i == 0 && GImGui->LogEnabled) {
-                                imgui_LogRenderedText(ImGui::GetItemRectMin(), ".....");
-                            }
-                        }
                     }
                 });
                 term("Clear inside", op_clear_inside);
@@ -2037,10 +2032,5 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             ImGui::EndTooltip();
         }
         ImGui::PopStyleVar();
-    }
-    if constexpr (debug_mode_log_aware) {
-        if (GImGui->LogEnabled) {
-            imgui_LogRenderedText(ImGui::GetItemRectMin(), aniso::to_MAP_str(rule));
-        }
     }
 }

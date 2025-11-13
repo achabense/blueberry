@@ -522,11 +522,6 @@ public:
         const auto explain = [](bool contains_rule, centerE center, std::string_view desc) {
             ImGui::Dummy(square_size());
             put_term(contains_rule, center, '\0');
-            if constexpr (debug_mode_log_aware) {
-                if (GImGui->LogEnabled) {
-                    imgui_LogRenderedText(ImGui::GetItemRectMin(), "..");
-                }
-            }
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::AlignTextToFramePadding(); // `Dummy` does not align automatically.
             imgui_Str(": ");
