@@ -619,7 +619,10 @@ public:
 };
 
 struct preview_settings {
-    bool inline_mode = true;
+    // !!TODO: (v0.9.9) support in release mode...
+    static constexpr bool support_window_mode = debug_mode;
+
+    bool window_mode = false; // false -> inline-mode
     previewer::configT settings = previewer::default_settings;
 };
 
@@ -810,6 +813,8 @@ public:
         assert_implies(m_lines.empty(), m_text.empty() && m_rules.empty());
         assert_implies(menu_opened, m_sel);
 
+        // TODO: whether to set !m_preview.window_mode on appearing?
+        // TODO: use `test_appearing` instead?
         if (m_sel && ImGui::IsWindowAppearing()) {
             // This may happen if the parent window is closed with double-esc.
             m_sel.reset();
@@ -902,11 +907,19 @@ public:
                 m_pos = *click_pos;
             }
 
-            if (!m_preview.inline_mode) {
-                assert(false);
-                // !!TODO: (v0.9.9) support displaying in another window...
-                // (Ideally the window should always appear above the current one.)
-                // previewer::preview_or_dummy(0, m_preview.settings, m_pos ? &m_rules[*m_pos] : nullptr);
+            if constexpr (preview_settings::support_window_mode) {
+                if (m_preview.window_mode) {
+                    // TODO: improve...
+                    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+                    imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
+                    const std::string title = std::format("For \"{}\"", GImGui->CurrentWindow->Name);
+                    if (auto window =
+                            imgui_Window(title.c_str(), &m_preview.window_mode,
+                                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                        set_front();
+                        previewer::preview_or_dummy(0, m_preview.settings, m_pos ? &m_rules[*m_pos] : nullptr);
+                    }
+                }
             }
         }
 
@@ -933,6 +946,11 @@ public:
 
 private:
     static std::optional<int> display_seq(const int total, preview_settings& m_preview, std::optional<int>& m_pos) {
+        if constexpr (preview_settings::support_window_mode) {
+            ImGui::Checkbox("Window", &m_preview.window_mode);
+            ImGui::SameLine();
+        }
+
         assert(total > 0);
         std::optional<int> pos = std::nullopt;
         switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
@@ -943,13 +961,6 @@ private:
         }
         if (pos) {
             pos = std::clamp(*pos, 0, total - 1);
-        }
-
-        if constexpr (0) {
-            ImGui::SameLine();
-            ImGui::Checkbox("Inline", &m_preview.inline_mode);
-        } else {
-            assert(m_preview.inline_mode);
         }
         ImGui::SameLine();
         m_preview.settings.set("Settings");
@@ -992,6 +1003,7 @@ private:
                 messenger::dot_if(*old_scroll == window_scroll());
                 old_scroll.reset();
             }
+            const bool inline_mode = !m_preview.window_mode;
             const bool test_hover = !menu_opened && (ImGui::IsWindowHovered() || m_sel) && ImGui::IsMousePosValid();
             const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
             const float region_max_x = imgui_GetContentRegionMaxAbsX();
@@ -1018,7 +1030,7 @@ private:
                     ImGui::SetScrollHereY(0);
                 }
                 ImGui::SameLine();
-                if (m_preview.inline_mode && rule.has_value()) {
+                if (inline_mode && rule.has_value()) {
                     ImGui::BeginGroup();
                 }
 
@@ -1065,7 +1077,7 @@ private:
 
                 if (rule.has_value()) {
                     // TODO: ideally should not split RLE blob from header....
-                    if (m_preview.inline_mode) {
+                    if (inline_mode) {
                         imgui_StrDisabled("-: ");
                         ImGui::SameLine();
 
