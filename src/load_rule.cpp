@@ -909,7 +909,8 @@ public:
 
             if constexpr (preview_settings::support_window_mode) {
                 if (m_preview.window_mode) {
-                    // TODO: improve...
+                    // TODO: improve... (& title name)
+                    // (Whether to set `ImGuiWindowFlags_NoCollapse`?)
                     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
                     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
                     const std::string title = std::format("For \"{}\"", GImGui->CurrentWindow->Name);
@@ -918,6 +919,8 @@ public:
                                          ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                         set_front();
                         previewer::preview_or_dummy(0, m_preview.settings, m_pos ? &m_rules[*m_pos] : nullptr);
+                    } else { // Collapsed (title bar only).
+                        set_front();
                     }
                 }
             }

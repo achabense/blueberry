@@ -1079,6 +1079,8 @@ public:
             previewer::preview(0, settings, m_rule.get());
             effect = try_set(pass_rule::dest(), working_set);
             messenger::dot_if(effect == Same);
+        } else { // Collapsed (title bar only).
+            set_front();
         }
         return effect;
     }

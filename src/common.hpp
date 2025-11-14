@@ -44,7 +44,7 @@ open_state load_doc(frame_main_token);
 void edit_rule(frame_main_token);
 void edit_pattern(frame_main_token);
 
-void set_front(); // Current window.
+void set_front(); // Current window. (Only valid for the current frame.)
 
 class rand_source : no_create {
     static uint32_t seed() { return std::time(0); }
@@ -1242,6 +1242,8 @@ public:
             ImGui::Text("Total:%d At:%d", total, m_pos + 1);
 
             previewer::preview(0, m_settings, m_data[m_pos]);
+        } else { // Collapsed (title bar only).
+            set_front();
         }
         if (!open) {
             clear();
