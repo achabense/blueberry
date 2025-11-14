@@ -978,7 +978,7 @@ private:
     // Workaround for dot-feedback. (ImGui::SetScrollHereY doesn't change scroll value immediately.)
     mutable std::optional<int> old_scroll = std::nullopt;
     bool dot_if_no_effect = false;
-    static int window_scroll() { return std::round(ImGui::GetCurrentWindowRead()->Scroll.y); }
+    static int window_scroll() { return std::round(GImGui->CurrentWindow->Scroll.y); }
 
     [[nodiscard]] passT display_page(const int locate_rule, const int locate_line) const {
         const bool locating = locate_rule >= 0 || locate_line >= 0;

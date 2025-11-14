@@ -44,6 +44,8 @@ open_state load_doc(frame_main_token);
 void edit_rule(frame_main_token);
 void edit_pattern(frame_main_token);
 
+void set_front(); // Current window.
+
 class rand_source : no_create {
     static uint32_t seed() { return std::time(0); }
 
@@ -1219,6 +1221,7 @@ public:
         bool open = true;
         if (auto window =
                 imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
+            set_front();
             const int total = m_data.size();
             assert(0 <= m_pos && m_pos < total);
             const auto set_pos = [&](const int pos) {

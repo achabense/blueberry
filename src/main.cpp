@@ -7,6 +7,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <unordered_set>
 
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
@@ -186,6 +187,27 @@ void backend_fn::set_frame_rate() { //
     imgui_StepSliderInt::fn("FPS", &frame_per_sec, 4, 100);
 }
 
+// (Not backend-specific, but have to sort between `EndFrame()` and `Render()`.)
+// TODO: use vector instead?
+static std::unordered_set<ImGuiID> fronts{};
+void set_front() {
+    assert(GImGui->CurrentWindow);
+    fronts.insert(GImGui->CurrentWindow->RootWindow->ID);
+}
+// !!TODO: recheck side effects...
+static void sort_windows() {
+    if (!fronts.empty()) {
+        std::ranges::stable_sort(GImGui->Windows, [](const ImGuiWindow* l, const ImGuiWindow* r) {
+            const auto get_order = [](const ImGuiWindow* window) {
+                constexpr ImGuiWindowFlags special =
+                    ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_ChildMenu;
+                return (window->Flags & special) ? 2 : fronts.contains(window->ID) ? 1 : 0;
+            };
+            return get_order(l->RootWindow) < get_order(r->RootWindow);
+        });
+    }
+}
+
 // The encoding of `argv` cannot be relied upon, see:
 // https://stackoverflow.com/questions/5408730/what-is-the-encoding-of-argv
 int main(int, char**) {
@@ -318,10 +340,14 @@ int main(int, char**) {
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
+        fronts.clear();
         return true;
     };
 
     const auto end_frame = [] {
+        // Cannot rely on Render() calling EndFrame(). (EndFrame() modifies `GImGui->Windows` on focus, so have to sort after it.)
+        ImGui::EndFrame();
+        sort_windows();
         ImGui::Render();
 
         // Skip rendering in the first frame for better visual.

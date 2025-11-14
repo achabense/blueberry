@@ -1054,7 +1054,6 @@ public:
         return None;
     }
 
-    // TODO: ideally should always appear above the source window.
     // TODO: the closing effect is under-documented in ui... (Will turn off checkbox directly.)
     effectE display(bool& open, const char* title, previewer::configT& settings, const aniso::subsetT& working_set) {
         assert(open);
@@ -1064,6 +1063,7 @@ public:
         effectE effect = None;
         if (auto window =
                 imgui_Window(title, &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+            set_front();
             imgui_StrTooltip(
                 "(...)",
                 "This can be an arbitrary rule in [S].\n\n"
