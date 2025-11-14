@@ -1037,7 +1037,7 @@ private:
                     const bool line_hovered = test_hover && mouse_pos.y >= str_min.y && mouse_pos.y < str_max.y;
                     // `line_hovered` may become true for two adjacent lines if using `mouse_pos.y <= str_max.y`.
 
-                    if (!locating && line_hovered) {
+                    if (!locating && line_hovered && !imgui_IsBgHeld()) {
                         if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                             pass.sel = {this_l, this_l};
                         } else if (m_sel && ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
