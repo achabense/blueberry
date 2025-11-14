@@ -333,6 +333,8 @@ class runnerT : no_copy {
             }
         }
 
+        // void on_restarted() { if (enabled) { self.m_ctrl.set_pause(false); } }
+
         void on_pattern_set() {
             assert(enabled);
             self.m_ctrl.set_pause(true);
@@ -449,6 +451,7 @@ class runnerT : no_copy {
             m_restarted = true;
             m_written = false;
             m_delay = true;
+            // m_handler.on_restarted();
         }
         void restart(const aniso::vecT& size) {
             resize(size);
@@ -714,7 +717,7 @@ public:
             }
             ImGui::SameLine();
             imgui_StrTooltip("(?)",
-                             "The space will pause and restart if you click 'Restart' or change init settings.\n\n"
+                             "The space will restart and pause if you click 'Restart' or change init settings.\n\n"
                              "Restart : R\n"
                              "Pause   : Space");
 
@@ -855,8 +858,7 @@ public:
             }
             ImGui::SameLine();
             if (ImGui::Button("Restart") || item_shortcut(ImGuiKey_R, false)) {
-                messenger::dot_if(m_ctrl.get_pause() && !m_torus.restart_has_effect());
-                // m_ctrl.set_pause(false);
+                m_ctrl.set_pause(false);
                 m_torus.restart();
             }
             ImGui::SameLine();
@@ -960,8 +962,9 @@ public:
                 // Both values will be flushed if either receives the enter key.
                 if (m_torus.try_resize({.x = ix.value_or(input_x.flush().value_or(size.x)),
                                         .y = iy.value_or(input_y.flush().value_or(size.y))})) {
-                    // m_ctrl.set_pause(false);
+                    m_ctrl.set_pause(false);
                 } else {
+                    // TODO: also set_pause(false)?
                     messenger::dot();
                 }
             }
@@ -976,7 +979,7 @@ public:
                 if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
                     reset_pos();
                     if (m_torus.try_resize(fullscreen_size(z, m_coord.last_known_canvas_size))) {
-                        // m_ctrl.set_pause(false);
+                        m_ctrl.set_pause(false);
                     }
                     // No need for dot.
                 }
@@ -1751,11 +1754,13 @@ struct previewer::_global_data : no_create {
     inline static initT init = init_init; // Globally shared.
 
     struct termT {
-        // bool appearing = true; // (Implied by `tile.empty()`.)
+#ifdef YDEBUG
+        bool appearing = true; // (Implied by `tile.empty()`.)
+#endif
         bool active = false;
         bool pause = false;
-        bool delay = false;     // (Affects only auto mode.)
-        initT init = init_init; // (Whichever is ok; just to allow for default construction.)
+        bool delay = false; // (Affects only auto mode.)
+        initT init = _global_data::init;
         aniso::ruleT rule = {};
         aniso::tileT tile = {};
     };
@@ -1820,7 +1825,10 @@ void previewer::configT::_set(const bool can_resize) {
     if (ImGui::TreeNodeEx("Init state", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap |
                                             ImGuiTreeNodeFlags_NoAutoOpenOnLog)) {
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
-        imgui_StrTooltip("(?)", "These settings are shared by all preview windows.");
+        imgui_StrTooltip(
+            "(?)",
+            "These settings are shared by all preview windows.\n\n"
+            "(Changing init state will restart and pause all preview windows. You can resume all with A+R/Space.)");
 
         // !!TODO: (v0.9.9) support both global and per-group setting mode?
         initT& init = _global_data::init;
@@ -1955,12 +1963,12 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
         }
     }
 
+    const bool init_changed = compare_update(term.init, _global_data::init);
     const bool restart = restart_from_menu + op.restart + // No short-circuiting.
-                         term.tile.resize(tile_size) + compare_update(term.init, _global_data::init) +
-                         compare_update(term.rule, rule);
+                         term.tile.resize(tile_size) + init_changed + compare_update(term.rule, rule);
+    assert_implies(std::exchange(term.appearing, false), restart && !init_changed);
     if (restart) {
-        // TODO: let pattern editor resume unconditionally as well (especially by shortcut)?
-        term.pause = false; // So A+R can resume all preview windows.
+        term.pause = init_changed;
         term.init.initialize(term.tile);
     }
     if (op.flip_pause) {
