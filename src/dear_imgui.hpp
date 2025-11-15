@@ -103,8 +103,9 @@ inline bool imgui_IsItemOrNoneActive(ImGuiID id) { //
     return (!GImGui->ActiveId && !GImGui->IO.WantTextInput) || GImGui->ActiveId == id;
 }
 
-[[deprecated]] inline bool imgui_IsBgHeld() { //
-    return !ImGui::GetHoveredID() && GImGui->ActiveId == GImGui->CurrentWindow->MoveId;
+inline bool imgui_IsBgHeld() {
+    // return !ImGui::GetHoveredID() && GImGui->ActiveId == GImGui->CurrentWindow->MoveId;
+    return GImGui->ActiveId == GImGui->CurrentWindow->MoveId; // Seems to imply `!ImGui::GetHoveredID()`.
 }
 
 inline bool imgui_IsWindowHoverable(ImGuiHoveredFlags flags = 0) { //
