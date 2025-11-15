@@ -8,10 +8,10 @@
 
 static ImVec2 to_imvec(const aniso::vecT& vec) { return ImVec2(vec.x, vec.y); }
 
-template <float (&fn)(float) = std::floor>
-static aniso::vecT from_imvec(const ImVec2& vec) {
-    return {.x = int(fn(vec.x)), .y = int(fn(vec.y))};
-}
+// (-> trunc as this doesn't need strict rounding mode.)
+// (Though working in practice, the standard doesn't require `std::floor` etc to be addressable.)
+// template <float (&fn)(float) = std::floor>
+static aniso::vecT from_imvec(const ImVec2& vec) { return {.x = int(vec.x), .y = int(vec.y)}; }
 
 static aniso::rangeT clamp_window(aniso::vecT size, aniso::vecT region_center, aniso::vecT region_size) {
     region_size = aniso::min(size, region_size);
@@ -179,8 +179,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
             const aniso::tile_const_ref pattern = get_pattern();
             const aniso::tile_const_ref background = pattern.clip_corner(period_size);
             const aniso::vecT padding = {1, 1};
-            // (Ceiled for torus run. This can be avoided if `border_ref` is calculated manually, but that
-            // will be a lot of code.)
+            // (Ceiled for torus run.)
             aniso::tileT next(aniso::divmul_ceil(range.size() + padding * 2, period_size));
 
             const aniso::rangeT relocate{.begin = padding, .end = padding + pattern.size};
@@ -316,7 +315,7 @@ public:
 };
 
 // TODO: stop running when the space is moved out of scope?
-// !!TODO: reconsider, when to reset pos? When to reset sel and pattern? When to restart the space?
+// !!TODO: (v0.9.9) reconsider, when to reset pos? When to reset sel and pattern? When to restart the space?
 class runnerT : no_copy {
     class handlerT : no_copy {
         runnerT& self;
@@ -537,7 +536,7 @@ class runnerT : no_copy {
 
     torusT m_torus{m_handler}; // Space.
 
-    // !!TODO: recheck (especially rounding)...
+    // !!TODO: (v0.9.9) recheck (especially rounding)...
     // space-pos == corner-pos + canvas-pos / zoom
     struct coordT {
         zoomT zoom{};
@@ -575,7 +574,7 @@ class runnerT : no_copy {
         handlerT& m_handler;
         bool has_value = false;
 
-        struct {
+        struct dataT {
             bool newly_assigned = true;
             std::optional<aniso::ruleT> rule = std::nullopt;
             aniso::tileT tile = {};
@@ -589,7 +588,7 @@ class runnerT : no_copy {
         pasteT(handlerT& m_handler) : m_handler{m_handler} {}
 
         explicit operator bool() const { return has_value; }
-        auto* operator->() {
+        dataT* operator->() {
             assert(has_value);
             return &data;
         }
@@ -1944,7 +1943,10 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
 
     const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();
     const bool active = ImGui::IsItemActive();
-    const bool has_group_op = _global_data::group_op.owner == 1 || _global_data::group_op.owner == uintptr_t(&config);
+
+    constexpr uintptr_t owner_all = 1;
+    const bool has_group_op = _global_data::group_op.owner == owner_all || //
+                              _global_data::group_op.owner == uintptr_t(&config);
     _global_data::opT op = has_group_op ? _global_data::group_op.op : _global_data::opT{};
     if (hovered && (active || shortcuts::no_active())) {
         // (Using unfiltered shortcut for `p_f` for smoother inter with seq op (<</>>).)
@@ -1955,7 +1957,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                                        .p_1 = shortcuts::test_pressed(ImGuiKey_D, true),
                                        .p_f = shortcuts::global_flag(ImGuiKey_F)};
         if (shortcuts::global_flag(ImGuiKey_A)) {
-            _global_data::group_op_next = {.owner = 1, .op = op2};
+            _global_data::group_op_next = {.owner = owner_all, .op = op2};
         } else if (shortcuts::global_flag(ImGuiKey_G)) {
             _global_data::group_op_next = {.owner = uintptr_t(&config), .op = op2};
         } else if (!has_group_op) {

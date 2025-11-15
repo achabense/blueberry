@@ -6,8 +6,13 @@
 #include "tile_base.hpp"
 
 namespace aniso {
-    inline vecT divmul_floor(const vecT a, const vecT b) { return {.x = (a.x / b.x) * b.x, .y = (a.y / b.y) * b.y}; }
+    // (Technically _trunc.)
+    inline vecT divmul_floor(const vecT a, const vecT b) {
+        assert(a.both_gt({0, 0}) && b.both_gt({0, 0}));
+        return {.x = (a.x / b.x) * b.x, .y = (a.y / b.y) * b.y};
+    }
     inline vecT divmul_ceil(const vecT a, const vecT b) {
+        assert(a.both_gt({0, 0}) && b.both_gt({0, 0}));
         const auto divmul_ceil = [](int a, int b) -> int { return ((a + b - 1) / b) * b; };
         return {.x = divmul_ceil(a.x, b.x), .y = divmul_ceil(a.y, b.y)};
     }
