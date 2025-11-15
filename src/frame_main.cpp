@@ -126,7 +126,6 @@ void frame_main() {
     global_timer::begin_frame({});
     shortcuts::begin_frame({});
     previewer::begin_frame({});
-    pass_rule::begin_frame({});
 
     if (shortcuts::no_active()) {
         if constexpr (init_double_esc_to_close) {
@@ -285,6 +284,8 @@ void frame_main() {
 
     rec_for_rule::display_if_present({}, "Recent rules (snapshot)");
     messenger::display_if_present({});
+
+    pass_rule::end_frame({});
 
     if constexpr (init_compact_mode) {
         ImGui::PopStyleVar();

@@ -967,8 +967,6 @@ private:
 
 // TODO: support highlighting rule sources?
 class pass_rule : no_create {
-    inline static ImGuiID active = 0;
-    inline static bool keep_active = false;
     inline static aniso::ruleT rule{};
 
     static void render_rect(const bool bright) {
@@ -977,43 +975,42 @@ class pass_rule : no_create {
         ImGui::PopStyleColor();
     }
 
+    static constexpr const char* type = "rule";
+    static bool active() {
+        const auto* payload = ImGui::GetDragDropPayload();
+        return payload && payload->IsDataType(type);
+    }
+
 public:
     static constexpr bool right_click_to_cancel = true;
 
-    static void begin_frame(frame_main_token) {
-        if (!std::exchange(keep_active, false)) {
-            if constexpr (right_click_to_cancel) {
-                if (active && active == ImGui::GetActiveID()) {
-                    ImGui::ClearActiveID();
-                }
+    // Cannot be begin-frame (otherwise will interfere with r-click operations of other items e.g. popups).
+    static void end_frame(frame_main_token) {
+        if constexpr (right_click_to_cancel) {
+            if (active() && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                // According to: https://github.com/ocornut/imgui/issues/9071
+                ImGui::ClearActiveID();
+                ImGui::ClearDragDrop();
             }
-            active = 0;
         }
     }
 
-    static const aniso::ruleT* peek() { return active ? &rule : nullptr; }
+    static const aniso::ruleT* peek() { return active() ? &rule : nullptr; }
 
     static bool source(const aniso::ruleT& r) {
         const ImGuiID id = ImGui::GetItemID();
         assert(id != 0);
 
-        if ((active == id) || (!active && ImGui::IsItemActive() && !ImGui::IsItemHovered())) {
+        const auto* payload = ImGui::GetDragDropPayload();
+        if ((payload && payload->SourceId == id) || (!payload && ImGui::IsItemActive() && !ImGui::IsItemHovered())) {
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers |
                                            ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
-                static char dummy = 0;
-                ImGui::SetDragDropPayload("#Rule", &dummy, sizeof(dummy));
+                char dummy = 0;
+                ImGui::SetDragDropPayload(type, &dummy, sizeof(dummy));
                 ImGui::EndDragDropSource();
                 render_rect(true);
 
                 lock_scroll();
-                active = id;
-                if constexpr (right_click_to_cancel) {
-                    keep_active = !ImGui::IsMouseClicked(ImGuiMouseButton_Right);
-                    // Delayed to `begin_frame` to avoid immediately triggering something e.g. popups.
-                    // if (keep_active) { ImGui::ClearActiveID(); }
-                } else {
-                    keep_active = true;
-                }
                 rule = r;
                 assert(!ImGui::IsItemHovered()); // Blocked by drag-source.
                 return true;
@@ -1066,20 +1063,20 @@ public:
         if (rule_id != 0 && rule_id == extra_rule_id) {
             extra_rule_id = 0;
             return &extra_rule;
-        } else if (accept_drop && active && ImGui::IsItemVisible()) {
-            render_rect(false);
+        } else if (accept_drop && active() && ImGui::IsItemVisible()) {
             if (ImGui::BeginDragDropTarget()) {
-                const bool deliv = ImGui::AcceptDragDropPayload(
-                    "#Rule", ImGuiDragDropFlags_AcceptNoPreviewTooltip | ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
+                const bool deliv = ImGui::AcceptDragDropPayload(type, ImGuiDragDropFlags_AcceptNoPreviewTooltip |
+                                                                          ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
                 ImGui::EndDragDropTarget();
                 render_rect(true);
-                if (deliv) {
-                    active = false;
-                    if constexpr (0) {
+                if constexpr (0) {
+                    if (deliv) {
                         ImGui::SetWindowFocus();
                     }
                 }
                 return {&rule, /*hov=*/true, deliv};
+            } else {
+                render_rect(false);
             }
         }
         return {};
