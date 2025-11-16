@@ -328,6 +328,8 @@ inline constexpr bool init_double_esc_to_close = true;
 inline bool want_close_windows = false;
 
 class [[nodiscard]] imgui_Window : no_copy {
+    bool begun; // Cannot skip.
+
 public:
     // (Without this, to show tooltip unconditionally, the window have to be declared outside of if scope.)
     inline static const char* next_window_titlebar_tooltip = nullptr;
@@ -336,9 +338,17 @@ public:
     inline static bool next_window_fast_close = false;
 #endif
 
-    const bool visible;
     explicit imgui_Window(const char* name, bool* p_open = nullptr, ImGuiWindowFlags flags = {})
-        : visible((assert_implies(p_open, *p_open), ImGui::Begin(name, p_open, flags))) {
+        : begun(begin_ex(name, p_open, flags)) {}
+    ~imgui_Window() {
+        ImGui::End(); // Unconditional.
+    }
+    explicit operator bool() const { return begun; }
+
+private:
+    static bool begin_ex(const char* name, bool* p_open, ImGuiWindowFlags flags) {
+        assert_implies(p_open, *p_open);
+        const bool begun = ImGui::Begin(name, p_open, flags);
         if (const char* tooltip = std::exchange(next_window_titlebar_tooltip, nullptr)) {
             imgui_StrTooltipForTitleBar("(?)", tooltip, name);
         }
@@ -350,26 +360,24 @@ public:
 #if 0
         if (std::exchange(next_window_fast_close, false) && p_open && !*p_open) {
             GImGui->CurrentWindow->Hidden = true;
-            // Shouldn't change `visible`; otherwise will mess with sizing...
+            // Shouldn't change return value; otherwise will mess with sizing.
         }
 #endif
+        return begun;
     }
-    ~imgui_Window() {
-        ImGui::End(); // Unconditional.
-    }
-    explicit operator bool() const { return visible; }
 };
 
 class [[nodiscard]] imgui_ChildWindow : no_copy {
+    bool begun; // Cannot skip.
+
 public:
-    const bool visible;
     explicit imgui_ChildWindow(const char* name, const ImVec2& size = {}, ImGuiChildFlags child_flags = {},
                                ImGuiWindowFlags window_flags = {})
-        : visible(ImGui::BeginChild(name, size, child_flags, window_flags)) {}
+        : begun(ImGui::BeginChild(name, size, child_flags, window_flags)) {}
     ~imgui_ChildWindow() {
         ImGui::EndChild(); // Unconditional.
     }
-    explicit operator bool() const { return visible; }
+    explicit operator bool() const { return begun; }
 };
 
 inline void imgui_CenterNextWindow(ImGuiCond_ cond) {

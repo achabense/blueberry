@@ -1899,12 +1899,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             // TODO: very convenient, but cannot decide how to expose (be menu-like, or another rclick-popup mode)...
             // (If it's a group-wise popup, may support resizing as well...)
             // (& Whether to defer the change to the end of the frame?)
-            ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
-            ImGui::PushItemFlag(ImGuiItemFlags_NoFocus, true);
-            const bool begun = ImGui::BeginMenu("Settings");
-            ImGui::PopItemFlag();
-            ImGui::PopStyleColor();
-            if (begun) {
+            if (imgui_BeginMenuFromPopup("Settings")) {
                 const_cast<configT&>(config)._set(false); // bleh...
                 ImGui::EndMenu();
             }
