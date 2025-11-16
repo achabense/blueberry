@@ -1061,9 +1061,11 @@ public:
         imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
         effectE effect = None;
-        if (auto window =
-                imgui_Window(title, &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        if (auto window = imgui_Window(title, &open,
+                                       ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+                                           ImGuiWindowFlags_NoFocusOnAppearing)) {
             set_front();
+            bring_to_front_on_appearing();
             imgui_StrTooltip(
                 "(...)",
                 "This can be an arbitrary rule in [S].\n\n"
@@ -1096,14 +1098,8 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
-    // (Using `ImGuiWindowFlags_NoFocusOnAppearing` to prevent spurious focus (to focus target-rule window directly).)
-    // (Using `BringWindowToDisplayFront()` as the flag also disables bringing to front.)
-    if (auto window = imgui_Window("Traverse [S]", &open[0],
-                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
-                                       ImGuiWindowFlags_NoFocusOnAppearing)) {
-        if (ImGui::IsWindowAppearing()) {
-            ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
-        }
+    if (auto window =
+            imgui_Window("Traverse [S]", &open[0], ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static target_rule orderer{};
         static std::vector<aniso::ruleT> page{};
         static previewer::configT config{previewer::default_settings};
@@ -1253,12 +1249,8 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
     static page_adapter adapter{};
     ImGui::SetNextWindowSizeConstraints(adapter.min_req_size, ImVec2(FLT_MAX, FLT_MAX));
     imgui_Window::next_window_titlebar_tooltip = page_adapter::about_resizing;
-    if (auto window = imgui_Window("Random rules", &open[0],
-                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
-                                       ImGuiWindowFlags_NoFocusOnAppearing)) {
-        if (ImGui::IsWindowAppearing()) {
-            ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
-        }
+    if (auto window =
+            imgui_Window("Random rules", &open[0], ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) {
         static target_rule target{};
         static previewer::configT config{previewer::default_settings};
         if (std::exchange(set_changed, false)) {

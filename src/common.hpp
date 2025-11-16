@@ -44,7 +44,17 @@ open_state load_doc(frame_main_token);
 void edit_rule(frame_main_token);
 void edit_pattern(frame_main_token);
 
+// !!TODO: (v0.9.9) instead of using global z-order, only require the window to be shown above its source?
 void set_front(); // Current window. (Only valid for the current frame.)
+
+// + ImGuiWindowFlags_NoFocusOnAppearing -> bring to front without taking focus.
+// (_NoFocusOnAppearing alone disables bringing to front.)
+inline void bring_to_front_on_appearing() {
+    assert(!(GImGui->CurrentWindow->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus));
+    if (ImGui::IsWindowAppearing()) {
+        ImGui::BringWindowToDisplayFront(GImGui->CurrentWindow);
+    }
+}
 
 class rand_source : no_create {
     static uint32_t seed() { return std::time(0); }

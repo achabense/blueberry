@@ -191,7 +191,7 @@ void backend_fn::set_frame_rate() { //
 // TODO: use vector instead?
 static std::unordered_set<ImGuiID> fronts{};
 void set_front() {
-    assert(GImGui->CurrentWindow);
+    assert(!(GImGui->CurrentWindow->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus));
     fronts.insert(GImGui->CurrentWindow->RootWindow->ID);
 }
 // !!TODO: recheck side effects...
