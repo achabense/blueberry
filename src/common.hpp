@@ -44,8 +44,8 @@ open_state load_doc(frame_main_token);
 void edit_rule(frame_main_token);
 void edit_pattern(frame_main_token);
 
-// !!TODO: (v0.9.9) instead of using global z-order, only require the window to be shown above its source?
-void set_front(); // Current window. (Only valid for the current frame.)
+// Require the current window to be shown above its source. (Only valid for the current frame.)
+void set_above(const ImGuiWindow* source);
 
 // + ImGuiWindowFlags_NoFocusOnAppearing -> bring to front without taking focus.
 // (_NoFocusOnAppearing alone disables bringing to front.)
@@ -1225,10 +1225,11 @@ public:
         }
         imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
+        const ImGuiWindow* source = GImGui->CurrentWindow;
         bool open = true;
         if (auto window =
                 imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
-            set_front();
+            set_above(source);
             const int total = m_data.size();
             assert(0 <= m_pos && m_pos < total);
             const auto set_pos = [&](const int pos) {
@@ -1250,7 +1251,7 @@ public:
 
             previewer::preview(0, m_settings, m_data[m_pos]);
         } else { // Collapsed (title bar only).
-            set_front();
+            set_above(source);
         }
         if (!open) {
             clear();

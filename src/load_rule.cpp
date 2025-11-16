@@ -913,16 +913,18 @@ public:
                     // (Whether to set `ImGuiWindowFlags_NoCollapse`?)
                     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
                     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
+
+                    const ImGuiWindow* source = GImGui->CurrentWindow;
                     const std::string title = std::format("For \"{}\"", GImGui->CurrentWindow->Name);
                     if (auto window =
                             imgui_Window(title.c_str(), &m_preview.window_mode,
                                          ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
                                              ImGuiWindowFlags_NoFocusOnAppearing)) {
-                        set_front();
+                        set_above(source);
                         bring_to_front_on_appearing();
                         previewer::preview_or_dummy(0, m_preview.settings, m_pos ? &m_rules[*m_pos] : nullptr);
                     } else { // Collapsed (title bar only).
-                        set_front();
+                        set_above(source);
                     }
                 }
             }

@@ -188,13 +188,41 @@ void backend_fn::set_frame_rate() { //
 }
 
 // (Not backend-specific, but have to sort between `EndFrame()` and `Render()`.)
-// TODO: use vector instead?
+// !!TODO: recheck side effects...
+#if 1
+static std::vector<std::array<ImGuiID, 2>> below_above{};
+void set_above(const ImGuiWindow* source) {
+    const ImGuiWindow* current = GImGui->CurrentWindow;
+    assert(source && current);
+    source = source->RootWindow;
+    current = current->RootWindow;
+    assert(source->ID != current->ID);
+    assert(!(current->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus));
+    below_above.push_back({source->ID, current->ID});
+}
+static void sort_windows() {
+    if (!below_above.empty()) {
+        auto& windows = GImGui->Windows;
+        const auto end = windows.end();
+        for (const auto /*supposed*/ [below, above] : below_above) {
+            const auto below_pos = std::ranges::find(windows, below, &ImGuiWindow::ID);
+            const auto above_pos = std::ranges::find(windows, above, &ImGuiWindow::ID);
+            if (below_pos != end && above_pos != end && above_pos < below_pos) {
+                // Move `above` to after `below` (begin <- mid):
+                std::rotate(above_pos, above_pos + 1, below_pos + 1);
+            }
+        }
+        below_above.clear();
+    }
+}
+#else
+// Old set-front behavior:
 static std::unordered_set<ImGuiID> fronts{};
-void set_front() {
-    assert(!(GImGui->CurrentWindow->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus));
+// void set_front() {
+void set_above(const ImGuiWindow*) {
+    assert(!(GImGui->CurrentWindow->RootWindow->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus));
     fronts.insert(GImGui->CurrentWindow->RootWindow->ID);
 }
-// !!TODO: recheck side effects...
 static void sort_windows() {
     if (!fronts.empty()) {
         std::ranges::stable_sort(GImGui->Windows, [](const ImGuiWindow* l, const ImGuiWindow* r) {
@@ -205,8 +233,10 @@ static void sort_windows() {
             };
             return get_order(l->RootWindow) < get_order(r->RootWindow);
         });
+        fronts.clear();
     }
 }
+#endif
 
 // The encoding of `argv` cannot be relied upon, see:
 // https://stackoverflow.com/questions/5408730/what-is-the-encoding-of-argv
@@ -340,7 +370,6 @@ int main(int, char**) {
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
-        fronts.clear();
         return true;
     };
 

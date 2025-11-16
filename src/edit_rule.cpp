@@ -1060,11 +1060,12 @@ public:
         ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
         imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
+        const ImGuiWindow* source = GImGui->CurrentWindow;
         effectE effect = None;
         if (auto window = imgui_Window(title, &open,
                                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
                                            ImGuiWindowFlags_NoFocusOnAppearing)) {
-            set_front();
+            set_above(source);
             bring_to_front_on_appearing();
             imgui_StrTooltip(
                 "(...)",
@@ -1082,7 +1083,7 @@ public:
             effect = try_set(pass_rule::dest(), working_set);
             messenger::dot_if(effect == Same);
         } else { // Collapsed (title bar only).
-            set_front();
+            set_above(source);
         }
         return effect;
     }
