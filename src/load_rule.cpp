@@ -815,62 +815,10 @@ public:
 
         // TODO: whether to set !m_preview.window_mode on appearing?
         // TODO: use `test_appearing` instead?
-        if (m_sel && ImGui::IsWindowAppearing()) {
+        if (ImGui::IsWindowAppearing()) {
             // This may happen if the parent window is closed with double-esc.
             m_sel.reset();
             menu_opened = false;
-        } else if (m_sel) {
-            const ImGuiID popup_id = ImGui::GetID("Menu");
-            if (!menu_opened && !ImGui::IsMouseDown(ImGuiMouseButton_Right) /* Released from anywhere */) {
-                // Note: `IsMouseReleased` may fail to catch release event in rare cases. For example:
-                // [right-down] -> left-click the program-window's title bar [both-down] ->
-                // release right mouse [left-down], then a menu will appear -> minimize and restore the program.
-                ImGui::OpenPopup(popup_id);
-                menu_opened = true;
-            }
-            if (menu_opened) {
-                if (imgui_BeginPopupRecycled(popup_id)) {
-                    lock_scroll();
-                    const auto get_str = [&] {
-                        const auto [min, max] = m_sel->minmax();
-                        std::string str;
-                        for (int i = min; i <= max; ++i) {
-                            if (i != min) {
-                                str += '\n';
-                            }
-                            str += m_lines[i].str.get(m_text);
-                        }
-                        return str;
-                    };
-                    if (ImGui::Selectable("Copy text")) {
-                        // TODO: disable directly?
-                        // (Won't copy if `str` contains '\0' (should't appear in regular utf8 text files).)
-                        set_clipboard_and_notify(get_str());
-                    }
-                    // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
-                    if constexpr (debug_mode) {
-                        // TODO: also support load-rule?
-                        static bool can_load_pattern = false;
-                        if (ImGui::IsWindowAppearing()) {
-                            can_load_pattern = pattern_editor_status::available() && has_pattern(get_str());
-                        }
-                        if (can_load_pattern) {
-                            if (ImGui::Selectable("Load pattern")) {
-                                load_pattern(get_str());
-                            }
-                        }
-                    }
-                    if constexpr (init_double_esc_to_close) {
-                        if (want_close_windows && source_window_has_no_close_button()) {
-                            ImGui::CloseCurrentPopup();
-                        }
-                    }
-                    ImGui::EndPopup();
-                } else {
-                    menu_opened = false;
-                    m_sel.reset();
-                }
-            }
         }
 
         {
@@ -930,24 +878,78 @@ public:
             }
         }
 
-        // Prevent interaction with other widgets, so that for example, the parent window cannot be
-        // closed when there are selected lines.
-        if (!menu_opened && m_sel) {
-            const ImGuiID claim = ImGui::GetID("Claim");
-            ImGuiWindow* const window = ImGui::GetCurrentWindow();
+        if (m_sel) {
+            const ImGuiID popup_id = ImGui::GetID("Menu");
+            if (!menu_opened) {
+                // Prevent interaction with other widgets.
+                // (Idk which are actually necessary/preferable, but the following combination works as intended.)
+                if (GImGui->ActiveId != popup_id) {
+                    // TODO: whether to set `WriteAccessed`?
+                    ImGui::FocusWindow(GImGui->CurrentWindow);
+                    ImGui::SetActiveID(popup_id, GImGui->CurrentWindow);
+                }
+                ImGui::KeepAliveID(popup_id);
 
-            // (Idk which are actually necessary/preferable, but the following combination works as intended.)
+                // (Already fixed) for some reason the parent window will still be collapsed if its title bar is double-clicked.
+                // Related: https://github.com/ocornut/imgui/issues/7841
+                // ImGui::SetKeyOwner(ImGuiKey_MouseLeft, popup_id);
 
-            // ImGui::SetHoveredID(claim);
-            ImGui::SetActiveID(claim, window);
-            // ImGui::SetFocusID(claim, window);
-            ImGui::FocusWindow(window);
-
-            // Otherwise, for some reason the parent window will still be collapsed if its
-            // title bar is double-clicked.
-            // Related: https://github.com/ocornut/imgui/issues/7841
-            ImGui::SetKeyOwner(ImGuiKey_MouseLeft, claim);
-            // ImGui::SetKeyOwner(ImGuiKey_MouseRight, claim);
+                if (!ImGui::IsMouseDown(ImGuiMouseButton_Right) /* Released from anywhere */) {
+                    // Note: `IsMouseReleased` may fail to catch release event in rare cases. For example:
+                    // [right-down] -> left-click the program-window's title bar [both-down] ->
+                    // release right mouse [left-down], then a menu will appear -> minimize and restore the program.
+                    ImGui::OpenPopup(popup_id);
+                    menu_opened = true;
+                }
+            }
+            if (menu_opened) {
+                lock_scroll();
+                if (imgui_BeginPopupRecycled(popup_id)) {
+                    // Workaround: when appearing, the popup seems to have reset active id, but doesn't disable hovering...
+                    // (So if released from other items, will cause spurious hovering effect...)
+                    if (ImGui::IsWindowAppearing()) {
+                        ImGui::SetActiveID(popup_id, GImGui->CurrentWindow);
+                    }
+                    const auto get_str = [&] {
+                        const auto [min, max] = m_sel->minmax();
+                        std::string str;
+                        for (int i = min; i <= max; ++i) {
+                            if (i != min) {
+                                str += '\n';
+                            }
+                            str += m_lines[i].str.get(m_text);
+                        }
+                        return str;
+                    };
+                    if (ImGui::Selectable("Copy text")) {
+                        // TODO: disable directly?
+                        // (Won't copy if `str` contains '\0' (should't appear in regular utf8 text files).)
+                        set_clipboard_and_notify(get_str());
+                    }
+                    // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
+                    if constexpr (debug_mode) {
+                        // TODO: also support load-rule?
+                        static bool can_load_pattern = false;
+                        if (ImGui::IsWindowAppearing()) {
+                            can_load_pattern = pattern_editor_status::available() && has_pattern(get_str());
+                        }
+                        if (can_load_pattern) {
+                            if (ImGui::Selectable("Load pattern")) {
+                                load_pattern(get_str());
+                            }
+                        }
+                    }
+                    if constexpr (init_double_esc_to_close) {
+                        if (want_close_windows && source_window_has_no_close_button()) {
+                            ImGui::CloseCurrentPopup();
+                        }
+                    }
+                    ImGui::EndPopup();
+                } else {
+                    m_sel.reset();
+                    menu_opened = false;
+                }
+            }
         }
     }
 
