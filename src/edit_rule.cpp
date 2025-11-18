@@ -1028,6 +1028,7 @@ struct page_adapter {
         "Resize this window to adjust the number of preview windows; (after resizing) double-click window's resize border to fit the contents.";
 };
 
+// Closing the target-rule window will turn off checkbox directly. (Undocumented, but should be obvious enough.)
 class target_rule : no_copy {
     rule_with_rec m_rule{};
 
@@ -1054,8 +1055,8 @@ public:
         return None;
     }
 
-    // TODO: the closing effect is under-documented in ui... (Will turn off checkbox directly.)
-    effectE display(bool& open, const char* title, previewer::configT& settings, const aniso::subsetT& working_set) {
+    effectE display(bool& open, const char* title, const previewer::configT& settings,
+                    const aniso::subsetT& working_set) {
         assert(open);
         ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
         imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
@@ -1076,8 +1077,8 @@ public:
                 m_rule.rec().dump(settings);
             }
             guide_mode::item_tooltip(rec_for_rule::about_dump);
-            ImGui::SameLine(); // TODO: whether to enable settings in this window?
-            settings.set("Settings", true /*small*/);
+            // ImGui::SameLine(); // TODO: whether to enable settings in this window?
+            // settings.set("Settings", true /*small*/);
 
             previewer::preview(0, settings, m_rule.get());
             effect = try_set(pass_rule::dest(), working_set);
