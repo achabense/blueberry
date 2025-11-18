@@ -1270,6 +1270,7 @@ public:
         }
     }
 
+    // TODO: support plain-text format as well?
     void load_pattern(std::string_view text) {
         // (Not interested in whether the header has correct format.)
         const std::string_view header = aniso::strip_RLE_header(text);
@@ -1671,6 +1672,7 @@ private:
 
     void pattern_settings(const bool canvas_hovered_or_held, const ImVec2 init_pos) {
         assert(m_paste);
+        // TODO: the effect should be more obvious...
         if (std::exchange(m_paste->newly_assigned, false)) {
             // ImGui::SetNextWindowCollapsed(false);
             ImGui::SetNextWindowFocus();
@@ -1868,7 +1870,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
 
     // TODO: (though the actual behaviors are ok) these op logics are quite messy...
     const bool passing = pass_rule::source(rule);
-    bool restart_from_menu = false;
+    bool restart_from_menu = false; // TODO: remove this?
     const rclick_popup::hoverE hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
         // & '6' to see the projected view in hexagonal space.
         imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n\n"
@@ -1936,7 +1938,9 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     });
     assert_implies(passing, hov == rclick_popup::None);
 
-    const bool hovered = hov == rclick_popup::Hovered; // ImGui::IsItemHovered();
+    // (Stricter than `IsItemHovered()`; will be false when the popup is appearing (hidden).)
+    const bool hovered = hov == rclick_popup::Hovered;
+    // X assert(hovered == ImGui::IsItemHovered());
     const bool active = ImGui::IsItemActive();
 
     constexpr uintptr_t owner_all = 1;

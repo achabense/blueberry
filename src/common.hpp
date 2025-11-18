@@ -980,6 +980,7 @@ class pass_rule : no_create {
     inline static aniso::ruleT rule{};
 
     static void render_rect(const bool bright) {
+        // TODO: whether to set (or require) `WriteAccessed`?
         ImGui::PushStyleColor(ImGuiCol_DragDropTarget, IM_COL32(0, 128, 255, bright ? 255 : 64));
         ImGui::RenderDragDropTargetRect(imgui_GetItemRect(), GImGui->CurrentWindow->ClipRect);
         ImGui::PopStyleColor();

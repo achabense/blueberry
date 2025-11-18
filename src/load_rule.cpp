@@ -857,13 +857,16 @@ public:
 
             if constexpr (preview_settings::support_window_mode) {
                 if (m_preview.window_mode) {
-                    // TODO: improve... (& title name)
-                    // (Whether to set `ImGuiWindowFlags_NoCollapse`?)
+                    // TODO: unresolved:
+                    // Whether to set `ImGuiWindowFlags_NoCollapse`?
+                    // Whether to preserve mode when 1. closed with double-Esc 2. content changes -> no rules (like 'Clipboard/Clear')?
+                    // Whether to keep the checkbox/window visible when there is no rule?
                     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
                     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
                     const ImGuiWindow* source = GImGui->CurrentWindow;
-                    const std::string title = std::format("For \"{}\"", GImGui->CurrentWindow->Name);
+                    assert(!std::strchr(source->Name, '#')); // (Relying on stable name & no "##".)
+                    const std::string title = std::format("For '{}'", source->Name);
                     if (auto window =
                             imgui_Window(title.c_str(), &m_preview.window_mode,
                                          ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |

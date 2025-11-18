@@ -187,8 +187,9 @@ void backend_fn::set_frame_rate() { //
     imgui_StepSliderInt::fn("FPS", &frame_per_sec, 4, 100);
 }
 
-// (Not backend-specific, but have to sort between `EndFrame()` and `Render()`.)
-// !!TODO: recheck side effects...
+// Not backend-specific, but have to sort between `EndFrame()` and `Render()`.
+// (Cannot apply immediately; will flicker if the source window is clicked from below.)
+// (Likely due to `UpdateMouseMovingWindowEndFrame`, which makes additional focus.)
 #if 1
 static std::vector<std::array<ImGuiID, 2>> below_above{};
 void set_above(const ImGuiWindow* source) {
