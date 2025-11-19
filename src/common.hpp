@@ -310,7 +310,7 @@ public:
         }
 
         if (imgui_BeginPopupRecycled(popup_id)) {
-            // Possible only if `fn()` causes disabled case (should not happen).
+            // Possible only if `fn()` disables the outer scope (should not happen).
             assert(!imgui_TestItemFlag(ImGuiItemFlags_Disabled));
             if (imgui_IsWindowHoverable()) { // Topmost popup.
                 popup_with_focus::set_focus(popup_id, source_window);
@@ -1233,11 +1233,9 @@ public:
         }
         imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
-        const ImGuiWindow* source = GImGui->CurrentWindow;
         bool open = true;
         if (auto window =
                 imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
-            set_above(source);
             const int total = m_data.size();
             assert(0 <= m_pos && m_pos < total);
             const auto set_pos = [&](const int pos) {
@@ -1258,8 +1256,6 @@ public:
             ImGui::Text("Rules:%d At:%d", total, m_pos + 1);
 
             previewer::preview(0, m_settings, m_data[m_pos]);
-        } else { // Collapsed (title bar only).
-            set_above(source);
         }
         if (!open) {
             clear();

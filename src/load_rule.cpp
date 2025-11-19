@@ -890,6 +890,8 @@ public:
 
             if constexpr (preview_settings::support_window_mode) {
                 if (m_preview.window_mode) {
+                    // Currently should not set window-mode automatically when !m_rules.empty().
+                    // (If the text-page is updated from popup and this window appears [for the first time], it will be assigned at the back of `g.Window` (above the popup).)
                     // TODO: unresolved:
                     // Whether to set `ImGuiWindowFlags_NoCollapse`?
                     // Whether to preserve mode when closed with double-Esc?
