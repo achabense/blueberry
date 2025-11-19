@@ -978,9 +978,9 @@ private:
         m_preview.settings.set("Settings");
         ImGui::SameLine();
         if (m_pos.has_value()) {
-            ImGui::Text("Total:%d At:%d", total, *m_pos + 1);
+            ImGui::Text("Rules:%d At:%d", total, *m_pos + 1);
         } else {
-            ImGui::Text("Total:%d At:N/A", total);
+            ImGui::Text("Rules:%d At:N/A", total);
         }
         rclick_popup::for_text([&] {
             ImGui::BeginDisabled(!m_pos.has_value());

@@ -1248,7 +1248,7 @@ public:
             ImGui::SameLine();
             m_settings.set("Settings");
             ImGui::SameLine();
-            ImGui::Text("Total:%d At:%d", total, m_pos + 1);
+            ImGui::Text("Rules:%d At:%d", total, m_pos + 1);
 
             previewer::preview(0, m_settings, m_data[m_pos]);
         } else { // Collapsed (title bar only).

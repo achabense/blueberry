@@ -99,7 +99,7 @@ static open_state intro_window(frame_main_token) {
             ImGui::SameLine();
             settings.set("Settings");
             ImGui::SameLine();
-            ImGui::Text("Total:%d At:%d", total, at + 1);
+            ImGui::Text("Rules:%d At:%d", total, at + 1);
 
             previewer::preview(0, settings, rules[at]);
             ImGui::EndGroup();
