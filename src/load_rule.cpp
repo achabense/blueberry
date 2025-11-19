@@ -699,6 +699,7 @@ class textT : no_copy {
     bool menu_opened = false;
 
     preview_settings m_preview{};
+    test_appearing m_appearing{};
 
     bool do_rewind = false;
     int go_line = -1;
@@ -810,27 +811,59 @@ public:
     static constexpr int max_line = 20000;
 
     void display() {
-        assert_implies(m_lines.empty(), m_text.empty() && m_rules.empty());
-        assert_implies(menu_opened, m_sel);
-
         // TODO: whether to set !m_preview.window_mode on appearing?
-        // TODO: use `test_appearing` instead?
-        if (ImGui::IsWindowAppearing()) {
+        if (m_appearing.update()) {
             // This may happen if the parent window is closed with double-esc.
             m_sel.reset();
             menu_opened = false;
         }
+        if constexpr (preview_settings::support_window_mode) {
+            if (m_rules.empty()) {
+                m_preview.window_mode = false;
+            }
+        }
 
+        assert_implies(m_lines.empty(), m_text.empty() && m_rules.empty());
+        assert_implies(m_rules.empty(), !m_pos.has_value() && !m_preview.window_mode);
+        assert_implies(menu_opened, m_sel);
         {
             // Precedence:
             // Line-selecting > iterating > (starting line-selection) > left-click setting
             std::optional<int> iter_pos = std::nullopt;
             if (!m_rules.empty()) {
-                iter_pos = display_seq(m_rules.size(), m_preview, m_pos);
-            } else {
-                imgui_Str("(No rules)");
+                // TODO: hide or disable? (disable ~ slightly more stable visual, but need to explain (tooltip)...)
+                const int total = m_rules.size();
+                if constexpr (preview_settings::support_window_mode) {
+                    ImGui::Checkbox("Window", &m_preview.window_mode);
+                    ImGui::SameLine();
+                }
+                switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
+                    case 0: iter_pos = 0; break;
+                    case 1: iter_pos = m_pos ? *m_pos - 1 : 0; break;
+                    case 2: iter_pos = m_pos ? *m_pos + 1 : 0; break;
+                    case 3: iter_pos = INT_MAX; break;
+                }
+                if (iter_pos) {
+                    iter_pos = std::clamp(*iter_pos, 0, total - 1);
+                }
+                ImGui::SameLine();
+                m_preview.settings.set("Settings");
+                ImGui::SameLine();
+                if (m_pos.has_value()) {
+                    ImGui::Text("Rules:%d At:%d", total, *m_pos + 1);
+                } else {
+                    ImGui::Text("Rules:%d At:N/A", total);
+                }
+                rclick_popup::for_text([&] {
+                    ImGui::BeginDisabled(!m_pos.has_value());
+                    if (ImGui::Selectable("Reset cursor")) {
+                        m_pos.reset();
+                    }
+                    ImGui::EndDisabled();
+                });
+
+                ImGui::Separator();
             }
-            ImGui::Separator();
 
             if (m_sel) {
                 iter_pos.reset();
@@ -859,8 +892,7 @@ public:
                 if (m_preview.window_mode) {
                     // TODO: unresolved:
                     // Whether to set `ImGuiWindowFlags_NoCollapse`?
-                    // Whether to preserve mode when 1. closed with double-Esc 2. content changes -> no rules (like 'Clipboard/Clear')?
-                    // Whether to keep the checkbox/window visible when there is no rule?
+                    // Whether to preserve mode when closed with double-Esc?
                     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
                     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
@@ -957,41 +989,6 @@ public:
     }
 
 private:
-    static std::optional<int> display_seq(const int total, preview_settings& m_preview, std::optional<int>& m_pos) {
-        if constexpr (preview_settings::support_window_mode) {
-            ImGui::Checkbox("Window", &m_preview.window_mode);
-            ImGui::SameLine();
-        }
-
-        assert(total > 0);
-        std::optional<int> pos = std::nullopt;
-        switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
-            case 0: pos = 0; break;
-            case 1: pos = m_pos ? *m_pos - 1 : 0; break;
-            case 2: pos = m_pos ? *m_pos + 1 : 0; break;
-            case 3: pos = INT_MAX; break;
-        }
-        if (pos) {
-            pos = std::clamp(*pos, 0, total - 1);
-        }
-        ImGui::SameLine();
-        m_preview.settings.set("Settings");
-        ImGui::SameLine();
-        if (m_pos.has_value()) {
-            ImGui::Text("Rules:%d At:%d", total, *m_pos + 1);
-        } else {
-            ImGui::Text("Rules:%d At:N/A", total);
-        }
-        rclick_popup::for_text([&] {
-            ImGui::BeginDisabled(!m_pos.has_value());
-            if (ImGui::Selectable("Reset cursor")) {
-                m_pos.reset();
-            }
-            ImGui::EndDisabled();
-        });
-        return pos;
-    }
-
     struct passT {
         std::optional<int> pos = std::nullopt;
         std::optional<selT> sel = std::nullopt;

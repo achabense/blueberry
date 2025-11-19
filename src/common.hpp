@@ -299,7 +299,10 @@ public:
         const ImGuiID popup_id = item_id;
 
         const ImGuiWindow* source_window = GImGui->CurrentWindow;
-        if (!imgui_IsPopupOpen(popup_id) && imgui_IsItemOrNoneActive() && imgui_IsItemHoveredForTooltip()) {
+        // (Using two hover test to prevent disabled case (without having to play with flags).)
+        // (`ImGuiHoveredFlags_ForTooltip` imply `ImGuiHoveredFlags_AllowWhenDisabled` by default.)
+        if (!imgui_IsPopupOpen(popup_id) && imgui_IsItemOrNoneActive() && ImGui::IsItemHovered() &&
+            imgui_IsItemHoveredForTooltip()) {
             // TODO: whether to focus automatically?
             // (Or require the source window to be focused?)
             popup_with_focus::open_popup(popup_id, ImGuiPopupFlags_NoReopen);
@@ -307,6 +310,8 @@ public:
         }
 
         if (imgui_BeginPopupRecycled(popup_id)) {
+            // Possible only if `fn()` causes disabled case (should not happen).
+            assert(!imgui_TestItemFlag(ImGuiItemFlags_Disabled));
             if (imgui_IsWindowHoverable()) { // Topmost popup.
                 popup_with_focus::set_focus(popup_id, source_window);
                 const ImVec2 mouse_pos = ImGui::GetMousePos(); // Needn't be valid.
@@ -355,7 +360,7 @@ public:
     [[nodiscard]] static hoverE popup_no_highlight(const ImGuiID id, const func_ref<void()> fn) {
         assert(id != 0);
         const ImGuiID popup_id = id;
-        const bool hovered = ImGui::IsItemHovered();
+        const bool hovered = ImGui::IsItemHovered(); // !hovered when disabled.
         bool opened = imgui_IsPopupOpen(popup_id);
         if (!hovered && !opened) {
             // To respect ImGui::SetNextWindowXX calls.
@@ -371,6 +376,7 @@ public:
 
         hoverE hov = Hovered;
         if (opened && imgui_BeginPopupRecycled(popup_id)) {
+            assert(!imgui_TestItemFlag(ImGuiItemFlags_Disabled));
             popup_with_focus::set_focus(popup_id, source_window);
             hov = GImGui->CurrentWindow->Hidden ? PopupHidden : PopupVisible;
 
@@ -639,6 +645,7 @@ public:
     // (Referring to ImGui::InputScalar.)
     static bool fn(const char* label, int* v, int v_min, int v_max, int v_step = 1,
                    const func_ref<std::string(int)> to_str = to_str_default) {
+        // assert(!imgui_TestItemFlag(ImGuiItemFlags_Disabled)); // Not considering disabled case.
         const auto [minus, plus] = std::exchange(next_shortcuts, {ImGuiKey_None, ImGuiKey_None});
         GImGui->CurrentWindow->WriteAccessed = true;
         if (GImGui->CurrentWindow->SkipItems) {
