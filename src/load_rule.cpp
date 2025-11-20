@@ -524,7 +524,7 @@ private:
                             ImGui::EndTooltip();
                         }
                     }
-                    if (indent) {
+                    if (indent && ImGui::IsItemVisible()) {
                         const ImVec2 item_min = ImGui::GetItemRectMin();
                         const float h = std::floor(ImGui::GetItemRectSize().y / 2);
                         drawlist.AddLine(item_min + ImVec2(-indent_spacing, h), item_min + ImVec2(-inner_spacing, h),

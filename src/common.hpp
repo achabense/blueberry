@@ -544,9 +544,11 @@ inline bool imgui_SelectableStyledButtonEx(const int id, const std::string_view 
     ImGui::PushID(id);
     const bool ret = ImGui::Button("##Sel", button_size);
     ImGui::PopID();
-    const ImRect rect = imgui_GetItemRect();
-    ImGui::RenderTextClipped(rect.Min + ImVec2(0, frame_padding_y), rect.Max - ImVec2(0, frame_padding_y), label.data(),
-                             label.data() + label.size(), &label_size, {0, 0} /*align*/, &rect);
+    if (ImGui::IsItemVisible()) {
+        const ImRect rect = imgui_GetItemRect();
+        ImGui::RenderTextClipped(rect.Min + ImVec2(0, frame_padding_y), rect.Max - ImVec2(0, frame_padding_y),
+                                 label.data(), label.data() + label.size(), &label_size, {0, 0} /*align*/, &rect);
+    }
 
     prev_id = ImGui::GetItemID();
     ImGui::PopStyleColor(3);
