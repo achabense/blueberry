@@ -105,7 +105,8 @@ static const pathT& get_home_path() /*noexcept*/ {
         for (auto pos = segs.rbegin() + 1; pos != segs.rend(); ++pos) {
             std::string seg_str = cpp17_u8string_b(*pos);
             const float seg_w = imgui_CalcTextSize(seg_str).x;
-            if (suffix_w + (seg_w + sep_w) <= avail_w) {
+            // Workaround: -1 for the assertion.
+            if (suffix_w + (seg_w + sep_w) <= avail_w - 1) {
                 suffix_w += (seg_w + sep_w);
                 vec.push_back(std::move(seg_str));
             } else {
@@ -122,6 +123,8 @@ static const pathT& get_home_path() /*noexcept*/ {
                 str += sep;
                 str += *pos;
             }
+            // assert(suffix_w >= imgui_CalcTextSize(str).x); // X due to strange rounding in `CalcTextSize()`.
+            assert_implies(suffix_w <= avail_w, imgui_CalcTextSize(str).x <= avail_w);
             return str;
         }
     }
@@ -162,6 +165,8 @@ static void path_options(const pathT& p) {
         copy_path(p.filename()); // (`p` shouldn't end with separator.)
     }
 }
+// TODO: should not affect auto-fitting.
+// (The clipped str may still be longer than avail size...)
 static void display_path(const pathT& p, const float avail_w) {
     bool clipped = false;
     imgui_Str(clip_path(p, avail_w, clipped));
