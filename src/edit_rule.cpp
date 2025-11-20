@@ -307,7 +307,7 @@ public:
                 "Hex", &subsets.ignore_hex,
                 "Rules whose values are independent of 'e' and 'z'. As a result, they can emulate range-1 hexagonal neighborhood - for any rule in this set, there exists an actual rule in the hexagonal tiling with the same behavior.\n\n"
                 "To be exact, for any pattern, if evolved under such a rule, the dynamics will correspond to a projected version evolved under an actual rule in the hexagonal space. See the last line for illustration.\n\n"
-                "(For windows displaying such rules, you can hover and press '6' to see the projected view.)");
+                "(For windows displaying such rules, you can hover and press 6 to see the projected view.)");
             scope.append(
                 "Jvn", &subsets.ignore_jvn,
                 "Rules whose values are independent of 'q', 'e', 'z' and 'c'. As a result, they can emulate range-1 von Neumann neighborhood directly.\n\n"
@@ -414,7 +414,7 @@ public:
             scope.append(
                 "Iso", &subsets.hex_isotropic,
                 "Rules that emulate isotropic hexagonal rules.\n\n"
-                "All sets in this line are strict subsets of 'Hex'; for windows displaying such rules, you can hover and press '6' to better view the symmetries in the hexagonal space.\n\n"
+                "All sets in this line are strict subsets of 'Hex'; for windows displaying such rules, you can hover and press 6 to better view the symmetries in the hexagonal space.\n\n"
                 "(Some of these sets behave like subsets of native-symmetry sets; however, they are not conceptually related.)");
             scope.append(
                 "a-d", &subsets.hex_refl_asd,
@@ -1025,7 +1025,7 @@ struct page_adapter {
     }
 
     static constexpr const char* about_resizing =
-        "Resize this window to adjust the number of preview windows; (after resizing) double-click window's resize border to fit the contents.";
+        "Resize the window to change page size; double-click window's resize border to fit the contents.";
 };
 
 // Closing the target-rule window will turn off checkbox directly. (Undocumented, but should be obvious enough.)
@@ -1557,10 +1557,12 @@ void edit_rule(frame_main_token) {
         }
         ImGui::SameLine();
         imgui_StrTooltip("(?)", [] {
+            ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
             imgui_StrPair("R: ", "Display values of [R] (0/1).");
             imgui_StrPair("Z: ", "Display values of [Z] (for 'Edit-rule').");
             imgui_StrPair("C: ", "Compare whether [Z] is same (O) or different (I) than [R].");
             // "For example, when [R] ~ 'Identity', O/I can be interpreted as whether cell will flip (I ~ will flip)."
+            ImGui::PopStyleVar();
         });
     }
     if (show_random_access) {

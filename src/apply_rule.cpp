@@ -847,11 +847,11 @@ public:
 
             // !!TODO: (v0.9.9) support keeping tooltips open? (Or just display in regular windows?)
             ImGui::AlignTextToFramePadding();
-            if (imgui_StrTooltip("(...)", "Restart : R\n"
-                                          "Pause   : Space\n"
-                                          "+s/+1/+!: S/D/F\n"
-                                          "-/+ Step    : 1/2\n"
-                                          "-/+ Interval: 3/4\n\n"
+            if (imgui_StrTooltip("(...)", "Restart  : R\n"
+                                          "Pause    : Space\n"
+                                          "+s/+1/+! : S/D/F\n"
+                                          "-/+ Step     : 1/2\n"
+                                          "-/+ Interval : 3/4\n\n"
                                           "These shortcuts work only when the editor is hovered.")) {
                 highlight_canvas = true;
             }
@@ -882,9 +882,11 @@ public:
             ImGui::PopItemFlag(); // ImGuiItemFlags_ButtonRepeat
             ImGui::SameLine();
             imgui_StrTooltip("(?)", [] {
+                ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
                 imgui_StrPair("+s: ", "Run manually, i.e. pause and advance generation by 'Step'.");
                 imgui_StrPair("+1: ", "Advance generation by 1 (instead of 'Step').");
                 imgui_StrPair("+!: ", "Speed up manually, i.e. advance generation by 10 in every frame.");
+                ImGui::PopStyleVar();
             });
             static_assert(step_fast == 10); // Used in tooltip.
 
@@ -925,8 +927,11 @@ public:
         if (ImGui::Button("Reset pos")) {
             reset_pos(true);
         }
-        guide_mode::item_tooltip(
-            "Center the space, and select suitable zoom for it. (As if the space is newly resized.)");
+        ImGui::SameLine();
+        if (imgui_StrTooltip("(?)",
+                             "Center the space and display in suitable zoom (as if the space is newly resized).")) {
+            highlight_canvas = true;
+        }
 
         ImGui::Spacing(); // To align with the separator.
 
@@ -1827,9 +1832,8 @@ void previewer::configT::_set(const bool can_resize) {
                                             ImGuiTreeNodeFlags_NoAutoOpenOnLog)) {
         ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
         imgui_StrTooltip(
-            "(?)",
-            "These settings are shared by all preview windows.\n\n"
-            "(Changing init state will restart and pause all preview windows. You can resume all with A+R/Space.)");
+            "(?)", "These settings are shared by all preview windows.\n\n"
+                   "(Changing init state will restart and pause all preview windows; press A+R/Space to resume all.)");
 
         // !!TODO: (v0.9.9) support both global and per-group setting mode?
         initT& init = _global_data::init;
@@ -1874,11 +1878,11 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     const rclick_popup::hoverE hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
         // & '6' to see the projected view in hexagonal space.
         imgui_StrTooltip("(...)", "Drag to send the rule elsewhere.\n\n"
-                                  "Restart : R\n"
-                                  "Pause   : Space\n"
-                                  "+s/+1/+!: S/D/F\n\n"
-                                  "Press 'G' to apply shortcuts to the entire group.\n"
-                                  "Press 'A' to apply to all preview windows.");
+                                  "Restart  : R\n"
+                                  "Pause    : Space\n"
+                                  "+s/+1/+! : S/D/F\n\n"
+                                  "Press G to apply shortcuts to the entire group.\n"
+                                  "Press A to apply to all preview windows.");
         ImGui::SameLine();
         // imgui_StrTooltip("Belongs", [&] { _show_belongs(rule); });
         imgui_StrDisabled("Belongs");
@@ -1895,7 +1899,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
         if (ImGui::Selectable("Restart")) {
             restart_from_menu = true;
         }
-        guide_mode::item_tooltip("Equivalent to the shortcut ('R').");
+        guide_mode::item_tooltip("Equivalent to the shortcut (R).");
 
         if constexpr (0) {
             // TODO: very convenient, but cannot decide how to expose (be menu-like, or another rclick-popup mode)...
@@ -1924,7 +1928,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 }
                 guide_mode::item_tooltip(
                     "Equivalent to sending rule to the MAP-string ('MAP...').\n\n"
-                    "(Unlike 'Mirror', this will not duplicate space state, so you may see different patterns; to reproduce the same patterns, use 'Mirror' instead.)");
+                    "(This does not duplicate space state, so you may see different patterns. Use 'Mirror' to reproduce the same patterns.)");
             }
             ImGui::EndMenu();
         }

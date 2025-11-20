@@ -9,30 +9,30 @@ static open_state intro_window(frame_main_token) {
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver); // TODO: or _Appearing?
 
     imgui_Window::next_window_titlebar_tooltip =
-        "Click the collapse button, or double click the title bar to collapse/uncollapse.";
+        "Click the collapse button, or double-click the title bar to collapse/uncollapse.";
     if (auto window =
-            imgui_Window("Introduction", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+            imgui_Window("Get started", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::PushTextWrapPos(wrap_len());
         // ImGui::SeparatorText("...");
         {
             if constexpr (init_double_esc_to_close) {
                 ImGui::Bullet();
-                imgui_Str("Double-press 'Esc' to close all windows."); // & popups if possible.
+                imgui_Str("Double-press Esc to close all windows."); // & popups if possible.
             }
 
             ImGui::Bullet();
-            imgui_Str("Press 'H' to toggle on/off additional tooltips.");
+            imgui_Str("Press H to toggle on/off additional tooltips.");
             guide_mode::item_tooltip("Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
                                      "All the other shortcuts (including these) don't require Ctrl to be pressed.");
 
             if constexpr (init_set_scroll_with_up_down) {
                 // TODO: lacks example in this window.
                 ImGui::Bullet();
-                imgui_Str("Press up/down arrow keys to set scroll in the focused window.");
+                imgui_Str("Press Up/Down to set scroll in the focused window.");
             }
 
             ImGui::Bullet();
-            imgui_Str("Press left/right arrow keys to control '</>' in the focused window.");
+            imgui_Str("Press Left/Right to control '</>' in the focused window.");
 
             ImGui::Bullet();
             imgui_Str("Right-click underlined text (like this) to open menu.");
