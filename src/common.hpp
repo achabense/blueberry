@@ -1240,11 +1240,7 @@ public:
                 imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
             const int total = m_data.size();
             assert(0 <= m_pos && m_pos < total);
-            const auto set_pos = [&](const int pos) {
-                if (!compare_update(m_pos, std::clamp(pos, 0, total - 1))) {
-                    messenger::dot();
-                }
-            };
+            const auto set_pos = [&](const int pos) { m_pos = std::clamp(pos, 0, total - 1); };
             switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
                 case 0: set_pos(0); break;
                 case 1: set_pos(m_pos - 1); break;

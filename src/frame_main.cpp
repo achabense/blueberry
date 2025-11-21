@@ -81,11 +81,7 @@ static open_state intro_window(frame_main_token) {
             static int at = 0;
             const int total = rules.size();
             assert(total == 2 && 0 <= at && at < total);
-            const auto set_pos = [&](const int pos) {
-                if (!compare_update(at, std::clamp(pos, 0, total - 1))) {
-                    messenger::dot();
-                }
-            };
+            const auto set_pos = [&](const int pos) { at = std::clamp(pos, 0, total - 1); };
 
             ImGui::AlignTextToFramePadding();
             ImGui::Bullet();

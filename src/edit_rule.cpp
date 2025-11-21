@@ -1114,7 +1114,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         }
 
         enum roleE { First, Last };
-        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/, const bool dot = true) {
+        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/, const bool dot = false) {
             assert(working_set.contains(rule));
             const auto old_size = page.size();
             const auto old_front = !page.empty() ? page.front() : aniso::ruleT{};
@@ -1218,14 +1218,14 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
             if (const auto dist = input_dist.input(5, "##Dist", std::format("Max:{}", working_set.free_k()).c_str())) {
-                reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist));
+                reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist), true);
             };
         });
 
         ImGui::Separator();
 
         if (adapter.try_resize(config.size_imvec()) && !page.empty()) {
-            reset_page(First, page.front(), false);
+            reset_page(First, page.front());
         }
         adapter.display([&](const int j) {
             assert(j >= 0);
@@ -1235,7 +1235,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                     guide_mode::item_tooltip("Drag a rule here to get to its position.");
                 }
                 if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
-                    reset_page(First, *deliv);
+                    reset_page(First, *deliv, true);
                 }
             }
         });
@@ -1290,11 +1290,7 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
         const auto calc_page = [&]() -> int { return (rules.size() + adapter.page_size - 1) / adapter.page_size; };
         const auto last_page = [&]() -> int { return rules.empty() ? 0 : calc_page() - 1; }; // ]
         assert(0 <= page_no && page_no <= last_page());
-        const auto set_page = [&](const int page) {
-            if (!compare_update(page_no, std::clamp(page, 0, last_page()))) {
-                messenger::dot();
-            }
-        };
+        const auto set_page = [&](const int page) { page_no = std::clamp(page, 0, last_page()); };
         const auto set_next_page = [&] {
             if (page_no < last_page()) {
                 ++page_no;
