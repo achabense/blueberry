@@ -708,10 +708,8 @@ public:
 // !!TODO: update tooltips (free groups)...
 
 // (Used to require being used after regular tooltips; no longer necessary.)
-static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
-    if (!pass.rule) {
-        return nullptr;
-    } else if (!working_set.contains(*pass.rule)) {
+static pass_rule::passT filter_contains(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
+    if (pass.rule && !working_set.contains(*pass.rule)) {
         const bool hov = pass.hov_for_tooltip();
         if (hov || pass.deliv) {
             messenger::set_msg("The rule does not belong to [S].");
@@ -719,10 +717,9 @@ static const aniso::ruleT* get_deliv(const pass_rule::passT& pass, const aniso::
                 messenger::set_once();
             }
         }
-        return nullptr;
-    } else {
-        return pass.get_deliv();
+        return {};
     }
+    return pass;
 }
 
 // TODO: improve tooltips...
@@ -813,7 +810,7 @@ public:
         imgui_StrWithID("[R]");
         guide_mode::item_tooltip("Drag a rule here to update [R]. (See 'Other' for details.)");
         // pass_rule::source(get());
-        if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
+        if (const auto* deliv = filter_contains(pass_rule::dest(), working_set).get_deliv()) {
             // TODO: whether (when) to show dot?
             // messenger::dot_if(...);
             if (const tagE tag = resolve_tag(*deliv); tag != None) {
@@ -1045,7 +1042,7 @@ public:
 
     enum effectE { None = 0, Same, Diff };
     effectE try_set(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
-        if (const auto* deliv = get_deliv(pass, working_set)) {
+        if (const auto* deliv = filter_contains(pass, working_set).get_deliv()) {
             if (!m_rule.assigned() || m_rule.get() != *deliv) {
                 m_rule.set(*deliv);
                 return Diff;
@@ -1234,7 +1231,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                 if (page.empty()) {
                     guide_mode::item_tooltip("Drag a rule here to get to its position.");
                 }
-                if (const auto* deliv = get_deliv(pass_rule::dest(), working_set)) {
+                if (const auto* deliv = filter_contains(pass_rule::dest(), working_set).get_deliv()) {
                     reset_page(First, *deliv, true);
                 }
             }
