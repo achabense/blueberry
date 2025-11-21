@@ -1051,6 +1051,7 @@ public:
 
         passT() = default;
         passT(const aniso::ruleT* r, bool hov, bool deliv) : rule{r}, hov{hov}, deliv{deliv} { assert(r); }
+        passT(const aniso::ruleT&) = delete; // Too easy to dangle...
         passT(const aniso::ruleT* r) : rule{r}, hov{false}, deliv{true} { assert(r); }
 
         const aniso::ruleT* get_hov() const { return hov ? rule : nullptr; }
@@ -1102,6 +1103,24 @@ public:
         return {};
     }
 };
+
+inline bool check_diff_no_msg = false; // (Workaround to suppress msg in one place.)
+inline bool check_diff(const pass_rule::passT& pass, const aniso::ruleT& cmp) {
+    if (pass.rule && *pass.rule == cmp) {
+        if (!check_diff_no_msg) {
+            const bool hov = pass.hov_for_tooltip();
+            if (hov || pass.deliv) {
+                messenger::set_msg("Same rule.");
+                if (hov) {
+                    messenger::set_once();
+                }
+                // else { messenger::set_auto_disappear(); }
+            }
+        }
+        return false;
+    }
+    return true;
+}
 
 inline bool set_clipboard(const std::string& str) {
     if (str.empty()) {

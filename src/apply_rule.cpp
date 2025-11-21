@@ -342,21 +342,16 @@ class runnerT : no_copy {
 
     handlerT m_handler{*this};
 
+    // TODO: use `rule_with_rec` directly?
     class targetT : no_copy {
         rule_with_rec rule = aniso::game_of_life();
 
     public:
         operator const aniso::ruleT&() const { return rule.get(); }
         const aniso::ruleT& get() const { return rule.get(); }
-        const rec_for_rule& rec() const { return rule.rec(); }
+        void set(const aniso::ruleT& r) { rule.set(r); }
 
-        bool compare_update(const aniso::ruleT& r) {
-            if (rule.get() != r) {
-                rule.set(r);
-                return true;
-            }
-            return false;
-        }
+        const rec_for_rule& rec() const { return rule.rec(); }
     };
 
     targetT m_rule{};
@@ -637,17 +632,16 @@ class runnerT : no_copy {
 public:
     runnerT() { m_handler.enable(); }
 
-    void set_rule(const aniso::ruleT& rule) {
-        if (m_rule.compare_update(rule)) {
+    void try_accept(const pass_rule::passT& pass) {
+        if (check_diff(pass, m_rule) && pass.deliv) {
+            m_rule.set(*pass.rule);
             m_ctrl.set_pause(false);
             m_torus.restart();
-        } else {
-            messenger::dot();
         }
     }
     void set_rule_and_state(const aniso::ruleT& rule, const aniso::vecT& size, const initT& init) {
         reset_pos();
-        m_rule.compare_update(rule);
+        m_rule.set(rule); // No need to compare (always restarts).
         m_ctrl.set_pause(false);
         m_torus.restart(size, init);
     }
@@ -675,9 +669,7 @@ public:
 
             imgui_StrWithID(aniso::to_MAP_str(m_rule), ImGui::GetID("MAP-str"));
             pass_rule::source(m_rule);
-            if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                set_rule(*deliv);
-            }
+            try_accept(pass_rule::dest());
             rclick_popup::for_text([&] {
                 if (ImGui::Selectable("Copy rule")) {
                     copy_rule::copy(m_rule);
@@ -1700,7 +1692,7 @@ private:
                 });
                 ImGui::SameLine();
                 if (double_click_button_small("Apply")) {
-                    set_rule(*(m_paste->rule));
+                    try_accept(&*(m_paste->rule));
                 }
             }
 
@@ -1924,7 +1916,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             }
             if (pattern_editor_avail) {
                 if (ImGui::Selectable("Pattern editor")) {
-                    runner.set_rule(rule);
+                    runner.try_accept(&rule);
                 }
                 guide_mode::item_tooltip(
                     "Equivalent to sending rule to the MAP-string ('MAP...').\n\n"

@@ -708,7 +708,7 @@ public:
 // !!TODO: update tooltips (free groups)...
 
 // (Used to require being used after regular tooltips; no longer necessary.)
-static pass_rule::passT filter_contains(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
+static bool check_contains(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
     if (pass.rule && !working_set.contains(*pass.rule)) {
         const bool hov = pass.hov_for_tooltip();
         if (hov || pass.deliv) {
@@ -716,10 +716,11 @@ static pass_rule::passT filter_contains(const pass_rule::passT& pass, const anis
             if (hov) {
                 messenger::set_once();
             }
+            // else { messenger::set_auto_disappear(); }
         }
-        return {};
+        return false;
     }
-    return pass;
+    return true;
 }
 
 // TODO: improve tooltips...
@@ -796,12 +797,14 @@ public:
         // (Used to require being used after regular tooltips; no longer necessary.)
         const auto peek_dist = [&](const aniso::ruleT& rule) {
             if (const aniso::ruleT* peek = pass_rule::peek()) {
-                if (imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
-                    working_set.contains(*peek)) {
-                    const int dist = aniso::distance(working_set, rule, *peek);
-                    messenger::set_msg("Dist:{}{}", dist, dist == 0 ? " (same rule)" : "");
-                    messenger::set_once();
-                    highlight_item();
+                if (imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+                    if (working_set.contains(*peek)) {
+                        const int dist = aniso::distance(working_set, rule, *peek);
+                        messenger::set_msg("Dist:{}{}", dist, dist == 0 ? " (same rule)" : "");
+                        messenger::set_once();
+                        highlight_item();
+                    }
+                    // TOOD: display something when !contains?
                 }
             }
         };
@@ -810,13 +813,12 @@ public:
         imgui_StrWithID("[R]");
         guide_mode::item_tooltip("Drag a rule here to update [R]. (See 'Other' for details.)");
         // pass_rule::source(get());
-        if (const auto* deliv = filter_contains(pass_rule::dest(), working_set).get_deliv()) {
-            // TODO: whether (when) to show dot?
-            // messenger::dot_if(...);
-            if (const tagE tag = resolve_tag(*deliv); tag != None) {
+        if (const auto pass = pass_rule::dest(); check_contains(pass, working_set) && pass.deliv) {
+            // TODO: whether to check-diff (vs peek_dist())?
+            if (const tagE tag = resolve_tag(*pass.rule); tag != None) {
                 m_tag = tag;
             } else {
-                m_other = *deliv;
+                m_other = *pass.rule;
                 m_tag = Other;
             }
             m_highlight = m_tag;
@@ -889,6 +891,12 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
         static previewer::configT config{previewer::default_settings};
         static std::optional<aniso::ruleT> rules[10];
         static rec_for_rule rec{}; // TODO: whether to share the same recorder?
+        const auto try_accept = [](std::optional<aniso::ruleT>& rule, const pass_rule::passT& pass) {
+            if ((!rule.has_value() || check_diff(pass, *rule)) && pass.deliv) {
+                rule = *pass.rule;
+                rec.add(*pass.rule);
+            }
+        };
         if (rec.empty()) {
             const aniso::ruleT r = aniso::trans_reverse(aniso::game_of_life());
             rules[0] = r;
@@ -937,9 +945,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
                 ImGui::SameLine();
                 if (ImGui::SmallButton("0/1##Rev") && rule.has_value()) {
                     const aniso::ruleT r = aniso::trans_reverse(*rule);
-                    messenger::dot_if(rule == r);
-                    rule = r;
-                    rec.add(r);
+                    try_accept(rule, &r);
                 }
                 if (this_i == 0) {
                     guide_mode::item_tooltip(
@@ -953,9 +959,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
                     ImGui::SameLine();
                     if (double_click_button_small("Approx") && rule.has_value()) {
                         const aniso::ruleT r = aniso::approximate(working_set, *rule);
-                        messenger::dot_if(rule == r);
-                        rule = r;
-                        rec.add(r);
+                        try_accept(rule, &r);
                     }
                     if (this_i == 0) {
                         guide_mode::item_tooltip(
@@ -971,11 +975,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
                 if (this_i == 1 && !rule.has_value()) {
                     guide_mode::item_tooltip("Drag a rule here for later use.");
                 }
-                if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                    messenger::dot_if(rule == *deliv);
-                    rule = *deliv;
-                    rec.add(*deliv);
-                }
+                try_accept(rule, pass_rule::dest());
                 ImGui::EndGroup();
             }
         }
@@ -1040,14 +1040,16 @@ public:
         }
     }
 
-    enum effectE { None = 0, Same, Diff };
-    effectE try_set(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
-        if (const auto* deliv = filter_contains(pass, working_set).get_deliv()) {
-            if (!m_rule.assigned() || m_rule.get() != *deliv) {
-                m_rule.set(*deliv);
+    enum class effectE { None = 0, Same, Diff };
+    using enum effectE;
+    effectE try_accept(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
+        if (check_contains(pass, working_set)) {
+            if ((!m_rule.assigned() || check_diff(pass, m_rule.get())) && pass.deliv) {
+                m_rule.set(*pass.rule);
                 return Diff;
+            } else if (pass.deliv) {
+                return Same;
             }
-            return Same;
         }
         return None;
     }
@@ -1078,8 +1080,7 @@ public:
             // settings.set("Settings", true /*small*/);
 
             previewer::preview(0, settings, m_rule.get());
-            effect = try_set(pass_rule::dest(), working_set);
-            messenger::dot_if(effect == Same);
+            effect = try_accept(pass_rule::dest(), working_set);
         } else { // Collapsed (title bar only).
             set_above(source);
         }
@@ -1111,10 +1112,8 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         }
 
         enum roleE { First, Last };
-        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/, const bool dot = false) {
+        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/) {
             assert(working_set.contains(rule));
-            const auto old_size = page.size();
-            const auto old_front = !page.empty() ? page.front() : aniso::ruleT{};
             page.clear();
             page.push_back(rule);
 
@@ -1149,7 +1148,6 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                     fill_next();
                 }
             }
-            messenger::dot_if(dot && page.size() == old_size && page.front() == old_front);
         };
 
         ImGui::AlignTextToFramePadding();
@@ -1215,7 +1213,10 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
             if (const auto dist = input_dist.input(5, "##Dist", std::format("Max:{}", working_set.free_k()).c_str())) {
-                reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist), true);
+                // !!TODO: redesign msg...
+                const aniso::ruleT r = aniso::flatten::first_d(working_set, orderer, *dist);
+                messenger::dot_if(!page.empty() && r == page.front());
+                reset_page(First, r);
             };
         });
 
@@ -1231,8 +1232,10 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                 if (page.empty()) {
                     guide_mode::item_tooltip("Drag a rule here to get to its position.");
                 }
-                if (const auto* deliv = filter_contains(pass_rule::dest(), working_set).get_deliv()) {
-                    reset_page(First, *deliv, true);
+                if (const auto pass = pass_rule::dest(); check_contains(pass, working_set) &&
+                                                         (page.empty() || check_diff(pass, page.front())) &&
+                                                         pass.deliv) {
+                    reset_page(First, *pass.rule);
                 }
             }
         });
@@ -1477,11 +1480,12 @@ void edit_rule(frame_main_token) {
         guide_mode::item_tooltip("Edit rules in [S] (by flipping values).\n\n"
                                  "(This is mainly useful for large sets.)");
         random_access_status::update();
-        if (const auto effect = target.try_set(
-                pass_rule::dest(/*accept drop if*/ !show_random_access, random_access_status::rule_id), working_set)) {
-            messenger::dot_if(show_random_access && effect == target_rule::Same);
+        check_diff_no_msg = !show_random_access;
+        if (target.try_accept(pass_rule::dest(/*accept drop if*/ !show_random_access, random_access_status::rule_id),
+                              working_set) != target_rule::None) {
             show_random_access = true;
         }
+        check_diff_no_msg = false;
         if (show_random_access != show_random_access_old) {
             group_table_reset_scroll = true;
         }
@@ -1669,7 +1673,7 @@ void edit_rule(frame_main_token) {
                 ImGui::BeginGroup();
                 ImGui::BeginDisabled(locked);
                 if (code_button_with_label(head, &hov)) {
-                    if (!target.try_set(&temp_target, working_set)) { // Must succeed.
+                    if (target.try_accept(&temp_target, working_set) != target_rule::Diff) { // Must succeed.
                         assert(false);
                     }
                 }
