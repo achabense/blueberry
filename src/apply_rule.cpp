@@ -1113,7 +1113,8 @@ public:
                     m_coord.corner_pos -= io.MouseDelta / m_coord.zoom;
                 }
 
-                if (imgui_MouseScrolling()) {
+                // TODO: require Ctrl? This is often triggered by accident...
+                if (/*io.KeyCtrl &&*/ imgui_MouseScrolling()) {
                     m_coord.to_rotate = {0, 0};
 
                     const ImVec2 space_pos = m_coord.to_space(mouse_pos);
@@ -1920,7 +1921,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
                 }
                 guide_mode::item_tooltip(
                     "Equivalent to sending rule to the MAP-string ('MAP...').\n\n"
-                    "(This does not duplicate space state, so you may see different patterns. Use 'Mirror' to reproduce the same patterns.)");
+                    "(This does not duplicate space state, so you may see different patterns. Use 'Mirror' to operate on the same patterns.)");
             }
             ImGui::EndMenu();
         }

@@ -1206,6 +1206,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             static input_int input_dist{};
             if (ImGui::IsWindowAppearing()) {
                 input_dist.clear();
+                // ImGui::ActivateItemByID(ImGui::GetID("##Dist"));
             }
 
             ImGui::AlignTextToFramePadding();
@@ -1213,9 +1214,8 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
             if (const auto dist = input_dist.input(5, "##Dist", std::format("Max:{}", working_set.free_k()).c_str())) {
-                // !!TODO: redesign msg...
                 const aniso::ruleT r = aniso::flatten::first_d(working_set, orderer, *dist);
-                messenger::dot_if(!page.empty() && r == page.front());
+                messenger::dot_if(!page.empty() && r == page.front()); // Instead of check-diff.
                 reset_page(First, r);
             };
         });
@@ -1751,27 +1751,27 @@ static void capture_still_life_impl() {
 
     // ImGui::AlignTextToFramePadding();
     imgui_StrTooltip("(...)", [] {
-        const auto term = [](stateE s, const char* desc) {
+        const auto explain = [](stateE s, const char* desc) {
             ImGui::Dummy(square_size());
             put_col(s);
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::AlignTextToFramePadding(); // `Dummy` does not align automatically.
+            imgui_Str(": ");
+            ImGui::SameLine(0, 0);
             imgui_Str(desc);
         };
 
-        // TODO: rewrite...
-        imgui_Str("Operations:\n"
-                  "Left-click a cell to set the value.\n"
-                  "Right-click to set back to any-background.\n"
-                  "Scroll in the board to change the value for left-click.\n");
-        term(O, ": Supposed to remain 0.");
-        term(I, ": Supposed to remain 1.");
-        term(O_background, ": Background 0.");
-        term(I_background, ": Background 1.");
-        term(Any_background, ": Any background.");
-        imgui_Str("By 'Apply', you will get a rule-lock pair that can satisfy the constraints represented by the "
-                  "arrangements. (For example, a pattern of white cells surrounded by any-background cells will keep "
-                  "stable whatever its surroundings are.)");
+        imgui_Str("Left-click a cell to set the value.\n"
+                  "Right-click to set to any-background.\n"
+                  "Scroll in the board to change the value for left-click.\n\n"
+                  "Use 'Apply' to capture the pattern as still life.\n\n");
+        explain(O, "Supposed to remain 0.");
+        explain(I, "Supposed to remain 1.");
+        explain(O_background, "Background 0. (Not part of pattern.)");
+        explain(I_background, "Background 1. (Not part of pattern.)");
+        explain(
+            Any_background,
+            "Any background. (Not part of pattern; being surround by this means the pattern can stay unchanged in all cases.)");
     });
     ImGui::SameLine();
     if (double_click_button_small("Example")) {
@@ -1878,7 +1878,7 @@ static void capture_still_life_impl() {
                 }
             }
         }
-        select_working_ptr->load_capture(p.rule, p.lock, "Updated.");
+        select_working_ptr->load_capture(p.rule, p.lock);
         // board_data.fill(Any_background); // TODO: whether to clear?
     }
 }
