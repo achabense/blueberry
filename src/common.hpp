@@ -1045,21 +1045,20 @@ private:
     inline static aniso::ruleT extra_rule{};
 
 public:
+    // rule <-> (hov || deliv).
     struct passT {
         const aniso::ruleT* rule = nullptr;
         bool hov = false, deliv = false;
 
         passT() = default;
-        passT(const aniso::ruleT* r, bool hov, bool deliv) : rule{r}, hov{hov}, deliv{deliv} { assert(r); }
+        passT(const aniso::ruleT* r, bool hov, bool deliv) : rule{r}, hov{hov}, deliv{deliv} {
+            assert(r && (hov || deliv));
+        }
         passT(const aniso::ruleT&) = delete; // Too easy to dangle...
         passT(const aniso::ruleT* r) : rule{r}, hov{false}, deliv{true} { assert(r); }
 
-        const aniso::ruleT* get_hov() const { return hov ? rule : nullptr; }
-        const aniso::ruleT* get_deliv() const { return deliv ? rule : nullptr; }
-
         // (Using _ForTooltip for stable visual.)
-        bool hov_for_tooltip() const {
-            assert_implies(hov, rule);
+        bool hov_for_tooltip() const { //
             return hov && imgui_IsItemHoveredForTooltip(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
         }
     };
@@ -1119,7 +1118,7 @@ inline bool check_diff(const pass_rule::passT& pass, const aniso::ruleT& cmp) {
         }
         return false;
     }
-    return true;
+    return true; // Note: doesn't imply `pass.rule`.
 }
 
 inline bool set_clipboard(const std::string& str) {

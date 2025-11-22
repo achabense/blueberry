@@ -720,7 +720,7 @@ static bool check_contains(const pass_rule::passT& pass, const aniso::subsetT& w
         }
         return false;
     }
-    return true;
+    return true; // Note: doesn't imply `rule`.
 }
 
 // TODO: improve tooltips...
@@ -804,7 +804,7 @@ public:
                         messenger::set_once();
                         highlight_item();
                     }
-                    // TOOD: display something when !contains?
+                    // TODO: display something when !contains?
                 }
             }
         };
@@ -1384,8 +1384,8 @@ void edit_rule(frame_main_token) {
         imgui_Str("[S]");
         if (!collapse) {
             guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
-            if (const auto* deliv = pass_rule::dest().get_deliv()) {
-                const bool updated = select_working.match(*deliv);
+            if (const auto pass = pass_rule::dest(); pass.deliv) {
+                const bool updated = select_working.match(*pass.rule);
                 messenger::dot_if(!updated);
             }
         }
