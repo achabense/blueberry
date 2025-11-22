@@ -634,7 +634,7 @@ public:
 
     void try_accept(const pass_rule::passT& pass) {
         if (check_diff(pass, m_rule) && pass.deliv) {
-            m_rule.set(*pass.rule);
+            m_rule.set(*pass.deliv);
             m_ctrl.set_pause(false);
             m_torus.restart();
         }

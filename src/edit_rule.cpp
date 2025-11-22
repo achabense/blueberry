@@ -709,7 +709,7 @@ public:
 
 // (Used to require being used after regular tooltips; no longer necessary.)
 static bool check_contains(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
-    if (pass.rule && !working_set.contains(*pass.rule)) {
+    if (const auto* rule = pass.rule(); rule && !working_set.contains(*rule)) {
         const bool hov = pass.hov_for_tooltip();
         if (hov || pass.deliv) {
             messenger::set_msg("The rule does not belong to [S].");
@@ -720,7 +720,7 @@ static bool check_contains(const pass_rule::passT& pass, const aniso::subsetT& w
         }
         return false;
     }
-    return true; // Note: doesn't imply `rule`.
+    return true;
 }
 
 // TODO: improve tooltips...
@@ -815,10 +815,10 @@ public:
         // pass_rule::source(get());
         if (const auto pass = pass_rule::dest(); check_contains(pass, working_set) && pass.deliv) {
             // TODO: whether to check-diff (vs peek_dist())?
-            if (const tagE tag = resolve_tag(*pass.rule); tag != None) {
+            if (const tagE tag = resolve_tag(*pass.deliv); tag != None) {
                 m_tag = tag;
             } else {
-                m_other = *pass.rule;
+                m_other = *pass.deliv;
                 m_tag = Other;
             }
             m_highlight = m_tag;
@@ -893,8 +893,8 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
         static rec_for_rule rec{}; // TODO: whether to share the same recorder?
         const auto try_accept = [](std::optional<aniso::ruleT>& rule, const pass_rule::passT& pass) {
             if ((!rule.has_value() || check_diff(pass, *rule)) && pass.deliv) {
-                rule = *pass.rule;
-                rec.add(*pass.rule);
+                rule = *pass.deliv;
+                rec.add(*pass.deliv);
             }
         };
         if (rec.empty()) {
@@ -1045,7 +1045,7 @@ public:
     effectE try_accept(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
         if (check_contains(pass, working_set)) {
             if ((!m_rule.assigned() || check_diff(pass, m_rule.get())) && pass.deliv) {
-                m_rule.set(*pass.rule);
+                m_rule.set(*pass.deliv);
                 return Diff;
             } else if (pass.deliv) {
                 return Same;
@@ -1235,7 +1235,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                 if (const auto pass = pass_rule::dest(); check_contains(pass, working_set) &&
                                                          (page.empty() || check_diff(pass, page.front())) &&
                                                          pass.deliv) {
-                    reset_page(First, *pass.rule);
+                    reset_page(First, *pass.deliv);
                 }
             }
         });
@@ -1385,7 +1385,7 @@ void edit_rule(frame_main_token) {
         if (!collapse) {
             guide_mode::item_tooltip("Drag a rule here to select all sets containing the rule.");
             if (const auto pass = pass_rule::dest(); pass.deliv) {
-                const bool updated = select_working.match(*pass.rule);
+                const bool updated = select_working.match(*pass.deliv);
                 messenger::dot_if(!updated);
             }
         }

@@ -1045,17 +1045,19 @@ private:
     inline static aniso::ruleT extra_rule{};
 
 public:
-    // rule <-> (hov || deliv).
     struct passT {
-        const aniso::ruleT* rule = nullptr;
-        bool hov = false, deliv = false;
+        const aniso::ruleT* hov = nullptr;
+        const aniso::ruleT* deliv = nullptr;
 
         passT() = default;
-        passT(const aniso::ruleT* r, bool hov, bool deliv) : rule{r}, hov{hov}, deliv{deliv} {
-            assert(r && (hov || deliv));
+        passT(const aniso::ruleT* r, bool hov, bool deliv) : hov{hov ? r : nullptr}, deliv{deliv ? r : nullptr} {}
+        passT(const aniso::ruleT&) = delete; // Too easy to dangle.
+        passT(const aniso::ruleT* r) : hov{nullptr}, deliv{r} {}
+
+        const aniso::ruleT* rule() const {
+            assert_implies(hov && deliv, hov == deliv);
+            return hov ? hov : deliv;
         }
-        passT(const aniso::ruleT&) = delete; // Too easy to dangle...
-        passT(const aniso::ruleT* r) : rule{r}, hov{false}, deliv{true} { assert(r); }
 
         // (Using _ForTooltip for stable visual.)
         bool hov_for_tooltip() const { //
@@ -1105,7 +1107,7 @@ public:
 
 inline bool check_diff_no_msg = false; // (Workaround to suppress msg in one place.)
 inline bool check_diff(const pass_rule::passT& pass, const aniso::ruleT& cmp) {
-    if (pass.rule && *pass.rule == cmp) {
+    if (const auto* rule = pass.rule(); rule && *rule == cmp) {
         if (!check_diff_no_msg) {
             const bool hov = pass.hov_for_tooltip();
             if (hov || pass.deliv) {
@@ -1118,7 +1120,7 @@ inline bool check_diff(const pass_rule::passT& pass, const aniso::ruleT& cmp) {
         }
         return false;
     }
-    return true; // Note: doesn't imply `pass.rule`.
+    return true;
 }
 
 inline bool set_clipboard(const std::string& str) {
