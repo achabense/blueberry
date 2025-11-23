@@ -1025,7 +1025,6 @@ struct page_adapter {
         "Resize the window to change page size; double-click window's resize border to fit the contents.";
 };
 
-// Closing the target-rule window will turn off checkbox directly. (Undocumented, but should be obvious enough.)
 class target_rule : no_copy {
     rule_with_rec m_rule{};
 
@@ -1054,6 +1053,10 @@ public:
         return None;
     }
 
+    // TODO: whether to enable?
+    // Closing the target-rule window will turn off checkbox directly. (Undocumented in UI, but should be obvious enough.)
+    static constexpr bool close_from_window = false;
+
     effectE display(bool& open, const char* title, const previewer::configT& settings,
                     const aniso::subsetT& working_set) {
         assert(open);
@@ -1062,7 +1065,7 @@ public:
 
         const ImGuiWindow* source = GImGui->CurrentWindow;
         effectE effect = None;
-        if (auto window = imgui_Window(title, &open,
+        if (auto window = imgui_Window(title, close_from_window ? &open : nullptr,
                                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
                                            ImGuiWindowFlags_NoFocusOnAppearing)) {
             set_above(source);

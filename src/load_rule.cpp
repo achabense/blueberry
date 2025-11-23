@@ -897,6 +897,8 @@ public:
             }
 
             if constexpr (preview_settings::support_window_mode) {
+                // TODO: whether to enable?
+                constexpr bool close_from_window = false;
                 if (m_preview.window_mode) {
                     // Currently should not set window-mode automatically when !m_rules.empty().
                     // (If the text-page is updated from popup and this window appears [for the first time], it will be assigned at the back of `g.Window` (above the popup).)
@@ -910,7 +912,7 @@ public:
                     assert(!std::strchr(source->Name, '#')); // (Relying on stable name & no "##".)
                     const std::string title = std::format("For '{}'", source->Name);
                     if (auto window =
-                            imgui_Window(title.c_str(), &m_preview.window_mode,
+                            imgui_Window(title.c_str(), close_from_window ? &m_preview.window_mode : nullptr,
                                          ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
                                              ImGuiWindowFlags_NoFocusOnAppearing)) {
                         set_above(source);
