@@ -1115,8 +1115,10 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         }
 
         enum roleE { First, Last };
-        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/) {
+        const auto reset_page = [&](const roleE role, const aniso::ruleT rule /*by value*/, bool dot = false) {
             assert(working_set.contains(rule));
+            const auto old_size = page.size();
+            const auto old_front = !page.empty() ? page.front() : aniso::ruleT{};
             page.clear();
             page.push_back(rule);
 
@@ -1151,6 +1153,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                     fill_next();
                 }
             }
+            messenger::dot_if(dot && page.size() == old_size && page.front() == old_front);
         };
 
         ImGui::AlignTextToFramePadding();
@@ -1217,9 +1220,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
             if (const auto dist = input_dist.input(5, "##Dist", std::format("Max:{}", working_set.free_k()).c_str())) {
-                const aniso::ruleT r = aniso::flatten::first_d(working_set, orderer, *dist);
-                messenger::dot_if(!page.empty() && r == page.front()); // Instead of check-diff.
-                reset_page(First, r);
+                reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist), true);
             };
         });
 
@@ -1238,7 +1239,7 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                 if (const auto pass = pass_rule::dest(); check_contains(pass, working_set) &&
                                                          (page.empty() || check_diff(pass, page.front())) &&
                                                          pass.deliv) {
-                    reset_page(First, *pass.deliv);
+                    reset_page(First, *pass.deliv, true /*still needed*/);
                 }
             }
         });
