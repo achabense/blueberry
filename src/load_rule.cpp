@@ -774,7 +774,7 @@ public:
         static input_int input_line{};
         if (ImGui::IsWindowAppearing()) {
             input_line.clear();
-            // ImGui::ActivateItemByID(ImGui::GetID("##Line"));
+            ImGui::ActivateItemByID(ImGui::GetID("##Line"));
             if (!m_highlighted.empty()) {
                 // Workaround to guarantee correct size when visually appearing.
                 // Related: https://github.com/ocornut/imgui/issues/8959
@@ -783,14 +783,12 @@ public:
         }
 
         ImGui::AlignTextToFramePadding();
-        imgui_Str("Go to line ~");
-        ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+        imgui_Str("Line ~ ");
+        ImGui::SameLine(0, 0);
         ImGui::SetNextItemWidth(imgui_CalcButtonSize("MAX:000000").x);
         if (auto l = input_line.input(6, "##Line",
                                       ("Max:" + (m_lines.empty() ? "N/A" : std::to_string(m_lines.size()))).c_str())) {
             to_line(*l - 1, true);
-            // TODO: doesn't work well with `menu_like_popup` (shouldn't close when the source button is hovered).
-            // ImGui::CloseCurrentPopup();
         }
 
         // TODO: whether to support this? Currently lacking highlight for "current" section...

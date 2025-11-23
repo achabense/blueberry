@@ -1186,6 +1186,24 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
         ImGui::SameLine();
         config.set("Settings");
         ImGui::SameLine();
+        menu_like_popup::button("To");
+        menu_like_popup::popup([&] {
+            static input_int input_dist{};
+            if (ImGui::IsWindowAppearing()) {
+                input_dist.clear();
+                ImGui::ActivateItemByID(ImGui::GetID("##Dist"));
+            }
+
+            ImGui::AlignTextToFramePadding();
+            imgui_Str("Dist ~ ");
+            ImGui::SameLine(0, 0);
+            ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
+            if (const auto dist = input_dist.input(5, "##Dist", std::format("Max:{}", working_set.free_k()).c_str())) {
+                // X check_diff().
+                reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist), true);
+            };
+        });
+        ImGui::SameLine();
         if (page.empty()) {
             imgui_Str("Dist:N/A");
         } else {
@@ -1205,23 +1223,6 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
                 page.shrink_to_fit();
             }
             ImGui::EndDisabled();
-        });
-        ImGui::SameLine();
-        menu_like_popup::button("To");
-        menu_like_popup::popup([&] {
-            static input_int input_dist{};
-            if (ImGui::IsWindowAppearing()) {
-                input_dist.clear();
-                // ImGui::ActivateItemByID(ImGui::GetID("##Dist"));
-            }
-
-            ImGui::AlignTextToFramePadding();
-            imgui_Str("Go to dist ~");
-            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
-            ImGui::SetNextItemWidth(imgui_CalcButtonSize("Max:0000").x);
-            if (const auto dist = input_dist.input(5, "##Dist", std::format("Max:{}", working_set.free_k()).c_str())) {
-                reset_page(First, aniso::flatten::first_d(working_set, orderer, *dist), true);
-            };
         });
 
         ImGui::Separator();
