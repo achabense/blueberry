@@ -829,7 +829,6 @@ public:
             }
         };
 
-        ImGui::PushItemWidth(item_width());
         ImGui::BeginGroup();
         {
             const bool enable_shortcuts = canvas_hovered_or_held;
@@ -884,6 +883,7 @@ public:
 
             ImGui::Separator(); // To align with the left panel.
 
+            ImGui::PushItemWidth(item_width());
             const auto to_str = [is_strobing = strobing(m_rule)](int step) {
                 if (!is_strobing) {
                     return std::to_string(step);
@@ -906,6 +906,7 @@ public:
                 imgui_StepSliderInt::next_shortcuts = {ImGuiKey_3, ImGuiKey_4};
             }
             m_ctrl.interval.step_slide("Interval", 0, 400);
+            ImGui::PopItemWidth();
         }
         ImGui::EndGroup();
 
@@ -915,14 +916,6 @@ public:
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
         menu_like_popup::popup(set_init_state_in_popup);
-        ImGui::SameLine();
-        if (ImGui::Button("Reset pos")) {
-            reset_pos(true);
-        }
-        if (guide_mode::item_tooltip(
-                "Center the space and display in suitable zoom (as if the space is newly resized).")) {
-            highlight_canvas = true;
-        }
         ImGui::SameLine();
         menu_like_popup::button("Resize");
         menu_like_popup::popup([&] {
@@ -975,13 +968,21 @@ public:
                 highlight_canvas = true;
             }
         });
+        ImGui::SameLine();
+        if (ImGui::Button("Reset pos")) {
+            reset_pos(true);
+        }
+        if (guide_mode::item_tooltip(
+                "Center the space and display in suitable zoom (as if the space is newly resized).")) {
+            highlight_canvas = true;
+        }
 
         ImGui::Spacing(); // To align with the separator.
 
         // !!TODO: (v0.9.9) workaround to display updated info. (`m_torus.run()` happens after canvas button.)
         // (Currently the sync logic is messy and heavily constrained; should redesign if possible...)
         const ImVec2 supposed_abs_pos = ImGui::GetCursorScreenPos();
-        const auto unfortunately_deferred = [this] {
+        const auto unfortunately_deferred = [&] {
             ImGui::BeginGroup();
             ImGui::AlignTextToFramePadding();
             const aniso::vecT size = m_torus.size();
@@ -992,12 +993,10 @@ public:
                         m_sel ? m_torus.density(m_sel->to_range()) : m_torus.density());
             // TODO: has no stable offset (can break hover)...
             // ImGui::SameLine();
-            // imgui_StrTooltip("(?)", "Density of the selected area (or the entire space).");
+            // imgui_StrTooltip("(?)", "Density of the entire space (or the selected area).");
             ImGui::EndGroup();
         };
-        // !!TODO: recheck use of group / item-width scope.
         ImGui::EndGroup();
-        ImGui::PopItemWidth();
 
         ImGui::Separator();
 
@@ -1550,6 +1549,8 @@ private:
                 "The shortcuts work only when the editor is hovered (and this window doesn't need to stay open).";
             if (auto window = imgui_Window("Edit pattern (settings)", &show_op_window,
                                            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+                ImGui::PushItemWidth(item_width());
+
                 const auto term = [&](const char* label, const op_term& t) {
                     const char* msg = t.check(*this);
                     // Was `ImGui::MenuItem(label, shortcut, nullptr, valid)`.
@@ -1649,6 +1650,8 @@ private:
                         "(Experimental) identify a single object in the area (or the bg itself if the area contains nothing), and record all invocations.\n\n"
                         "The record can serve to generate rules that can reproduce the same object (in all phases).");
                 }
+
+                ImGui::PopItemWidth();
             }
         }
 
