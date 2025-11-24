@@ -910,7 +910,7 @@ public:
         ImGui::EndGroup();
 
         ImGui::SameLine(0, imgui_ItemSpacingX() * 5);
-        const float right_col_abs_pos = imgui_GetCursorScreenPosX();
+        // const float right_col_abs_pos = imgui_GetCursorScreenPosX();
 
         ImGui::BeginGroup();
         menu_like_popup::button("Init state");
@@ -919,40 +919,29 @@ public:
         if (ImGui::Button("Reset pos")) {
             reset_pos(true);
         }
-        ImGui::SameLine();
-        if (imgui_StrTooltip("(?)",
-                             "Center the space and display in suitable zoom (as if the space is newly resized).")) {
+        if (guide_mode::item_tooltip(
+                "Center the space and display in suitable zoom (as if the space is newly resized).")) {
             highlight_canvas = true;
         }
-
-        ImGui::Spacing(); // To align with the separator.
-
-        // Input to resize.
-        {
-            // TODO: technically should not be static.
+        ImGui::SameLine();
+        menu_like_popup::button("Resize");
+        menu_like_popup::popup([&] {
             static input_int input_x{}, input_y{};
-            if (m_appearing) {
+            if (ImGui::IsWindowAppearing()) {
                 input_x.clear();
                 input_y.clear();
+                ImGui::ActivateItemByID(ImGui::GetID("##Width"));
             }
 
-            const float total_w = item_width();
-            const float inner_spacing = imgui_ItemInnerSpacingX();
             const aniso::vecT size = m_torus.size();
-
             ImGui::AlignTextToFramePadding();
-            imgui_Str("Size ~");
-            ImGui::SameLine(0, inner_spacing);
-            ImGui::SetNextItemWidth(std::floor((total_w - inner_spacing) / 2));
+            imgui_Str("Size ~ ");
+            ImGui::SameLine(0, 0);
+            ImGui::SetNextItemWidth(imgui_CalcButtonSize("Width:00000").x);
             const auto ix = input_x.input(5, "##Width", std::format("Width:{}", size.x).c_str());
-            ImGui::SameLine(0, inner_spacing);
-            ImGui::SetNextItemWidth(std::ceil((total_w - inner_spacing) / 2));
+            ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+            ImGui::SetNextItemWidth(imgui_CalcButtonSize("Height:00000").x);
             const auto iy = input_y.input(5, "##Height", std::format("Height:{}", size.y).c_str());
-            // Bruh...
-            // ImGui::SameLine();
-            // imgui_StrTooltip(
-            //     "(?)", "Press 'Enter' to resize; if only one side is specified, the other will use the current size.");
-
             if (ix || iy) {
                 reset_pos();
                 // Both values will be flushed if either receives the enter key.
@@ -964,33 +953,49 @@ public:
                     messenger::dot();
                 }
             }
-        }
-        // Zoom buttons.
-        {
-            ImGui::AlignTextToFramePadding();
-            imgui_Str("Zoom ~");
-            for (const zoomT& z : zoomT::list()) {
-                ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+
+            for (bool first = true; const zoomT& z : zoomT::list()) {
+                if (!std::exchange(first, false)) {
+                    ImGui::SameLine(0, imgui_ItemInnerSpacingX());
+                }
                 // (`last_known_canvas_size` is 99.99% reliable here due to UI logic.)
-                if (ImGui::RadioButton(z.str(), z == m_coord.zoom)) {
+                const aniso::vecT n_size = fullscreen_size(z, m_coord.last_known_canvas_size);
+                if (ImGui::RadioButton(z.str(), m_torus.size() == n_size)) { // Instead of comparing zoom.
                     reset_pos();
-                    if (m_torus.try_resize(fullscreen_size(z, m_coord.last_known_canvas_size))) {
+                    if (m_torus.try_resize(n_size)) {
                         m_ctrl.set_pause(false);
                     }
                     // No need for dot.
                 }
-                imgui_ItemTooltip([&] {
-                    const auto size = fullscreen_size(z, m_coord.last_known_canvas_size);
-                    ImGui::Text("%d*%d", size.x, size.y);
-                });
+                imgui_ItemTooltip([&] { ImGui::Text("%d*%d", n_size.x, n_size.y); });
             }
             ImGui::SameLine();
             if (imgui_StrTooltip("(?)", "Click a radio button to resize the space to fit the screen.\n\n"
                                         "(Scroll in the editor to zoom in/out without resizing.)")) {
                 highlight_canvas = true;
             }
-        }
+        });
 
+        ImGui::Spacing(); // To align with the separator.
+
+        // !!TODO: (v0.9.9) workaround to display updated info. (`m_torus.run()` happens after canvas button.)
+        // (Currently the sync logic is messy and heavily constrained; should redesign if possible...)
+        const ImVec2 supposed_abs_pos = ImGui::GetCursorScreenPos();
+        const auto unfortunately_deferred = [this] {
+            ImGui::BeginGroup();
+            ImGui::AlignTextToFramePadding();
+            const aniso::vecT size = m_torus.size();
+            ImGui::Text("Size:%d*%d   Zoom:%s", size.x, size.y, m_coord.zoom.str());
+
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(),
+                        m_sel ? m_torus.density(m_sel->to_range()) : m_torus.density());
+            // TODO: has no stable offset (can break hover)...
+            // ImGui::SameLine();
+            // imgui_StrTooltip("(?)", "Density of the selected area (or the entire space).");
+            ImGui::EndGroup();
+        };
+        // !!TODO: recheck use of group / item-width scope.
         ImGui::EndGroup();
         ImGui::PopItemWidth();
 
@@ -1009,35 +1014,19 @@ public:
         static bool show_op_window = false;
         m_appearing.reset_if_appearing(show_op_window);
         ImGui::Checkbox("Edit-pattern", &show_op_window);
-        const int wide_spacing = imgui_ItemSpacingX() * 3; // imgui_CalcCharWidth(' ') * 3;
-
-        // !!TODO: (v0.9.9) workaround to display updated info. (`m_torus.run()` happens after canvas button.)
-        // (Currently the sync logic is messy and heavily constrained; should redesign if possible...)
-        // ImGui::SameLine(0, wide_spacing);
-        const ImVec2 supposed_abs_pos = imgui_GetItemRect().GetTR() + ImVec2(wide_spacing, 0);
-        const auto unfortunately_deferred = [&] {
-            ImGui::AlignTextToFramePadding(); // Line context has been lost. Need to realign.
-            if (m_sel) {
-                ImGui::Text("Selected:%d*%d", m_sel->width(), m_sel->height());
-            } else {
-                imgui_Str("Selected:N/A");
+        ImGui::SameLine(0, imgui_ItemSpacingX() * 3); // imgui_CalcCharWidth(' ') * 3;
+        if (m_sel) {
+            ImGui::Text("Selected:%d*%d", m_sel->width(), m_sel->height());
+        } else {
+            imgui_Str("Selected:N/A");
+        }
+        rclick_popup::for_text([&] {
+            ImGui::BeginDisabled(!m_sel.has_value());
+            if (ImGui::Selectable("Unselect")) { // "Clear" would be misleading here.
+                m_sel.reset();
             }
-            rclick_popup::for_text([&] {
-                ImGui::BeginDisabled(!m_sel.has_value());
-                if (ImGui::Selectable("Unselect")) { // "Clear" would be misleading here.
-                    m_sel.reset();
-                }
-                ImGui::EndDisabled();
-            });
-            // ImGui::SameLine(0, wide_spacing); // TODO: looks good, but can stutter when selecting area...
-            // ImGui::SameLine(cursor_pos); // Relying on window context; see https://github.com/ocornut/imgui/issues/9057
-            ImGui::SameLine(0, 0), imgui_SetCursorScreenPosX(right_col_abs_pos);
-            ImGui::Text("Generation:%d   Density:%.3f", m_torus.gen(),
-                        m_sel ? m_torus.density(m_sel->to_range()) : m_torus.density());
-            // TODO: has no stable offset (can break hover)...
-            // ImGui::SameLine();
-            // imgui_StrTooltip("(?)", "Density of the selected area (or the entire space).");
-        };
+            ImGui::EndDisabled();
+        });
 
         // ImGui::Separator();
 
