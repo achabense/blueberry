@@ -1243,8 +1243,10 @@ public:
             ImGui::SameLine();
             display_filename(*file_path);
             ImGui::SameLine();
+            ImGui::BeginDisabled(text.empty());
             menu_like_popup::small_button("To");
             menu_like_popup::popup([&] { text.select_line_in_popup(); });
+            ImGui::EndDisabled();
 
             ImGui::Separator();
             text.display();
@@ -1304,11 +1306,11 @@ public:
             ImGui::Checkbox("Dedup", &dedup);
             ImGui::PopStyleVar();
         }
-        // ImGui::SameLine();
-        // imgui_Str("Clipboard");
         ImGui::SameLine();
+        ImGui::BeginDisabled(text.empty()); // TODO: hide or disable?
         menu_like_popup::small_button("To");
         menu_like_popup::popup([&] { text.select_line_in_popup(); });
+        ImGui::EndDisabled();
 
         ImGui::Separator();
         text.display();
@@ -1364,8 +1366,10 @@ public:
             ImGui::SameLine();
             imgui_Str(doc_title);
             ImGui::SameLine();
+            ImGui::BeginDisabled(text.empty());
             menu_like_popup::small_button("To");
             menu_like_popup::popup([&] { text.select_line_in_popup(); });
+            ImGui::EndDisabled();
 
             ImGui::Separator();
             text.display();

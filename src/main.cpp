@@ -199,7 +199,9 @@ void set_above(const ImGuiWindow* source) {
     current = current->RootWindow;
     assert(source->ID != current->ID);
     assert(!(current->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus));
-    below_above.push_back({source->ID, current->ID});
+    if (!(source->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus) /*perf*/) {
+        below_above.push_back({source->ID, current->ID});
+    }
 }
 static void sort_windows() {
     if (!below_above.empty()) {

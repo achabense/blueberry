@@ -1787,15 +1787,14 @@ struct previewer::_global_data : no_create {
 previewer::_global_data::opT_ex previewer::_global_data::group_op{};
 previewer::_global_data::opT_ex previewer::_global_data::group_op_next{};
 
-void previewer::configT::_set(const bool can_resize) {
+void previewer::configT::_set() {
     // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {3, 2});
     ImGui::PushItemWidth(item_width());
 
-    if (can_resize) {
-        const auto to_tile_size = [&](int size) { return std::to_string(int(size / zoom_)); };
-        imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20, to_tile_size);
-        imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20, to_tile_size);
-    }
+    const auto to_tile_size = [&](int size) { return std::to_string(int(size / zoom_)); };
+    imgui_StepSliderInt::fn("Width", &width_, 120, 280, 20, to_tile_size);
+    imgui_StepSliderInt::fn("Height", &height_, 120, 280, 20, to_tile_size);
+
     ImGui::AlignTextToFramePadding();
     // if (!can_resize) {
     //     imgui_StrTooltip("(?)", "Cannot resize here.");
@@ -1858,6 +1857,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
     const aniso::vecT tile_size{.x = int(config.width_ / config.zoom_), .y = int(config.height_ / config.zoom_)};
 
     // TODO: (though the actual behaviors are ok) these op logics are quite messy...
+    // TODO: support setting step/interval from menu?
     const bool passing = pass_rule::source(rule);
     bool restart_from_menu = false; // TODO: remove this?
     const rclick_popup::hoverE hov = rclick_popup::popup_no_highlight(ImGui::GetItemID(), [&] {
@@ -1885,16 +1885,6 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
             restart_from_menu = true;
         }
         guide_mode::item_tooltip("Equivalent to the shortcut (R).");
-
-        if constexpr (0) {
-            // TODO: very convenient, but cannot decide how to expose (be menu-like, or another rclick-popup mode)...
-            // (If it's a group-wise popup, may support resizing as well...)
-            // (& Whether to defer the change to the end of the frame?)
-            if (imgui_BeginMenuFromPopup("Settings")) {
-                const_cast<configT&>(config)._set(false); // bleh...
-                ImGui::EndMenu();
-            }
-        }
 
         const bool rule_editor_avail = random_access_status::available();
         const bool pattern_editor_avail = pattern_editor_status::available();

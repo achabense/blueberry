@@ -152,7 +152,7 @@ inline bool imgui_BeginPopupRecycled(const ImGuiID id, const ImGuiWindowFlags wi
     return false;
 }
 
-inline bool imgui_BeginTooltipFirstOnly() {
+[[deprecated]] inline bool imgui_BeginTooltipFirstOnly() {
     if (ImGui::BeginTooltip()) {
         if (imgui_IsWindowFirstBegin()) [[likely]] {
             return true;
