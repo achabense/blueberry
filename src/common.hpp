@@ -961,26 +961,31 @@ public:
     // (Note: type-erasure doesn't apply here.)
     // (`const ruleT&()` cannot adapt `ruleT()` calls, while `ruleT()` is unnecessarily costly for `const ruleT&()` calls.)
     // const auto& rule ~ implicitly convertible to const ruleT&.
-    static void preview(const uint32_t id, const configT& config, const auto& rule) {
+    // true ~ called `_preview()`.
+    static bool preview(const uint32_t id, const configT& config, const auto& rule) {
         ImGui::PushID(id);
         ImGui::InvisibleButton("Preview", config.size_imvec());
         ImGui::PopID();
         if (!ImGui::IsItemVisible()) {
-            return;
+            return false;
         } else if (!imgui_IsItemPartiallyVisible(0.15f)) {
             // imgui_ItemRectFilled(IM_COL32_BLACK);
             imgui_ItemRect(default_border_color());
+            return false;
         } else {
             const uint64_t id2 = (uint64_t(ImGui::GetItemID()) << 32) | id;
             _preview(id2, config, rule);
+            return true;
         }
     }
 
-    static void preview_or_dummy(const uint32_t id, const configT& config, const auto* rule) {
+    // true ~ called `_preview()`.
+    static bool preview_or_dummy(const uint32_t id, const configT& config, const auto* rule) {
         if (rule) {
-            preview(id, config, *rule);
+            return preview(id, config, *rule);
         } else {
             dummy(config);
+            return false;
         }
     }
 
@@ -1099,7 +1104,7 @@ public:
         if (rule_id != 0 && rule_id == extra_rule_id) {
             extra_rule_id = 0;
             return &extra_rule;
-        } else if (accept_drop && active() && ImGui::IsItemVisible()) {
+        } else if (accept_drop && ImGui::IsItemVisible() && active()) {
             if (ImGui::BeginDragDropTarget()) {
                 const bool deliv = ImGui::AcceptDragDropPayload(type, ImGuiDragDropFlags_AcceptNoPreviewTooltip |
                                                                           ImGuiDragDropFlags_AcceptNoDrawDefaultRect);

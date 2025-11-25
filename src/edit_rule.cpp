@@ -1684,9 +1684,9 @@ void edit_rule(frame_main_token) {
                 }
                 ImGui::EndDisabled();
                 random_access_status::begin_disabled();
-                previewer::preview(/*id ~*/ this_n, config, temp_target);
+                const bool displayed = previewer::preview(/*id ~*/ this_n, config, temp_target);
                 random_access_status::end_disabled();
-                if (locked && ImGui::IsItemVisible()) { // !!TODO: (v0.9.9) improve...
+                if (locked && displayed) { // !!TODO: (v0.9.9) improve...
                     imgui_ItemRectFilled(IM_COL32_GREY(128, 64 /*48*/));
                 }
                 ImGui::EndGroup();
