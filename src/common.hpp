@@ -116,7 +116,7 @@ inline constexpr bool init_show_intro = true;
 inline constexpr bool init_extra_tooltips = true;
 inline constexpr bool init_compact_mode = false;
 inline constexpr bool init_selectables_use_button_color = false;
-inline constexpr bool init_set_scroll_with_up_down = debug_mode;
+inline constexpr bool init_set_scroll_with_up_down = true;
 
 // (Return true for && chaining.)
 inline bool highlight_item() {
@@ -202,13 +202,25 @@ inline void set_scroll_with_up_down() {
     assert(first_of_this_window<set_scroll_with_up_down>());
     if constexpr (init_set_scroll_with_up_down) {
         if (imgui_IsWindowFocused() && may_scroll() && shortcuts::no_active() && imgui_IsWindowHoverable()) {
-            const int dy = shortcuts::test_down(ImGuiKey_UpArrow)     ? -1
-                           : shortcuts::test_down(ImGuiKey_DownArrow) ? 1
+#if 1
+            // (Works well in 60 fps.)
+            const int dy = shortcuts::test_down(ImGuiKey_UpArrow)     ? -2
+                           : shortcuts::test_down(ImGuiKey_DownArrow) ? 2
                                                                       : 0;
             if (dy != 0) {
                 ImGui::SetScrollY(ImGui::GetScrollY() + dy);
                 highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
             }
+#else
+            // TODO: is this guaranteed to work? (Does non-integral value mess with visual / when does rounding happen?)
+            const int dir = shortcuts::test_down(ImGuiKey_UpArrow)     ? -1
+                            : shortcuts::test_down(ImGuiKey_DownArrow) ? 1
+                                                                       : 0;
+            if (dir != 0) {
+                ImGui::SetScrollY(ImGui::GetScrollY() + dir * 120.0f / std::max(1.0f, ImGui::GetIO().Framerate));
+                highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
+            }
+#endif
         }
     }
 }

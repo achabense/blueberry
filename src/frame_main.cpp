@@ -25,8 +25,10 @@ static open_state intro_window(frame_main_token) {
             guide_mode::item_tooltip("Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
                                      "All the other shortcuts (including these) don't require Ctrl to be pressed.");
 
-            if constexpr (init_set_scroll_with_up_down) {
-                // TODO: lacks example in this window.
+            // !!TODO: (v0.9.9) undocumented; uncertain about the design.
+            // (& requires example in this window.)
+            static_assert(init_set_scroll_with_up_down);
+            if constexpr (0) {
                 ImGui::Bullet();
                 imgui_Str("Press Up/Down to set scroll in the focused window.");
             }
