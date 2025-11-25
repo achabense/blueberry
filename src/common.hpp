@@ -212,7 +212,9 @@ inline void set_scroll_with_up_down() {
                 highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
             }
 #else
-            // TODO: is this guaranteed to work? (Does non-integral value mess with visual / when does rounding happen?)
+            // Cannot guarantee similar speed in different fps - rounding does happen, but too early (cannot apply to the accumulation).
+            // (See `CalcNextScrollFromScrollTargetAndClamp()`; so it's (round(dy)+...) instead of round((dy+...)).)
+            // Related: https://github.com/ocornut/imgui/issues/6677
             const int dir = shortcuts::test_down(ImGuiKey_UpArrow)     ? -1
                             : shortcuts::test_down(ImGuiKey_DownArrow) ? 1
                                                                        : 0;
