@@ -810,7 +810,7 @@ public:
         }
     }
 
-    static constexpr const char* about_selection = "Drag with right button to select lines.";
+    static constexpr const char* about_selection = "Drag with right button to select lines (in the text page).";
 
     // (Not inherent to impl; just arbitrary values small enough to guarantee perf and large enough for normal use cases.)
     static constexpr int max_size = 1024 * 256;
@@ -1357,7 +1357,9 @@ public:
             });
 
             ImGui::Separator();
-            select();
+            if (auto child = imgui_ChildWindow("List")) { // Workaround to disable auto-fitting.
+                select();
+            }
         } else {
             const bool close = ImGui::SmallButton("Close");
             ImGui::SameLine();
@@ -1392,10 +1394,7 @@ static imgui_Window prepare_window(const char* title, bool& open, const char* to
     const float h = ImGui::GetFontSize();
     ImGui::SetNextWindowSize(ImVec2(h * 48, h * 32), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(h * 36, h * 24), ImVec2(FLT_MAX, FLT_MAX));
-    if constexpr (debug_mode) {
-        // TODO: whether to document this way?
-        imgui_Window::next_window_titlebar_tooltip = tooltip;
-    }
+    imgui_Window::next_window_titlebar_tooltip = tooltip;
     return imgui_Window(title, &open, ImGuiWindowFlags_NoSavedSettings);
 }
 

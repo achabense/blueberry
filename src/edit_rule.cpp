@@ -752,7 +752,7 @@ class rule_selector : no_copy {
          "This is initially the Game of Life rule, and can be updated by dragging a rule to [R]. The updating logic is: if the rule equals 'Zero' or 'Identity', select directly; otherwise update and select this."},
 
         {Default, "Default",
-         "A rule predefined in [S]. Depending on [S], this may equal 'Zero' or 'Identity', or sometimes neither. (For example, try '0v1 & Total(+s)'.)\n\n"
+         "A rule predefined in [S]. Depending on [S], the rule may equal 'Zero' or 'Identity', or sometimes neither. (For example, try '0v1 & Tot(+s)'.)\n\n"
          "If [S] changes and no longer contains [R], this will be selected automatically."},
     };
 
@@ -1560,9 +1560,9 @@ void edit_rule(frame_main_token) {
         ImGui::SameLine();
         imgui_StrTooltip("(?)", [] {
             ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
-            imgui_StrPair("R: ", "Display values of [R] (0/1).");
+            imgui_StrPair("R: ", "Display values of [R] (value ~ 0/1).");
             imgui_StrPair("Z: ", "Display values of [Z] (for 'Edit-rule').");
-            imgui_StrPair("C: ", "Compare whether [Z] is same (O) or different (I) than [R].");
+            imgui_StrPair("C: ", "Compare [Z] with [R] (same ~ O, different ~ I).");
             // "For example, when [R] ~ 'Identity', O/I can be interpreted as whether cell will flip (I ~ will flip)."
             ImGui::PopStyleVar();
         });
