@@ -874,9 +874,9 @@ public:
             ImGui::SameLine();
             imgui_StrTooltip("(?)", [] {
                 ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
-                imgui_StrPair("+s: ", "Run manually, i.e. pause and advance generation by 'Step'.");
-                imgui_StrPair("+1: ", "Advance generation by 1 (instead of 'Step').");
-                imgui_StrPair("+!: ", "Speed up manually, i.e. advance generation by 10 in every frame.");
+                imgui_StrPair("+s : ", "Run manually, i.e. pause and advance generation by 'Step'.");
+                imgui_StrPair("+1 : ", "Advance generation by 1 (instead of 'Step').");
+                imgui_StrPair("+! : ", "Speed up manually, i.e. advance generation by 10 in every frame.");
                 ImGui::PopStyleVar();
             });
             static_assert(step_fast == 10); // Used in tooltip.
@@ -906,11 +906,13 @@ public:
                 imgui_StepSliderInt::next_shortcuts = {ImGuiKey_3, ImGuiKey_4};
             }
             m_ctrl.interval.step_slide("Interval", 0, 400);
+            ImGui::SameLine();
+            imgui_StrTooltip("(?)", "Min interval for auto-mode. (0 ms ~ the space will run at each frame.)");
             ImGui::PopItemWidth();
         }
         ImGui::EndGroup();
 
-        ImGui::SameLine(0, imgui_ItemSpacingX() * 5);
+        ImGui::SameLine(0, imgui_ItemSpacingX() * 4);
         // const float right_col_abs_pos = imgui_GetCursorScreenPosX();
 
         ImGui::BeginGroup();
@@ -1003,9 +1005,9 @@ public:
         ImGui::AlignTextToFramePadding();
         // & '6' to see the projected view in hexagonal space.
         if (imgui_StrTooltip("(...)", "Scroll in the editor to zoom in/out.\n\n"
-                                      "Drag with left button to move the space.\n"
+                                      "Left-click and drag to move the space.\n"
                                       "Ctrl + drag to rotate the space.\n\n"
-                                      "Drag with right button to select area.\n"
+                                      "Right-click and drag to select area.\n"
                                       "Single right-click to unselect.")) {
             highlight_canvas = true;
         }
@@ -1584,11 +1586,14 @@ private:
                 imgui_RadioButton("C", &background, 2);
                 ImGui::SameLine();
                 imgui_StrTooltip("(?)", [] {
-                    imgui_Str(
-                        "For 'Clear inside/outside':\n"
-                        "0/1: Fill area with 0 or 1 (unconditionally).\n"
-                        "C:   If the area is enclosed in 2*2 periodic bg, fill area with the bg; otherwise do nothing.\n\n"
-                        "2*2 periodic bg:");
+                    ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
+                    imgui_Str("For 'Clear inside/outside':");
+                    imgui_StrPair("0/1 : ", "Fill area with 0 or 1 (unconditionally).");
+                    imgui_StrPair(
+                        "C   : ",
+                        "Fill area with the \"2*2 bg pattern\" (listed below) if the area is enclosed by the pattern (otherwise do nothing).");
+                    imgui_Str(""); // For spacing.
+                    ImGui::PopStyleVar();
 
                     // TODO: use font-based size...
                     static constexpr std::array<aniso::cellT, 4> bg_data[]{
@@ -1623,8 +1628,8 @@ private:
                 term("Select all", op_select_all);
                 term("Bound", op_bounding_box);
                 guide_mode::item_tooltip(
-                    "The area should be enclosed in 2*2 periodic background.\n\n"
-                    "Get the bounding box for the pattern; the resulting bounding box will include a layer of background.");
+                    "Get the bounding box for the pattern. The resulting bounding box will include a layer of bg pattern.\n\n"
+                    "(The area should be enclosed in 2*2 bg pattern.)");
                 // term("Test background", op_test_bg_period);
                 // guide_mode::item_tooltip("Test the size and period of periodic background.");
 
@@ -1636,8 +1641,8 @@ private:
                 guide_mode::item_tooltip("Extract selected area without copying to the clipboard.");
                 term("Identify", op_identify);
                 guide_mode::item_tooltip(
-                    "The area should be enclosed in 2*2 periodic background.\n\n"
-                    "Identify a single object (still life, oscillator or spaceship) in the area, and *copy* its smallest phase to the clipboard.");
+                    "Identify a single object (still life, oscillator or spaceship) in the area, and copy its smallest phase to the clipboard.\n\n"
+                    "(The area should be enclosed in 2*2 bg pattern.)");
                 term("Paste", op_paste);
                 guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.");
 
@@ -1645,10 +1650,9 @@ private:
                     ImGui::Separator();
 
                     term("Capture", op_capture);
-                    guide_mode::item_tooltip(
-                        "The area should be enclosed in 2*2 periodic background.\n\n"
-                        "(Experimental) identify a single object in the area (or the bg itself if the area contains nothing), and record all invocations.\n\n"
-                        "The record can serve to generate rules that can reproduce the same object (in all phases).");
+                    guide_mode::item_tooltip( // (Or the bg itself if the area contains nothing.)
+                        "(Experimental) identify a single object in the area and record all invoked cases. The record can serve to generate rules that can reproduce the same object (in all phases).\n\n"
+                        "(The area should be enclosed in 2*2 bg pattern.)");
                 }
 
                 ImGui::PopItemWidth();
@@ -1705,10 +1709,10 @@ private:
             ImGui::SameLine(0, imgui_ItemInnerSpacingX());
             imgui_RadioButton("Xor##Mode", &m_paste->mode, aniso::blitE::Xor);
             ImGui::SameLine();
-            imgui_StrTooltip("(?)", "Once:  Paste once (clear automatically after pasting).\n"
-                                    "Multi: Paste multiple times.\n\n"
-                                    "Copy:  Paste values directly.\n"
-                                    "Or/And/Xor: Perform binary op.\n"
+            imgui_StrTooltip("(?)", "Once  : Paste once (clear automatically after pasting).\n"
+                                    "Multi : Paste multiple times.\n\n"
+                                    "Copy       : Paste values directly.\n"
+                                    "Or/And/Xor : Perform binary op.\n"
                                     "(Use Or/And to treat black/white cells as transparent bg.)\n\n"
                                     "Right-click in the editor to switch between Copy/Or/And/Xor.");
             if (canvas_hovered_or_held && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {

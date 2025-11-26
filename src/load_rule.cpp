@@ -810,7 +810,7 @@ public:
         }
     }
 
-    static constexpr const char* about_selection = "Drag with right button to select lines (in the text page).";
+    static constexpr const char* about_selection = "Right-click and drag to select lines (in the text page).";
 
     // (Not inherent to impl; just arbitrary values small enough to guarantee perf and large enough for normal use cases.)
     static constexpr int max_size = 1024 * 256;

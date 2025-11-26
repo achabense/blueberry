@@ -879,15 +879,16 @@ public:
     }
 };
 
-// 0/1-rev, approx and buffers...
+// Temp rules (+ 0/1-rev (& approx))
+// TODO: support send-to-list?
+// TODO: "misc" -> "temp"?
 static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_changed*/) {
     bool open = true;
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
     imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
 
-    // !!TODO: rename...
     if (auto window =
-            imgui_Window("Misc utils", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+            imgui_Window("Misc list", &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
         static previewer::configT config{previewer::default_settings};
         static std::optional<aniso::ruleT> rules[10];
         static rec_for_rule rec{}; // TODO: whether to share the same recorder?
@@ -1451,7 +1452,7 @@ void edit_rule(frame_main_token) {
         static bool show_misc = false;
         appearing.reset_if_appearing(show_misc);
         ImGui::Checkbox("Misc", &show_misc);
-        guide_mode::item_tooltip("0/1 reversal dual, approximation, and temp rules.");
+        guide_mode::item_tooltip("Store rules temporarily for misc use.");
         if (show_misc) {
             misc_window(working_set, set_changed_n[1]).reset_if_closed(show_misc);
         }
@@ -1560,9 +1561,9 @@ void edit_rule(frame_main_token) {
         ImGui::SameLine();
         imgui_StrTooltip("(?)", [] {
             ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
-            imgui_StrPair("R: ", "Display values of [R] (value ~ 0/1).");
-            imgui_StrPair("Z: ", "Display values of [Z] (for 'Edit-rule').");
-            imgui_StrPair("C: ", "Compare [Z] with [R] (same ~ O, different ~ I).");
+            imgui_StrPair("R : ", "Display values of [R] (value ~ 0/1).");
+            imgui_StrPair("Z : ", "Display values of [Z] (for 'Edit-rule').");
+            imgui_StrPair("C : ", "Compare [Z] with [R] (same ~ O, different ~ I).");
             // "For example, when [R] ~ 'Identity', O/I can be interpreted as whether cell will flip (I ~ will flip)."
             ImGui::PopStyleVar();
         });
