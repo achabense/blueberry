@@ -749,7 +749,7 @@ class rule_selector : no_copy {
 
         {Other, "Other",
          "Another rule that's neither 'Zero' nor 'Identity'.\n\n"
-         "This is initially the Game of Life rule, and can be updated by dragging a rule to [R]. The updating logic is: if the rule equals 'Zero' or 'Identity', select directly; otherwise update and select this."},
+         "This is initially the Game of Life rule, and can be updated by dragging a rule to [R]. (If the rule equals 'Zero' or 'Identity', will select directly; otherwise will update and select this.)"},
 
         {Default, "Default",
          "A rule predefined in [S]. Depending on [S], the rule may equal 'Zero' or 'Identity', or sometimes neither. (For example, try '0v1 & Tot(+s)'.)\n\n"
@@ -1073,8 +1073,8 @@ public:
             bring_to_front_on_appearing();
             imgui_StrTooltip(
                 "(...)",
-                "This can be an arbitrary rule in [S].\n\n"
-                "Drag a rule to the preview window to apply the rule. If [S] changes and no longer contains the rule, this will be reset to 'Default'.");
+                "This can be an arbitrary rule in [S]. Drag a rule to the preview window to apply the rule.\n\n"
+                "(If [S] changes and no longer contains the rule, this will be reset to 'Default'.)");
             ImGui::SameLine();
             if (double_click_button_small("Dump")) {
                 m_rule.rec().dump(settings);
@@ -1509,10 +1509,7 @@ void edit_rule(frame_main_token) {
             imgui_StrTooltip(
                 "(?)",
                 "The table displays all rules with distance = 1 to [Z] in [S].\n\n"
-                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group.\n\n"
-                "1. Click the same button again to undo the change.\n"
-                "2. Collapse the set table ('Collapse') to leave more room.\n"
-                "3. Use the 'Misc' window to temporarily store the rule.");
+                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group. (Click the same button again to undo the change.)");
             ImGui::SameLine();
             config.set("Settings");
         }

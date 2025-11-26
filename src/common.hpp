@@ -750,7 +750,7 @@ class messenger : no_create {
             clear();
             m_life = User;
 
-            // TODO: ideally should take account of wrap-len...
+            // (Ideally should take account of wrap-len; need `CalcWordWrapPosition()` & skip blanks and '\n'.)
             size_t subsize = 0;
             for (int line = 0; line < 15; ++line) {
                 subsize = str.find_first_of('\n', subsize);

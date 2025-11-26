@@ -661,7 +661,7 @@ public:
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip(
                     "(...)",
-                    "The \"pattern editor\" (as highlighted) has strictly wider control than preview windows, and is able to operate on patterns (see 'Edit-pattern' for details).\n\n"
+                    "The \"pattern editor\" (as highlighted) has wider control than preview windows, and is able to operate on patterns (see 'Edit-pattern' for supported operations).\n\n"
                     "All spaces use torus topology, i.e. information can go across boundaries directly, so the entire space can be imagined as a periodic unit in an infinite space.")) {
                 highlight_canvas = true;
             }
@@ -684,9 +684,8 @@ public:
                 }
                 guide_mode::item_tooltip(rec_for_rule::about_dump);
             });
-            guide_mode::item_tooltip("This is the MAP-string for the displayed rule.\n\n"
-                                     "Drag a rule here to apply the rule.\n"
-                                     "Drag to send the rule elsewhere.");
+            guide_mode::item_tooltip("MAP-string for the displayed rule.\n\n"
+                                     "Drag a rule here to apply the rule; drag from here to send the rule elsewhere.");
 
             ImGui::Separator();
         }
