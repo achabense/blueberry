@@ -1,3 +1,4 @@
+#if 0
 // For better clang-format result. Inspired by:
 // https://stackoverflow.com/questions/24879417/avoiding-the-first-newline-in-a-c11-raw-string-literal
 static constexpr const char* skip_nl(const char* str) {
@@ -516,3 +517,6 @@ extern constexpr const char* docs[][2]{{"About this program", skip_nl(doc_about)
                                        {"More about random-access editing", skip_nl(doc_random_access)},
                                        // {"Lock and capture", skip_nl(doc_lock_and_capture)},
                                        {/* null terminator */}};
+#else
+extern constexpr const char* docs[][2]{{}};
+#endif

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(Blueberry LANGUAGES CXX)
+project(blueberry LANGUAGES CXX)
 
 # Get rid of absolute paths (via __FILE__; most are introduced by `SDL_assert_release`, some are hard-coded...)
 # MSVC has no __FILE_NAME__ / -ffile-prefix-map equivalence... /pathmap looks close but will invalidate breakpoints, so have to be excluded in debug mode...

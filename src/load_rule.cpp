@@ -1,4 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS // For `localtime`
+
+#include <cstring> // For `std::strchr` (`::strchr` doesn't need this...)
 #include <filesystem>
 #include <fstream>
 #include <ranges>
@@ -165,7 +167,7 @@ static void path_options(const pathT& p) {
         copy_path(p.filename()); // (`p` shouldn't end with separator.)
     }
 }
-// TODO: should not affect auto-fitting.
+// !!TODO: (v0.9.9) should not affect auto-fitting.
 // (The clipped str may still be longer than avail size...)
 static void display_path(const pathT& p, const float avail_w) {
     bool clipped = false;

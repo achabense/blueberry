@@ -83,7 +83,7 @@ static open_state intro_window(frame_main_token) {
             static previewer::configT settings{previewer::default_settings};
             static int at = 0;
             const int total = rules.size();
-            assert(total == 2 && 0 <= at && at < total);
+            assert(total == 5 && 0 <= at && at < total);
             const auto set_pos = [&](const int pos) { at = std::clamp(pos, 0, total - 1); };
 
             ImGui::AlignTextToFramePadding();
