@@ -69,7 +69,7 @@ static open_state intro_window(frame_main_token) {
             imgui_Str("Make sure you can save discoveries.");
             guide_mode::item_tooltip(
                 "The program relies on the clipboard to save rules and patterns.\n\n"
-                "To verify, copy the following rule (open menu -> 'Copy rule'), and see whether you can paste it elsewhere.");
+                "To verify, copy the following rule (open menu -> 'Copy rule'), and see whether you can paste the rule elsewhere.");
 
             // ImGui::Separator();
 

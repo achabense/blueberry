@@ -700,6 +700,8 @@ public:
                 return enable_shortcuts && shortcuts::test_pressed(key, false) && highlight_item();
             };
 
+            // !!TODO: (v0.9.9) looks strange if the dot (appears at mouse pos) is triggered by shortcut.
+            // (Should either remove dot, or always display dot at item center.)
             const bool restart = ImGui::Button("Restart") || item_shortcut(ImGuiKey_R);
             ImGui::SameLine();
             if (imgui_CheckboxV("Pause", m_ctrl.get_pause()) || item_shortcut(ImGuiKey_Space)) {
@@ -875,7 +877,7 @@ public:
                 ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
                 imgui_StrPair("+s : ", "Run manually, i.e. pause and advance generation by 'Step'.");
                 imgui_StrPair("+1 : ", "Advance generation by 1 (instead of 'Step').");
-                imgui_StrPair("+! : ", "Speed up manually, i.e. advance generation by 10 in every frame.");
+                imgui_StrPair("+! : ", "Speed up manually, i.e. advance generation by 10 every frame.");
                 ImGui::PopStyleVar();
             });
             static_assert(step_fast == 10); // Used in tooltip.
@@ -1590,7 +1592,7 @@ private:
                     imgui_StrPair("0/1 : ", "Fill area with 0 or 1 (unconditionally).");
                     imgui_StrPair(
                         "C   : ",
-                        "Fill area with the \"2*2 bg pattern\" (listed below) if the area is enclosed by the pattern (otherwise do nothing).");
+                        "Fill area with \"2*2 bg pattern\" (listed below) if the area is enclosed by the pattern (otherwise do nothing).");
                     imgui_Str(""); // For spacing.
                     ImGui::PopStyleVar();
 
@@ -1640,7 +1642,7 @@ private:
                 guide_mode::item_tooltip("Extract selected area without copying to the clipboard.");
                 term("Identify", op_identify);
                 guide_mode::item_tooltip(
-                    "Identify a single object (still life, oscillator or spaceship) in the area, and copy its smallest phase to the clipboard.\n\n"
+                    "Identify a single object in the area, and copy its smallest phase to the clipboard. (Supported objects include still life, oscillator and spaceship.)\n\n"
                     "(The area should be enclosed in 2*2 bg pattern.)");
                 term("Paste", op_paste);
                 guide_mode::item_tooltip("Load pattern (RLE-string) from the clipboard.");

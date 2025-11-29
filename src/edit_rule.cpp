@@ -704,8 +704,8 @@ public:
 // TODO: remove...
 // (Workaround to avoid affecting too many lines.)
 #define subsetT subsetT_v2
-// !!TODO: recheck use of k() vs free_k(); free_k() can be 0...
-// !!TODO: update tooltips (free groups)...
+// TODO: recheck use of k() vs free_k(); free_k() can be 0...
+// TODO: update tooltips (groups -> free groups).
 
 // (Used to require being used after regular tooltips; no longer necessary.)
 static bool check_contains(const pass_rule::passT& pass, const aniso::subsetT& working_set) {
@@ -858,7 +858,7 @@ public:
             pass_rule::source(rule);
             imgui_ItemTooltip([&] {
                 if (!belongs) {
-                    imgui_Str("This rule does not belong to [S].");
+                    imgui_Str("The rule does not belong to [S].");
                     ImGui::Separator();
                 }
                 imgui_Str(term.desc);
@@ -1159,10 +1159,10 @@ static open_state traverse_window(const aniso::subsetT& working_set, bool& set_c
 
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
-            "(...)", // !!TODO: -> largest dist = number of free groups...
-            "The seq can iterate through all rules in [S] in the following order: firstly [X], then all rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
-            "\"Dist\" in this window refers to distance to [X]. You can input a distance ('To') to get to the first rule with that distance to [X]. If [S] or [X] changes, the seq will be cleared automatically.\n\n"
-            "(This is mainly useful for sets with only a few groups. For larger sets, 'Random' and 'Edit-rule' may be more suitable tools.)");
+            "(...)", // TODO: actually [free] groups; not updated as p-set is still experimental in this version.
+            "This can iterate through all rules in [S] in the following order: firstly [X], then rules with distance = 1 to it, then 2, 3, ..., up to the largest distance (i.e. the number of groups in [S]).\n\n"
+            "\"Dist\" in this window refers to distance to [X]. You can input a distance ('To') to get to the first rule with that distance to [X]. If [S] or [X] changes, the page will be cleared automatically.\n\n"
+            "(This is mainly useful for sets with only a few groups. For larger sets, 'Random' and 'Edit-rule' may work better.)");
         //"(Some small subsets include self-complementary totalistic rules ('0v1 & Tot'), inner-totalistic rules ('Tot(+s)'), isotropic von-Neumann rules ('All & Jvn') and so on.)"
         ImGui::SameLine();
         switch (sequence::seq("<|", "<##Prev", ">##Next", "|>")) {
@@ -1275,9 +1275,9 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
         ImGui::AlignTextToFramePadding();
         imgui_StrTooltip(
             "(...)",
-            "The seq can generate random rules in [S] with specified distance around/exactly to [Y].\n\n"
-            "When you are at the last page (or when the page is empty; 'At' ~ N/A), '>>' can generate new pages of rules. The generated rules can be accessed using '</>>'. (They won't be cleared automatically.)\n\n"
-            "(Note that nothing will happen immediately after you update [S] or [Y], as they only affect how to generate new rules.)");
+            "When you are at the last page, '>>' can generate random rules in [S] with specified distance around/exactly to [Y].\n\n"
+            "The generated rules are stored and can be accessed using '</>>'. (They won't be cleared automatically.)");
+        // "(Unlike 'Traverse', nothing will happen immediately when [S] or [Y] is updated, as they only affect how to generate new rules.)"
         ImGui::SameLine();
         imgui_RadioButton("Around", &exact_mode, false);
         ImGui::SameLine(0, imgui_ItemInnerSpacingX());
@@ -1509,7 +1509,7 @@ void edit_rule(frame_main_token) {
             imgui_StrTooltip(
                 "(?)",
                 "The table displays all rules with distance = 1 to [Z] in [S].\n\n"
-                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group. (Click the same button again to undo the change.)");
+                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group. (Click the same button again to flip back.)");
             ImGui::SameLine();
             config.set("Settings");
         }
@@ -1552,7 +1552,7 @@ void edit_rule(frame_main_token) {
             imgui_RadioButton(label, &disp_mode, mode);
             ImGui::EndDisabled();
             if (!selectable && mode != Observer) {
-                imgui_ItemTooltip("Used in editing mode ('Edit-rule').");
+                imgui_ItemTooltip("For 'Edit-rule'.");
             }
         }
         ImGui::SameLine();
