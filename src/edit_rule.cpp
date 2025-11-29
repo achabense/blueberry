@@ -1530,7 +1530,7 @@ void edit_rule(frame_main_token) {
             ImGui::Text("Groups:%d", c_group);
         } else {
             all_free = false;
-            ImGui::Text("(Free) groups:%d/%d", c_free, c_group); // !!TODO: improve...
+            ImGui::Text("(Free) groups:%d/%d", c_free, c_group); // TODO: improve...
         }
     }
     {

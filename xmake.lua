@@ -1,4 +1,5 @@
--- TODO: should prevent __FILE__ from being absolute path (especially in release mode)...
+-- Warning: some 3rd-party libraries may use __FILE__ even in release mode, and by default, __FILE__ is absolute path.
+-- To make things worse, afaik MSVC doesn't formally support banning absolute path (though undoced workaround exists).
 
 -- https://xmake.io/guide/quick-start.html
 -- xmake config -o build
@@ -7,8 +8,9 @@
 -- xmake -r
 -- xmake run
 
+--[[
 set_xmakever("3.0.0")
--- set_allowedplats("windows")
+set_allowedplats("windows")
 set_allowedarchs("x64")
 set_allowedmodes("debug", "release")
 set_defaultmode("release")
@@ -35,3 +37,4 @@ target("blueberry")
         set_strip("all")
     end
 target_end()
+]]--

@@ -1243,7 +1243,7 @@ class rule_snapshot : no_copy {
     dataT m_data{};
     int m_pos{}; // !empty() -> ∈ [0, m_data.size())
     bool m_updated{};
-    // std::string m_source{}; // TODO: show source?
+    // std::string m_source{}; // !!TODO: (v0.9.9) show source...
 
 public:
     explicit rule_snapshot() = default;
