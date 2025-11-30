@@ -270,7 +270,7 @@ int main(int, char**) {
     // Create window with SDL_Renderer graphics context
     [[maybe_unused]] const float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     {
-        constexpr const char* window_title = "Blueberry v 0.9.8 (WIP)";
+        constexpr const char* window_title = "Blueberry";
         constexpr SDL_WindowFlags window_flags =
             (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
         if constexpr (scale_manually) {

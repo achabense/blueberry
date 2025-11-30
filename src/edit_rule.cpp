@@ -1509,7 +1509,7 @@ void edit_rule(frame_main_token) {
             imgui_StrTooltip(
                 "(?)",
                 "The table displays all rules with distance = 1 to [Z] in [S].\n\n"
-                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group. (Click the same button again to flip back.)");
+                "You can update [Z] either by dragging a rule to it, or clicking the group buttons. By clicking a button, you will flip [Z]'s values for that group. (Click the same button to flip back.)");
             ImGui::SameLine();
             config.set("Settings");
         }

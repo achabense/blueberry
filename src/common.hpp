@@ -102,6 +102,14 @@ inline float item_width() { return ImGui::GetFontSize() * 16.0f; }
 // The same as the wrap width in `HelpMarker` in "imgui_demo.cpp".
 inline float wrap_len() { return ImGui::GetFontSize() * 35.0f; }
 
+inline ImVec4 to_opaque(ImVec4 col) {
+    const float w = std::exchange(col.w, 1.0f);
+    col.x *= w;
+    col.y *= w;
+    col.z *= w;
+    return col;
+}
+
 inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
     const ImVec2 padding = ImGui::GetStyle().WindowPadding;
     const ImVec2 min = padding;

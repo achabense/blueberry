@@ -1,6 +1,6 @@
 #### [Blueberry](https://github.com/achabense/blueberry)
 
-This is a toy for exploring arbitrary [MAP rules](https://conwaylife.com/wiki/Non-isotropic_rule). In short, MAP rules are 2-state rules in the range-1 Moore neighborhood. Below are some discoveries found using this program. More discoveries are recorded [here](https://github.com/achabense/blueberry/tree/main/rules).
+This is a toy for exploring arbitrary [MAP rules](https://conwaylife.com/wiki/Non-isotropic_rule) (2-state rules in the range-1 Moore neighborhood). Below are some discoveries found using this program. More discoveries are recorded [here](https://github.com/achabense/blueberry/tree/main/rules).
 
 <img width="200" alt="MAPBSEBKiGAcMxBVCdvQAH//ySAf8+AAd1aAEE/DwAT728JCDX/DgF9/6VEf34MAX7bAAB3/QkTVX3Mkf57g397Xw" src="https://github.com/user-attachments/assets/1242708a-65ca-4095-9b05-3d2b9b1362fa">
 <img width="200" alt="MAPFAgghg2AwFFSkCAAgQIRFGAAikEABAcACABkMhQMgkEoQAKEQAAgkoWWBjEUI8EMiBcBCBwABskEiREsEQUkkw" src="https://github.com/user-attachments/assets/25085603-7d94-4537-8cec-33f0c7cc9fc2">

@@ -1419,12 +1419,46 @@ open_state load_clipboard(frame_main_token) {
 }
 
 open_state load_doc(frame_main_token) {
-    static load_doc_impl loader;
-    bool open = true;
-    if (auto window = prepare_window("Documents", open, loader.window_tooltip())) {
-        loader.display();
+    if constexpr (0) {
+        static load_doc_impl loader;
+        bool open = true;
+        if (auto window = prepare_window("Documents", open, loader.window_tooltip())) {
+            loader.display();
+        }
+        return {open};
+    } else {
+        // !!TODO: temporary; I've no time to rewrite the documents in this version...
+        bool open = true;
+        ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
+        imgui_CenterNextWindow(ImGuiCond_FirstUseEver);
+
+        // Doesn't affect popup style (ImGuiCol_PopupBg).
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, to_opaque(ImGui::GetStyleColorVec4(ImGuiCol_FrameBg)));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, to_opaque(ImGui::GetStyleColorVec4(ImGuiCol_FrameBg)));
+        if (auto window = imgui_Window("About this program", &open,
+                                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
+            imgui_Str("Blueberry v0.10 WIP (2025 December)");
+            imgui_Str("This is a toy for exploring arbitrary MAP rules.");
+            imgui_Str("");
+            imgui_Str("(c) 2023-2025 achabense (GitHub username)");
+            imgui_Str("Repository: ");
+            ImGui::SameLine(0, 0);
+            constexpr const char* url = "https://github.com/achabense/blueberry";
+            imgui_Str(url);
+            ImGui::PopStyleVar();
+            rclick_popup::for_text([] {
+                if (ImGui::Selectable("Copy link")) {
+                    set_clipboard_and_notify(url);
+                }
+                if (has_open_url_fn() && ImGui::Selectable("Open in browser")) {
+                    open_url(url);
+                }
+            });
+        }
+        ImGui::PopStyleColor(2);
+        return {open};
     }
-    return {open};
 }
 
 static std::array<int, 3> get_year_month_day() {
