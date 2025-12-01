@@ -317,7 +317,7 @@ public:
                          "(This can work naturally with native-symmetry sets.)");
             scope.append(
                 "0v1", &subsets.self_complementary,
-                "Self-complementary rules. That is, their 0/1 reversal duals are just themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].\n\n"
+                "Self-complementary rules. That is, their 0/1 reversal duals are equal to themselves - for any pattern, [applying such a rule -> flipping all values] has the same effect as [flipping all values -> applying the same rule].\n\n"
                 "To achieve this, for any case and its complement, the rule will map center cell to values so that the resulting \"flip-ness\" are the same.\n\n"
                 "     |q w e|             |!q!w!e|\n"
                 "(rule|a s d| = s) = (rule|!a!s!d| = !s)\n"
@@ -379,7 +379,7 @@ public:
         {
             terms_scope scope(m_terms_s, terms_native);
             scope.append("Iso", &subsets.native_isotropic,
-                         "Isotropic MAP rules, i.e. rules that preserve all symmetries.\n\n"
+                         "Isotropic MAP rules, i.e. rules that preserve all spatial symmetries.\n\n"
                          "(This is equal to the intersection of the following sets in this line.)");
             scope.append(
                 "|", &subsets.native_refl_wsx,
@@ -396,7 +396,7 @@ public:
             terms_scope scope(m_terms_s, terms_totalistic);
             scope.append(
                 "Tot", &subsets.native_tot_exc_s,
-                "Outer-totalistic MAP rules, i.e. rules whose values are only dependent on 's' and the sum of other cells. This is a strict subset of isotropic rules ('Iso').\n\n"
+                "Outer-totalistic MAP rules, i.e. rules whose values are only dependent on 's' and the sum of surrounding cells. This is a strict subset of isotropic rules ('Iso').\n\n"
                 "(This is also known as life-like rules, and is where the B/S notation applies.)");
             scope.append(
                 "Tot(+s)", &subsets.native_tot_inc_s,
@@ -1056,7 +1056,7 @@ public:
 
     // TODO: whether to enable?
     // Closing the target-rule window will turn off checkbox directly. (Undocumented in UI, but should be obvious enough.)
-    static constexpr bool close_from_window = false;
+    static constexpr bool close_from_window = true;
 
     effectE display(bool& open, const char* title, const previewer::configT& settings,
                     const aniso::subsetT& working_set) {
