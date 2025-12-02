@@ -16,10 +16,6 @@
 
 #include "utils.hpp"
 
-#ifdef YDEBUG
-#define ENABLE_TESTS
-#endif
-
 #if defined(__clang__)
 #define ALWAYS_INLINE [[clang::always_inline]]
 #elif defined(__GNUC__)
@@ -42,17 +38,21 @@
 
 static_assert(INT_MAX >= INT32_MAX);
 
+// Only allowed 1. inside the namespace && 2. in header files.
+#ifdef YDEBUG
+#define ANISO_DECLARE_TEST(name)                      \
+    namespace _tests {                                \
+        extern void name();                           \
+        inline bool register_##name = (name(), true); \
+    }
+#else
+#define ANISO_DECLARE_TEST(name) \
+    namespace _tests {           \
+        extern void name();      \
+    }
+#endif
+
 namespace aniso {
-
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        struct testT : no_copy {
-            inline static std::mt19937 rand{(uint32_t)time(0)};
-            testT(const auto& fn) noexcept { fn(); }
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
-
 #if 1
     // TODO: -> uint8_t?
     struct cellT {
@@ -184,16 +184,7 @@ namespace aniso {
         return true;
     }
 
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_codeT = [] {
-            for (const codeT code : each_code) {
-                assert(encode(decode(code)) == code);
-            }
-            assert(for_each_code_all_of([](codeT code) { return encode(decode(code)) == code; }));
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
+    ANISO_DECLARE_TEST(test_codeT);
 
     // Map `situT` (encoded as `codeT`) to the value `s` become at next generation.
     using ruleT = codeT::map_to<cellT, 1>;
@@ -443,56 +434,7 @@ namespace aniso {
         }
     }
 
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_MAP_str = [] {
-            {
-                const std::string_view str = "...";
-                const auto extr = extract_MAP_str(str, true);
-                assert(extr.prefix == "..." && extr.suffix == "");
-                assert(!extr.has_rule() && !extr.has_lock());
-            }
-
-            {
-                // https://golly.sourceforge.io/Help/Algorithms/QuickLife.html
-                // > So, Conway's Life (B3/S23) encoded as a MAP rule is:
-                // > rule = MAPARYXfhZofugWaH7oaIDogBZofuhogOiAaIDogIAAgAAWaH7oaIDogGiA6ICAAIAAaIDogIAAgACAAIAAAAAAAA
-                const std::string_view gol_str =
-                    "MAPARYXfhZofugWaH7oaIDogBZofuhogOiAaIDogIAAgAAWaH7oaIDogGiA6ICAAIAAaIDogIAAgACAAIAAAAAAAA";
-                assert(to_MAP_str(game_of_life()) == gol_str);
-
-                const auto extr = extract_MAP_str(gol_str, true);
-                assert(extr.prefix == "" && extr.suffix == "");
-                assert(extr.get_rule() == game_of_life());
-                assert(!extr.has_lock());
-            }
-
-            {
-                ruleT rule{};
-                lockT lock{};
-                for (const codeT code : each_code) {
-                    rule[code] = cellT(testT::rand() & 1);
-                    lock[code] = testT::rand() & 1;
-                }
-                const std::string rule_only = "(prefix)" + to_MAP_str(rule) + "(suffix)";
-                const std::string with_lock = "(prefix)" + to_MAP_str(rule, &lock) + "(suffix)";
-
-                const auto extr1 = extract_MAP_str(rule_only, true);
-                const auto extr2 = extract_MAP_str(with_lock, true);
-
-                assert(extr1.prefix == "(prefix)" && extr2.prefix == "(prefix)");
-                assert(extr1.suffix == "(suffix)" && extr2.suffix == "(suffix)");
-                assert(extr1.get_rule() == rule);
-                assert(extr2.get_rule() == rule);
-                assert(!extr1.has_lock());
-                assert(extr2.get_lock() == lock);
-
-                assert(extract_all_rules("").empty());
-                assert(extract_all_rules(rule_only).size() == 1);
-            }
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
+    ANISO_DECLARE_TEST(test_MAP_str);
 
     class compressT {
         std::array<std::uint8_t, 64> m_data;
@@ -520,14 +462,6 @@ namespace aniso {
 
     static_assert(std::is_trivially_copyable_v<compressT>);
 
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_compressT = [] {
-            const ruleT a = make_rule([](auto) { return cellT(testT::rand() & 1); });
-            const compressT b = a;
-            assert(b == compressT(a));
-            assert(b.decompress() == a);
-        };
-    } // namespace _tests
-#endif
+    ANISO_DECLARE_TEST(test_compressT);
+
 } // namespace aniso

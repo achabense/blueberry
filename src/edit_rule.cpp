@@ -101,11 +101,11 @@ namespace aniso {
         }
     } subsets;
 
-#ifdef ENABLE_TESTS
+#ifdef YDEBUG
     namespace _tests {
-        static const testT test_subsets = [] { subsets.test(); };
+        static const bool test_subsets = (subsets.test(), true);
     } // namespace _tests
-#endif // ENABLE_TESTS
+#endif
 
 } // namespace aniso
 

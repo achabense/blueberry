@@ -244,13 +244,7 @@ namespace aniso {
         }
     };
 
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_partition_defl = [] { //
-            assert(partitionT{} == partitionT{equivT{}});
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
+    ANISO_DECLARE_TEST(test_partition_defl);
 
     inline void add_eq(equivT& eq, const groupT& group) {
         const codeT head = group[0];
@@ -751,55 +745,8 @@ namespace aniso {
         return subsetT{.rule = rule, .p = eq};
     }
 
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_mappers = [] {
-            for (const codeT code : each_code) {
-                assert(mp_identity(code) == code);
-
-                for (const mapperT* m : {&mp_refl_asd, &mp_refl_wsx, &mp_refl_qsc, &mp_refl_esz, &mp_C2}) {
-                    assert((*m)((*m)(code)) == code);
-                }
-                assert(mp_C4(mp_C4(code)) == mp_C2(code));
-
-                assert(mp_reverse(mp_reverse(code)) == code);
-
-                const codeT hex = mp_hex_ignore(code);
-
-                for (const mapperT* m : {&mp_hex_refl_asd, &mp_hex_refl_qsc, &mp_hex_refl_wsx, &mp_hex_refl_aq,
-                                         &mp_hex_refl_qw, &mp_hex_refl_wd, &mp_hex_C2}) {
-                    assert((*m)((*m)(hex)) == hex);
-                }
-                assert(mp_hex_C6(mp_hex_C6(mp_hex_C6(hex))) == mp_hex_C2(hex));
-                assert(mp_hex_C3(mp_hex_C3(mp_hex_C3(hex))) == hex);
-
-                assert(mp_hex_C6(mp_hex_C6(hex)) == mp_hex_C3(hex)); // As both are defined clockwise.
-                // Otherwise will need to test:
-                // assert(mp_hex_C6(mp_hex_C6(hex)) == mp_hex_C3(mp_hex_C3(hex)));
-            }
-        };
-
-        inline const testT test_subset_intersection = [] {
-            const subsetT sc = make_subset({mp_ignore_s}, rule_all_zero()) & make_subset({mp_reverse}, rule_identity());
-
-            // (`maskT` used to refer to the discoverd rule.)
-            // 2024/1/20 2AM
-            // There is NO problem in the algorithm.
-            // It's just that, in this situation the maskT has a strong bias, so that it's too easy to generate
-            // rules in a certain direction...
-            using enum codeT::bposE;
-            assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_q); })));
-            assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_w); })));
-            assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_e); })));
-            assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_a); })));
-            assert(!sc.contains(rule_identity()));
-            assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_d); })));
-            assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_z); })));
-            assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_x); })));
-            assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_c); })));
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
+    ANISO_DECLARE_TEST(test_mappers);
+    ANISO_DECLARE_TEST(test_subset_intersection);
 
     // 0/1-reversal dual.
     inline ruleT trans_reverse(const ruleT& rule) {
@@ -813,14 +760,7 @@ namespace aniso {
         return rev;
     }
 
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_trans_reverse = [] {
-            ruleT rule = make_rule([](auto) { return cellT(testT::rand() & 1); });
-            assert(rule == trans_reverse(trans_reverse(rule)));
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
+    ANISO_DECLARE_TEST(test_trans_reverse);
 
     // (Currently not supported in gui, as these can map `hex` rules to `hex2` set.)
     [[deprecated]] inline ruleT trans_left_right(const ruleT& rule) {
@@ -990,21 +930,6 @@ namespace aniso {
     void operator&=(subsetT_v2& a, const subsetT& b) = delete;
     void operator&=(subsetT_v2& a, const partialT& b) = delete;
 
-#ifdef ENABLE_TESTS
-    namespace _tests {
-        inline const testT test_both_compiles = [] {
-            if /*constexpr*/ (0) {
-                const subsetT a{};
-                const subsetT_v2 b{};
-                (void)distance(a, {}, {});
-                (void)distance(b, {}, {});
-                (void)approximate(a, {});
-                (void)approximate(b, {});
-                (void)transform(a, {}, nullptr, [](bool*, bool*) {});
-                (void)transform(b, {}, nullptr, [](bool*, bool*) {});
-            }
-        };
-    } // namespace _tests
-#endif // ENABLE_TESTS
+    ANISO_DECLARE_TEST(test_both_compiles);
 
 } // namespace aniso
