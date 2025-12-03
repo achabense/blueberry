@@ -17,12 +17,8 @@ namespace aniso {
         return c;
     }
 
-    inline void normalize_r(ruleT& r, const lockT& l) {
-        for (const codeT code : each_code) {
-            if (!l[code]) {
-                r[code] = {0};
-            }
-        }
+    inline ruleT normalize(const ruleT& r, const lockT& l) { //
+        return make_rule([&](const codeT code) { return l[code] ? r[code] : cellT{0}; });
     }
 
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.

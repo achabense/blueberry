@@ -40,16 +40,13 @@ static_assert(INT_MAX >= INT32_MAX);
 
 // Only allowed 1. inside the namespace && 2. in header files.
 #ifdef YDEBUG
-#define ANISO_DECLARE_TEST(name)                      \
-    namespace _tests {                                \
-        extern void name();                           \
-        inline bool register_##name = (name(), true); \
+#define ANISO_DECLARE_TEST(name)                            \
+    namespace _tests {                                      \
+        extern void name();                                 \
+        inline const bool register_##name = (name(), true); \
     }
 #else
-#define ANISO_DECLARE_TEST(name) \
-    namespace _tests {           \
-        extern void name();      \
-    }
+#define ANISO_DECLARE_TEST(name)
 #endif
 
 namespace aniso {

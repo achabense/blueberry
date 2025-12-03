@@ -446,9 +446,8 @@ public:
     // TODO: use different colors?
     void load_capture(const aniso::ruleT& r, const aniso::lockT& l, const char* msg = nullptr) {
         assert(m_terms_p.size() <= 1);
-        const aniso::partialT p{.rule = r, .lock = l};
+        const aniso::partialT p{.rule = aniso::normalize(r, l), .lock = l};
         if (!p.is_universal()) {
-            // aniso::normalize_r(p.rule, p.lock);
             if (!m_terms_p.empty() && m_terms_p[0].selected) {
                 m_terms_p[0].selected = false;
                 update_current();
@@ -474,8 +473,7 @@ public:
         }
         ImGui::BeginDisabled(aniso::none_locked(m_current.lock));
         if (ImGui::Selectable("Copy")) {
-            aniso::ruleT rule = m_current.get_rule();
-            normalize_r(rule, m_current.lock); // TODO: whether to normalize?
+            const auto rule = aniso::normalize(m_current.get_rule(), m_current.lock);
             set_clipboard_and_notify(aniso::to_MAP_str(rule, &m_current.lock));
         }
         ImGui::EndDisabled();
