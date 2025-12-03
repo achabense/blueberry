@@ -1,4 +1,6 @@
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS // For `localtime`
+#endif
 
 #include <cstring> // For `std::strchr` (`::strchr` doesn't need this...)
 #include <filesystem>

@@ -51,6 +51,7 @@ namespace aniso {
         subsetT jvn_tot_exc_s = make_subset({mp_jvn_ignore, mp_C4, mp_jvn_tot_exc_s});
         subsetT jvn_tot_inc_s = make_subset({mp_jvn_ignore, mp_C4, mp_jvn_tot_inc_s});
 
+#ifdef YDEBUG
         void test() const {
             assert(ignore_e.includes(ignore_hex));
             assert(ignore_z.includes(ignore_hex));
@@ -99,6 +100,7 @@ namespace aniso {
             assert(native_tot_exc_s.contains(game_of_life()));
             assert(!native_tot_inc_s.contains(game_of_life()));
         }
+#endif // YDEBUG
     } subsets;
 
 #ifdef YDEBUG
@@ -1355,7 +1357,7 @@ static open_state random_rule_window(const aniso::subsetT& working_set, bool& se
     return {open[0] && open[1]};
 }
 
-static open_state capture_still_life();
+[[maybe_unused]] static open_state capture_still_life();
 
 // TODO: refactor... (should not be pointer...)
 static subset_selector* select_working_ptr = nullptr;

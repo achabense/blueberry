@@ -256,7 +256,7 @@ public:
     }
 
     // Must be called inside popup.
-    static void set_focus(const ImGuiID popup_id, const ImGuiWindow* source) {
+    static void set_focus([[maybe_unused]] const ImGuiID popup_id, [[maybe_unused]] const ImGuiWindow* source) {
         if constexpr (appear_at_same_frame) {
             const auto& popup_ref = GImGui->BeginPopupStack.back();
             // (BeginPopup should be called after OpenPopup.)
@@ -1328,10 +1328,12 @@ public:
     // LRU; inefficient but no problem as `m_capacity` is small enough.
     // back() ~ most recent.
     void add(const aniso::compressT& rule) {
-        if (const auto pos = find(rule); pos != m_data.end()) {
-            m_data.erase(pos);
-        } else if (m_data.size() == m_capacity) {
-            m_data.erase(m_data.begin());
+        if (!m_data.empty() /*asked by gcc*/) {
+            if (const auto pos = find(rule); pos != m_data.end()) {
+                m_data.erase(pos);
+            } else if (m_data.size() == m_capacity) {
+                m_data.erase(m_data.begin());
+            }
         }
         m_data.push_back(rule);
     }

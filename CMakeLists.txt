@@ -22,8 +22,12 @@ FetchContent_Declare(
 )
 set(SDL_SHARED FALSE CACHE BOOL "" FORCE)
 set(SDL_STATIC TRUE CACHE BOOL "" FORCE) # Necessary for SDL3-static.
-# add_compile_definitions($<$<CONFIG:Release>:SDL_ASSERT_LEVEL=0>)
 FetchContent_MakeAvailable(SDL3)
+
+target_compile_definitions(SDL3-static PRIVATE
+    _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS # To silence warnings for itoa() etc (in "SDL_string.c").
+#   $<$<CONFIG:Release>:SDL_ASSERT_LEVEL=0>
+)
 
 if (MSVC)
     string(REPLACE "/Ob0" "/Ob1" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}") # Otherwise, force-inline doesn't work.
@@ -41,8 +45,8 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:Clang,GNU>:-finput-charset=utf-8 -fexec-charset=utf-8>
 
     # -Wreturn-type is neither enabled by default nor implied by -Wall or -Wextra... That's ridiculous...
-    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof -Wshadow -Werror=return-type> # -Wconversion
-
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof -Wshadow -Werror=return-type>
+#   $<$<CXX_COMPILER_ID:Clang>:-Wconversion>
 #   $<$<CXX_COMPILER_ID:MSVC>:/WX>
 #   $<$<CXX_COMPILER_ID:Clang,GNU>:-Werror>
 )
