@@ -1,0 +1,25 @@
+MAPIKATSaAgSQQIASHXMTSQJ4CvSAb17BReAQSRQ3BAeipAIyGCASafNQE1AWQnbCzoASqDegQIGXAXbN7QbAGKSA
+
+>
+#C oscillator, period = 142
+x = 12, y = 12, rule = MAPoKATSaAgSQQIASHXMTSQJ4CvSAb17BReAQSRQ3BAeipAIyGCASafNQE1AWQnbCzoASqDegQIGXAXbN7QbAGKSA
+bobobobobobo$obobobobobo$bob2obo2bobo$obo2bobo2bo$b2obobobo2bo$o2bobo
+bob2o$b2obobobo2bo$o2bobobob2o$bo2bobo2bobo$obo2bob2obo$bobobobobobo$
+obobobobobob!
+
+>
+#C spaceship, period = 16, offset = (8,8)
+x = 12, y = 10, rule = MAPIKETSaEgSQQIESHXMTSQJ4CvSAb17BReAUSRQ3BAeipAIyGCAyafNQE1AWQnbCzoASqDegwIGXAX7N7Q7AGKSA
+bobobobobobo$obobobobobo$bo3bo3bobo$o8b2o$bo4b2obobo$o9bo$bobobob3obo
+$obobob2ob2o$bobobobobobo$obobobobobob!
+
+>
+#C spaceship, period = 4, offset = (1,1)
+x = 9, y = 9, rule = MAPIKATSaAgSQQIASHXMTSRJ4CvSAb17BReAQSRR3BAeipAIyGDASafNQE1AXQnbC7oASqDegQIHXAXbN7YbAHKSA
+bobobobob$obobobobo$b2o2bobo$o2bo2bobo$bo5bo$obo5bo$bobo2b2o$obobobob
+o$bobobobob!
+
+>
+#C spaceship, period = 10, offset = (1,-1)
+x = 7, y = 7, rule = MAPIKATSaAgSQQIASHXMTSwJ4CvSA717FReAQSRQ3BAeipAIyGiASafNQE1AWQnbCzoASqDegQIGXAXbN7QbAGKSA
+obobobo$bobobo$obo3bo$b3obo$o2b2obo$bobobo$obobobo!

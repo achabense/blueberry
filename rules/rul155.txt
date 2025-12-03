@@ -1,0 +1,38 @@
+MAP+/SAAK4BAACQwAAAAAAAAICAAACAAAABwJAAAAAAABCCAAAAiAAAAACBAACBAAABiAAAAIIAAAKABAABBIABJA
+
+
+!! check neighbors; looks strange...
+MAPs/aAAL4BAAAQ4AAAAAAAAIDAAACIMgAAwJAAAIAgAAACAAAAqAAAAACBAACBAAAAiIAAAIIgAACABAAABIAAAA
+->
+MAPs/YAAL4BAAAQ4AAAAAAAAIDAAACIMgAAwJAAAIAgAAACAAAAqAAAAACBAACBAAAAiIAAAIIgAACABAAABIAAAA
+-> ...
+
+
+MAP2kD7wgggmAWBhILoAAQoIAAggEoggFhagQCYEAADoSSBAJBghAToIAFEAQQMSASSgQDCoQARAiReAIQCABIQgA
+->
+MAPyAD7wgAgmAWBBILoAAQoIAAggEoggFhaAQCYEAADoSSBAJBgBAToIAFEAQQMSASSAQDCoQARAiReAIQCABIQgA
+->
+#C spaceship, period = 20, offset = (0,-2)
+x = 12, y = 11, rule = MAPyAD7wgAgmAWBBILoBAQoIAAggEoggFhaBQCYEAADoSSBBJBgBAToIBNMAQRMSASSBQDCoQARAiReAIQCABIQgA
+12o$12o$5o2b5o$3o5b4o$2o7b3o$2obo4bob2o$2o3bo2bob2o$3o2bo2bob2o$5ob2o
+b3o$12o$12o!
+
+
+MAPASttiHHowEkkceBDkpCEgHrl2gCtgAAhIEgkEMFECRQkkqiEK4IZgEwgkgggFkASIIkkQUgMAgaB4oBCuAEYoQ
+
+
+MAPASJaXDBITgAKarGFHKriBRLGTAicSEAgLgLBieoIBABQRqO4ePCFBRIpIcZhAZxIdPiJBBBAwQCABV5QBQQKSA
+-> !! spaceship gun
+x = 7, y = 9, rule = MAPASJaXDBITgAKarONHKrqBRLGTAicSEAgLgLJieoIBABQRrP4ePDFBRIpIcZhAZxIdPjJBBBAwQCABV5QBQQKSA
+7b2$3b2o$2bobo$2b3o$2b2o$2b2o2$7b!
+
+
+!! has many interesting neighbors...
+#C spaceship, period = 48, offset = (-24,0)
+x = 28, y = 16, rule = MAPE2EAACkgAAQA0QIKQCJJQASiBQCw6AAEgEIYBCIJGQcACBBJizBQCCAAIBAAAAK3gDBCQxhBBBWAwCELiBJRFg
+bobobobobobobobobobobobobobo$obobobobobobobobobobobobobo$bobobo5bobob
+obobobobobobo$o2b2o2bo2bobobobo5bobobo$b2o5bo2bobobo7bobobo$o9bobo11b
+obo$bo3bo5bobobobo5bobobo$o6bob2obobobo7bobo$b2obobo4bo3bobo7bobo$o3b
+o9bobo8b2o$bob3obo7bobo7bobo$obobobo5bobobobo5bobo$bobobobo3bobobobob
+o3bobobo$obobobobobobobobobo3bobobo$bobobobobobobobobobobobobobo$obob
+obobobobobobobobobobobob!
