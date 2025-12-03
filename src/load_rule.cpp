@@ -1440,7 +1440,7 @@ open_state load_doc(frame_main_token) {
         if (auto window = imgui_Window("About this program", &open,
                                        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
-            imgui_Str("Blueberry v0.11 WIP");
+            imgui_Str("Blueberry v0.10.1 WIP");
             imgui_Str("This is a toy for exploring arbitrary MAP rules.");
             imgui_Str("");
             imgui_Str("(c) 2023-2025 achabense (GitHub username)");
