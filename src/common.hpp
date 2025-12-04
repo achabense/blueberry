@@ -117,7 +117,7 @@ inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
     return (min.x < max.x && min.y < max.y) ? ImClamp(pos, min, max) : pos;
 }
 
-// !!TODO: (v0.9.9) support configs.
+// !!TODO: support configs.
 inline constexpr bool init_maximize_window = false;
 inline constexpr bool init_zero_interval = false;
 inline constexpr bool init_show_intro = true;
@@ -164,7 +164,7 @@ public:
     }
 };
 
-// !!TODO: (v0.9.9) should redesign...
+// TODO: improve...
 class guide_mode : no_create {
     inline static bool enable_tooltip = init_extra_tooltips;
 
@@ -727,7 +727,7 @@ public:
     }
 };
 
-// !!TODO: (v0.9.9) when to display dot? (Whether to support dot feedback at all?)
+// !!TODO: when to display dot? (Whether to support dot feedback at all?)
 class messenger : no_create {
     class messageT {
         using clockT = std::chrono::steady_clock;
@@ -1241,7 +1241,7 @@ class rule_snapshot : no_copy {
     dataT m_data{};
     int m_pos{}; // !empty() -> ∈ [0, m_data.size())
     bool m_updated{};
-    // std::string m_source{}; // !!TODO: (v0.9.9) show source...
+    // std::string m_source{}; // !!TODO: show source...
 
 public:
     explicit rule_snapshot() = default;
@@ -1344,7 +1344,7 @@ private:
     inline static rule_snapshot snapshot{}; // (Only) gcc requires {} here due to explicit default ctor (likely a bug)
 };
 
-// !!TODO: (v0.9.9) support cursor (undoing/redoing)? (But how to update the record when adding new rules?)
+// !!TODO: support cursor (undoing/redoing)? (But how to update the record when adding new rules?)
 class rule_with_rec : no_copy {
     aniso::ruleT m_rule{};
     rec_for_rule m_rec{};
@@ -1377,7 +1377,7 @@ public:
     static void copy(const aniso::ruleT& rule) {
         set_clipboard_and_notify(aniso::to_MAP_str(rule));
         // record.add(rule);
-        if constexpr (debug_mode) { // !!TODO: (v0.9.9) support in release mode...
+        if constexpr (debug_mode) { // !!TODO: support in release mode...
             save(rule);
         }
     }

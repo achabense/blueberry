@@ -629,7 +629,7 @@ public:
 };
 
 struct preview_settings {
-    // !!TODO: (v0.9.9) support in release mode...
+    // !!TODO: support in release mode...
     static constexpr bool support_window_mode = debug_mode;
 
     bool window_mode = false; // false -> inline-mode
@@ -976,7 +976,7 @@ public:
                         // (Won't copy if `str` contains '\0' (should't appear in regular utf8 text files).)
                         set_clipboard_and_notify(get_str());
                     }
-                    // !!TODO: (v0.9.9) support in release mode (currently not well designed)...
+                    // !!TODO: support in release mode (currently not well designed)...
                     if constexpr (debug_mode) {
                         // TODO: also support load-rule?
                         static bool can_load_pattern = false;
@@ -1009,7 +1009,7 @@ private:
         std::optional<selT> sel = std::nullopt;
     };
 
-    // !!TODO: (v0.9.9) simplify (currently too convoluted...) & remove mutable...
+    // !!TODO: simplify (currently too convoluted...) & remove mutable...
     // Workaround for dot-feedback. (ImGui::SetScrollHereY doesn't change scroll value immediately.)
     mutable std::optional<int> old_scroll = std::nullopt;
     bool dot_if_no_effect = false;
@@ -1510,7 +1510,7 @@ public:
     }
 };
 
-// !!TODO: (v0.9.9) should redesign...
+// !!TODO: should redesign...
 class rule_saver : no_copy {
     std::fstream m_file{};
     rec_for_rule_b m_rec{};

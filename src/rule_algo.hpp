@@ -857,7 +857,7 @@ namespace aniso {
         }
 
         const ruleT& get_rule() const { return s.rule; }
-        // !!TODO: (v0.9.9) expensive; should optimize...
+        // !!TODO: expensive; should optimize...
         int free_k() const { //
             return std::ranges::count_if(s->heads(), [&](codeT c) { return !lock[c]; });
         }

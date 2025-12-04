@@ -25,7 +25,7 @@ static open_state intro_window(frame_main_token) {
             guide_mode::item_tooltip("Only input fields use Ctrl for shortcuts (Ctrl+C/X/V etc.).\n\n"
                                      "All the other shortcuts (including these) don't require Ctrl to be pressed.");
 
-            // !!TODO: (v0.9.9) undocumented in release mode; uncertain about the design.
+            // !!TODO: undocumented in release mode; uncertain about the design.
             // (& requires example in this window.)
             static_assert(init_set_scroll_with_up_down);
             if constexpr (debug_mode) {

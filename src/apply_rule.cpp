@@ -116,7 +116,7 @@ static bool check_border(const aniso::tile_const_ref tile, const aniso::vecT p_s
     return true;
 }
 
-// !!TODO: (v0.9.9) support sampling manually (`fake_apply`)...
+// !!TODO: support sampling manually (`fake_apply`)...
 
 // Identify spaceships or oscillators in periodic (including pure) background. (Cannot deal with non-trivial
 // objects like guns, puffers etc.)
@@ -315,7 +315,7 @@ public:
 };
 
 // TODO: stop running when the space is moved out of scope?
-// !!TODO: (v0.9.9) reconsider, when to reset pos? When to reset sel and pattern? When to restart the space?
+// !!TODO: reconsider, when to reset pos? When to reset sel and pattern? When to restart the space?
 class runnerT : no_copy {
     class handlerT : no_copy {
         runnerT& self;
@@ -531,7 +531,7 @@ class runnerT : no_copy {
 
     torusT m_torus{m_handler}; // Space.
 
-    // !!TODO: (v0.9.9) recheck (especially rounding)...
+    // !!TODO: recheck (especially rounding)...
     // space-pos == corner-pos + canvas-pos / zoom
     struct coordT {
         zoomT zoom{};
@@ -563,7 +563,7 @@ class runnerT : no_copy {
         return m_torus.align(from_imvec((canvas_size - ImVec2(70, 70)) / z));
     };
 
-    // !!TODO: (v0.9.9) enhance to pattern list (& support more sources like text-page & sel op).
+    // !!TODO: enhance to pattern list (& support more sources like text-page & sel op).
     // (Used to be std::optional.)
     class pasteT : no_copy {
         handlerT& m_handler;
@@ -700,7 +700,7 @@ public:
                 return enable_shortcuts && shortcuts::test_pressed(key, false) && highlight_item();
             };
 
-            // !!TODO: (v0.9.9) looks strange if the dot (appears at mouse pos) is triggered by shortcut.
+            // !!TODO: looks strange if the dot (appears at mouse pos) is triggered by shortcut.
             // (Should either remove dot, or always display dot at item center.)
             const bool restart = ImGui::Button("Restart") || item_shortcut(ImGuiKey_R);
             ImGui::SameLine();
@@ -837,7 +837,7 @@ public:
                 return enable_shortcuts && shortcuts::test_pressed(key, repeat) && highlight_item();
             };
 
-            // !!TODO: (v0.9.9) support keeping tooltips open? (Or just display in regular windows?)
+            // !!TODO: support keeping tooltips open? (Or just display in regular windows?)
             ImGui::AlignTextToFramePadding();
             if (imgui_StrTooltip("(...)", "Restart  : R\n"
                                           "Pause    : Space\n"
@@ -982,7 +982,7 @@ public:
 
         ImGui::Spacing(); // To align with the separator.
 
-        // !!TODO: (v0.9.9) workaround to display updated info. (`m_torus.run()` happens after canvas button.)
+        // !!TODO: workaround to display updated info. (`m_torus.run()` happens after canvas button.)
         // (Currently the sync logic is messy and heavily constrained; should redesign if possible...)
         const ImVec2 supposed_abs_pos = ImGui::GetCursorScreenPos();
         const auto unfortunately_deferred = [&] {
@@ -1208,7 +1208,7 @@ public:
 
                         const aniso::tile_ref paste_area = tile.clip({paste_beg, paste_end});
                         aniso::tileT temp(paste_area);
-                        // !!TODO: (v0.9.9) support specifying align req.
+                        // !!TODO: support specifying align req.
                         aniso::blit(paste_area, m_paste->tile.data(), m_paste->mode);
                         {
                             drawlist.AddImage(to_texture(tile, scale_mode), screen_min, screen_max);
@@ -1331,7 +1331,7 @@ private:
             } //
         };
 
-        // !!TODO: (v0.9.9) support variable p_size...
+        // !!TODO: support variable p_size...
         static int background = 0; // TODO: -> enum.
         static constexpr op_term op_clear_inside{
             ImGuiKey_Backspace, "Backspace", check_sel,
@@ -1403,7 +1403,7 @@ private:
         };
 
 #if 0
-        // !!TODO: (v0.9.9) enhance to background sampling...
+        // !!TODO: enhance to background sampling...
         static constexpr op_term op_test_bg_period{
             ImGuiKey_P, "P", check_sel,
             [](runnerT& self) {
@@ -1824,7 +1824,7 @@ void previewer::configT::_set() {
             "(?)", "These settings are shared by all preview windows.\n\n"
                    "(Changing init state will restart and pause all preview windows; press A+R/Space to resume all.)");
 
-        // !!TODO: (v0.9.9) support both global and per-group setting mode?
+        // TODO: support both global and per-group setting mode?
         initT& init = _global_data::init;
         imgui_StepSliderInt::fn("Seed", &init.seed, 0, 9);
         init.density.step_slide("Density", 10, 100, 10);

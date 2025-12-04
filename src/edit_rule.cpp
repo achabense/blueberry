@@ -248,7 +248,7 @@ class subset_selector : no_copy {
 public:
     bool set_changed_since_last_check() { return std::exchange(set_changed, false); }
 
-    // !!TODO: (v0.9.9) support predefined p-sets (e.g. strobing-set (01 10) and (01 11, 00 10, 11 00))
+    // !!TODO: support predefined p-sets (e.g. strobing-set (01 10) and (01 11, 00 10, 11 00))
     // `init_s` should be either nullptr or address of one of sets in `m_terms`.
     explicit subset_selector(const aniso::subsetT* init_s = nullptr) {
         using aniso::subsets;
@@ -444,7 +444,7 @@ public:
         }
     }
 
-    // !!TODO: (v0.9.9) incomplete; should support multiple p-sets...
+    // !!TODO: incomplete; should support multiple p-sets...
     // TODO: use different colors?
     void load_capture(const aniso::ruleT& r, const aniso::lockT& l, const char* msg = nullptr) {
         assert(m_terms_p.size() <= 1);
@@ -954,7 +954,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
                         "(If the rule is self-complementary, this will result in the same rule.)");
                 }
                 if constexpr (0) {
-                    // !!TODO: (v0.9.9) not supported in this version, as the effect is very tricky...
+                    // !!TODO: not supported currently, as the effect is very tricky...
                     // (This is mainly useful for fitting a rule to p-set; not quite meaningful in other cases.)
                     // (Ideally should take only one step (instead of dragging to update -> double-clicking)...)
                     ImGui::SameLine();
@@ -1670,7 +1670,7 @@ void edit_rule(frame_main_token) {
             bool hov = false;
             if (show_random_access) {
                 aniso::flip_values_r(group, temp_target);
-                // !!TODO: (v0.9.9) support exploring rules in locked groups...
+                // !!TODO: support exploring rules in locked groups...
                 // Support flipping locked values directly? (But how should [Z] be specified?)
                 // Or support disabling the sorting? (So users can unselect p-set without losing track.)
                 ImGui::BeginGroup();
@@ -1684,7 +1684,7 @@ void edit_rule(frame_main_token) {
                 random_access_status::begin_disabled();
                 const bool displayed = previewer::preview(/*id ~*/ this_n, config, temp_target);
                 random_access_status::end_disabled();
-                if (locked && displayed) { // !!TODO: (v0.9.9) improve...
+                if (locked && displayed) { // TODO: improve...
                     imgui_ItemRectFilled(IM_COL32_GREY(128, 64 /*48*/));
                 }
                 ImGui::EndGroup();
@@ -1695,7 +1695,7 @@ void edit_rule(frame_main_token) {
                 ImGui::EndDisabled();
             }
 
-            // !!TODO: (v0.9.9) sometimes noisy; should be able to turn off this tooltip.
+            // !!TODO: sometimes noisy; should be able to turn off this tooltip.
             if (hov && ImGui::BeginTooltip()) { // No text wrapping.
                 // TODO: whether to use disabled style if locked?
                 ImGui::BeginDisabled(locked);
@@ -1724,7 +1724,7 @@ void edit_rule(frame_main_token) {
     }
 }
 
-// !!TODO: (v0.9.9) support in release mode...
+// !!TODO: support in release mode...
 static void capture_still_life_impl() {
     enum stateE { Any_background, O, I, O_background, I_background };
 
