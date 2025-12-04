@@ -1432,6 +1432,7 @@ open_state load_doc(frame_main_token) {
         return {open};
     } else {
         // !!TODO: temporary; I've no time to rewrite the documents in this version...
+        // TODO: ideally should always appear on top (but below popup windows)...
         bool open = true;
         ImGui::SetNextWindowCollapsed(false, ImGuiCond_Appearing);
         imgui_CenterNextWindow(ImGuiCond_FirstUseEver);

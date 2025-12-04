@@ -121,7 +121,7 @@ inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
 inline constexpr bool init_maximize_window = false;
 inline constexpr bool init_zero_interval = false;
 inline constexpr bool init_show_intro = true;
-inline constexpr bool init_extra_tooltips = true;
+inline constexpr bool init_extra_tooltips = init_show_intro;
 inline constexpr bool init_compact_mode = false;
 inline constexpr bool init_selectables_use_button_color = false;
 inline constexpr bool init_set_scroll_with_up_down = true;

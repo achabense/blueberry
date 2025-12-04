@@ -119,7 +119,7 @@ void frame_main() {
     }
     // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {8, 6});
     if constexpr (init_compact_mode) {
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{3, 2});
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImMin(ImVec2{3, 2}, ImGui::GetStyle().FramePadding));
     }
 
     global_timer::begin_frame({});

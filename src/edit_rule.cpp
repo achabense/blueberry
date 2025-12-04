@@ -246,6 +246,7 @@ class subset_selector : no_copy {
     }
 
 public:
+    // (Always true for the first call.)
     bool set_changed_since_last_check() { return std::exchange(set_changed, false); }
 
     // !!TODO: support predefined p-sets (e.g. strobing-set (01 10) and (01 11, 00 10, 11 00))
@@ -1504,7 +1505,6 @@ void edit_rule(frame_main_token) {
             random_access_status::end_disabled();
 
             // TODO: use (?) or (...)? (It's getting unclear which is for which...)
-            // TODO: the group button op seems unnecessary now...
             ImGui::SameLine();
             imgui_StrTooltip(
                 "(?)",
