@@ -897,8 +897,7 @@ public:
     }
 
     // 0: will return true every frame.
-    static constexpr int default_interval = init_zero_interval ? 0 : 50;
-    static_assert(default_interval % unit == 0);
+    static constexpr int default_interval = init_zero_interval ? 0 : unit;
 
     static void step_slide(const char* label, int& interval /*ms*/, int min, int max) {
         assert(min_interval <= min && min < max && max <= max_interval);
