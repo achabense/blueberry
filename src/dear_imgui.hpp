@@ -280,6 +280,36 @@ inline void imgui_StrWithID(std::string_view str) { //
     imgui_StrWithID(str, ImGui::GetID(str.data(), str.data() + str.size()));
 }
 
+inline void imgui_StrClipped(std::string_view str, float max_width) {
+    GImGui->CurrentWindow->WriteAccessed = true;
+    const auto& window = *GImGui->CurrentWindow;
+    if (GImGui->CurrentWindow->SkipItems) {
+        return;
+    }
+
+    const char* const begin = str.data();
+    const char* const end = begin + str.size();
+
+    const ImVec2 pos = {window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset};
+    const ImVec2 text_size = ImGui::CalcTextSize(begin, end, false);
+    const ImVec2 size = {std::min(text_size.x, std::max(max_width, 1.0f)), text_size.y};
+    const ImRect bb(pos, pos + size);
+    ImGui::ItemSize(size, 0.0f);
+    if (ImGui::ItemAdd(bb, 0) && begin != end) {
+        if (text_size.x <= size.x) {
+            ImGui::RenderText(bb.Min, begin, end, false);
+        } else {
+            ImRect clip_rect = bb; // Only clip horizontally.
+            clip_rect.Expand({0, ImGui::GetTextLineHeight()});
+            // ImGui::RenderTextClipped(...); // Will hide text after "##".
+            ImGui::RenderTextClippedEx(window.DrawList, bb.Min, bb.Max, begin, end, &text_size, {}, &clip_rect);
+            assert(!GImGui->LogEnabled); // Otherwise need to LogRenderedText().
+            window.DrawList->AddLine(bb.GetTR() - ImVec2(1, 0), bb.GetBR() - ImVec2(1, 0),
+                                     ImGui::GetColorU32(ImGuiCol_TextDisabled));
+        }
+    }
+}
+
 inline void imgui_StrDisabled(std::string_view str) { //
     imgui_StrColored(str, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 }

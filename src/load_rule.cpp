@@ -73,6 +73,7 @@ static const pathT& get_home_path() /*noexcept*/ {
 
 // I hate this part so much...
 // (This is horribly inefficient, but there are not going to be too many calls in each frame, so let it go.)
+// (The clipped path may still exceed avail_w in rare cases.)
 [[nodiscard]] static std::string clip_path(const pathT& p, const float avail_w, bool& clipped) {
     if (p.empty()) {
         clipped = false;
@@ -169,19 +170,19 @@ static void path_options(const pathT& p) {
         copy_path(p.filename()); // (`p` shouldn't end with separator.)
     }
 }
-// !!TODO: (v0.9.9) should not affect auto-fitting.
-// (The clipped str may still be longer than avail size...)
+
+// (Won't mess with auto-fitting.)
 static void display_path(const pathT& p, const float avail_w) {
     bool clipped = false;
-    imgui_Str(clip_path(p, avail_w, clipped));
+    imgui_StrClipped(clip_path(p, avail_w, clipped), avail_w);
     rclick_popup::for_text([&] { path_options(p); });
     if (clipped) {
         imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
     }
 }
-static void display_filename(const pathT& p) {
+static void display_filename(const pathT& p, const float avail_w) {
     constexpr char prefix[]{'.', '.', '.', char(pathT::preferred_separator), '\0'};
-    imgui_Str(prefix + cpp17_u8string_b(p.filename()));
+    imgui_StrClipped(prefix + cpp17_u8string_b(p.filename()), avail_w);
     rclick_popup::for_text([&] { path_options(p); });
     imgui_ItemTooltip([&] { imgui_Str(cpp17_u8string_b(p)); });
 }
@@ -1245,7 +1246,8 @@ public:
                 }
             });
             ImGui::SameLine();
-            display_filename(*file_path);
+            display_filename(*file_path,
+                             ImGui::GetContentRegionAvail().x - imgui_ItemSpacingX() - imgui_CalcButtonSize("To").x);
             ImGui::SameLine();
             ImGui::BeginDisabled(text.empty());
             menu_like_popup::small_button("To");
