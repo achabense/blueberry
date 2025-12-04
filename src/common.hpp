@@ -869,25 +869,26 @@ public:
     static void display_if_present(frame_main_token) { m_msg.display_if_present(); }
 };
 
+// TODO: interval -> frequency (fps) instead?
 class global_timer : no_create {
-    static constexpr int time_unit = 25;                // ms.
-    static constexpr int min_time = 0, max_time = 1000; // ms.
-    static_assert(max_time % time_unit == 0);
+    static constexpr int unit = 25;                             // ms.
+    static constexpr int min_interval = 0, max_interval = 1000; // ms.
+    static_assert(max_interval % unit == 0);
 
     using clockT = std::chrono::steady_clock;
     struct termT {
-        clockT::time_point last;   // = {};
+        clockT::time_point next;   // = {};
         bool active_at_this_frame; // = false; (Will cause trouble when building with gcc or clang...)
     };
-    inline static termT terms[1 + (max_time / time_unit)]{};
+    inline static termT terms[1 + (max_interval / unit)]{};
 
 public:
     static void begin_frame(frame_main_token) {
         const clockT::time_point now = clockT::now();
         for (int i = 0; termT & term : terms) {
-            const int dur = time_unit * i++;
-            if (term.last + std::chrono::milliseconds(dur) <= now) {
-                term.last = now;
+            const int this_i = i++;
+            if (now >= term.next) {
+                term.next = now + std::chrono::milliseconds(unit * this_i);
                 term.active_at_this_frame = true;
             } else {
                 term.active_at_this_frame = false;
@@ -896,31 +897,20 @@ public:
     }
 
     // 0: will return true every frame.
-    static constexpr int min_nonzero_interval = time_unit;
-    static constexpr int default_interval = init_zero_interval ? 0 : min_nonzero_interval;
+    static constexpr int default_interval = init_zero_interval ? 0 : 50;
+    static_assert(default_interval % unit == 0);
 
-    class intervalT {
-        int i; // terms[i].
+    static void step_slide(const char* label, int& interval /*ms*/, int min, int max) {
+        assert(min_interval <= min && min < max && max <= max_interval);
+        assert(min % unit == 0 && max % unit == 0);
+        imgui_StepSliderInt::fn(label, &interval, min, max, unit, [](int i) { return std::format("{} ms", i); });
+    }
 
-    public:
-        bool test() const { return terms[i].active_at_this_frame; }
-
-        /*implicit*/ intervalT(int ms) {
-            assert(min_time <= ms && ms <= max_time);
-            assert(ms % time_unit == 0);
-            i = std::clamp(ms, min_time, max_time) / time_unit;
-        }
-
-        void step_slide(const char* label, int min_ms, int max_ms) {
-            assert(min_time <= min_ms && min_ms < max_ms && max_ms <= max_time);
-            assert(min_ms % time_unit == 0);
-            assert(max_ms % time_unit == 0);
-            imgui_StepSliderInt::fn(label, &i, min_ms / time_unit, max_ms / time_unit, 1,
-                                    [](int i) { return std::format("{} ms", i * time_unit); });
-        }
-    };
-
-    static bool test(intervalT i) { return i.test(); }
+    static bool test(int interval /*ms*/) {
+        assert(min_interval <= interval && interval <= max_interval);
+        assert(interval % unit == 0);
+        return terms[std::clamp(interval, min_interval, max_interval) / unit].active_at_this_frame;
+    }
 };
 
 // Preview rules.
@@ -937,7 +927,7 @@ public:
         int height_ = 160;
 
         int step = 1;
-        global_timer::intervalT interval = global_timer::default_interval;
+        int interval = global_timer::default_interval;
 
         void _set();
 

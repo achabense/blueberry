@@ -359,7 +359,7 @@ class runnerT : no_copy {
     class ctrlT : no_copy {
     public:
         int step = 1; // Auto mode.
-        global_timer::intervalT interval = global_timer::default_interval;
+        int interval = global_timer::default_interval;
 
         enum stepE { None, Ps, P1, Pf }; // Workaround for +s/+1/+!.
         stepE extra_step = None;
@@ -391,7 +391,7 @@ class runnerT : no_copy {
             } else if (ex_step == Pf) {
                 delay = true;
                 return adjust_step(step_fast, strobing(rule));
-            } else if (!ex_pause && interval.test() && !std::exchange(delay, false)) {
+            } else if (!ex_pause && global_timer::test(interval) && !std::exchange(delay, false)) {
                 return adjust_step(step, strobing(rule));
             } else {
                 return 0;
@@ -906,7 +906,7 @@ public:
             if (enable_shortcuts) {
                 imgui_StepSliderInt::next_shortcuts = {ImGuiKey_3, ImGuiKey_4};
             }
-            m_ctrl.interval.step_slide("Interval", 0, 400);
+            global_timer::step_slide("Interval", m_ctrl.interval, 0, 500);
             ImGui::SameLine();
             imgui_StrTooltip("(?)", "Min interval for auto-mode. (0 ms ~ the space will run at each frame.)");
             ImGui::PopItemWidth();
@@ -1814,7 +1814,7 @@ void previewer::configT::_set() {
 
     ImGui::Separator();
     imgui_StepSliderInt::fn("Step", &step, 1, 30);
-    interval.step_slide("Interval", 0, 400);
+    global_timer::step_slide("Interval", interval, 0, 500);
 
     ImGui::Separator();
     if (ImGui::TreeNodeEx("Init state", ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_AllowOverlap |
@@ -1980,7 +1980,7 @@ void previewer::_preview(const uint64_t id, const configT& config, const aniso::
         } else if (op.p_f) {
             term.delay = true;
             return adjust_step(step_fast, strobing(rule));
-        } else if (!pause && config.interval.test() && !std::exchange(term.delay, false)) {
+        } else if (!pause && global_timer::test(config.interval) && !std::exchange(term.delay, false)) {
             return adjust_step(config.step, strobing(rule));
         } else {
             return 0;
