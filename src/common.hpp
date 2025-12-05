@@ -119,6 +119,7 @@ inline ImVec2 clamp_window_pos(const ImVec2 pos, const ImVec2 size) {
 
 // !!TODO: support configs.
 inline constexpr bool init_maximize_window = false;
+inline constexpr bool init_enable_vsync = true;
 inline constexpr bool init_zero_interval = false;
 inline constexpr bool init_show_intro = true;
 inline constexpr bool init_extra_tooltips = init_show_intro;

@@ -182,9 +182,16 @@ std::string backend_fn::home_path_utf8() {
     return base_path ? base_path : ""; // No "." fallback.
 }
 
-static int frame_per_sec = 100;
-void backend_fn::set_frame_rate() { //
-    imgui_StepSliderInt::fn("FPS", &frame_per_sec, 4, 100);
+static bool enable_vsync = init_enable_vsync;
+static int frame_per_sec = 80;
+void backend_fn::set_frame_rate() {
+    assert(window && renderer);
+    if (ImGui::Checkbox("VSync", &enable_vsync)) {
+        SDL_SetRenderVSync(renderer, enable_vsync ? 1 : SDL_RENDERER_VSYNC_DISABLED);
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(item_width());
+    imgui_StepSliderInt::fn("FPS", &frame_per_sec, 4, 200);
 }
 
 // Not backend-specific, but have to sort between `EndFrame()` and `Render()`.
@@ -298,7 +305,7 @@ int main(int, char**) {
             SDL_MaximizeWindow(window);
         }
 
-        SDL_SetRenderVSync(renderer, 1);
+        SDL_SetRenderVSync(renderer, enable_vsync ? 1 : SDL_RENDERER_VSYNC_DISABLED);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         SDL_RenderPresent(renderer);
@@ -408,13 +415,14 @@ int main(int, char**) {
 
         end_frame();
 
-        // (Normally `SDL_RENDERER_PRESENTVSYNC` will further limit to a smaller framerate, like 60fps.)
+        // (May be further limited by vsync (like 60fps).)
         static Uint64 last = 0;
-        const Uint64 now = SDL_GetTicks();
-        const Uint64 until = last + 1000 / frame_per_sec;
+        const Uint64 now = SDL_GetTicksNS();
+        const Uint64 until = last + (1000 * 1000 * 1000) /*ns*/ / frame_per_sec;
         if (now < until) {
-            SDL_Delay(until - now);
-            last = until; // Instead of another `SDL_GetTicks()` call.
+            // SDL_DelayPrecise(until - now);
+            SDL_DelayNS(until - now);
+            last = until; // Instead of another `SDL_GetTicksNs()` call.
         } else {
             last = now;
         }

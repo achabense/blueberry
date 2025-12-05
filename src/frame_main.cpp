@@ -215,8 +215,9 @@ void frame_main() {
         ImGui::SameLine(0, wide_spacing);
         ImGui::Text("(%d FPS)", (int)std::round(ImGui::GetIO().Framerate));
         if constexpr (debug_mode) {
+            // TODO: support in release mode?
             ImGui::SameLine();
-            menu_like_popup::small_button("Set");
+            menu_like_popup::small_button("Set##FPS");
             menu_like_popup::popup(set_frame_rate);
 
             ImGui::SameLine(0, wide_spacing);
