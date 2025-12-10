@@ -1,0 +1,9 @@
+# .gitignore templates: https://github.com/github/gitignore
+
+.vs/
+.xmake/
+
+out/
+build/
+
+rules/

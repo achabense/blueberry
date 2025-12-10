@@ -1,0 +1,81 @@
+﻿{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "x64-base",
+      "hidden": true,
+      "generator": "Ninja Multi-Config",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "installDir": "${sourceDir}/out/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
+      }
+    },
+    {
+      "name": "x64-msvc",
+      "inherits": "x64-base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe"
+      }
+    },
+    {
+      "name": "x64-clang",
+      "inherits": "x64-base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang.exe",
+        "CMAKE_CXX_COMPILER": "clang++.exe"
+      }
+    },
+    {
+      "name": "x64-gcc",
+      "inherits": "x64-base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc.exe",
+        "CMAKE_CXX_COMPILER": "g++.exe"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "x64-msvc-debug",
+      "displayName": "msvc (debug)",
+      "configurePreset": "x64-msvc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "x64-msvc-release",
+      "displayName": "msvc (release)",
+      "configurePreset": "x64-msvc",
+      "configuration": "Release"
+    },
+    {
+      "name": "x64-clang-debug",
+      "displayName": "clang (debug)",
+      "configurePreset": "x64-clang",
+      "configuration": "Debug"
+    },
+    {
+      "name": "x64-clang-release",
+      "displayName": "clang (release)",
+      "configurePreset": "x64-clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "x64-gcc-debug",
+      "displayName": "gcc (debug)",
+      "configurePreset": "x64-gcc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "x64-gcc-release",
+      "displayName": "gcc (release)",
+      "configurePreset": "x64-gcc",
+      "configuration": "Release"
+    }
+  ]
+}
