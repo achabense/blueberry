@@ -23,11 +23,10 @@ namespace aniso {
 
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
     class equivT {
-        mutable codeT::map_to<codeT> m_par;
+        using parT = codeT::map_to<codeT>;
+        mutable parT m_par = parT::create([](codeT c) { return c; }); // m_par[c] == c
 
     public:
-        equivT() : m_par{decltype(m_par)::create([](codeT c) { return c; })} {}
-
         codeT head_for(const codeT c) const {
             if (m_par[c] == c) {
                 return c;

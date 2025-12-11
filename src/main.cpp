@@ -25,7 +25,10 @@ static SDL_Window* window = nullptr;
 static SDL_Renderer* renderer = nullptr;
 
 // (Using macro in case the function is not inlined in debug mode.)
-#define color_for(c) ((c) ? IM_COL32_WHITE : IM_COL32_BLACK_TRANS)
+#define color_for(c) ((c) ? IM_COL32_WHITE : IM_COL32_BLACK)
+
+// (Debug mode; screenshot) if using `IM_COL32_BLACK_TRANS`, the saved bmp file will look different. I've no clue what's going on...
+// #define color_for(c) ((c) ? IM_COL32_WHITE : IM_COL32_BLACK_TRANS)
 
 static SDL_Texture* create_texture(SDL_TextureAccess access, int w, int h) {
     assert(window && renderer);
@@ -375,6 +378,9 @@ int main(int, char**) {
     };
 
     const auto end_frame = [] {
+        const bool screenshot = // Undocumented. (shortcut = `/~)
+            debug_mode && shortcuts::no_active() && shortcuts::test_pressed(ImGuiKey_GraveAccent);
+
         // Cannot rely on Render() calling EndFrame(). (EndFrame() modifies `GImGui->Windows` on focus, so have to sort after it.)
         ImGui::EndFrame();
         sort_windows();
@@ -393,6 +399,18 @@ int main(int, char**) {
             SDL_RenderClear(renderer);
 
             ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
+            if constexpr (debug_mode) {
+                if (screenshot) {
+                    bool saved = false;
+                    // According to the doc, this should be called before SDL_RenderPresent().
+                    if (SDL_Surface* s = SDL_RenderReadPixels(renderer, nullptr)) {
+                        saved = SDL_SaveBMP(s, "screenshot.bmp");
+                        SDL_DestroySurface(s);
+                    }
+                    messenger::set_msg(saved ? "Saved (screenshot)." : "Failed.");
+                }
+            }
+
             SDL_RenderPresent(renderer);
         }
     };
