@@ -43,37 +43,37 @@
   "buildPresets": [
     {
       "name": "x64-msvc-debug",
-      "displayName": "msvc (debug)",
+      "displayName": "1. msvc (debug)",
       "configurePreset": "x64-msvc",
       "configuration": "Debug"
     },
     {
       "name": "x64-msvc-release",
-      "displayName": "msvc (release)",
+      "displayName": "1. msvc (release)",
       "configurePreset": "x64-msvc",
       "configuration": "Release"
     },
     {
       "name": "x64-clang-debug",
-      "displayName": "clang (debug)",
+      "displayName": "2. clang (debug)",
       "configurePreset": "x64-clang",
       "configuration": "Debug"
     },
     {
       "name": "x64-clang-release",
-      "displayName": "clang (release)",
+      "displayName": "2. clang (release)",
       "configurePreset": "x64-clang",
       "configuration": "Release"
     },
     {
       "name": "x64-gcc-debug",
-      "displayName": "gcc (debug)",
+      "displayName": "3. gcc (debug)",
       "configurePreset": "x64-gcc",
       "configuration": "Debug"
     },
     {
       "name": "x64-gcc-release",
-      "displayName": "gcc (release)",
+      "displayName": "3. gcc (release)",
       "configurePreset": "x64-gcc",
       "configuration": "Release"
     }
