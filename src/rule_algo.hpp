@@ -18,7 +18,7 @@ namespace aniso {
     }
 
     inline ruleT normalize(const ruleT& r, const lockT& l) { //
-        return make_rule([&](const codeT code) { return l[code] ? r[code] : cellT{0}; });
+        return ruleT::create([&](const codeT code) { return l[code] ? r[code] : cellT{0}; });
     }
 
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
@@ -26,11 +26,7 @@ namespace aniso {
         mutable codeT::map_to<codeT> m_par;
 
     public:
-        equivT() {
-            for (const codeT code : each_code) {
-                m_par[code] = code;
-            }
-        }
+        equivT() : m_par{decltype(m_par)::create([](codeT c) { return c; })} {}
 
         codeT head_for(const codeT c) const {
             if (m_par[c] == c) {
@@ -513,9 +509,9 @@ namespace aniso {
         return r;
     }
     // Any-rule ^ rule_identity -> diff shows whether the cell will "flip" in each case.
-    // inline const ruleT rule_identity{make_rule([](const codeT c) { return c.get(codeT::bpos_s); })};
+    // inline const ruleT rule_identity{ruleT::create([](const codeT c) { return c.get(codeT::bpos_s); })};
     inline const ruleT& rule_identity() {
-        static const ruleT r = make_rule([](const codeT c) { return c.get(codeT::bpos_s); });
+        static const ruleT r = ruleT::create([](const codeT c) { return c.get(codeT::bpos_s); });
         return r;
     }
 
@@ -746,33 +742,23 @@ namespace aniso {
 
     // 0/1-reversal dual.
     inline ruleT trans_reverse(const ruleT& rule) {
-        ruleT rev{};
-        for (const codeT code : each_code) {
-            const codeT code_rev = mp_reverse(code);
+        return ruleT::create([&rule](const codeT code) {
+            // (dual[code] == code.s) == (rule[rev] == rev.s)
             const cellT s = code.get(codeT::bpos_s);
-            rev[code_rev] = (rule[code] == s) ? !s : !(!s); // So that ->
-            assert((rev[code_rev] == !s) == (rule[code] == s));
-        }
-        return rev;
+            const codeT rev = mp_reverse(code);
+            return rule[rev] == rev.get(codeT::bpos_s) ? s : !s;
+        });
     }
 
     ANISO_DECLARE_TEST(test_trans_reverse);
 
     // (Currently not supported in gui, as these can map `hex` rules to `hex2` set.)
-    [[deprecated]] inline ruleT trans_left_right(const ruleT& rule) {
-        ruleT lr{};
-        for (const codeT code : each_code) {
-            lr[mp_refl_wsx(code) /* | */] = rule[code];
-        }
-        return lr;
+    [[deprecated]] inline ruleT trans_left_right(const ruleT& rule) { //
+        return ruleT::create([&rule](const codeT code) { return rule[mp_refl_wsx(code) /* | */]; });
     }
 
-    [[deprecated]] inline ruleT trans_rotate_90(const ruleT& rule) {
-        ruleT ro{};
-        for (const codeT code : each_code) {
-            ro[mp_C4(code)] = rule[code];
-        }
-        return ro;
+    [[deprecated]] inline ruleT trans_rotate_90(const ruleT& rule) { //
+        return ruleT::create([&rule](const codeT code) { return rule[mp_C4(code)]; });
     }
 
     // A `partialT` stands for a another kind of MAP subset where, a rule belongs to the set iff it has the same "locked" values.

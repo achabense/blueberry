@@ -14,15 +14,11 @@ namespace aniso::_tests {
     }
 
     static ruleT get_rand_rule(std::mt19937& rand = get_rand()) { //
-        return make_rule([&rand](auto) { return cellT(rand() % 1); });
+        return ruleT::create([&rand](auto) { return cellT(rand() & 1); });
     }
 
-    static lockT get_rand_lock(std::mt19937& rand = get_rand()) {
-        lockT l{};
-        for (const codeT code : each_code) {
-            l[code] = rand() % 1;
-        }
-        return l;
+    static lockT get_rand_lock(std::mt19937& rand = get_rand()) { //
+        return lockT::create([&rand](auto) { return bool(rand() & 1); });
     }
 
     // v "rule.hpp"
@@ -126,18 +122,19 @@ namespace aniso::_tests {
         // It's just that, in this situation the maskT has a strong bias, so that it's too easy to generate
         // rules in a certain direction...
         using enum codeT::bposE;
-        assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_q); })));
-        assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_w); })));
-        assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_e); })));
-        assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_a); })));
+        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_q); })));
+        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_w); })));
+        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_e); })));
+        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_a); })));
         assert(!sc.contains(rule_identity()));
-        assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_d); })));
-        assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_z); })));
-        assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_x); })));
-        assert(sc.contains(make_rule([](codeT c) { return c.get(bpos_c); })));
+        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_d); })));
+        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_z); })));
+        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_x); })));
+        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_c); })));
     };
 
     extern void test_trans_reverse() {
+        // TODO: (& symmetric rules) enhance to also test effect on patterns?
         const ruleT rule = get_rand_rule();
         assert(rule == trans_reverse(trans_reverse(rule)));
     };
@@ -235,7 +232,7 @@ namespace aniso::_tests {
     }
 
     extern void test_apply_torus() {
-        const ruleT copy_q = make_rule([](codeT c) { return c.get(codeT::bpos_q); });
+        const ruleT copy_q = ruleT::create([](codeT c) { return c.get(codeT::bpos_q); });
 
         fixed_tile<10, 12> tile{}, compare{};
         random_fill(tile, get_rand(), 0.5);

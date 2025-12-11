@@ -1592,22 +1592,17 @@ void edit_rule(frame_main_token) {
         aniso::ruleT temp_target = show_random_access ? target.get() : aniso::ruleT{};
         const bool comp_mode = disp_mode == displayE::Comp;
         const auto disp = [&] {
-            aniso::codeT::map_to<bool> disp{};
+            using dispT = aniso::codeT::map_to<bool>;
             if (comp_mode) {
                 assert(show_random_access);
                 const aniso::ruleT &a = observer, &b = target.get();
-                for (const auto code : aniso::each_code) {
-                    disp[code] = a[code] != b[code];
-                }
+                return dispT::create([&](auto code) { return a[code] != b[code]; });
             } else {
                 // (Avoiding `bit_cast`.)
                 assert_implies(disp_mode == displayE::Target, show_random_access);
                 const aniso::ruleT& r = disp_mode == displayE::Target ? target.get() : observer;
-                for (const auto code : aniso::each_code) {
-                    disp[code] = r[code];
-                }
+                return dispT::create([&](auto code) { return bool(r[code]); });
             }
-            return disp;
         }();
         const char* const labels_disp[2]{comp_mode ? "-O" : "-0", comp_mode ? "-I" : "-1"};
         const char* const labels_disp_from_to[2]{comp_mode ? "-O -> I:" : "-0 -> 1:",

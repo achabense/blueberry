@@ -103,6 +103,8 @@ namespace aniso {
             std::conditional_t<debug_mode, T[512], std::array<T, 512>> m_map{};
 
         public:
+            using E = T;
+
             const T& operator[](codeT code) const { return m_map[code.val]; }
             T& operator[](codeT code) { return m_map[code.val]; }
 
@@ -120,6 +122,17 @@ namespace aniso {
 
             // std::span<const T, 512> data() const { return m_map; }
             // std::span<T, 512> data() { return m_map; }
+
+            // Intentionally stricter than necessary (convertible).
+            static map_to create(const auto& fn)
+                requires(std::is_same_v<decltype(fn(std::declval<codeT>())), T>)
+            {
+                map_to m{};
+                for (int v = 0; v < 512; ++v) {
+                    m.m_map[v] = fn(codeT(v));
+                }
+                return m;
+            }
         };
 
         // clang-format off
@@ -200,17 +213,9 @@ namespace aniso {
 
     static_assert(rule_like<ruleT>);
 
-    inline ruleT make_rule(const rule_like auto& fn) {
-        ruleT rule{};
-        for (const codeT code : each_code) {
-            rule[code] = fn(code);
-        }
-        return rule;
-    }
-
     // "Convay's Game of Life" (B3/S23)
     inline const ruleT& game_of_life() {
-        static const ruleT r = make_rule([](const codeT code) -> cellT {
+        static const ruleT r = ruleT::create([](const codeT code) -> cellT {
             const auto [q, w, e, a, s, d, z, x, c] = decode(code);
             switch (q + w + e + a + d + z + x + c) {
                 case 2: return s;   // 2:S ~ 0->0, 1->1 ~ equal to "s".
@@ -294,7 +299,8 @@ namespace aniso {
             }
         }
 
-        inline void from_MAP(const std::string_view str, auto& dest /* ruleT or lockT */) {
+        template <class T /*ruleT or lockT*/>
+        inline T from_MAP(const std::string_view str) {
             assert(str.size() >= MAP_length);
 
             std::array<bool, 512> MAP_data{};
@@ -315,10 +321,8 @@ namespace aniso {
                 put(i + 0, (b6 >> 5) & 1);
             }
 
-            for (const codeT code : each_code) {
-                using D = std::remove_cvref_t<decltype(dest[code])>;
-                dest[code] = D(MAP_data[transcode_MAP(code)]);
-            }
+            using E = T::E;
+            return T::create([&MAP_data](codeT code) { return E(MAP_data[transcode_MAP(code)]); });
         }
     } // namespace _misc
 
@@ -356,16 +360,12 @@ namespace aniso {
 
         ruleT get_rule() const {
             assert(has_rule());
-            ruleT rule{};
-            _misc::from_MAP(rule_str.substr(3 /*MAP*/, MAP_len), rule);
-            return rule;
+            return _misc::from_MAP<ruleT>(rule_str.substr(3 /*MAP*/, MAP_len));
         }
 
         lockT get_lock() const {
             assert(has_lock());
-            lockT lock{};
-            _misc::from_MAP(lock_str.substr(2 /* [*/, MAP_len), lock);
-            return lock;
+            return _misc::from_MAP<lockT>(lock_str.substr(2 /* [*/, MAP_len));
         }
 
     private:
@@ -443,7 +443,7 @@ namespace aniso {
             }
         }
         ruleT decompress() const {
-            return make_rule([&](const codeT c) { //
+            return ruleT::create([&](const codeT c) { //
                 return cellT(1 & (m_data[c.val >> 3] >> (c.val & 0b111)));
             });
         }
