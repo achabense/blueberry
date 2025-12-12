@@ -188,7 +188,7 @@ void frame_main() {
             static bool show_doc = false;
             // ImGui::Checkbox("Documents", &show_doc);
             ImGui::Checkbox("About", &show_doc);
-            guide_mode::item_tooltip("Concepts, example rules, etc.");
+            // guide_mode::item_tooltip("Concepts, example rules, etc.");
             if (show_doc) {
                 load_doc({}).reset_if_closed(show_doc);
             }
