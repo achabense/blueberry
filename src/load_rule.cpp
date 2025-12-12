@@ -1442,24 +1442,41 @@ open_state load_doc(frame_main_token) {
         ImGui::PushStyleColor(ImGuiCol_WindowBg, to_opaque(ImGui::GetStyleColorVec4(ImGuiCol_FrameBg)));
         if (auto window = imgui_Window("About this program", &open,
                                        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
+            // TODO: not using ImGui::TextLink() due to style (unconditional underline etc).
+            // Whether to use a similar color / support click-to-open behavior?
+            const auto item_link = [](const char* url) {
+                imgui_ItemTooltip(url);
+                rclick_popup::for_text([url] {
+                    if (ImGui::Selectable("Copy link")) {
+                        set_clipboard_and_notify(url);
+                    }
+                    if (has_open_url_fn() && ImGui::Selectable("Open in browser")) {
+                        open_url(url);
+                    }
+                });
+            };
+
             ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
             imgui_Str("Blueberry v0.10.1 WIP");
             imgui_Str("This is a toy for exploring arbitrary MAP rules.");
             imgui_Str("");
             imgui_Str("(c) 2023-2025 achabense (GitHub username)");
-            imgui_Str("Repository: ");
+            // ImGui::TextLinkOpenURL("Repository", "https://github.com/achabense/blueberry");
+            imgui_Str("> ");
             ImGui::SameLine(0, 0);
-            constexpr const char* url = "https://github.com/achabense/blueberry";
-            imgui_Str(url);
+            imgui_Str("Repository");
+            ImGui::PopStyleVar(); // Otherwise affects ImGui::Selectable().
+            item_link("https://github.com/achabense/blueberry");
+            ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
+            ImGui::SameLine(0, imgui_ItemSpacingX() * 3);
+            imgui_Str("> ");
+            ImGui::SameLine(0, 0);
+            imgui_Str("Discoveries (rules)");
             ImGui::PopStyleVar();
-            rclick_popup::for_text([] {
-                if (ImGui::Selectable("Copy link")) {
-                    set_clipboard_and_notify(url);
-                }
-                if (has_open_url_fn() && ImGui::Selectable("Open in browser")) {
-                    open_url(url);
-                }
-            });
+            item_link("https://github.com/achabense/rules");
+            // ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, 0);
+            // ...
+            // ImGui::PopStyleVar();
         }
         ImGui::PopStyleColor(2);
         return {open};
