@@ -378,8 +378,10 @@ int main(int, char**) {
     };
 
     const auto end_frame = [] {
+        // TODO: also apply `GetIO().MouseDrawCursor`?
+        constexpr bool enable_screenshot = debug_mode;
         const bool screenshot = // Undocumented. (shortcut = `/~)
-            debug_mode && shortcuts::no_active() && shortcuts::test_pressed(ImGuiKey_GraveAccent);
+            enable_screenshot && shortcuts::no_input() && shortcuts::test_pressed(ImGuiKey_GraveAccent);
 
         // Cannot rely on Render() calling EndFrame(). (EndFrame() modifies `GImGui->Windows` on focus, so have to sort after it.)
         ImGui::EndFrame();
@@ -399,7 +401,7 @@ int main(int, char**) {
             SDL_RenderClear(renderer);
 
             ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
-            if constexpr (debug_mode) {
+            if constexpr (enable_screenshot) {
                 if (screenshot) {
                     bool saved = false;
                     // According to the doc, this should be called before SDL_RenderPresent().
