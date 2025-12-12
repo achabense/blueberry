@@ -16,7 +16,7 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 FetchContent_Declare(
     SDL3
     GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-    GIT_TAG        7f3ae3d57459e59943a4ecfefc8f6277ec6bf540 #release-3.2.28
+    GIT_TAG        7f3ae3d57459e59943a4ecfefc8f6277ec6bf540 # release-3.2.28
     GIT_PROGRESS   TRUE
     GIT_SHALLOW    TRUE
 )
@@ -43,6 +43,9 @@ add_executable(${PROJECT_NAME} WIN32 ${SOURCE_LIST})
 target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/utf-8> # https://stackoverflow.com/questions/47690822
     $<$<CXX_COMPILER_ID:Clang,GNU>:-finput-charset=utf-8 -fexec-charset=utf-8>
+
+#   $<$<AND:$<CXX_COMPILER_ID:Clang,GNU>,$<CONFIG:Debug>>:-Og> # Optimize in debug mode.
+#   $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:Debug>>:/ZI> # Enable hot reloading (working, but will trigger /Zx overriding warning).
 
     # -Wreturn-type is neither enabled by default nor implied by -Wall or -Wextra... That's ridiculous...
     $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic -Wdeprecated -Wnewline-eof -Wshadow -Werror=return-type>
