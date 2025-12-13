@@ -23,7 +23,7 @@ namespace aniso {
 
     // Equivalence relation for codeT ({0...511}), in the form of union-find set.
     class equivT {
-        using parT = codeT::map_to<codeT>;
+        using parT = codeT_to<codeT>;
         mutable parT m_par = parT::create([](codeT c) { return c; }); // m_par[c] == c
 
     public:
@@ -128,7 +128,7 @@ namespace aniso {
         int m_k{}; // Number of groups.
 
         // Map codeT of the same group to the same integer ∈ [0, m_k).
-        codeT::map_to<int16_t> m_map{};
+        codeT_to<int16_t> m_map{};
 
         // (Permutation of all codeT.)
         // Store codeT of the same group consecutively to provide span.
@@ -303,10 +303,10 @@ namespace aniso {
     inline ruleT common_rule_unchecked(const subsetT& a, const subsetT& b, //
                                        const lockT* a_lock = nullptr, const lockT* b_lock = nullptr) {
         ruleT common{};
-        codeT::map_to<bool> assigned{};
+        codeT_to<bool> assigned{};
 
         // Assign values according to equivalence relations, without checking for conflicts.
-        codeT::map_to<bool> a_side_checked{}, b_side_checked{}; // To reduce time-complexity.
+        codeT_to<bool> a_side_checked{}, b_side_checked{}; // To reduce time-complexity.
         const auto try_assign = [&](const codeT code, const cellT v, const auto& self) -> void {
             assert(!assigned[code]);
             assigned[code] = true;

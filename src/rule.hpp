@@ -97,44 +97,6 @@ namespace aniso {
         /*implicit*/ ALWAYS_INLINE operator int() const { /*assert(0 <= val && val < 512);*/ return val; }
         // friend bool operator==(codeT, codeT) = default;
 
-        template <class T, int tag = 0>
-        class map_to {
-            // `array::operator[]` can slow down `apply_rule` by more than %20 in debug mode...
-            std::conditional_t<debug_mode, T[512], std::array<T, 512>> m_map{};
-
-        public:
-            using E = T;
-
-            const T& operator[](codeT code) const { return m_map[code.val]; }
-            T& operator[](codeT code) { return m_map[code.val]; }
-
-            void fill(T v) { std::ranges::fill(m_map, v); }
-            void reset() { fill(T{}); }
-
-            friend bool operator==(const map_to&, const map_to&) = default;
-
-            ALWAYS_INLINE T operator()(codeT code) const
-                requires(std::is_same_v<T, cellT> && tag == 1)
-            {
-                // return m_map[code]; // (In debug mode) still results in worse codegen even force-inlined...
-                return m_map[code.val];
-            }
-
-            // std::span<const T, 512> data() const { return m_map; }
-            // std::span<T, 512> data() { return m_map; }
-
-            // Intentionally stricter than necessary (convertible).
-            static map_to create(const auto& fn)
-                requires(std::is_same_v<decltype(fn(std::declval<codeT>())), T>)
-            {
-                map_to m{};
-                for (int v = 0; v < 512; ++v) {
-                    m.m_map[v] = fn(codeT(v));
-                }
-                return m;
-            }
-        };
-
         // clang-format off
         enum bposE : int8_t {
             bpos_q = 8, bpos_w = 7, bpos_e = 6,
@@ -196,11 +158,49 @@ namespace aniso {
 
     ANISO_DECLARE_TEST(test_codeT);
 
+    template <class T, int tag = 0>
+    class codeT_to {
+        // `array::operator[]` can slow down `apply_rule` by more than %20 in debug mode...
+        std::conditional_t<debug_mode, T[512], std::array<T, 512>> m_map{};
+
+    public:
+        using E = T;
+
+        const T& operator[](codeT code) const { return m_map[code.val]; }
+        T& operator[](codeT code) { return m_map[code.val]; }
+
+        void fill(T v) { std::ranges::fill(m_map, v); }
+        void reset() { fill(T{}); }
+
+        friend bool operator==(const codeT_to&, const codeT_to&) = default;
+
+        ALWAYS_INLINE T operator()(codeT code) const
+            requires(std::is_same_v<T, cellT> && tag == 1)
+        {
+            // return m_map[code]; // (In debug mode) still results in worse codegen even force-inlined...
+            return m_map[code.val];
+        }
+
+        // std::span<const T, 512> data() const { return m_map; }
+        // std::span<T, 512> data() { return m_map; }
+
+        // Intentionally stricter than necessary (convertible).
+        static codeT_to create(const auto& fn)
+            requires(std::is_same_v<decltype(fn(std::declval<codeT>())), T>)
+        {
+            codeT_to m{};
+            for (int v = 0; v < 512; ++v) {
+                m.m_map[v] = fn(codeT(v));
+            }
+            return m;
+        }
+    };
+
     // Map `situT` (encoded as `codeT`) to the value `s` become at next generation.
-    using ruleT = codeT::map_to<cellT, 1>;
+    using ruleT = codeT_to<cellT, 1>;
 
     // While there doesn't have to be `!std::is_same_v<cellT, bool>`, there must be:
-    static_assert(!std::is_same_v<ruleT, codeT::map_to<bool>>);
+    static_assert(!std::is_same_v<ruleT, codeT_to<bool>>);
     static_assert(std::is_trivially_copyable_v<ruleT>);
 
     // The program saves `ruleT` as normal "MAP strings" (which is based on `q*256+w*128+...` encoding scheme),
@@ -227,7 +227,7 @@ namespace aniso {
     }
 
     // Works in combination with ruleT to represent value constraints; see `partialT` in "rule_algo.hpp" for usage.
-    using lockT = codeT::map_to<bool, 2>;
+    using lockT = codeT_to<bool, 2>;
 
     namespace _misc {
         inline char to_base64(const uint8_t b6) {

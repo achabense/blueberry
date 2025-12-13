@@ -1592,7 +1592,7 @@ void edit_rule(frame_main_token) {
         aniso::ruleT temp_target = show_random_access ? target.get() : aniso::ruleT{};
         const bool comp_mode = disp_mode == displayE::Comp;
         const auto disp = [&] {
-            using dispT = aniso::codeT::map_to<bool>;
+            using dispT = aniso::codeT_to<bool>;
             if (comp_mode) {
                 assert(show_random_access);
                 const aniso::ruleT &a = observer, &b = target.get();
