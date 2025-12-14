@@ -497,22 +497,13 @@ namespace aniso {
         }
     };
 
-    // (Workaround for a nasty init-order bug in clang-cl...)
-    // (The set list is defined in edit_rule.cpp, but (without the function guard) initialized before `rule_identity`...)
-    // TODO: (& gol) define as constexpr ruleT? move the set list to header file?
+    // (Due to a nasty init-order bug in clang-cl, these have to be either constexpr or wrapped by functions.)
+    // (Otherwise, if defined as inline const (non-constexpr), the sets defined in "edit_rule.cpp" may be initialized before rules.)
 
-    // Any-rule ^ rule_all_zero -> diff shows the rule's actual values.
-    // inline const ruleT rule_all_zero{};
-    inline const ruleT& rule_all_zero() {
-        static const ruleT r = {};
-        return r;
-    }
-    // Any-rule ^ rule_identity -> diff shows whether the cell will "flip" in each case.
-    // inline const ruleT rule_identity{ruleT::create([](const codeT c) { return c.get(codeT::bpos_s); })};
-    inline const ruleT& rule_identity() {
-        static const ruleT r = ruleT::create([](const codeT c) { return c.get(codeT::bpos_s); });
-        return r;
-    }
+    // Any-rule ^ rule_all_zero -> rule's actual values (same = 0, diff = 1).
+    inline constexpr ruleT rule_all_zero = {};
+    // Any-rule ^ rule_identity -> whether the cell will "flip" (same = no-flip, diff = flip).
+    inline constexpr ruleT rule_identity = create_rule_copy_from(codeT::bpos_s);
 
     // A mapperT maps each codeT to another codeT.
     // Especially, mapperT{"qweasdzxc"} maps any codeT to the same value.
@@ -725,7 +716,7 @@ namespace aniso {
                                               "awd"
                                               "0x0"); // swap(w,s); *C4 -> totalistic, including s
 
-    inline subsetT make_subset(std::initializer_list<mapperT> mappers, const ruleT& rule = rule_all_zero()) {
+    inline subsetT make_subset(std::initializer_list<mapperT> mappers, const ruleT& rule = rule_all_zero) {
         equivT eq{};
         for (const mapperT& m : mappers) {
             // add_eq(eq, m, mp_identity);

@@ -37,6 +37,7 @@
 #endif
 
 static_assert(INT_MAX >= INT32_MAX);
+static_assert(sizeof(bool) == 1);
 
 // Only allowed 1. inside the namespace && 2. in header files.
 #ifdef YDEBUG
@@ -51,22 +52,22 @@ static_assert(INT_MAX >= INT32_MAX);
 
 namespace aniso {
 #if 1
-    // TODO: -> uint8_t?
+    // TODO: -> enum : uint8_t {}?
     struct cellT {
         bool val{};
-        /*implicit*/ ALWAYS_INLINE operator int() const { return val; }
+        /*implicit*/ ALWAYS_INLINE constexpr operator int() const { return val; }
         // (`operator==` is delegated to comparing `int()` result.)
-        // friend bool operator==(cellT, cellT) = default;
+        // friend constexpr bool operator==(cellT, cellT) = default;
 
-        // (Note: to allow for seamless switch between `bool`, `~` is not usable as bool(~bool(1)) == 1 instead of 0...)
-        friend cellT operator!(cellT c) { return cellT(!c.val); }
-        friend cellT operator~(cellT c) = delete; // -> !c
-        friend cellT operator^(cellT c, bool b) { return cellT(c.val ^ b); }
-        friend cellT operator^(bool b, cellT c) { return cellT(c.val ^ b); }
+        // (For compatibility with bool, `~` should be avoided as bool(~bool(1)) == 1 instead of 0.)
+        friend constexpr cellT operator!(cellT c) { return cellT(!c.val); }
+        friend constexpr cellT operator~(cellT c) = delete; // -> !c
+        friend constexpr cellT operator^(cellT c, bool b) { return cellT(c.val ^ b); }
+        friend constexpr cellT operator^(bool b, cellT c) { return cellT(c.val ^ b); }
 
-        friend cellT operator^(cellT a, cellT b) { return cellT(a.val ^ b.val); }
-        friend cellT operator|(cellT a, cellT b) { return cellT(a.val | b.val); }
-        friend cellT operator&(cellT a, cellT b) { return cellT(a.val & b.val); }
+        friend constexpr cellT operator^(cellT a, cellT b) { return cellT(a.val ^ b.val); }
+        friend constexpr cellT operator|(cellT a, cellT b) { return cellT(a.val | b.val); }
+        friend constexpr cellT operator&(cellT a, cellT b) { return cellT(a.val & b.val); }
     };
 
     // enum cellT : bool {};
@@ -93,9 +94,9 @@ namespace aniso {
 
     // `situT` encoded as an integer.
     struct codeT {
-        int16_t val{};
-        /*implicit*/ ALWAYS_INLINE operator int() const { /*assert(0 <= val && val < 512);*/ return val; }
-        // friend bool operator==(codeT, codeT) = default;
+        int16_t val{}; // ∈ [0, 512)
+        /*implicit*/ ALWAYS_INLINE constexpr operator int() const { return val; }
+        // friend constexpr bool operator==(codeT, codeT) = default;
 
         // clang-format off
         enum bposE : int8_t {
@@ -105,12 +106,12 @@ namespace aniso {
         };
         // clang-format on
 
-        cellT get(bposE bpos) const { return cellT((val >> bpos) & 1); }
+        constexpr cellT get(bposE bpos) const { return cellT((val >> bpos) & 1); }
     };
 
     static_assert(std::is_trivially_copyable_v<codeT>);
 
-    inline codeT encode(const situT& situ) {
+    inline constexpr codeT encode(const situT& situ) {
         using enum codeT::bposE;
         const int code = (situ.q << bpos_q) | (situ.w << bpos_w) | (situ.e << bpos_e) | //
                          (situ.a << bpos_a) | (situ.s << bpos_s) | (situ.d << bpos_d) | //
@@ -119,7 +120,7 @@ namespace aniso {
         return codeT(code);
     }
 
-    inline situT decode(codeT code) {
+    inline constexpr situT decode(codeT code) {
         using enum codeT::bposE;
         return {code.get(bpos_q), code.get(bpos_w), code.get(bpos_e), //
                 code.get(bpos_a), code.get(bpos_s), code.get(bpos_d), //
@@ -185,8 +186,8 @@ namespace aniso {
         // std::span<T, 512> data() { return m_map; }
 
         // Intentionally stricter than necessary (convertible).
-        static codeT_to create(const auto& fn)
-            requires(std::is_same_v<decltype(fn(std::declval<codeT>())), T>)
+        static constexpr codeT_to create(const auto& fn)
+            requires(std::is_same_v<decltype(fn(codeT{})), T>)
         {
             codeT_to m{};
             for (int v = 0; v < 512; ++v) {
@@ -213,18 +214,30 @@ namespace aniso {
 
     static_assert(rule_like<ruleT>);
 
-    // "Convay's Game of Life" (B3/S23)
-    inline const ruleT& game_of_life() {
-        static const ruleT r = ruleT::create([](const codeT code) -> cellT {
-            const auto [q, w, e, a, s, d, z, x, c] = decode(code);
-            switch (q + w + e + a + d + z + x + c) {
-                case 2: return s;   // 2:S ~ 0->0, 1->1 ~ equal to "s".
-                case 3: return {1}; // 3:BS ~ 0->1, 1->1 ~ always 1.
-                default: return {0};
-            }
-        });
-        return r;
+    inline constexpr ruleT create_rule_copy_from(codeT::bposE bpos) { //
+        return ruleT::create([bpos](codeT code) { return code.get(bpos); });
     }
+
+    inline constexpr ruleT create_rule_life_like(std::initializer_list<int> bl, std::initializer_list<int> sl) {
+        std::array<int, 9> cases{};
+        for (const int b : bl) {
+            cases[b] |= 0b10;
+        }
+        for (const int s : sl) {
+            cases[s] |= 0b01;
+        }
+        return ruleT::create([&](const codeT code) {
+            const auto [q, w, e, a, s, d, z, x, c] = decode(code);
+            const int bs = cases[q + w + e + a + d + z + x + c];
+            return bs == 0b00   ? cellT{0}  // - ~ 0.
+                   : bs == 0b01 ? s         // S ~ 0->0, 1->1 ~ s.
+                   : bs == 0b10 ? !s        // B ~ 0->1, 1->0 ~ !s.
+                                : cellT{1}; // BS ~ 0->1, 1->1 ~ 1.
+        });
+    }
+
+    // "Convay's Game of Life" (B3/S23)
+    inline constexpr ruleT game_of_life = create_rule_life_like({3}, {2, 3});
 
     // Works in combination with ruleT to represent value constraints; see `partialT` in "rule_algo.hpp" for usage.
     using lockT = codeT_to<bool, 2>;

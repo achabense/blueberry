@@ -10,8 +10,8 @@ namespace aniso {
         subsetT ignore_w = make_subset({mp_ignore_w});
         subsetT ignore_e = make_subset({mp_ignore_e});
         subsetT ignore_a = make_subset({mp_ignore_a});
-        subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero());
-        subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity());
+        subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero);
+        subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity);
         subsetT ignore_d = make_subset({mp_ignore_d});
         subsetT ignore_z = make_subset({mp_ignore_z});
         subsetT ignore_x = make_subset({mp_ignore_x});
@@ -21,7 +21,7 @@ namespace aniso {
         subsetT ignore_jvn = make_subset({mp_jvn_ignore});
         subsetT ignore_wadx = make_subset({mp_ignore_wadx});
 
-        subsetT self_complementary = make_subset({mp_reverse}, rule_identity());
+        subsetT self_complementary = make_subset({mp_reverse}, rule_identity);
 
         subsetT native_isotropic = make_subset({mp_refl_wsx, mp_refl_qsc});
         subsetT native_refl_wsx = make_subset({mp_refl_wsx});
@@ -94,11 +94,11 @@ namespace aniso {
             assert(jvn_tot_exc_s->k() == 5 * 2);    // 0...4
             assert(jvn_tot_inc_s->k() == 6);        // 0...5
 
-            assert(!self_complementary.contains(rule_all_zero()));
+            assert(!self_complementary.contains(rule_all_zero));
 
-            assert(native_isotropic.contains(game_of_life()));
-            assert(native_tot_exc_s.contains(game_of_life()));
-            assert(!native_tot_inc_s.contains(game_of_life()));
+            assert(native_isotropic.contains(game_of_life));
+            assert(native_tot_exc_s.contains(game_of_life));
+            assert(!native_tot_inc_s.contains(game_of_life));
         }
 #endif // YDEBUG
     } subsets;
@@ -340,7 +340,7 @@ public:
                 constexpr mapperT mp_xor_ckbd_b("q!we"
                                                 "!as!d"
                                                 "z!xc");
-                static const subsetT ckbd = make_subset({mp_xor_ckbd_a, mp_xor_ckbd_b}, rule_identity());
+                static const subsetT ckbd = make_subset({mp_xor_ckbd_a, mp_xor_ckbd_b}, rule_identity);
                 scope.append(
                     "Ckbd", &ckbd,
                     "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
@@ -349,7 +349,7 @@ public:
             if constexpr (0) {
                 using namespace aniso;
                 // rule[{0}] == rule[{511}].
-                static subsetT single_stable_state{.rule = rule_all_zero(), .p = [] {
+                static subsetT single_stable_state{.rule = rule_all_zero, .p = [] {
                                                        equivT eq{};
                                                        eq.add_eq({0}, {511});
                                                        return eq;
@@ -375,7 +375,7 @@ public:
                                                "a!sd"
                                                "z!xc");
                 static const subsetT stp =
-                    make_subset({mp_xor_stp_a, mp_xor_stp_b, mp_xor_stp_c, mp_xor_stp_d}, rule_identity());
+                    make_subset({mp_xor_stp_a, mp_xor_stp_b, mp_xor_stp_c, mp_xor_stp_d}, rule_identity);
                 scope.append("Stp", &stp, "(Debug mode) Stripe-xor invariance.");
             }
         }
@@ -477,7 +477,7 @@ public:
         if (ImGui::Selectable("Example (gol only)")) { // For testing all-locked p-set.
             aniso::lockT l{};
             l.fill(true);
-            load_capture(aniso::game_of_life(), l, "Updated.");
+            load_capture(aniso::game_of_life, l, "Updated.");
         }
         ImGui::BeginDisabled(aniso::none_locked(m_current.lock));
         if (ImGui::Selectable("Copy")) {
@@ -734,7 +734,7 @@ class rule_selector : no_copy {
     enum tagE { Zero, Identity, Other, Default, None };
     tagE m_tag = Default;
 
-    aniso::ruleT m_other = aniso::game_of_life(); // (!= 'Zero' or 'Identity'.)
+    aniso::ruleT m_other = aniso::game_of_life; // (!= 'Zero' or 'Identity'.)
     aniso::ruleT m_default = {};
 
     tagE m_highlight = None;
@@ -764,16 +764,16 @@ class rule_selector : no_copy {
 
     const aniso::ruleT& get_rule(tagE tag) const {
         assert(tag != None);
-        return tag == Zero       ? aniso::rule_all_zero() //
-               : tag == Identity ? aniso::rule_identity()
+        return tag == Zero       ? aniso::rule_all_zero //
+               : tag == Identity ? aniso::rule_identity
                : tag == Other    ? m_other
                                  : m_default;
     }
 
     tagE resolve_tag(const aniso::ruleT& rule) const {
-        return rule == aniso::rule_all_zero()   ? Zero //
-               : rule == aniso::rule_identity() ? Identity
-                                                : None;
+        return rule == aniso::rule_all_zero   ? Zero //
+               : rule == aniso::rule_identity ? Identity
+                                              : None;
     }
 
 public:
@@ -905,7 +905,7 @@ static open_state misc_window(const aniso::subsetT& working_set, bool& /*set_cha
             }
         };
         if (rec.empty()) {
-            const aniso::ruleT r = aniso::trans_reverse(aniso::game_of_life());
+            const aniso::ruleT r = aniso::trans_reverse(aniso::game_of_life);
             rules[0] = r;
             rec.add(r);
         }

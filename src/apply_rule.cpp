@@ -344,7 +344,7 @@ class runnerT : no_copy {
 
     // TODO: use `rule_with_rec` directly?
     class targetT : no_copy {
-        rule_with_rec rule = aniso::game_of_life();
+        rule_with_rec rule = aniso::game_of_life;
 
     public:
         operator const aniso::ruleT&() const { return rule.get(); }

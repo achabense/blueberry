@@ -44,11 +44,11 @@ namespace aniso::_tests {
             // > rule = MAPARYXfhZofugWaH7oaIDogBZofuhogOiAaIDogIAAgAAWaH7oaIDogGiA6ICAAIAAaIDogIAAgACAAIAAAAAAAA
             const std::string_view gol_str =
                 "MAPARYXfhZofugWaH7oaIDogBZofuhogOiAaIDogIAAgAAWaH7oaIDogGiA6ICAAIAAaIDogIAAgACAAIAAAAAAAA";
-            assert(to_MAP_str(game_of_life()) == gol_str);
+            assert(to_MAP_str(game_of_life) == gol_str);
 
             const auto extr = extract_MAP_str(gol_str, true);
             assert(extr.prefix == "" && extr.suffix == "");
-            assert(extr.get_rule() == game_of_life());
+            assert(extr.get_rule() == game_of_life);
             assert(!extr.has_lock());
         }
 
@@ -114,7 +114,7 @@ namespace aniso::_tests {
     }
 
     extern void test_subset_intersection() {
-        const subsetT sc = make_subset({mp_ignore_s}, rule_all_zero()) & make_subset({mp_reverse}, rule_identity());
+        const subsetT sc = make_subset({mp_ignore_s}, rule_all_zero) & make_subset({mp_reverse}, rule_identity);
 
         // (`maskT` used to refer to the discoverd rule.)
         // 2024/1/20 2AM
@@ -122,15 +122,15 @@ namespace aniso::_tests {
         // It's just that, in this situation the maskT has a strong bias, so that it's too easy to generate
         // rules in a certain direction...
         using enum codeT::bposE;
-        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_q); })));
-        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_w); })));
-        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_e); })));
-        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_a); })));
-        assert(!sc.contains(rule_identity()));
-        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_d); })));
-        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_z); })));
-        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_x); })));
-        assert(sc.contains(ruleT::create([](codeT c) { return c.get(bpos_c); })));
+        assert(sc.contains(create_rule_copy_from(bpos_q)));
+        assert(sc.contains(create_rule_copy_from(bpos_w)));
+        assert(sc.contains(create_rule_copy_from(bpos_e)));
+        assert(sc.contains(create_rule_copy_from(bpos_a)));
+        assert(!sc.contains(rule_identity));
+        assert(sc.contains(create_rule_copy_from(bpos_d)));
+        assert(sc.contains(create_rule_copy_from(bpos_z)));
+        assert(sc.contains(create_rule_copy_from(bpos_x)));
+        assert(sc.contains(create_rule_copy_from(bpos_c)));
     };
 
     extern void test_trans_reverse() {
@@ -232,7 +232,7 @@ namespace aniso::_tests {
     }
 
     extern void test_apply_torus() {
-        const ruleT copy_q = ruleT::create([](codeT c) { return c.get(codeT::bpos_q); });
+        const ruleT copy_q = create_rule_copy_from(codeT::bpos_q);
 
         fixed_tile<10, 12> tile{}, compare{};
         random_fill(tile, get_rand(), 0.5);
