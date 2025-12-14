@@ -111,7 +111,10 @@ namespace aniso {
 
     static_assert(std::is_trivially_copyable_v<codeT>);
 
-    inline constexpr codeT encode(const situT& situ) {
+    // For global functions: constexpr (& consteval) implies inline.
+    // For global variables: constexpr doesn't imply inline; constexpr alone = static by default; inline (constexpr) = extern by default.
+    // For class-static variables: constexpr implies inline.
+    constexpr codeT encode(const situT& situ) {
         using enum codeT::bposE;
         const int code = (situ.q << bpos_q) | (situ.w << bpos_w) | (situ.e << bpos_e) | //
                          (situ.a << bpos_a) | (situ.s << bpos_s) | (situ.d << bpos_d) | //
@@ -120,7 +123,7 @@ namespace aniso {
         return codeT(code);
     }
 
-    inline constexpr situT decode(codeT code) {
+    constexpr situT decode(codeT code) {
         using enum codeT::bposE;
         return {code.get(bpos_q), code.get(bpos_w), code.get(bpos_e), //
                 code.get(bpos_a), code.get(bpos_s), code.get(bpos_d), //
@@ -214,11 +217,11 @@ namespace aniso {
 
     static_assert(rule_like<ruleT>);
 
-    inline constexpr ruleT create_rule_copy_from(codeT::bposE bpos) { //
+    constexpr ruleT create_rule_copy_from(codeT::bposE bpos) { //
         return ruleT::create([bpos](codeT code) { return code.get(bpos); });
     }
 
-    inline constexpr ruleT create_rule_life_like(std::initializer_list<int> bl, std::initializer_list<int> sl) {
+    constexpr ruleT create_rule_life_like(std::initializer_list<int> bl, std::initializer_list<int> sl) {
         std::array<int, 9> cases{};
         for (const int b : bl) {
             cases[b] |= 0b10;
