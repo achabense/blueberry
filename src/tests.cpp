@@ -154,58 +154,49 @@ namespace aniso::_tests {
 
     // v "tile.hpp"
 
-    template <int x, int y>
-    struct fixed_tile {
-        static constexpr vecT size{.x = x, .y = y};
-        cellT data[x * y]{};
-
-        friend bool operator==(const fixed_tile&, const fixed_tile&) = default;
-
-        /*implicit*/ operator tile_ref() { return {data, size}; }
-        /*implicit*/ operator tile_const_ref() const { return {data, size}; }
-    };
-
     extern void test_periodic_functions() {
         auto& rand = get_rand();
+        struct bg_data {
+            cellT data[4]{}; // size = {2, 2}
+            operator backgroundT() const { return {{data, {2, 2}}}; }
+        };
 
         {
             const vecT padding_a{.x = int(rand() % 5), .y = int(rand() % 5)};
             const vecT padding_b{.x = int(rand() % 5), .y = int(rand() % 5)};
             const vecT inner_size{10, 10};
             const vecT size = padding_a + inner_size + padding_b;
-            const auto tile_data = std::make_unique_for_overwrite<cellT[]>(size.xy());
-            const tile_ref tile{tile_data.get(), size};
+            tileT tile(size);
             const rangeT inner_range{padding_a, padding_a + inner_size};
-            fill(tile.clip(inner_range), {0});
-            const fixed_tile<2, 2> period{{{1}, {0}, {0}, {1}}}; // Checkerboard.
-            fill_outside(tile, inner_range, backgroundT{period});
-            const rangeT test_range = bounding_box(tile, backgroundT{period});
-            assert(!test_range.empty());
-            assert(test_range.begin == inner_range.begin && test_range.end == inner_range.end);
+            // fill(tile.data().clip(inner_range), {0});
+            const bg_data bg{{{1}, {0}, {0}, {1}}}; // Checkerboard.
+            fill_outside(tile.data(), inner_range, bg);
+            const rangeT test_range = bounding_box(tile.data(), bg);
+            assert(!test_range.empty() && test_range == inner_range);
         }
 
         {
-            fixed_tile<7, 7> tile{};
-            const fixed_tile<2, 2> period{{{0}, {0}, {0}, {1}}}; // 0 0
-            fill(tile, backgroundT{period});                     // 0 1
-            assert((spatial_period_full_area(tile, tile.size) == vecT{2, 2}));
+            tileT tile({7, 7});
+            const bg_data bg{{{0}, {0}, {0}, {1}}}; // 0 0
+            fill(tile.data(), bg);                     // 0 1
+            assert((spatial_period_full_area(tile.data(), tile.size()) == vecT{2, 2}));
             // Note that for this case the expected period (2,2) != smallest-enclosing-period (1,1)...
-            assert(has_enclosing_period(tile, {2, 2}) && has_enclosing_period(tile, {1, 1}));
+            assert(has_enclosing_period(tile.data(), {2, 2}) && has_enclosing_period(tile.data(), {1, 1}));
         }
 
         {
-            fixed_tile<12, 10> dest{}, source{};
-            random_fill(dest, rand, 0.5);
-            random_fill(source, rand, 0.5);
+            tileT dest({12, 10}), source({12, 10});
+            random_fill(dest.data(), rand, 0.5);
+            random_fill(source.data(), rand, 0.5);
 
-            const fixed_tile<2, 2> all_0{{{0}, {0}, {0}, {0}}};
-            const fixed_tile<2, 2> all_1{{{1}, {1}, {1}, {1}}};
+            const bg_data all_0{{{0}, {0}, {0}, {0}}};
+            const bg_data all_1{{{1}, {1}, {1}, {1}}};
             for (const auto& bg : {all_0, all_1}) {
-                assert(is_pure(backgroundT{bg}));
+                assert(is_pure(bg));
                 auto test_opt = dest, test_xopt = dest;
 
-                copy_diff(test_opt, source, backgroundT{bg}, true);
-                copy_diff(test_xopt, source, backgroundT{bg}, false);
+                copy_diff(test_opt.data(), source.data(), bg, true);
+                copy_diff(test_xopt.data(), source.data(), bg, false);
                 assert(test_opt == test_xopt);
             }
         }
@@ -214,16 +205,13 @@ namespace aniso::_tests {
     extern void test_RLE_str() {
         const vecT sizes[]{{.x = 1, .y = 1}, {.x = 10, .y = 1}, {.x = 1, .y = 10}, {.x = 32, .y = 60}};
         for (const vecT size : sizes) {
-            const auto a_data = std::make_unique_for_overwrite<cellT[]>(size.xy());
-            const auto b_data = std::make_unique_for_overwrite<cellT[]>(size.xy());
-            const tile_ref a{a_data.get(), size};
-            const tile_ref b{b_data.get(), size};
-            random_fill(a, get_rand(), 0.5);
-            from_RLE_str(to_RLE_str(a, nullptr), [&](const prepareT p_size) {
+            tileT a(size), b(size);
+            random_fill(a.data(), get_rand(), 0.5);
+            from_RLE_str(to_RLE_str(a.data(), nullptr), [&](const prepareT p_size) {
                 assert(p_size.x == size.x && p_size.y == size.y);
-                return std::optional{b};
+                return b.data();
             });
-            assert(equal(a_data.get(), b_data.get(), size.xy()));
+            assert(a == b);
         }
 
         for (const char* str : {"", "o", "b", "book", "0b!", "-1o!", "!", "b2!", "b1!", "10$!"}) {
@@ -234,12 +222,12 @@ namespace aniso::_tests {
     extern void test_apply_torus() {
         const ruleT copy_q = create_rule_copy_from(codeT::bpos_q);
 
-        fixed_tile<10, 12> tile{}, compare{};
-        random_fill(tile, get_rand(), 0.5);
+        tileT tile({10, 12}), compare({10, 12});
+        random_fill(tile.data(), get_rand(), 0.5);
 
         for (int i = 0; i < 12; ++i) {
-            rotate_copy_00_to(compare, tile, {1, 1});
-            apply_rule_torus(tile, copy_q);
+            rotate_copy_00_to(compare.data(), tile.data(), {1, 1});
+            tile.run_torus(copy_q);
             assert(tile == compare);
         }
     };

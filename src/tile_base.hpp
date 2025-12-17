@@ -60,6 +60,7 @@ namespace aniso {
     }
 
     namespace _misc {
+        // TODO: is it necessary to require non-empty?
         // Should be non-empty.
         template <class T>
         struct tile_ref_ {
@@ -185,20 +186,32 @@ namespace aniso {
     static_assert(std::is_trivially_copyable_v<tile_ref>);
     static_assert(std::is_trivially_copyable_v<tile_const_ref>);
 
-    inline bool equal(const cellT* a, const cellT* b, int len) { return std::equal(a, a + len, b); }
+    // template <class T>
+    inline bool equal_n(const cellT* a, const cellT* b, const int len) {
+        // Can std::equal accept null range? Well, don't even bother...
+        // return /*?len == 0 ||?*/ std::equal(a, a + len, b);
+        // (Related: memcmp(0, 0, 0) etc are still UB in C++20 (but fixed in C2y).)
+        // https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3322.pdf
+        for (int i = 0; i < len; ++i) {
+            if (a[i] != b[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-    inline bool equal(const tile_const_ref a, const tile_const_ref b) {
+    inline bool operator==(const tile_const_ref a, const tile_const_ref b) {
         if (a.size != b.size) {
             return false;
         }
         const vecT size = a.size;
         if (size.x == a.stride && size.x == b.stride) {
-            return equal(a.data, b.data, size.xy());
+            return equal_n(a.data, b.data, size.xy());
         }
 
         const cellT *a_data = a.data, *b_data = b.data;
         for (int y = 0; y < size.y; ++y, a_data += a.stride, b_data += b.stride) {
-            if (!equal(a_data, b_data, size.x)) {
+            if (!equal_n(a_data, b_data, size.x)) {
                 return false;
             }
         }

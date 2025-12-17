@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <bit>
-#include <cassert>
 #include <climits>
 #include <memory>
 #include <optional>
@@ -176,7 +175,12 @@ namespace aniso {
         void fill(T v) { std::ranges::fill(m_map, v); }
         void reset() { fill(T{}); }
 
-        friend bool operator==(const codeT_to&, const codeT_to&) = default;
+        // Not usable due to a bug in MSVC (for C-arrays, the compiler will unroll the entire loop.)
+        // friend bool operator==(const codeT_to&, const codeT_to&) = default;
+
+        friend bool operator==(const codeT_to& a, const codeT_to& b) { //
+            return std::ranges::equal(a.m_map, b.m_map);
+        }
 
         ALWAYS_INLINE T operator()(codeT code) const
             requires(std::is_same_v<T, cellT> && tag == 1)

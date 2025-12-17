@@ -316,7 +316,7 @@ namespace aniso {
             assert(0 < p && p <= tile.size.x);
             for (int y = 0; y < tile.size.y; ++y) {
                 const cellT* ln = tile.line(y);
-                if (!equal(ln, ln + p, tile.size.x - p)) { // [i] == [i+p]
+                if (!equal_n(ln, ln + p, tile.size.x - p)) { // [i] == [i+p]
                     return false;
                 }
             }
@@ -326,7 +326,7 @@ namespace aniso {
         inline bool has_period_y(const tile_const_ref tile, const int p) {
             assert(0 < p && p <= tile.size.y);
             for (int y = p; y < tile.size.y; ++y) {
-                if (!equal(tile.line(y), tile.line(y - p), tile.size.x)) {
+                if (!equal_n(tile.line(y), tile.line(y - p), tile.size.x)) {
                     return false;
                 }
             }
@@ -772,16 +772,12 @@ namespace aniso {
             });
         }
 
-        friend bool operator==(const tileT& a, const tileT& b) {
-            if (a.m_size != b.m_size) {
-                return false;
-            } else if (a.empty()) {
-                assert(b.empty());
-                return true;
-            } else {
-                return equal(a.m_data, b.m_data, a.m_size.xy());
-            }
+        friend bool operator==(const tileT& a, const tileT& b) { //
+            return a.m_size == b.m_size && equal_n(a.m_data, b.m_data, a.m_size.xy());
         }
+
+        friend bool operator==(const tileT& a, const tile_const_ref b) { return a.data() == b; }
+        friend bool operator==(const tile_const_ref a, const tileT& b) { return a == b.data(); }
     };
 
     inline std::optional<int> torus_period(const ruleT& rule, const tile_const_ref init, const int max_period,
@@ -793,7 +789,7 @@ namespace aniso {
             } else {
                 torus.run_torus(rule);
             }
-            if (equal(init, torus.data())) {
+            if (init == torus) {
                 return g;
             }
         }
@@ -820,7 +816,12 @@ namespace aniso {
 
         tile_buf(const tile_buf&) = default;
         tile_buf& operator=(const tile_buf&) = default;
-        friend bool operator==(const tile_buf&, const tile_buf&) = default;
+
+        // (See the comment for `codeT_to::operator==`.)
+        // friend bool operator==(const tile_buf&, const tile_buf&) = default;
+        friend bool operator==(const tile_buf& a, const tile_buf& b) { //
+            return a.m_size == b.m_size && equal_n(a.m_data, b.m_data, capacity_);
+        }
 
         static constexpr int capacity() { return capacity_; }
         vecT size() const { return m_size; }
@@ -832,7 +833,7 @@ namespace aniso {
 
         // Value-preserving.
         void resize(const vecT size) {
-            tile_buf resized{size};
+            tile_buf resized(size);
             copy_common(resized.data(), data());
             *this = resized;
         }

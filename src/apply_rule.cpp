@@ -223,7 +223,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
             pattern.area() < smallest.area()) {
             smallest = aniso::tileT(pattern);
         }
-        if (aniso::equal(init_pattern, pattern)) {
+        if (init_pattern == pattern) {
             // TODO: pad an extra layer of bg pattern?
             return {{.pattern = std::move(smallest), .offset = region.off, .period = g, .rec = region.rec}};
         }
@@ -1446,7 +1446,7 @@ private:
                     assert(size.x == sel_area.size.x && size.y == sel_area.size.y);
                     return test.data();
                 });
-                assert(aniso::equal(test.data(), sel_area));
+                assert(test == sel_area);
 #endif // YDEBUG
             } //
         };
