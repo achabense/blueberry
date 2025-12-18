@@ -698,11 +698,12 @@ namespace aniso {
 
     public:
         bool empty() const {
-            assert((m_size.x == 0 && m_size.y == 0 && !m_data) || (m_size.x > 0 && m_size.y > 0 && m_data));
-            return m_size.x == 0;
+            assert(!m_data ? m_size.x == 0 && m_size.y == 0 : m_size.x > 0 && m_size.y > 0);
+            return !m_data;
         }
 
         tileT() : m_size{}, m_data{} {}
+        ~tileT() { delete[] m_data; }
 
         void swap(tileT& other) noexcept {
             std::swap(m_size, other.m_size);
@@ -721,9 +722,8 @@ namespace aniso {
             }
         }
 
-        ~tileT() { delete[] m_data; }
-        void clear() { *this = {}; }
-
+        // Note: for struct cellT, omitting {} makes no actual difference (always value-init).
+        // TODO: whether to allow empty range?
         explicit tileT(const tile_const_ref tile) : m_size{tile.size}, m_data{} {
             assert(tile.size.x > 0 && tile.size.y > 0);
             m_data = new cellT[m_size.xy()];
@@ -738,14 +738,15 @@ namespace aniso {
         }
         tileT& operator=(const tileT&) = delete; // -> `= tileT(other)`
 
-        // Not value-preserving (if resized).
+        // Not value-preserving if resized.
         bool resize(const vecT size) {
             if (m_size != size) {
-                tileT(size).swap(*this);
+                *this = tileT(size);
                 return true;
             }
             return false;
         }
+        void clear() { *this = {}; }
 
         vecT size() const { return m_size; }
         int area() const { return m_size.xy(); }
@@ -761,6 +762,10 @@ namespace aniso {
 
         tile_ref data(const rangeT& range) { return data().clip(range); }
         tile_const_ref data(const rangeT& range) const { return data().clip(range); }
+
+        // TODO: support implicit conversion?
+        // operator tile_ref() { return data(); }
+        // operator tile_const_ref() { return data(); }
 
         void run_torus(const ruleT& rule) { //
             apply_rule_torus(data(), rule);

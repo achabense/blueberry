@@ -168,7 +168,7 @@ namespace aniso::_tests {
             const vecT size = padding_a + inner_size + padding_b;
             tileT tile(size);
             const rangeT inner_range{padding_a, padding_a + inner_size};
-            // fill(tile.data().clip(inner_range), {0});
+            // fill(tile.data(inner_range), {0});
             const bg_data bg{{{1}, {0}, {0}, {1}}}; // Checkerboard.
             fill_outside(tile.data(), inner_range, bg);
             const rangeT test_range = bounding_box(tile.data(), bg);
@@ -178,7 +178,7 @@ namespace aniso::_tests {
         {
             tileT tile({7, 7});
             const bg_data bg{{{0}, {0}, {0}, {1}}}; // 0 0
-            fill(tile.data(), bg);                     // 0 1
+            fill(tile.data(), bg);                  // 0 1
             assert((spatial_period_full_area(tile.data(), tile.size()) == vecT{2, 2}));
             // Note that for this case the expected period (2,2) != smallest-enclosing-period (1,1)...
             assert(has_enclosing_period(tile.data(), {2, 2}) && has_enclosing_period(tile.data(), {1, 1}));
