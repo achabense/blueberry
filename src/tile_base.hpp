@@ -188,10 +188,10 @@ namespace aniso {
 
     // template <class T>
     inline bool equal_n(const cellT* a, const cellT* b, const int len) {
-        // Can std::equal accept null range? Well, don't even bother...
-        // return /*?len == 0 ||?*/ std::equal(a, a + len, b);
-        // (Related: memcmp(0, 0, 0) etc are still UB in C++20 (but fixed in C2y).)
-        // https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3322.pdf
+        // return std::equal(a, a + len, b); // Able to deal with a = 0, b = 0, len = 0.
+        // 1. [T*(0), T*(0) + 0) is a valid empty range. (https://stackoverflow.com/questions/79676156/is-string-view-nullptr-0-valid)
+        // 2. std::equal() returns true for empty range. (https://timsong-cpp.github.io/lwg-issues/2967)
+        // Note that memcmp(0, 0, 0) etc are still UB in C++20. (But fixed in C2y: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3322.pdf)
         for (int i = 0; i < len; ++i) {
             if (a[i] != b[i]) {
                 return false;
