@@ -608,6 +608,21 @@ namespace aniso {
     ANISO_DECLARE_TEST(test_RLE_str);
 
     namespace _misc {
+        struct recT {
+            const ruleT& rule;
+            lockT& rec;
+            ALWAYS_INLINE const cellT& operator[](const codeT c) const {
+                rec[c] = true;
+                return rule[c];
+            }
+        };
+
+        template <class R>
+        concept rule_like = requires(const R& rule) {
+            { rule[codeT(0)] } -> std::same_as<const cellT&>;
+        };
+        static_assert(rule_like<ruleT> && rule_like<recT>);
+
         class encoding_buf : no_copy {
             // (Relying on the current encoding scheme (0b-qwe'asd'zxc).)
             static_assert(codeT::bpos_q == 8 && codeT::bpos_w == 7 && codeT::bpos_e == 6 && //
@@ -641,34 +656,42 @@ namespace aniso {
                     const int code_raw = (vec_p6_local[x] << 3) | (p3 & 0b111);
                     vec_p6_local[x] = code_raw;
                     if constexpr (has_rule) {
-                        dest[x] = rule(codeT(code_raw & 0b111'111'111));
+                        dest[x] = rule[codeT(code_raw & 0b111'111'111)];
                     }
                 }
                 p3 = (p3 << 1) | r;
                 const int code_raw = (vec_p6_local[len_minus_1] << 3) | (p3 & 0b111);
                 vec_p6_local[len_minus_1] = code_raw;
                 if constexpr (has_rule) {
-                    dest[len_minus_1] = rule(codeT(code_raw & 0b111'111'111));
+                    dest[len_minus_1] = rule[codeT(code_raw & 0b111'111'111)];
                 }
             }
         };
+
+        inline void apply_rule_torus(const tile_ref tile, const rule_like auto& rule) {
+            const vecT size = tile.size;
+            const auto line_0 = std::make_unique_for_overwrite<cellT[]>(size.x);
+            std::copy_n(tile.line(0), size.x, line_0.get());
+
+            encoding_buf encoder(size.x);
+            {
+                const cellT* const up = tile.line(size.y - 1);
+                encoder.feed(up[size.x - 1], up[0], up);
+                const cellT* const cn = tile.line(0);
+                encoder.feed(cn[size.x - 1], cn[0], cn);
+            }
+            for (int y = 0; y < size.y; ++y) {
+                const cellT* const dw = y + 1 < size.y ? tile.line(y + 1) : line_0.get();
+                encoder.feed(dw[size.x - 1], dw[0], dw, tile.line(y), rule);
+            }
+        }
     } // namespace _misc
 
-    inline void apply_rule_torus(const tile_ref tile, const rule_like auto& rule) {
-        const vecT size = tile.size;
-        const auto line_0 = std::make_unique_for_overwrite<cellT[]>(size.x);
-        std::copy_n(tile.line(0), size.x, line_0.get());
-
-        _misc::encoding_buf encoder(size.x);
-        {
-            const cellT* const up = tile.line(size.y - 1);
-            encoder.feed(up[size.x - 1], up[0], up);
-            const cellT* const cn = tile.line(0);
-            encoder.feed(cn[size.x - 1], cn[0], cn);
-        }
-        for (int y = 0; y < size.y; ++y) {
-            const cellT* const dw = y + 1 < size.y ? tile.line(y + 1) : line_0.get();
-            encoder.feed(dw[size.x - 1], dw[0], dw, tile.line(y), rule);
+    inline void apply_rule_torus(const tile_ref tile, const ruleT& rule, lockT* rec = nullptr) {
+        if (!rec) {
+            _misc::apply_rule_torus(tile, rule);
+        } else {
+            _misc::apply_rule_torus(tile, _misc::recT{rule, *rec});
         }
     }
 
@@ -769,14 +792,8 @@ namespace aniso {
         // operator tile_ref() { return data(); }
         // operator tile_const_ref() { return data(); }
 
-        void run_torus(const ruleT& rule) { //
-            apply_rule_torus(data(), rule);
-        }
-        void run_torus(const ruleT& rule, lockT& rec) {
-            apply_rule_torus(data(), [&](const codeT c) {
-                rec[c] = true;
-                return rule(c);
-            });
+        void run_torus(const ruleT& rule, lockT* rec = nullptr) { //
+            apply_rule_torus(data(), rule, rec);
         }
 
         friend bool operator==(const tileT& a, const tileT& b) { //
@@ -791,11 +808,7 @@ namespace aniso {
                                            lockT* const rec = nullptr) {
         tileT torus(init);
         for (int g = 1; g <= max_period; ++g) {
-            if (rec) {
-                torus.run_torus(rule, *rec);
-            } else {
-                torus.run_torus(rule);
-            }
+            torus.run_torus(rule, rec);
             if (init == torus) {
                 return g;
             }

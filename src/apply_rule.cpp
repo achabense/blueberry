@@ -186,7 +186,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
             aniso::fill_outside(next.data(), relocate,
                                 aniso::realign_from_to(background, padding, {0, 0}) /*relative to `next`*/);
             aniso::copy(next.data(relocate), pattern);
-            next.run_torus(rule, rec);
+            next.run_torus(rule, &rec);
 
             tile.swap(next);
             if (const auto next_range = locate_pattern_with_bg(tile.data(), period_size); //

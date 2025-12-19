@@ -200,6 +200,7 @@ namespace aniso {
         return true;
     }
 
+    // (If cellT == bool, this cannot be found via ADL outside of the namespace (will only search in namespace _misc).)
     inline bool operator==(const tile_const_ref a, const tile_const_ref b) {
         if (a.size != b.size) {
             return false;

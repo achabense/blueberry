@@ -50,8 +50,14 @@ static_assert(sizeof(bool) == 1);
 #endif
 
 namespace aniso {
-#if 1
+    // using cellT = bool; // Too weak.
+
     // TODO: -> enum : uint8_t {}?
+    // enum cellT : bool {};
+    // Has no performance penalty in debug mode, but cannot be implicitly created from literals ({0} or {1}).
+    // And scarily, the following assertion will fail for gcc (likely a compiler bug)...
+    // static_assert(static_cast<int>(static_cast<cellT>(2)) == 1);
+
     struct cellT {
         bool val{};
         /*implicit*/ ALWAYS_INLINE constexpr operator int() const { return val; }
@@ -68,15 +74,6 @@ namespace aniso {
         friend constexpr cellT operator|(cellT a, cellT b) { return cellT(a.val | b.val); }
         friend constexpr cellT operator&(cellT a, cellT b) { return cellT(a.val & b.val); }
     };
-
-    // enum cellT : bool {};
-    // enum impl has no performance penalty in debug mode, but cannot be implicitly created from literals ({0} or {1}).
-    // And scarily, the following assertion will fail for gcc... This is likely to be a compiler bug...
-    // static_assert(static_cast<int>(static_cast<cellT>(2)) == 1);
-#else
-    using cellT = bool;
-    // (Should have no performance difference in release mode.)
-#endif
 
     static_assert(std::is_trivially_copyable_v<cellT>);
 
@@ -96,6 +93,10 @@ namespace aniso {
         int16_t val{}; // ∈ [0, 512)
         /*implicit*/ ALWAYS_INLINE constexpr operator int() const { return val; }
         // friend constexpr bool operator==(codeT, codeT) = default;
+
+        // TODO: whether to maintain the logical independence?
+        // Technically any permutation of 0..8 is ok (codeT is always transcoded to MAP-encoding when saving rules).
+        // However, MAP-encoding does seem the most encoding-friendly encoding scheme (see `encoding_buf` in "tile.hpp").
 
         // clang-format off
         enum bposE : int8_t {
@@ -161,6 +162,7 @@ namespace aniso {
 
     ANISO_DECLARE_TEST(test_codeT);
 
+    // Map for `situT` (encoded as `codeT`).
     template <class T, int tag = 0>
     class codeT_to {
         // `array::operator[]` can slow down `apply_rule` by more than %20 in debug mode...
@@ -169,8 +171,8 @@ namespace aniso {
     public:
         using E = T;
 
-        const T& operator[](codeT code) const { return m_map[code.val]; }
-        T& operator[](codeT code) { return m_map[code.val]; }
+        ALWAYS_INLINE const T& operator[](codeT code) const { return m_map[code.val]; }
+        ALWAYS_INLINE T& operator[](codeT code) { return m_map[code.val]; }
 
         void fill(T v) { std::ranges::fill(m_map, v); }
         void reset() { fill(T{}); }
@@ -180,13 +182,6 @@ namespace aniso {
 
         friend bool operator==(const codeT_to& a, const codeT_to& b) { //
             return std::ranges::equal(a.m_map, b.m_map);
-        }
-
-        ALWAYS_INLINE T operator()(codeT code) const
-            requires(std::is_same_v<T, cellT> && tag == 1)
-        {
-            // return m_map[code]; // (In debug mode) still results in worse codegen even force-inlined...
-            return m_map[code.val];
         }
 
         // std::span<const T, 512> data() const { return m_map; }
@@ -204,22 +199,21 @@ namespace aniso {
         }
     };
 
-    // Map `situT` (encoded as `codeT`) to the value `s` become at next generation.
-    using ruleT = codeT_to<cellT, 1>;
+    // The program saves `ruleT` as normal "MAP strings" (which is based on `q*256+w*128+...` encoding scheme), so the output can be
+    // accepted by other programs like Golly.
+    // See `append_MAP` and `from_MAP` (& `transcode_MAP`) below for details - the encoding of codeT doesn't affect input/output.
 
-    // While there doesn't have to be `!std::is_same_v<cellT, bool>`, there must be:
-    static_assert(!std::is_same_v<ruleT, codeT_to<bool>>);
+    using ruleT = codeT_to<cellT>;
     static_assert(std::is_trivially_copyable_v<ruleT>);
 
-    // The program saves `ruleT` as normal "MAP strings" (which is based on `q*256+w*128+...` encoding scheme),
-    // so the output can be accepted by other programs like Golly.
-    // See `append_MAP` and `from_MAP` below for details - the encoding scheme of `codeT` affects only internal
-    // representation of `ruleT` etc in this program, and is independent of input/output.
+    // Works in combination with ruleT to represent value constraints; see `partialT` in "rule_algo.hpp" for details.
+    using lockT = codeT_to<bool, 1>;
+    static_assert(std::is_trivially_copyable_v<lockT>);
 
-    template <class T>
-    concept rule_like = std::is_invocable_r_v<cellT, const T&, codeT>;
-
-    static_assert(rule_like<ruleT>);
+    // TODO: whether to require lockT != codeT_to<bool>?
+    static_assert(!std::is_same_v<ruleT, codeT_to<bool>>);
+    static_assert(!std::is_same_v<lockT, codeT_to<bool>>);
+    static_assert(!std::is_same_v<ruleT, lockT>);
 
     constexpr ruleT create_rule_copy_from(codeT::bposE bpos) { //
         return ruleT::create([bpos](codeT code) { return code.get(bpos); });
@@ -245,9 +239,6 @@ namespace aniso {
 
     // "Convay's Game of Life" (B3/S23)
     inline constexpr ruleT game_of_life = create_rule_life_like({3}, {2, 3});
-
-    // Works in combination with ruleT to represent value constraints; see `partialT` in "rule_algo.hpp" for usage.
-    using lockT = codeT_to<bool, 2>;
 
     namespace _misc {
         inline char to_base64(const uint8_t b6) {
