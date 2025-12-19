@@ -162,6 +162,19 @@ namespace aniso::_tests {
         };
 
         {
+            tile_buf tile({4, 4});
+            for (const cellT c : {cellT{0}, cellT{1}}) {
+                fill(tile.data(), c);
+                assert(count(tile, c) == 16);
+                assert(count(tile, !c) == 0);
+                assert(is_pure(tile, c));
+                assert(count_diff(tile, tile) == 0);
+            }
+            random_fill(tile.data(), rand, 0.5);
+            assert(count_diff(tile, tile) == 0);
+        }
+
+        {
             const vecT padding_a{.x = int(rand() % 5), .y = int(rand() % 5)};
             const vecT padding_b{.x = int(rand() % 5), .y = int(rand() % 5)};
             const vecT inner_size{10, 10};

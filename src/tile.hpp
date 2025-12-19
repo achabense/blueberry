@@ -24,29 +24,25 @@ namespace aniso {
     inline bool non_overlapping(const tile_const_ref, const tile_const_ref) { return true; }
     inline bool non_overlapping_or_same_area(const tile_const_ref, const tile_const_ref) { return true; }
 
-    inline int count(const tile_const_ref tile) {
+    inline int count(const tile_const_ref tile, const cellT cell = {1}) {
         int c = 0;
         tile.for_all_data([&c](std::span<const cellT> line) {
             for (const cellT v : line) {
                 c += v;
             }
         });
-        return c;
+        return cell == cellT{1} ? c : tile.area() - c;
     }
 
     // (Typically small enough.)
     struct backgroundT : tile_const_ref {};
 
-    inline bool is_pure_0(const backgroundT background) { //
-        return *background.data == cellT{0} && (background.area() == 1 || !count(background));
+    inline bool is_pure(const backgroundT background) { //
+        return background.area() == 1 || count(background, !*background.data) == 0;
     }
 
-    inline bool is_pure(const backgroundT background) {
-        if (background.area() == 1) {
-            return true;
-        }
-        const int c = count(background);
-        return c == 0 || c == background.area();
+    inline bool is_pure(const backgroundT background, const cellT cell) { //
+        return *background.data == cell && is_pure(background);
     }
 
     inline void copy(const tile_ref dest, const tile_const_ref source) {
@@ -164,6 +160,12 @@ namespace aniso {
 
     namespace _misc {
         inline void for_each_line(const backgroundT background, const vecT size, const auto& fn) {
+            // TODO: whether to consider large background? (Then is_pure() etc can be expensive.)
+            // if (background.size.both_gteq(size)) {
+            //     background.clip_corner(size).for_each_line(fn);
+            //     return;
+            // }
+
             const vecT matching_size{.x = size.x, .y = std::min(background.size.y, size.y)};
             const auto matching_bg = std::make_unique_for_overwrite<cellT[]>(matching_size.xy());
             fill({matching_bg.get(), matching_size}, background);
@@ -187,8 +189,7 @@ namespace aniso {
     // (`background.at(0, 0)` is bound to `tile.at(0, 0)`.)
     inline int count_diff(const tile_const_ref tile, const backgroundT background) {
         if (is_pure(background)) {
-            const int c = count(tile);
-            return *background.data == cellT{0} ? c : tile.area() - c;
+            return count(tile, !*background.data);
         }
 
         int c = 0;
@@ -515,6 +516,7 @@ namespace aniso {
         }
     };
 
+    // TODO: return tileT directly?
     // (The size is calculated from the contents instead of header.)
     inline void from_RLE_str(std::string_view text, const func_ref<std::optional<tile_ref>(prepareT)> prepare) {
         (void)strip_RLE_header(text);

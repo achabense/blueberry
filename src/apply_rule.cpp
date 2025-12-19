@@ -268,7 +268,7 @@ struct initT {
         if (!range.empty()) {
             // (Not caring about how the area is aligned with the background.)
             std::mt19937 rand{(uint32_t)seed};
-            if (aniso::is_pure_0(background)) {
+            if (aniso::is_pure(background, {0})) {
                 aniso::random_fill(tile.data(range), rand, density.get());
             } else {
                 aniso::random_flip(tile.data(range), rand, density.get());
