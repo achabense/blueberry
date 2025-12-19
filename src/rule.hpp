@@ -96,7 +96,7 @@ namespace aniso {
 
         // TODO: whether to maintain the logical independence?
         // Technically any permutation of 0..8 is ok (codeT is always transcoded to MAP-encoding when saving rules).
-        // However, MAP-encoding does seem the most encoding-friendly encoding scheme (see `encoding_buf` in "tile.hpp").
+        // However, MAP-encoding does seem the most efficient encoding scheme (see `encoding_buf` in "tile.hpp").
 
         // clang-format off
         enum bposE : int8_t {
@@ -175,7 +175,7 @@ namespace aniso {
         ALWAYS_INLINE T& operator[](codeT code) { return m_map[code.val]; }
 
         void fill(T v) { std::ranges::fill(m_map, v); }
-        void reset() { fill(T{}); }
+        void reset() { fill(T{}); } // TODO: remove this?
 
         // Not usable due to a bug in MSVC (for C-arrays, the compiler will unroll the entire loop.)
         // friend bool operator==(const codeT_to&, const codeT_to&) = default;
@@ -186,6 +186,8 @@ namespace aniso {
 
         // std::span<const T, 512> data() const { return m_map; }
         // std::span<T, 512> data() { return m_map; }
+        const T* data() const { return std::data(m_map); }
+        T* data() { return std::data(m_map); }
 
         // Intentionally stricter than necessary (convertible).
         static constexpr codeT_to create(const auto& fn)
@@ -444,21 +446,27 @@ namespace aniso {
 
     ANISO_DECLARE_TEST(test_MAP_str);
 
+    // Intentionally not using std::bitset<512> & not going through codeT (data-based).
     class compressT {
         std::array<std::uint8_t, 64> m_data;
 
     public:
-        compressT(const ruleT& rule) : m_data{} {
-            for (const codeT c : each_code) {
-                m_data[c.val >> 3] |= rule[c] << (c.val & 0b111);
+        /*implicit*/ compressT(const ruleT& rule) : m_data{} {
+            for (const cellT* data = rule.data(); uint8_t& v : m_data) {
+                for (int i = 0; i < 8; ++i) {
+                    v |= *data++ << i;
+                }
             }
         }
-        ruleT decompress() const {
-            return ruleT::create([&](const codeT c) { //
-                return cellT(1 & (m_data[c.val >> 3] >> (c.val & 0b111)));
-            });
+        /*implicit*/ operator ruleT() const {
+            ruleT rule{};
+            for (cellT* data = rule.data(); const uint8_t v : m_data) {
+                for (int i = 0; i < 8; ++i) {
+                    *data++ = cellT(1 & (v >> i));
+                }
+            }
+            return rule;
         }
-        operator ruleT() const { return decompress(); }
 
         friend bool operator==(const compressT&, const compressT&) = default;
 

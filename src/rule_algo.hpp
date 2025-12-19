@@ -235,7 +235,7 @@ namespace aniso {
         }
     };
 
-    ANISO_DECLARE_TEST(test_partition_defl);
+    ANISO_DECLARE_TEST(test_partitionT);
 
     inline void add_eq(equivT& eq, const groupT& group) {
         const codeT head = group[0];
@@ -415,6 +415,7 @@ namespace aniso {
         return r;
     }
 
+    // TODO: let `fn` accept span<bool> instead?
     inline ruleT transform(const auto& subset, const ruleT& rel, const ruleT* pos,
                            const func_ref<void(bool*, bool*)> fn) {
         assert(subset.contains(rel));

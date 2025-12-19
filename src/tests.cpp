@@ -78,13 +78,15 @@ namespace aniso::_tests {
         const ruleT a = get_rand_rule();
         const compressT b = a;
         assert(b == compressT(a));
-        assert(b.decompress() == a);
+        assert(ruleT(b) == a);
     }
 
     // v "rule_algo.hpp"
 
-    extern void test_partition_defl() { //
-        assert(partitionT{} == partitionT{equivT{}});
+    extern void test_partitionT() {
+        const partitionT a{}, b{equivT{}};
+        assert(a.k() == 512 && b.k() == 512);
+        assert(a == b);
     }
 
     extern void test_mappers() {
