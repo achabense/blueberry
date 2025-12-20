@@ -130,7 +130,7 @@ struct identify_result {
 };
 static std::optional<identify_result> identify(const aniso::tile_const_ref tile, const aniso::ruleT& rule,
                                                const aniso::vecT period_size, const bool require_matching_bg = true) {
-    assert(period_size.both_lteq({4, 4}));
+    assert(period_size.both_lteq(4));
     if (!check_border(tile, period_size)) {
         return std::nullopt;
     }
@@ -154,7 +154,7 @@ static std::optional<identify_result> identify(const aniso::tile_const_ref tile,
         if (range.empty()) {
             messenger::set_msg(for_input ? "The area contains nothing." : "The pattern dies out.");
             return {};
-        } else if (const auto size = range.size(); size.x > 3000 || size.y > 3000 || size.xy() > 400 * 400) {
+        } else if (const auto size = range.size(); !(size.both_lteq(3000) && size.xy() <= 400 * 400)) {
             // For example, this can happen when the initial area contains a still life and a spaceship.
             messenger::set_msg(for_input ? "The area is too large." : "The pattern grows too large.");
             return {};
@@ -509,7 +509,7 @@ class runnerT : no_copy {
         int gen() const { return m_gen; }
         double density() const { return double(aniso::count(m_tile.data())) / m_tile.area(); }
         double density(const aniso::rangeT& range) const {
-            return double(aniso::count(m_tile.data(range))) / range.size().xy();
+            return double(aniso::count(m_tile.data(range))) / range.area();
         }
 
         aniso::vecT size() const {
@@ -1131,7 +1131,7 @@ public:
 
                 // (`want_hex_mode` should be tested only when the zoom window is really going to be shown.)
                 if (!m_paste && !(m_sel && m_sel->active && m_sel->area() > 2)) {
-                    if (imgui_IsItemHoveredForTooltip() && cel_pos.both_gteq({-10, -10}) &&
+                    if (imgui_IsItemHoveredForTooltip() && cel_pos.both_gteq(-10) &&
                         cel_pos.both_lt(tile_size.plus(10, 10))) {
                         hex_mode = want_hex_mode(m_rule);
                         if (hex_mode || m_coord.zoom <= 1) {
@@ -1472,7 +1472,7 @@ private:
                 constexpr aniso::vecT p_size{2, 2};
                 if (const auto result = identify(self.m_torus.read_only(self.m_sel->to_range()), self.m_rule, p_size)) {
                     const auto& [pattern, offset, period, _] = *result;
-                    const bool no_offset = offset == aniso::vecT{0, 0};
+                    const bool no_offset = offset.both_eq(0);
                     std::string desc;
                     if (no_offset && period == 1) {
                         desc = "still life";

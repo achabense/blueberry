@@ -8,17 +8,14 @@
 namespace aniso {
     // (Technically _trunc.)
     inline vecT divmul_floor(const vecT a, const vecT b) {
-        assert(a.both_gt({0, 0}) && b.both_gt({0, 0}));
+        assert(a.both_gt(0) && b.both_gt(0));
         return {.x = (a.x / b.x) * b.x, .y = (a.y / b.y) * b.y};
     }
     inline vecT divmul_ceil(const vecT a, const vecT b) {
-        assert(a.both_gt({0, 0}) && b.both_gt({0, 0}));
+        assert(a.both_gt(0) && b.both_gt(0));
         const auto divmul_ceil = [](int a, int b) -> int { return ((a + b - 1) / b) * b; };
         return {.x = divmul_ceil(a.x, b.x), .y = divmul_ceil(a.y, b.y)};
     }
-
-    inline vecT min(const vecT a, const vecT b) { return {.x = std::min(a.x, b.x), .y = std::min(a.y, b.y)}; }
-    inline vecT max(const vecT a, const vecT b) { return {.x = std::max(a.x, b.x), .y = std::max(a.y, b.y)}; }
 
     // (Only for describing precondition.)
     inline bool non_overlapping(const tile_const_ref, const tile_const_ref) { return true; }
@@ -58,7 +55,7 @@ namespace aniso {
     }
 
     inline void self_repeat(const tile_ref tile, const vecT period) {
-        assert(period.both_gteq({1, 1}));
+        assert(period.both_gteq(1));
         if (period.x < tile.size.x) {
             for (int y = 0; y < std::min(tile.size.y, period.y); ++y) {
                 cellT* const ln = tile.line(y);
@@ -378,9 +375,9 @@ namespace aniso {
 
         const auto wrap = [](int v, int r) { return ((v % r) + r) % r; };
         const vecT to = {.x = wrap(to_.x, size.x), .y = wrap(to_.y, size.y)};
-        assert(to.both_gteq({0, 0}) && to.both_lt(size));
+        assert(to.both_gteq(0) && to.both_lt(size));
 
-        if (to.x == 0 && to.y == 0) {
+        if (to.both_eq(0)) {
             copy(dest, source);
             return;
         }
@@ -699,7 +696,7 @@ namespace aniso {
 
     // TODO: optimize like `apply_rule_torus`?
     [[deprecated]] inline void fake_apply(const tile_const_ref tile, lockT& rec) {
-        if (!tile.size.both_gt({2, 2})) {
+        if (!tile.size.both_gt(2)) {
             return;
         }
 
@@ -723,7 +720,7 @@ namespace aniso {
 
     public:
         bool empty() const {
-            assert(!m_data ? m_size.x == 0 && m_size.y == 0 : m_size.x > 0 && m_size.y > 0);
+            assert(!m_data ? m_size.both_eq(0) : m_size.both_gt(0));
             return !m_data;
         }
 
@@ -741,7 +738,7 @@ namespace aniso {
         }
 
         explicit tileT(const vecT size) : m_size{size}, m_data{} {
-            assert((size.x == 0 && size.y == 0) || (size.x > 0 && size.y > 0));
+            assert(size.both_eq(0) || size.both_gt(0));
             if (m_size.x > 0) {
                 m_data = new cellT[m_size.xy()]{};
             }
@@ -750,7 +747,7 @@ namespace aniso {
         // Note: for struct cellT, omitting {} makes no actual difference (always value-init).
         // TODO: whether to allow empty range?
         explicit tileT(const tile_const_ref tile) : m_size{tile.size}, m_data{} {
-            assert(tile.size.x > 0 && tile.size.y > 0);
+            assert(tile.size.both_gt(0));
             m_data = new cellT[m_size.xy()];
             copy(data(), tile);
         }
@@ -825,7 +822,7 @@ namespace aniso {
 
     public:
         explicit tile_buf(const vecT size) : m_size{size}, m_data{} { //
-            assert(size.both_gt({0, 0}) && size.xy() <= capacity_);
+            assert(size.both_gt(0) && size.xy() <= capacity_);
         }
         /*implicit*/ constexpr tile_buf(const cellT c) : m_size{1, 1}, m_data{} { m_data[0] = c; }
         /*implicit*/ tile_buf(const tile_const_ref tile) : tile_buf{tile.size} { copy(data(), tile); }

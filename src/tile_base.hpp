@@ -22,11 +22,21 @@ namespace aniso {
         [[nodiscard]] vecT plus(int dx, int dy) const { return {.x = x + dx, .y = y + dy}; }
         [[nodiscard]] vecT minus(int dx, int dy) const { return {.x = x - dx, .y = y - dy}; }
 
-        bool both_gteq(const vecT& b) const { return x >= b.x && y >= b.y; } // >=
-        bool both_lteq(const vecT& b) const { return x <= b.x && y <= b.y; } // <=
-        bool both_lt(const vecT& b) const { return x < b.x && y < b.y; }     // <
-        bool both_gt(const vecT& b) const { return x > b.x && y > b.y; }     // >
+        bool both_eq(const vecT& b) const { return x == b.x && y == b.y; }
+        bool both_gteq(const vecT& b) const { return x >= b.x && y >= b.y; }
+        bool both_lteq(const vecT& b) const { return x <= b.x && y <= b.y; }
+        bool both_lt(const vecT& b) const { return x < b.x && y < b.y; }
+        bool both_gt(const vecT& b) const { return x > b.x && y > b.y; }
+
+        bool both_eq(int b) const { return x == b && y == b; }
+        bool both_gteq(int b) const { return x >= b && y >= b; }
+        bool both_lteq(int b) const { return x <= b && y <= b; }
+        bool both_lt(int b) const { return x < b && y < b; }
+        bool both_gt(int b) const { return x > b && y > b; }
     };
+
+    inline vecT min(const vecT& a, const vecT& b) { return {.x = std::min(a.x, b.x), .y = std::min(a.y, b.y)}; }
+    inline vecT max(const vecT& a, const vecT& b) { return {.x = std::max(a.x, b.x), .y = std::max(a.y, b.y)}; }
 
     inline vecT clamp(const vecT& p, const vecT& min, const vecT& max) { // []
         assert(min.both_lteq(max));
@@ -36,12 +46,14 @@ namespace aniso {
     struct rangeT {
         vecT begin, end; // [)
 
+        // !!TODO: are there empty ranges not normalized to {}, but compared?
         friend bool operator==(const rangeT&, const rangeT&) = default;
 
         vecT size() const {
             assert(begin.both_lteq(end));
             return end - begin;
         }
+        int area() const { return size().xy(); }
 
         bool empty() const {
             assert(begin.both_lteq(end));
@@ -68,12 +80,12 @@ namespace aniso {
             vecT size;
             int stride; // Number of elements (instead of bytes).
 
-            tile_ref_(T* data, vecT size, int stride) : data{data}, size{size}, stride{stride} {
-                assert(data && size.x > 0 && size.y > 0 && size.x <= stride);
+            tile_ref_(T* data, vecT size, int stride) : data{data}, size{size}, stride{stride} { //
+                assert(data && size.both_gt(0) && size.x <= stride);
             }
 
-            tile_ref_(T* data, vecT size) : data{data}, size{size}, stride{size.x} {
-                assert(data && size.x > 0 && size.y > 0);
+            tile_ref_(T* data, vecT size) : data{data}, size{size}, stride{size.x} { //
+                assert(data && size.both_gt(0));
             }
 
             operator tile_ref_<const T>() const
@@ -84,11 +96,9 @@ namespace aniso {
 
             int area() const { return size.xy(); }
 
-            bool contains(vecT pos) const { return pos.x >= 0 && pos.y >= 0 && pos.x < size.x && pos.y < size.y; }
+            bool contains(vecT pos) const { return pos.both_gteq(0) && pos.both_lt(size); }
             bool contains(int x, int y) const { return x >= 0 && y >= 0 && x < size.x && y < size.y; }
-            bool contains(const rangeT& range) const {
-                return range.begin.both_gteq({0, 0}) && range.end.both_lteq(size);
-            }
+            bool contains(const rangeT& range) const { return range.begin.both_gteq(0) && range.end.both_lteq(size); }
 
             T* line(int y) const {
                 assert(y >= 0 && y < size.y);
@@ -108,7 +118,7 @@ namespace aniso {
                 return {&at(range.begin), range.size(), stride};
             }
             [[nodiscard]] tile_ref_ clip_corner(vecT corner) const {
-                assert(corner.both_gt({0, 0}) && corner.both_lteq(size));
+                assert(corner.both_gt(0) && corner.both_lteq(size));
                 return {data, corner, stride};
             }
 
