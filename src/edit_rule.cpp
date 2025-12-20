@@ -10,8 +10,9 @@ namespace aniso {
         subsetT ignore_w = make_subset({mp_ignore_w});
         subsetT ignore_e = make_subset({mp_ignore_e});
         subsetT ignore_a = make_subset({mp_ignore_a});
-        subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero);
-        subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity);
+        // subsetT ignore_s_z = make_subset({mp_ignore_s}, rule_all_zero);
+        // subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity);
+        subsetT ignore_s = make_subset({mp_ignore_s} /*, rule_all_zero*/);
         subsetT ignore_d = make_subset({mp_ignore_d});
         subsetT ignore_z = make_subset({mp_ignore_z});
         subsetT ignore_x = make_subset({mp_ignore_x});
@@ -22,6 +23,7 @@ namespace aniso {
         subsetT ignore_wadx = make_subset({mp_ignore_wadx});
 
         subsetT self_complementary = make_subset({mp_reverse}, rule_identity);
+        subsetT ckbd_complementary = make_subset({mp_rev_ckbd_a, mp_rev_ckbd_b}, rule_identity);
 
         subsetT native_isotropic = make_subset({mp_refl_wsx, mp_refl_qsc});
         subsetT native_refl_wsx = make_subset({mp_refl_wsx});
@@ -282,7 +284,7 @@ public:
             scope.append("e", &subsets.ignore_e, "Independent of 'e'. (See 'q' for details.)");
             scope.append("a", &subsets.ignore_a, "Independent of 'a'. (See 'q' for details.)");
             scope.append(
-                "s", &subsets.ignore_s_z,
+                "s", &subsets.ignore_s,
                 "For any two cases where only 's' (the center cell itself) differs, the rule will map center cell to the same value.\n\n"
                 "    |q w e|       |q w e|\n"
                 "rule|a 0 d| = rule|a 1 d|\n"
@@ -297,8 +299,10 @@ public:
         {
             terms_scope scope(m_terms_s, terms_misc);
             if constexpr (0) {
+                using namespace aniso;
+                static const subsetT ignore_s_i = make_subset({mp_ignore_s}, rule_identity);
                 scope.append(
-                    "s(*)", &subsets.ignore_s_i,
+                    "s(*)", &ignore_s_i,
                     "Similar to 's' - for any two cases where only 's' differs, the rule will map the center cell to values so that the resulting \"flip-ness\" will be the same. That is:\n\n"
                     "     |q w e|             |q w e|\n"
                     "(rule|a 0 d| = 0) = (rule|a 1 d| = 1)\n"
@@ -326,25 +330,9 @@ public:
                 "(rule|a s d| = s) = (rule|!a!s!d| = !s)\n"
                 "     |z x c|             |!z!x!c|\n\n"
                 "(You can get the 0/1 reversal dual for any rule in the 'Misc' window.)");
-
-            // TODO: define into `subsets`.
-            // Bg-xor invariance.
-            // (Self-complementary is actually all-1 xor invar.)
-            {
-                // Checkerboard.
-                // (Does {mp_xor_chk_a/b (alone), rule_identity} make any sense?)
-                using namespace aniso;
-                constexpr mapperT mp_xor_ckbd_a("!qw!e"
-                                                "a!sd"
-                                                "!zx!c");
-                constexpr mapperT mp_xor_ckbd_b("q!we"
-                                                "!as!d"
-                                                "z!xc");
-                static const subsetT ckbd = make_subset({mp_xor_ckbd_a, mp_xor_ckbd_b}, rule_identity);
-                scope.append(
-                    "Ckbd", &ckbd,
-                    "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
-            }
+            scope.append(
+                "Ckbd", &subsets.ckbd_complementary,
+                "For any pattern, [applying such a rule -> xor with checkerboard bg] (in arbitrary alignment) has the same effect as [xor with checkerboard bg -> applying the same rule].");
 
             if constexpr (0) {
                 using namespace aniso;

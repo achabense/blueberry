@@ -636,11 +636,20 @@ namespace aniso {
                                           "awd"
                                           "zxc"); // swap(w,s); *C8 -> totalistic, including s
 
-    // * rule_identity -> self-complementary rules.
-    // (Where every pair of [code] and [mp_reverse(code)] have the same "flip-ness")
+    // * rule_identity -> self-complementary rules (rules allowing for all-1 xor invariance).
+    // (~ [code] and [mp_reverse(code)] have the same flipping effect.)
     inline constexpr mapperT mp_reverse("!q!w!e"
                                         "!a!s!d"
                                         "!z!x!c");
+
+    // (both) * rule_identity -> rules allowing for checkerboard-xor invariance (in arbitrary alignment).
+    // (Does ckbd_a/b (alone) * rule_identity make any sense?)
+    inline constexpr mapperT mp_rev_ckbd_a("!qw!e"
+                                           "a!sd"
+                                           "!zx!c");
+    inline constexpr mapperT mp_rev_ckbd_b("q!we"
+                                           "!as!d"
+                                           "z!xc");
 
     // Hexagonal emulation and emulated symmetry.
     // q w -     q w
