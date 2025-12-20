@@ -87,6 +87,9 @@ namespace aniso::_tests {
         const partitionT a{}, b{equivT{}};
         assert(a.k() == 512 && b.k() == 512);
         assert(a == b);
+        assert(for_each_code_all_of([&](const codeT c) { //
+            return a.head_for(c) == c && b.head_for(c) == c;
+        }));
     }
 
     extern void test_mappers() {

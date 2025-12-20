@@ -127,18 +127,17 @@ namespace aniso {
     class partitionT {
         int m_k{}; // Number of groups.
 
-        // Map codeT of the same group to the same integer ∈ [0, m_k).
-        codeT_to<int16_t> m_map{};
+        codeT_to<int16_t> m_map{}; // Map codeT of the same group to the same integer j ∈ [0, m_k).
 
-        // (Permutation of all codeT.)
-        // Store codeT of the same group consecutively to provide span.
-        std::array<codeT, 512> m_data{};
+        std::array<codeT, 512> m_data{}; // Store each group consecutively (permutation of all codeT).
 
-        struct group_pos {
-            int16_t pos, size;
-            groupT get(const decltype(m_data)& data) const { return groupT(data.data() + pos, size); }
-        };
-        std::vector<group_pos> m_groups{};
+        std::vector<int16_t> m_groups{}; // size() = m_k + 1, [j] = begin pos for jth group, [m_k] = 512.
+
+        groupT jth_group(int j) const {
+            const codeT* data = m_data.data();
+            return {data + m_groups[j], data + m_groups[j + 1]};
+        }
+        codeT jth_head(int j) const { return m_data[m_groups[j]]; }
 
     public:
         // ~ "user-declared" to avoid implicit moving (to avoid `m_groups` being emptied):
@@ -149,27 +148,27 @@ namespace aniso {
         /*implicit*/ partitionT(const equivT& eq) { assign(eq); }
         partitionT& operator=(const equivT& eq) = delete; // -> `assign(eq)`
 
-        groupT group_for(const codeT code) const { return m_groups[m_map[code]].get(m_data); }
-        // <-> `group_for(code)[0]`:
-        codeT head_for(const codeT code) const { return m_data[m_groups[m_map[code]].pos]; }
+        groupT group_for(const codeT code) const { return jth_group(m_map[code]); }
+        codeT head_for(const codeT code) const { return jth_head(m_map[code]); }
 
         int k() const { return m_k; }
         auto groups() const { //
-            return std::views::transform(m_groups, [&](const group_pos& pos) { return pos.get(m_data); });
+            return std::views::transform(std::views::iota(0, m_k), [&](int j) { return jth_group(j); });
         }
         auto heads() const { //
-            return std::views::transform(m_groups, [&](const group_pos& pos) { return m_data[pos.pos]; });
+            return std::views::transform(std::views::iota(0, m_k), [&](int j) { return jth_head(j); });
         }
 
         std::vector<groupT> groups_to_vec() const {
             const auto g = groups();
+            assert(g.size() == m_k); // ~ satisfies ranges::sized_range.
             return std::vector<groupT>(g.begin(), g.end());
         }
 
         // <-> `std::ranges::all_of(groups(), pred)`:
         bool for_each_group_all_of(const auto& pred) const {
-            for (const group_pos& group : m_groups) {
-                if (!pred(group.get(m_data))) {
+            for (int j = 0; j < m_k; ++j) {
+                if (!pred(jth_group(j))) {
                     return false;
                 }
             }
@@ -213,24 +212,20 @@ namespace aniso {
 
     private:
         void build_from_map() {
-            std::vector<int16_t> count(m_k, 0);
+            std::vector<int16_t> count(m_k + 1, 0);
             for (const codeT code : each_code) {
                 ++count[m_map[code]];
             }
-
-            std::vector<int16_t> pos(m_k, 0);
-            for (int j = 1; j < m_k; ++j) {
-                pos[j] = pos[j - 1] + count[j - 1];
+            for (int j = 0, prefix = 0; j <= m_k; ++j) {
+                const int c = std::exchange(count[j], prefix);
+                prefix += c;
             }
-
-            m_groups.resize(m_k);
-            for (int j = 0; j < m_k; ++j) {
-                m_groups[j] = {pos[j], count[j]};
-            }
+            assert(count[0] == 0 && count[m_k] == 512);
+            m_groups = count;
 
             for (const codeT code : each_code) {
-                int j = m_map[code];
-                m_data[pos[j]++] = code;
+                const int j = m_map[code];
+                m_data[count[j]++] = code;
             }
         }
     };
