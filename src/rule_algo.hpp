@@ -259,10 +259,21 @@ namespace aniso {
     // A rule belongs to `subsetT` s = (r, p) iff it's all-same or all-different than (r) for each group in (p).
     // (As a result, any rule in the set can equally serve as (r); there is no difference which rule is used.)
     // It can be proven that the intersection of `subsetT` (if not empty) is also `subsetT` (see below).
+
+    // TODO: workaround for compatibility with subsetT_v2; ideally most algorithms don't have to rely on data layout...
+    struct subset_ref {
+        const ruleT& rule;
+        const partitionT& p;
+        // const lockT* lock = nullptr;
+        const partitionT* operator->() const { return &p; }
+    };
+
     struct subsetT {
         ruleT rule{};
         partitionT p{};
         // static constexpr lockT lock{};
+
+        /*implicit*/ operator subset_ref() const { return {.rule = rule, .p = p}; }
 
         const partitionT* operator->() const { return &p; }
         bool contains(const ruleT& r) const {
@@ -286,7 +297,6 @@ namespace aniso {
         }
 
         // (To be compatible with `subsetT_v2`.)
-        const ruleT& get_rule() const { return rule; }
         int free_k() const { return p.k(); }
         auto free_heads() const { return p.heads(); }
         auto free_groups() const { return p.groups(); }
@@ -295,7 +305,7 @@ namespace aniso {
     // Look for a rule that belongs to both a and b.
     // The result belongs to both a and b iff such a rule really exists.
     // (x_lock: if provided, the result must have same values as x.rule in the locked cases.)
-    inline ruleT common_rule_unchecked(const subsetT& a, const subsetT& b, //
+    inline ruleT common_rule_unchecked(const subset_ref a, const subset_ref b, //
                                        const lockT* a_lock = nullptr, const lockT* b_lock = nullptr) {
         ruleT common{};
         codeT_to<bool> assigned{};
@@ -398,7 +408,7 @@ namespace aniso {
     }
 
     inline ruleT approximate(const auto& subset, const ruleT& rule) {
-        ruleT r = subset.get_rule();
+        ruleT r = subset.rule;
         for (const groupT& group : subset.free_groups()) {
             if (all_same_or_different(group, r, rule)) {
                 for (const codeT code : group) {
@@ -758,9 +768,16 @@ namespace aniso {
 
     // A `partialT` stands for a another kind of MAP subset where, a rule belongs to the set iff it has the same "locked" values.
     // Take the "free" glider in gol for example. During all of its phases, the glider involves only a small subset of all cases (l), and a rule allows for the same glider iff it belongs to partialT(gol,l). (Not taking account of reactions with other patterns e.g. glider collision.)
+    struct partial_ref {
+        const ruleT& rule;
+        const lockT& lock;
+    };
+
     struct partialT {
         ruleT rule{};
         lockT lock{};
+
+        /*implicit*/ operator partial_ref() const { return {.rule = rule, .lock = lock}; }
 
         void set(const codeT code, const cellT v) {
             rule[code] = v;
@@ -772,7 +789,7 @@ namespace aniso {
                 return !lock[code] || rule[code] == r[code];
             });
         }
-        bool includes(const partialT& other) const {
+        bool includes(const partial_ref other) const {
             return for_each_code_all_of([&](const codeT code) { // Less restrictive.
                 return !lock[code] || (other.lock[code] && rule[code] == other.rule[code]);
             });
@@ -814,39 +831,41 @@ namespace aniso {
     }
 
     // TODO: under-tested...
-    // TODO: ideally should be based on rule & p directly (but easy to expose partialT & subsetT).
+    // TODO: ideally there should be only one generalized subset type (with optional lock)...
     struct subsetT_v2 {
-        // ruleT rule{};
-        // partitionT p{};
-        subsetT s{};
+        ruleT rule{};
+        partitionT p{};
         lockT lock{}; // All-true/false in each group.
 
-        const partitionT* operator->() const { return &s.p; }
+        subset_ref s_ref() const { return {.rule = rule, .p = p}; }
+        partial_ref p_ref() const { return {.rule = rule, .lock = lock}; }
+
+        const partitionT* operator->() const { return &p; }
         bool contains(const ruleT& r) const {
-            return s->for_each_group_all_of([&](const groupT& group) { //
-                return lock[group[0]] ? all_same(group, s.rule, r) : all_same_or_different(group, s.rule, r);
+            return p.for_each_group_all_of([&](const groupT& group) { //
+                return lock[group[0]] ? all_same(group, rule, r) : all_same_or_different(group, rule, r);
             });
         }
 
         bool includes(const subsetT_v2&) = delete;
         friend bool operator==(const subsetT_v2& a, const subsetT_v2& b) = delete;
 
-        bool is_universal() const { return s->k() == 512 && none_locked(lock); }
+        bool is_universal() const { return p.k() == 512 && none_locked(lock); }
         void reset() {
-            s.reset();
+            rule.reset();
+            p.reset();
             lock.reset();
         }
 
-        const ruleT& get_rule() const { return s.rule; }
         // !!TODO: expensive; should optimize...
         int free_k() const { //
-            return std::ranges::count_if(s->heads(), [&](codeT c) { return !lock[c]; });
+            return std::ranges::count_if(p.heads(), [&](codeT c) { return !lock[c]; });
         }
         auto free_heads() const { //
-            return std::views::filter(s->heads(), [&](codeT c) { return !lock[c]; });
+            return std::views::filter(p.heads(), [&](codeT c) { return !lock[c]; });
         }
         auto free_groups() const { //
-            return std::views::filter(s->groups(), [&](const groupT& g) { return !lock[g[0]]; });
+            return std::views::filter(p.groups(), [&](const groupT& g) { return !lock[g[0]]; });
         }
     };
 
@@ -868,39 +887,36 @@ namespace aniso {
                 lock_all(group, lock);
             }
         }
-        return {.s{.rule = rule, .p = a.p}, .lock = lock};
+        return {.rule = rule, .p = a.p, .lock = lock};
     }
 
     inline bool includes(const subsetT& a, const subsetT_v2& b) {
-        return a.contains(b.s.rule) && a->for_each_group_all_of([&b](const groupT& group) { //
+        return a.contains(b.rule) && a->for_each_group_all_of([&b](const groupT& group) { //
             return all_locked(group, b.lock) || b->has_group(group);
         });
     }
 
-    // TODO: equivalent to `a.includes({b.rule, b.lock})`...
-    inline bool includes(const partialT& a, const subsetT_v2& b) {
-        return for_each_code_all_of([&](const codeT code) { // Less restrictive.
-            return !a.lock[code] || (b.lock[code] && a.rule[code] == b.s.rule[code]);
-        });
+    inline bool includes(const partialT& a, const subsetT_v2& b) { //
+        return a.includes(b.p_ref());
     }
 
     inline bool has_common(const partialT& a, const subsetT_v2& b) {
         return b->for_each_group_all_of([&](const groupT& group) {
             if (!b.lock[group[0]]) {
-                return all_same_or_different_locked(group, b.s.rule, a.rule, a.lock);
+                return all_same_or_different_locked(group, b.rule, a.rule, a.lock);
             } else {
                 return for_each_code_all_of(group, [&](const codeT code) { // No conflicts.
-                    return !a.lock[code] || a.rule[code] == b.s.rule[code];
+                    return !a.lock[code] || a.rule[code] == b.rule[code];
                 });
             }
         });
     }
 
     inline bool has_common(const subsetT& a, const subsetT_v2& b) {
-        if (a.contains(b.s.rule) || b.contains(a.rule)) {
+        if (a.contains(b.rule) || b.contains(a.rule)) {
             return true;
         }
-        const ruleT common = common_rule_unchecked(a, b.s, nullptr, &b.lock);
+        const ruleT common = common_rule_unchecked(a, b.s_ref(), nullptr, &b.lock);
         return a.contains(common) && b.contains(common);
     }
 

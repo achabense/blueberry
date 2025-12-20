@@ -469,7 +469,7 @@ public:
         }
         ImGui::BeginDisabled(aniso::none_locked(m_current.lock));
         if (ImGui::Selectable("Copy")) {
-            const auto rule = aniso::normalize(m_current.get_rule(), m_current.lock);
+            const auto rule = aniso::normalize(m_current.rule, m_current.lock);
             set_clipboard_and_notify(aniso::to_MAP_str(rule, &m_current.lock));
         }
         ImGui::EndDisabled();
@@ -776,7 +776,7 @@ public:
 
     void sync(const aniso::subsetT& working_set) {
         // TODO: whether to highlight when selecting `Default` but the rule is updated?
-        m_default = working_set.get_rule();
+        m_default = working_set.rule;
         if (m_tag != Default && !working_set.contains(get())) {
             m_tag = Default;
             m_highlight = Default;
@@ -1027,10 +1027,10 @@ public:
     operator const aniso::ruleT&() const { return m_rule.get(); }
     const aniso::ruleT& get() const { return m_rule.get(); }
 
-    // TODO: instead of resetting silently, invalidate the rule and update to get_rule() only if actually used?
+    // TODO: instead of resetting silently, invalidate the rule and update to set.rule only if actually used?
     void sync(const aniso::subsetT& working_set) {
         if (!m_rule.assigned() || !working_set.contains(m_rule.get())) {
-            m_rule.set(working_set.get_rule());
+            m_rule.set(working_set.rule);
         }
     }
 
