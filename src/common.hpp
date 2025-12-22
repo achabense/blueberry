@@ -211,27 +211,16 @@ inline void set_scroll_with_up_down() {
     assert(first_of_this_window<set_scroll_with_up_down>());
     if constexpr (init_set_scroll_with_up_down) {
         if (imgui_IsWindowFocused() && may_scroll() && shortcuts::no_active() && imgui_IsWindowHoverable()) {
-#if 1
-            // (Works well in 60 fps.)
-            const int dy = shortcuts::test_down(ImGuiKey_UpArrow)     ? -2
-                           : shortcuts::test_down(ImGuiKey_DownArrow) ? 2
-                                                                      : 0;
-            if (dy != 0) {
-                ImGui::SetScrollY(ImGui::GetScrollY() + dy);
-                highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
-            }
-#else
-            // Cannot guarantee similar speed in different fps - rounding does happen, but too early (cannot apply to the accumulation).
-            // (See `CalcNextScrollFromScrollTargetAndClamp()`; so it's (round(dy)+...) instead of round((dy+...)).)
+            // TODO: cannot guarantee identical speed in different fps even without `std::round`.
+            // (See `CalcNextScrollFromScrollTargetAndClamp()`; so it's always (round(dy)+...) instead of round((dy+...)).)
             // Related: https://github.com/ocornut/imgui/issues/6677
             const int dir = shortcuts::test_down(ImGuiKey_UpArrow)     ? -1
                             : shortcuts::test_down(ImGuiKey_DownArrow) ? 1
                                                                        : 0;
-            if (dir != 0) {
-                ImGui::SetScrollY(ImGui::GetScrollY() + dir * 120.0f / std::max(1.0f, ImGui::GetIO().Framerate));
+            if (dir != 0) { // About 200 per sec. (Due to rounding, likely 180 in 60 fps and 200 in 50 fps.)
+                ImGui::SetScrollY(ImGui::GetScrollY() + dir * std::round(200.0f * ImGui::GetIO().DeltaTime));
                 highlight_item(ImGui::GetWindowScrollbarID(GImGui->CurrentWindow, ImGuiAxis_Y));
             }
-#endif
         }
     }
 }
