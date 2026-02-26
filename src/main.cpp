@@ -406,7 +406,7 @@ int main(int, char**) {
                     bool saved = false;
                     // According to the doc, this should be called before SDL_RenderPresent().
                     if (SDL_Surface* s = SDL_RenderReadPixels(renderer, nullptr)) {
-                        saved = SDL_SaveBMP(s, "screenshot.bmp");
+                        saved = SDL_SavePNG(s, "screenshot.png");
                         SDL_DestroySurface(s);
                     }
                     messenger::set_msg(saved ? "Saved (screenshot)." : "Failed.");
